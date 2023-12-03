@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 	"testing"
 
@@ -29,6 +30,8 @@ func TestScoreCalculation(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
+			log := slog.Default()
+
 			// Open draft data file
 			draftFile, err := os.Open(tc.haveDraftFilePath)
 			assert.NoError(t, err, "Failed to open draft file")
@@ -48,7 +51,7 @@ func TestScoreCalculation(t *testing.T) {
 			assert.NoError(t, err, "Failed to parse final results")
 
 			// Calculate and assert score
-			got := score(draft, final)
+			got := score(log, draft, final)
 			assert.Equal(t, tc.want, got, "Score mismatch")
 		})
 	}
