@@ -1,16 +1,21 @@
-.PHONY: help bootstrap download test build run install uninstall clean
+.PHONY: help checkhealth bootstrap download test build run install uninstall clean
 
 # Default target executed when no arguments are given to make.
 help:
 	@echo "Available commands:"
-	@echo "  bootstrap  - Install developer dependencies"
-	@echo "  download   - Download dependencies"
-	@echo "  test       - Run tests"
-	@echo "  build      - Build the application"
-	@echo "  run        - Run the application (requires 'filepath' argument)"
-	@echo "  install    - Install the binary to OPATH/bin"
-	@echo "  uninstall  - Uninstall the binary from OPATH/bin"
-	@echo "  clean      - Remove built application and any generated files"
+	@echo "  checkhealth  	- Verify development dependencies are installed"
+	@echo "  bootstrap  	- Install developer dependencies"
+	@echo "  download   	- Download dependencies"
+	@echo "  test       	- Run tests"
+	@echo "  build      	- Build the application"
+	@echo "  run        	- Run the application (requires 'filepath' argument)"
+	@echo "  install    	- Install the binary to OPATH/bin"
+	@echo "  uninstall  	- Uninstall the binary from OPATH/bin"
+	@echo "  clean      	- Remove built application and any generated files"
+
+# Verify development tools are installed
+checkhealth:
+	@./checkhealth.sh
 
 # Install tools from tools.go
 bootstrap:
