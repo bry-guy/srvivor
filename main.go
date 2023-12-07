@@ -93,6 +93,8 @@ func main() {
 				os.Exit(1)
 			}
 			log.Info("Total Score.", "score", score)
+
+			fmt.Printf("%s: %d", draft.metadata.drafter, score)
 		},
 	}
 
