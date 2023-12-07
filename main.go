@@ -1,109 +1,105 @@
 package main
 
 import (
-	"context"
+	"bufio"
 	"fmt"
-	"io"
 	"os"
+	"strconv"
+	"strings"
 
 	"log/slog"
 
+	"github.com/lmittmann/tint"
 	"github.com/spf13/cobra"
 )
 
-// ANSI color codes
-const (
-	red       = "\033[31m"
-	green     = "\033[32m"
-	yellow    = "\033[33m"
-	lightGray = "\033[37m"
-	reset     = "\033[0m"
-)
-
-type ColoredHandler struct {
-	innerHandler slog.Handler
-}
-
-func (h *ColoredHandler) Handle(ctx context.Context, r slog.Record) error {
-	color := ""
-	switch r.Level {
-	case slog.LevelError:
-		color = red
-	case slog.LevelWarn:
-		color = yellow
-	case slog.LevelDebug:
-		color = lightGray
-	default:
-		color = reset
-	}
-
-	// Prepend the color code to the message
-	r.Message = fmt.Sprintf("%s%s%s", color, r.Message, reset)
-
-	return h.innerHandler.Handle(ctx, r)
-}
-
-// Enabled delegates the level check to the inner handler
-func (h *ColoredHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	return h.innerHandler.Enabled(ctx, level)
-}
-
-// Enabled delegates the level check to the inner handler
-func (h *ColoredHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return h.innerHandler.WithAttrs(attrs)
-}
-
-func (h *ColoredHandler) WithGroup(name string) slog.Handler {
-	return h.innerHandler.WithGroup(name)
-}
-
 func main() {
-	// Initialize the logger with colored output
-	log := slog.New(&ColoredHandler{innerHandler: slog.NewTextHandler(os.Stdout, nil)})
+	w := os.Stderr
+
+	log := slog.New(tint.NewHandler(w, &tint.Options{
+		Level: slog.LevelDebug, // Minimum level to log
+	}))
 
 	var rootCmd = &cobra.Command{Use: "srvivor"}
 
 	var cmdScore = &cobra.Command{
-		Use:   "score -f --file [filepath]",
+		Use:   "score [-f --file [filepath] | -d --draft [draft]] -s --season [season]",
 		Short: "Calculate the score for a given Survivor game draft",
 		Long:  `Calculate and display the total score for a given Survivor game draft based on the provided input file.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			filepath, _ := cmd.Flags().GetString("file")
+			// commands filepath and drafter
+			filepath, _ := cmd.Flags().GetString("file") //nolint:errcheck
+			drafter, _ := cmd.Flags().GetString("draft") //nolint:errcheck
 
-			log.Info("Calculating score for file: ", "filepath", filepath)
+			// are mutually exclusive
+			if (filepath != "" && drafter != "") || (filepath == "" && drafter == "") {
+				log.Error("You must specify either a file or a drafter, but not both")
+				os.Exit(1)
+			}
+
+			// command season
+			season, err := cmd.Flags().GetInt("season")
+
+			// must be passed
+			if err != nil {
+				log.Error("You must specify a valid season.")
+				os.Exit(1)
+			}
+
+			// must be valid
+			if season < 1 || season > 45 {
+				log.Error("You must specify a valid season.")
+				os.Exit(1)
+			}
+
+			// if filepath is not passed, look up based on drafter
+			if filepath == "" {
+				filepath = fmt.Sprintf("./drafts/%d/%s.txt", season, drafter)
+			}
+
+			log.Info("Using draft from filepath. ", "filepath", filepath)
 			file, err := os.Open(filepath)
 			if err != nil {
-				log.Error("Failed to open file: ", "error", err)
+				log.Error("Failed to open file.", "error", err)
 				os.Exit(1)
 			}
 			defer file.Close()
 
 			draft, err := readDraft(file)
 			if err != nil {
-				log.Error("Failed to read draft: ", "error", err)
+				log.Error("Failed to read draft.", "error", err)
 				os.Exit(1)
 			}
 
-			file, err = os.Open(filepath)
+			finalFilepath := fmt.Sprintf("./finals/%d.txt", season)
+			log.Info("Using finals from season.", "season", finalFilepath)
+			file, err = os.Open(finalFilepath)
 			if err != nil {
-				log.Error("Failed to open file: ", "error", err)
+				log.Error("Failed to open file.", "error", err)
 				os.Exit(1)
 			}
 			defer file.Close()
 
 			final, err := readDraft(file)
 			if err != nil {
-				log.Error("Failed to read draft: ", "error", err)
+				log.Error("Failed to read draft.", "error", err)
 				os.Exit(1)
 			}
 
-			score := score(log, draft, final)
-			log.Info("Total Score: ", "score", score)
+			log.Info("Calculating score.", "draft", filepath, "season", finalFilepath)
+			score, err := score(draft, final)
+			if err != nil {
+				log.Error("Failed to score draft.", "error", err)
+				os.Exit(1)
+			}
+			log.Info("Total Score.", "score", score)
 		},
 	}
 
 	cmdScore.Flags().StringP("file", "f", "", "Input file containing the draft")
-	cmdScore.MarkFlagRequired("file")
+	cmdScore.Flags().StringP("draft", "d", "", "Drafter name to lookup the draft")
+	cmdScore.Flags().IntP("season", "s", 0, "Season number of the Survivor game")
+	cmdScore.MarkFlagRequired("season")
 
 	rootCmd.AddCommand(cmdScore)
 	if err := rootCmd.Execute(); err != nil {
@@ -125,15 +121,13 @@ type draft struct {
 }
 
 type entry struct {
-	position      int    // Position in the draft
-	positionValue int    // The value assigned to the position
-	playerName    string // Name of the Survivor player
+	position   int    // Position in the draft
+	playerName string // Name of the Survivor player
 }
 
-func score(log *slog.Logger, draft, final draft) int {
+func score(draft, final *draft) (int, error) {
 	totalScore := 0
 
-	// TODO: Setup luasnips, and decorate score with log.Debug using snippets
 	totalPositions := len(final.entries)
 
 	// Map to store the final positions of the players for easy lookup
@@ -146,19 +140,17 @@ func score(log *slog.Logger, draft, final draft) int {
 		// Get the final position of the player
 		finalPosition, ok := finalPositions[draftEntry.playerName]
 		if !ok {
-			// Handle the case where a player in the draft is not in the final results
-			log.Error("Player not found in final results", "player_name", draftEntry.playerName)
-			continue
+			return 0, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
 		}
 
 		// Calculate the score for this entry
-		score := totalPositions - draftEntry.position     // Initial score based on draft position
+		score := totalPositions - draftEntry.position + 1 // Initial score based on draft position
 		score -= abs(draftEntry.position - finalPosition) // Adjust score based on final position
 
 		totalScore += score
 	}
 
-	return totalScore
+	return totalScore, nil
 }
 
 // Helper function to calculate the absolute value
@@ -169,15 +161,63 @@ func abs(x int) int {
 	return x
 }
 
-func readDraft(reader io.Reader) (draft, error) {
-	draft := draft{
-		entries: []entry{
-			{
-				position:      0,
-				positionValue: 1,
-				playerName:    "test",
-			},
-		},
+func readDraft(file *os.File) (*draft, error) {
+	// Scan File
+	var d draft
+	scanner := bufio.NewScanner(file)
+	parsingMetadata := true
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Check for separator
+		if line == "---" {
+			parsingMetadata = false
+			continue
+		}
+
+		if parsingMetadata {
+			// Parse metadata
+			parts := strings.SplitN(line, ": ", 2)
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid metadata length: not 2 parts: %v", line)
+			}
+
+			key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+			switch key {
+			case "Drafter":
+				d.metadata.drafter = value
+			case "Date":
+				d.metadata.date = value
+			case "Season":
+				d.metadata.season = value
+			}
+		} else {
+			// Parse entries
+			parts := strings.SplitN(line, ". ", 2)
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid entry length: not 2 parts: %v", line)
+			}
+
+			position, err := strconv.Atoi(parts[0])
+			if err != nil {
+				return nil, fmt.Errorf("invalid position: not an integer: %v", parts[0])
+			}
+
+			if position <= 0 {
+				return nil, fmt.Errorf("invalid position: less than zero: %v", parts[0])
+			}
+
+			d.entries = append(d.entries, entry{
+				position:   position,
+				playerName: strings.TrimSpace(parts[1]),
+			})
+		}
 	}
-	return draft, nil
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return &d, nil
 }

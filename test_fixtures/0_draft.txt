@@ -1,7 +1,0 @@
-Drafter: John Doe
-Date: 2023-01-01
-Season: 0
----
-1. Curly
-2. Moe
-3. Larry

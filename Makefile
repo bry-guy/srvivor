@@ -34,8 +34,20 @@ build:
 	go build -o srvivor
 
 # Run the app
+FILEPATH :=
+DRAFTER :=
+SEASON :=
+
 run:
-	./srvivor score --file $(FILEPATH)
+ifdef FILEPATH
+	./srvivor score -f $(FILEPATH) -s $(SEASON)
+else ifdef DRAFTER
+	./srvivor score -d $(DRAFTER) -s $(SEASON)
+else
+	@echo "Error: Missing required arguments"
+	@echo "Usage: make run FILEPATH=<filepath> SEASON=<season>"
+	@echo "   or: make run DRAFTER=<drafter> SEASON=<season>"
+endif
 
 # Install the binary to $GOPATH/bin
 install:

@@ -1,7 +1,0 @@
-Drafter: Final
-Date: 2023-01-01
-Season: o
----
-1. Larry
-2. Moe
-3. Curly
