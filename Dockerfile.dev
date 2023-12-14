@@ -1,0 +1,26 @@
+FROM golang:latest
+
+# Add entrypoint script and set it as the entrypoint
+COPY dev.sh /dev.sh
+RUN chmod +x /dev.sh
+
+# Create a new user 'developer'
+RUN useradd -m srvivor
+
+# Switch to 'developer' user
+USER srvivor
+
+# Install gopls 
+RUN go install -v golang.org/x/tools/gopls@latest 
+
+# Install delve
+RUN go install -v github.com/go-delve/delve/cmd/dlv@latest
+
+# Install distant
+RUN curl -L https://sh.distant.dev | sh
+
+ENTRYPOINT ["/dev.sh"]
+
+# Default command
+CMD ["bash"]
+

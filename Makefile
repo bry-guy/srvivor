@@ -1,10 +1,11 @@
-.PHONY: help checkhealth bootstrap download test build run install uninstall clean
+.PHONY: help checkhealth bootstrap build-dev download test build run install uninstall clean
 
 # Default target executed when no arguments are given to make.
 help:
 	@echo "Available commands:"
 	@echo "  checkhealth  	- Verify development dependencies are installed"
 	@echo "  bootstrap  	- Install developer dependencies"
+	@echo "  build-dev  	- Build the developer container"
 	@echo "  download   	- Download dependencies"
 	@echo "  test       	- Run tests"
 	@echo "  build      	- Build the application"
@@ -20,6 +21,11 @@ checkhealth:
 # Install tools from tools.go
 bootstrap:
 	@cat tools.go | grep _ | awk '{ print $$2 }' | xargs -L1 go install
+
+# Build the developer container
+build-dev:
+	docker build -f Dockerfile.dev -t srvivor-dev .
+
 
 # Download necessary dependencies
 download:
