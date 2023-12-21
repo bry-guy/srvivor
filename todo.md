@@ -7,6 +7,7 @@
 - [x] Debug why score is producing incorrect draft values
 - [x] Add season 45 drafts
 - [x] Add season 45 current finals
+- [ ] Add pre-commit hook to enforce conventional commits
 
 - [ ] Move drafts to private submodule
 - [ ] Write e2e cobra test for single drafter input
