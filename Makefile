@@ -21,7 +21,7 @@ checkhealth:
 # Install tools from tools.go
 bootstrap:
 	@cat tools.go | grep _ | awk '{ print $$2 }' | xargs -L1 go install
-	@cp script/commit-msg.sh .git/hooks/
+	@cp script/commit-msg.sh .git/hooks/commit-msg
 
 # Build the developer container
 build-dev:

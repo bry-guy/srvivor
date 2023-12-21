@@ -8,6 +8,7 @@ COMMIT_MSG=$(cat "$1")
 
 if ! echo "$COMMIT_MSG" | grep -Eq "$CONVENTIONAL_COMMIT_REGEX"; then
     echo "ERROR: Commit message does not follow Conventional Commits format."
+	echo "Formats: feat|fix|docs|style|refactor|perf|test|chore|ci|build"
     echo "Refer: https://www.conventionalcommits.org/"
     exit 1
 fi
