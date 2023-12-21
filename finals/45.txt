@@ -1,7 +1,14 @@
-Drafter: Final
-Date: 2023-09-27
+Drafter: Current
+Date: 2023-12-20
 Season: 45
 ---
+1. DNF
+2. DNF
+3. DNF
+4. DNF
+5. DNF
+6. Drew
+7. Emily
 8. Bruce
 9. Kendra
 10. Kellie
@@ -13,6 +20,3 @@ Season: 45
 16. Sabiyah
 17. Brandon
 18. Hannah
-
-
-

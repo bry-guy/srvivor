@@ -87,7 +87,7 @@ func main() {
 			}
 
 			log.Info("Calculating score.", "draft", filepath, "season", finalFilepath)
-			score, err := score(draft, final)
+			score, err := score(log, draft, final)
 			if err != nil {
 				log.Error("Failed to score draft.", "error", err)
 				os.Exit(1)
@@ -127,7 +127,7 @@ type entry struct {
 	playerName string // Name of the Survivor player
 }
 
-func score(draft, final *draft) (int, error) {
+func score(log *slog.Logger, draft, final *draft) (int, error) {
 	totalScore := 0
 
 	totalPositions := len(final.entries)
@@ -142,7 +142,13 @@ func score(draft, final *draft) (int, error) {
 		// Get the final position of the player
 		finalPosition, ok := finalPositions[draftEntry.playerName]
 		if !ok {
-			return 0, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
+			log.Warn("Player not found in final results", "player", draftEntry.playerName)
+			if final.metadata.drafter == "Current" {
+				log.Warn("Season is curent. Assuming player has not finished.", "final", final)
+				continue
+			} else {
+				return 0, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
+			}
 		}
 
 		// Calculate the score for this entry

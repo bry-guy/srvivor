@@ -9,7 +9,7 @@ help:
 	@echo "  download   	- Download dependencies"
 	@echo "  test       	- Run tests"
 	@echo "  build      	- Build the application"
-	@echo "  run        	- Run the application (requires 'filepath' argument)"
+	@echo "  run        	- Run the application (requires args 'FILEPATH|DRAFTER' and 'SEASON')"
 	@echo "  install    	- Install the binary to OPATH/bin"
 	@echo "  uninstall  	- Uninstall the binary from OPATH/bin"
 	@echo "  clean      	- Remove built application and any generated files"
