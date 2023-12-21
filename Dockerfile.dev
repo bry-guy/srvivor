@@ -1,7 +1,7 @@
 FROM golang:latest
 
 # Add entrypoint script and set it as the entrypoint
-COPY dev.sh /dev.sh
+COPY script/dev.sh /dev.sh
 RUN chmod +x /dev.sh
 
 # Create a new user 'developer'

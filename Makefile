@@ -16,7 +16,7 @@ help:
 
 # Verify development tools are installed
 checkhealth:
-	@./checkhealth.sh
+	@./script/checkhealth.sh
 
 # Install tools from tools.go
 bootstrap:
@@ -26,9 +26,9 @@ bootstrap:
 build-dev:
 	docker build -f Dockerfile.dev -t srvivor-dev .
 
-
 # Download necessary dependencies
 download:
+	go mod download
 	go mod tidy
 
 # Run tests
@@ -37,7 +37,7 @@ test:
 
 # Build the app
 build:
-	go build -o srvivor
+	go build -o srvivor ./cmd
 
 # Run the app
 FILEPATH :=
@@ -46,9 +46,9 @@ SEASON :=
 
 run:
 ifdef FILEPATH
-	./srvivor score -f $(FILEPATH) -s $(SEASON)
+	SRVVR_LOG_LEVEL=DEBUG ./srvivor score -f $(FILEPATH) -s $(SEASON)
 else ifdef DRAFTER
-	./srvivor score -d $(DRAFTER) -s $(SEASON)
+	SRVVR_LOG_LEVEL=DEBUG ./srvivor score -d $(DRAFTER) -s $(SEASON)
 else
 	@echo "Error: Missing required arguments"
 	@echo "Usage: make run FILEPATH=<filepath> SEASON=<season>"
