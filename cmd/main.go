@@ -141,6 +141,7 @@ func score(log *slog.Logger, draft, final *draft) (int, error) {
 		finalPositions[e.playerName] = e.position
 	}
 
+	// TODO: Re-calculate scores for all drafts (fixed J. May -> Janani S45)
 	for _, draftEntry := range draft.entries {
 		// Get the final position of the player
 		finalPosition, ok := finalPositions[draftEntry.playerName]
@@ -163,6 +164,46 @@ func score(log *slog.Logger, draft, final *draft) (int, error) {
 
 	return totalScore, nil
 }
+
+// // TODO: Write test for this function
+// // Rewrite score function to accept a list of drafters and score all of them against a single final, returning a map[*draft]int mapping drafts to scores.
+// func score(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]int, error) {
+// 	var scores = make(map[*draft]int)
+
+// 	totalPositions := len(final.entries)
+
+// 	// Map to store the final positions of the players for easy lookup
+// 	finalPositions := make(map[string]int)
+// 	for _, e := range final.entries {
+// 		finalPositions[e.playerName] = e.position
+// 	}
+
+// 	for _, draft := range drafts {
+// 		totalScore := 0
+// 		for _, draftEntry := range draft.entries {
+// 			// Get the final position of the player
+// 			finalPosition, ok := finalPositions[draftEntry.playerName]
+// 			if !ok {
+// 				log.Warn("Player not found in final results", "player", draftEntry.playerName)
+// 				if final.metadata.drafter == "Current" {
+// 					log.Warn("Season is curent. Assuming player has not finished.", "final", final)
+// 					continue
+// 				} else {
+// 					return 0, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
+// 				}
+// 			}
+
+// 			// Calculate the score for this entry
+// 			score := totalPositions - draftEntry.position + 1 // Initial score based on draft position
+// 			score -= abs(draftEntry.position - finalPosition) // Adjust score based on final position
+
+// 			totalScore += score
+// 		}
+// 		scores[draft] = totalScore
+// 	}
+
+// 	return scores, nil
+// }
 
 // Helper function to calculate the absolute value
 func abs(x int) int {

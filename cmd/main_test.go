@@ -5,8 +5,44 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jefflinse/melatonin-ext/exec"
+	"github.com/jefflinse/melatonin/mt"
 	"github.com/stretchr/testify/assert"
 )
+
+const (
+	void = `Usage:
+  srvivor [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  help        Help about any command
+  score       Calculate the score for a given Survivor game draft
+
+Flags:
+  -h, --help   help for srvivor
+
+Use "srvivor [command] --help" for more information about a command.
+`
+)
+
+func TestE2EScore(t *testing.T) {
+	tests := []mt.TestCase{
+
+		// cmd: none (help)
+		exec.Run("srvivor").
+			ExpectExitCode(0).
+			ExpectStdout(void),
+
+		// cmd: score drafter+season
+		exec.Run("srvivor").
+			WithArgs("score -d bryan -s 45").
+			ExpectExitCode(0).
+			ExpectStdout("89"),
+	}
+
+	mt.RunTestsT(t, tests...)
+}
 
 func TestScoreCalculation(t *testing.T) {
 	testCases := []struct {
@@ -17,14 +53,14 @@ func TestScoreCalculation(t *testing.T) {
 	}{
 		{
 			description:       "0_draft 0_final scores to 1",
-			haveDraftFilePath: "test_fixtures/drafts/0.txt",
-			haveFinalFilePath: "test_fixtures/finals/0.txt",
+			haveDraftFilePath: "../test_fixtures/drafts/0.txt",
+			haveFinalFilePath: "../test_fixtures/finals/0.txt",
 			want:              2,
 		},
 		{
 			description:       "1_draft 0_final scores to 6",
-			haveDraftFilePath: "test_fixtures/drafts/1.txt",
-			haveFinalFilePath: "test_fixtures/finals/0.txt",
+			haveDraftFilePath: "../test_fixtures/drafts/1.txt",
+			haveFinalFilePath: "../test_fixtures/finals/0.txt",
 			want:              6,
 		},
 	}
