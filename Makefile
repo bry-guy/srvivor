@@ -58,7 +58,7 @@ endif
 
 # Install the binary to $GOPATH/bin
 install:
-	go build -o $(GOPATH)/bin/srvivor
+	go build -o $(GOPATH)/bin/srvivor ./cmd
 
 # Uninstall the binary from $GOPATH/bin
 uninstall:
