@@ -66,7 +66,7 @@ func main() {
 			} else {
 				// Drafter mode
 				for _, drafter := range drafters {
-					filepath := fmt.Sprintf("../drafts/%d/%s.txt", season, drafter)
+					filepath := fmt.Sprintf("./drafts/%d/%s.txt", season, drafter)
 					draft, err := processFile(filepath, log)
 					if err != nil {
 						log.Error("Failed to process file.", "error", err)
@@ -76,7 +76,7 @@ func main() {
 				}
 			}
 
-			finalFilepath := fmt.Sprintf("../finals/%d.txt", season)
+			finalFilepath := fmt.Sprintf("./finals/%d.txt", season)
 			final, err := processFile(finalFilepath, log)
 			if err != nil {
 				log.Error("Failed to process final file.", "error", err)
