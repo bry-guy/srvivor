@@ -9,6 +9,8 @@ import (
 
 	"log/slog"
 
+	fpath "path/filepath"
+
 	"github.com/bry-guy/srvivor/internal/config"
 	"github.com/bry-guy/srvivor/internal/log"
 	"github.com/spf13/cobra"
@@ -53,6 +55,34 @@ func main() {
 				log.Error("You must specify a valid season.")
 				os.Exit(1)
 			}
+
+			log.Debug("drafters: ", "drafters", drafters)
+
+			if len(drafters) == 1 && drafters[0] == "*" {
+				// Wildcard logic
+				draftFilepaths, err := fpath.Glob(fmt.Sprintf("./drafts/%d/*.txt", season))
+				log.Debug("draftFilepaths: ", "draftFilepaths", draftFilepaths)
+				if err != nil {
+					log.Error("Unable to list draft files.", "error", err)
+					os.Exit(1)
+				}
+
+				drafters = []string{}
+				for _, draftFilepath := range draftFilepaths {
+					// drafter should be the name of the txt file, with no directory, stripped of the .txt extension
+					drafter := strings.TrimSuffix(fpath.Base(draftFilepath), ".txt")
+					log.Debug("drafter: ", "drafter", drafter)
+					drafters = append(drafters, drafter)
+				}
+			}
+
+			wd, err := os.Getwd()
+			if err != nil {
+				log.Error("Unable to get working directory.", "error", err)
+				os.Exit(1)
+			}
+
+			log.Debug("workdir: ", "workdir", wd)
 
 			var drafts []*draft
 			if filepath != "" {
@@ -137,7 +167,6 @@ func score(log *slog.Logger, draft, final *draft) (int, error) {
 		finalPositions[e.playerName] = e.position
 	}
 
-	// TODO: Re-calculate scores for all drafts (fixed J. May -> Janani S45)
 	for _, draftEntry := range draft.entries {
 		// Get the final position of the player
 		finalPosition, ok := finalPositions[draftEntry.playerName]

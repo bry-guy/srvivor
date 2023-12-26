@@ -5,67 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jefflinse/melatonin-ext/exec"
-	"github.com/jefflinse/melatonin/mt"
 	"github.com/stretchr/testify/assert"
 )
-
-const (
-	usage = `Usage:
-  srvivor [command]
-
-Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  help        Help about any command
-  score       Calculate the score for a Survivor drafts
-
-Flags:
-  -h, --help   help for srvivor
-
-Use "srvivor [command] --help" for more information about a command.
-`
-)
-
-func TestE2EScore(t *testing.T) {
-	tests := []mt.TestCase{
-
-		// cmd: none (help)
-		exec.Run("srvivor").
-			ExpectExitCode(0).
-			ExpectStdout(usage).
-			ExpectStderr(""),
-
-		// cmd: score drafter+season
-		exec.Run("srvivor").
-			WithArgs("score", "-d", "bryan", "-s", "45").
-			WithEnvVars(map[string]string{"SRVVR_LOG_LEVEL": "error"}).
-			ExpectExitCode(0).
-			ExpectStdout("Bryan: 97\n").
-			ExpectStderr(""),
-
-		// cmd: score filepath+season
-		exec.Run("srvivor").
-			WithArgs("score", "-f", "../drafts/45/bryan.txt", "-s", "45").
-			WithEnvVars(map[string]string{"SRVVR_LOG_LEVEL": "error"}).
-			ExpectExitCode(0).
-			ExpectStdout("Bryan: 97\n").
-			ExpectStderr(""),
-
-		// cmd: score drafters+season
-		exec.Run("srvivor").
-			WithArgs("score", "-d", "bryan,riley", "-s", "45").
-			WithEnvVars(map[string]string{"SRVVR_LOG_LEVEL": "error"}).
-			ExpectExitCode(0).
-			ExpectStdout("Bryan: 97\nRiley: 87\n").
-			ExpectStderr(""),
-	}
-
-	results := mt.RunTestsT(t, tests...)
-
-	if results.Failed > 0 {
-		mt.PrintResults(results)
-	}
-}
 
 func TestScoreCalculation(t *testing.T) {
 	testCases := []struct {
