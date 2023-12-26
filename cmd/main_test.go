@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	void = `Usage:
+	usage = `Usage:
   srvivor [command]
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
-  score       Calculate the score for a given Survivor game draft
+  score       Calculate the score for a Survivor drafts
 
 Flags:
   -h, --help   help for srvivor
@@ -32,16 +32,39 @@ func TestE2EScore(t *testing.T) {
 		// cmd: none (help)
 		exec.Run("srvivor").
 			ExpectExitCode(0).
-			ExpectStdout(void),
+			ExpectStdout(usage).
+			ExpectStderr(""),
 
 		// cmd: score drafter+season
 		exec.Run("srvivor").
-			WithArgs("score -d bryan -s 45").
+			WithArgs("score", "-d", "bryan", "-s", "45").
+			WithEnvVars(map[string]string{"SRVVR_LOG_LEVEL": "error"}).
 			ExpectExitCode(0).
-			ExpectStdout("89"),
+			ExpectStdout("Bryan: 97\n").
+			ExpectStderr(""),
+
+		// cmd: score filepath+season
+		exec.Run("srvivor").
+			WithArgs("score", "-f", "../drafts/45/bryan.txt", "-s", "45").
+			WithEnvVars(map[string]string{"SRVVR_LOG_LEVEL": "error"}).
+			ExpectExitCode(0).
+			ExpectStdout("Bryan: 97\n").
+			ExpectStderr(""),
+
+		// cmd: score drafters+season
+		exec.Run("srvivor").
+			WithArgs("score", "-d", "bryan,riley", "-s", "45").
+			WithEnvVars(map[string]string{"SRVVR_LOG_LEVEL": "error"}).
+			ExpectExitCode(0).
+			ExpectStdout("Bryan: 97\nRiley: 87\n").
+			ExpectStderr(""),
 	}
 
-	mt.RunTestsT(t, tests...)
+	results := mt.RunTestsT(t, tests...)
+
+	if results.Failed > 0 {
+		mt.PrintResults(results)
+	}
 }
 
 func TestScoreCalculation(t *testing.T) {

@@ -26,83 +26,79 @@ func main() {
 	var rootCmd = &cobra.Command{Use: "srvivor"}
 
 	var cmdScore = &cobra.Command{
-		Use:   "score [-f --file [filepath] | -d --draft [draft]] -s --season [season]",
-		Short: "Calculate the score for a given Survivor game draft",
-		Long:  `Calculate and display the total score for a given Survivor game draft based on the provided input file.`,
+		Use:   "score [-f --file [filepath] | -d --drafters [drafters]] -s --season [season]",
+		Short: "Calculate the score for a Survivor drafts",
+		Long:  `Calculate and display the total score for Survivor drafts for a particular season.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			// commands filepath and drafter
-			filepath, _ := cmd.Flags().GetString("file") //nolint:errcheck
-			drafter, _ := cmd.Flags().GetString("draft") //nolint:errcheck
+			drafters, err := cmd.Flags().GetStringSlice("drafters") //nolint:errcheck
+			if err != nil {
+				log.Error("flag drafters: %v", err)
+				os.Exit(1)
+			}
 
-			// are mutually exclusive
-			if (filepath != "" && drafter != "") || (filepath == "" && drafter == "") {
-				log.Error("You must specify either a file or a drafter, but not both")
+			filepath, err := cmd.Flags().GetString("file") //nolint:errcheck
+			if err != nil {
+				log.Error("flag drafters: %v", err)
+				os.Exit(1)
+			}
+
+			if (filepath != "" && len(drafters) > 0) || (filepath == "" && len(drafters) == 0) {
+				log.Error("You must specify either a file or drafters, but not both")
 				os.Exit(1)
 			}
 
 			// command season
 			season, err := cmd.Flags().GetInt("season")
-
-			// must be passed
-			if err != nil {
+			if err != nil || season < 1 || season > 45 {
 				log.Error("You must specify a valid season.")
 				os.Exit(1)
 			}
 
-			// must be valid
-			if season < 1 || season > 45 {
-				log.Error("You must specify a valid season.")
-				os.Exit(1)
+			var drafts []*draft
+			if filepath != "" {
+				// Single file mode
+				draft, err := processFile(filepath, log)
+				if err != nil {
+					log.Error("Failed to process file.", "error", err)
+					os.Exit(1)
+				}
+				drafts = append(drafts, draft)
+			} else {
+				// Drafter mode
+				for _, drafter := range drafters {
+					filepath := fmt.Sprintf("../drafts/%d/%s.txt", season, drafter)
+					draft, err := processFile(filepath, log)
+					if err != nil {
+						log.Error("Failed to process file.", "error", err)
+						continue
+					}
+					drafts = append(drafts, draft)
+				}
 			}
 
-			// if filepath is not passed, look up based on drafter
-			if filepath == "" {
-				filepath = fmt.Sprintf("./drafts/%d/%s.txt", season, drafter)
-			}
-
-			log.Info("Using draft from filepath. ", "filepath", filepath)
-			file, err := os.Open(filepath)
+			finalFilepath := fmt.Sprintf("../finals/%d.txt", season)
+			final, err := processFile(finalFilepath, log)
 			if err != nil {
-				log.Error("Failed to open file.", "error", err)
+				log.Error("Failed to process final file.", "error", err)
 				os.Exit(1)
 			}
-			defer file.Close()
 
-			draft, err := readDraft(file)
+			log.Info("Calculating score for each draft.")
+			scores, err := scores(log, drafts, final)
 			if err != nil {
-				log.Error("Failed to read draft.", "error", err)
+				log.Error("Failed to score drafts.", "error", err)
 				os.Exit(1)
 			}
 
-			finalFilepath := fmt.Sprintf("./finals/%d.txt", season)
-			log.Info("Using finals from season.", "season", finalFilepath)
-			file, err = os.Open(finalFilepath)
-			if err != nil {
-				log.Error("Failed to open file.", "error", err)
-				os.Exit(1)
+			for _, d := range drafts {
+				score := scores[d]
+				fmt.Printf("%s: %d\n", d.metadata.drafter, score)
 			}
-			defer file.Close()
-
-			final, err := readDraft(file)
-			if err != nil {
-				log.Error("Failed to read draft.", "error", err)
-				os.Exit(1)
-			}
-
-			log.Info("Calculating score.", "draft", filepath, "season", finalFilepath)
-			score, err := score(log, draft, final)
-			if err != nil {
-				log.Error("Failed to score draft.", "error", err)
-				os.Exit(1)
-			}
-			log.Info("Total Score.", "score", score)
-
-			fmt.Printf("%s: %d", draft.metadata.drafter, score)
 		},
 	}
 
 	cmdScore.Flags().StringP("file", "f", "", "Input file containing the draft")
-	cmdScore.Flags().StringP("draft", "d", "", "Drafter name to lookup the draft")
+	cmdScore.Flags().StringSliceP("drafters", "d", []string{}, "Drafter name(s) to lookup the draft")
 	cmdScore.Flags().IntP("season", "s", 0, "Season number of the Survivor game")
 	cmdScore.MarkFlagRequired("season")
 
@@ -165,45 +161,17 @@ func score(log *slog.Logger, draft, final *draft) (int, error) {
 	return totalScore, nil
 }
 
-// // TODO: Write test for this function
-// // Rewrite score function to accept a list of drafters and score all of them against a single final, returning a map[*draft]int mapping drafts to scores.
-// func score(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]int, error) {
-// 	var scores = make(map[*draft]int)
-
-// 	totalPositions := len(final.entries)
-
-// 	// Map to store the final positions of the players for easy lookup
-// 	finalPositions := make(map[string]int)
-// 	for _, e := range final.entries {
-// 		finalPositions[e.playerName] = e.position
-// 	}
-
-// 	for _, draft := range drafts {
-// 		totalScore := 0
-// 		for _, draftEntry := range draft.entries {
-// 			// Get the final position of the player
-// 			finalPosition, ok := finalPositions[draftEntry.playerName]
-// 			if !ok {
-// 				log.Warn("Player not found in final results", "player", draftEntry.playerName)
-// 				if final.metadata.drafter == "Current" {
-// 					log.Warn("Season is curent. Assuming player has not finished.", "final", final)
-// 					continue
-// 				} else {
-// 					return 0, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
-// 				}
-// 			}
-
-// 			// Calculate the score for this entry
-// 			score := totalPositions - draftEntry.position + 1 // Initial score based on draft position
-// 			score -= abs(draftEntry.position - finalPosition) // Adjust score based on final position
-
-// 			totalScore += score
-// 		}
-// 		scores[draft] = totalScore
-// 	}
-
-// 	return scores, nil
-// }
+func scores(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]int, error) {
+	scores := map[*draft]int{}
+	for _, draft := range drafts {
+		score, err := score(log, draft, final)
+		if err != nil {
+			return nil, err
+		}
+		scores[draft] = score
+	}
+	return scores, nil
+}
 
 // Helper function to calculate the absolute value
 func abs(x int) int {
@@ -272,4 +240,16 @@ func readDraft(file *os.File) (*draft, error) {
 	}
 
 	return &d, nil
+}
+
+// Helper function to process a file and read the draft
+func processFile(filepath string, log *slog.Logger) (*draft, error) {
+	log.Info("Processing file.", "filepath", filepath)
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return readDraft(file)
 }
