@@ -162,6 +162,7 @@ type scoreResult struct {
 }
 
 func score(log *slog.Logger, draft, final *draft) (scoreResult, error) {
+    log.Debug("draft", "drafter", draft.metadata.drafter)
     var result scoreResult
     totalPositions := len(final.entries)
     log.Debug("final", "total_positions", totalPositions)
