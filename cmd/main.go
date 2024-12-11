@@ -32,15 +32,15 @@ func main() {
 		Short: "Calculate the score for a Survivor drafts",
 		Long:  `Calculate and display the total score for Survivor drafts for a particular season.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			drafters, err := cmd.Flags().GetStringSlice("drafters") //nolint:errcheck
+			drafters, err := cmd.Flags().GetStringSlice("drafters")
 			if err != nil {
-				log.Error("flag drafters: %v", err)
+				log.Error("parsing drafters flag", "error", err)
 				os.Exit(1)
 			}
 
-			filepath, err := cmd.Flags().GetString("file") //nolint:errcheck
+			filepath, err := cmd.Flags().GetString("file")
 			if err != nil {
-				log.Error("flag drafters: %v", err)
+				log.Error("parsing file flag", "error", err)
 				os.Exit(1)
 			}
 
@@ -51,7 +51,7 @@ func main() {
 
 			// command season
 			season, err := cmd.Flags().GetInt("season")
-			if err != nil || season < 1 || season > 45 {
+			if err != nil || season < 1 {
 				log.Error("You must specify a valid season.")
 				os.Exit(1)
 			}
@@ -121,8 +121,8 @@ func main() {
 			}
 
 			for _, d := range drafts {
-				score := scores[d]
-				fmt.Printf("%s: %d\n", d.metadata.drafter, score)
+					result := scores[d]
+					fmt.Printf("%s: %d (points available: %d)\n", d.metadata.drafter, result.score, result.pointsAvailable)
 			}
 		},
 	}
@@ -156,53 +156,193 @@ type entry struct {
 	playerName string // Name of the Survivor player
 }
 
-func score(log *slog.Logger, draft, final *draft) (int, error) {
-	totalScore := 0
+type scoreResult struct {
+    score           int
+    pointsAvailable int
+}
 
-	totalPositions := len(final.entries)
+func score(log *slog.Logger, draft, final *draft) (scoreResult, error) {
+    var result scoreResult
+    totalPositions := len(final.entries)
+    log.Debug("final", "total_positions", totalPositions)
 
-	// Map to store the final positions of the players for easy lookup
+    // Calculate perfect score possible (n + (n-1) + ... + 1)
+    perfectScore := (totalPositions * (totalPositions + 1)) / 2
+
+    // Map to store the final positions of the players for easy lookup
+	currentPositions := 0 // number of positions taken in the final (players eliminated)
 	finalPositions := make(map[string]int)
-	for _, e := range final.entries {
-		finalPositions[e.playerName] = e.position
-	}
+    maxPosition := 0
+    for _, e := range final.entries {
+        finalPositions[e.playerName] = e.position
+        log.Debug("final", "player", e.playerName, "position", e.position)
+		if e.playerName != "" {
+				currentPositions++
+		} else {
+				if e.position > maxPosition {
+						maxPosition = e.position
+				}
+		}
+    }
 
-	for _, draftEntry := range draft.entries {
-		// Get the final position of the player
-		finalPosition, ok := finalPositions[draftEntry.playerName]
+    knownLosses := 0
+    currentScore := 0
+    currentMax := (currentPositions * (currentPositions + 1)) / 2
+
+    for _, draftEntry := range draft.entries {
+        // Calculate position value (inverse of position)
+        positionValue := totalPositions - draftEntry.position + 1
+        
+        finalPosition, ok := finalPositions[draftEntry.playerName]
+        if !ok {
+            if final.metadata.drafter == "Current" {
+                log.Warn("Season is current. Assuming player has not finished.", "player", draftEntry.playerName)
+            } else {
+                return scoreResult{}, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
+            }
+        }
+
+        // Calculate position distance and entry score
+        distance := abs(draftEntry.position - finalPosition)
+        entryScore := max(0, positionValue-distance)
+        
+        currentScore += entryScore
+
+        log.Debug("score", 
+            "player", draftEntry.playerName,
+            "final_position", finalPosition,
+            "draft_position", draftEntry.position,
+            "position_val", positionValue,
+            "distance", distance,
+            "points", entryScore,
+			"currentScore", currentScore,
+        )
+
+		// Calculate known losses
+		knownLoss := 0
+		lossDistance := 0
 		if !ok {
-			log.Warn("Player not found in final results", "player", draftEntry.playerName)
-			if final.metadata.drafter == "Current" {
-				log.Warn("Season is curent. Assuming player has not finished.", "final", final)
-				continue
-			} else {
-				return 0, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
-			}
-		}
+				lossDistance = abs(draftEntry.position - maxPosition)
+            if lossDistance > positionValue {
+                knownLoss = positionValue // Complete loss of points
+            } else if lossDistance > 0 {
+                knownLoss = distance // Partial loss of points
+            }
+			knownLosses += knownLoss
 
-		// Calculate the score for this entry
-		score := totalPositions - draftEntry.position + 1 // Initial score based on draft position
-		score -= abs(draftEntry.position - finalPosition) // Adjust score based on final position
+			log.Debug("loss", 
+			"player", draftEntry.playerName,
+			"draft_position", draftEntry.position,
+			"max_position", maxPosition,
+			"position_val", positionValue,
+			"lossDistance", lossDistance,
+			"knownLoss", knownLoss,
+			"knownLosses", knownLosses,
+	)
+        }
 
-		totalScore += score
-	}
+    }
 
-	return totalScore, nil
+	currentMisses := currentMax - currentScore
+
+    pointsAvailable := perfectScore - currentMax - currentMisses - knownLosses
+
+	log.Debug("pointsAvailable", 
+			"pointsAvailable", pointsAvailable,
+			"perfectScore", perfectScore,
+			"currentMisses", currentMisses,
+			"currentMax", currentMax,
+			"knownLosses", knownLosses,
+	)
+
+    result.score = currentScore
+    result.pointsAvailable = max(0, pointsAvailable)
+
+    return result, nil
 }
 
-func scores(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]int, error) {
-	scores := map[*draft]int{}
-	for _, draft := range drafts {
-		score, err := score(log, draft, final)
-		if err != nil {
-			return nil, err
-		}
-		scores[draft] = score
-	}
-	return scores, nil
+func scores(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]scoreResult, error) {
+    scores := map[*draft]scoreResult{}
+    for _, draft := range drafts {
+        result, err := score(log, draft, final)
+        if err != nil {
+            return nil, err
+        }
+        scores[draft] = result
+    }
+    return scores, nil
 }
 
-// Helper function to calculate the absolute value
+// func score(log *slog.Logger, draft, final *draft) (int, error) {
+//     totalScore := 0
+//     totalPositions := len(final.entries)
+// 	log.Debug("final", "total_positions", totalPositions)
+
+//     // Map to store the final positions of the players for easy lookup
+//     finalPositions := make(map[string]int)
+//     for _, e := range final.entries {
+//         finalPositions[e.playerName] = e.position
+// 		log.Debug("final", "player", e.playerName, "position", e.position)
+//     }
+
+//     for _, draftEntry := range draft.entries {
+//         // Get the final position of the player
+//         finalPosition, ok := finalPositions[draftEntry.playerName]
+//         if !ok {
+//             log.Warn("Player not found in final results", "player", draftEntry.playerName)
+//             if final.metadata.drafter == "Current" {
+//                 log.Warn("Season is current. Assuming player has not finished.", "final", final)
+//                 continue
+//             } else {
+//                 return 0, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
+//             }
+//         }
+
+// 		log.Debug("draft", "player", draftEntry.playerName, "position", finalPosition)
+
+//         // Calculate position value (inverse of position)
+//         positionValue := totalPositions - draftEntry.position + 1
+        
+//         // Calculate position distance
+//         distance := abs(draftEntry.position - finalPosition)
+        
+//         // Calculate entry score (minimum 0)
+//         entryScore := max(0, positionValue-distance)
+
+// 		log.Debug("score", 
+// 				"player", 
+// 				draftEntry.playerName, 
+// 				"final_position", 
+// 				finalPosition, 
+// 				"draft_position", 
+// 				draftEntry.position,
+// 				"position_val",
+// 				positionValue,
+// 				"distance",
+// 				distance,
+// 				"points",
+// 				entryScore,
+// 		)
+        
+//         totalScore += entryScore
+// 		log.Debug("totalScore", "points", totalScore)
+//     }
+
+//     return totalScore, nil
+// }
+
+// func scores(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]int, error) {
+// 	scores := map[*draft]int{}
+// 	for _, draft := range drafts {
+// 		score, err := score(log, draft, final)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		scores[draft] = score
+// 	}
+// 	return scores, nil
+// }
+
 func abs(x int) int {
 	if x < 0 {
 		return -x

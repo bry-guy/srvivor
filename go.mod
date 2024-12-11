@@ -2,7 +2,7 @@ module github.com/bry-guy/srvivor
 
 go 1.21.0
 
-replace github.com/jefflinse/melatonin-ext => /Users/bryansmith/dev/melatonin-ext
+replace github.com/jefflinse/melatonin-ext => /Users/bryansmith/dev/personal/melatonin-ext
 
 require (
 	github.com/jefflinse/melatonin v0.0.18

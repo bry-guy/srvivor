@@ -16,10 +16,10 @@ func TestScoreCalculation(t *testing.T) {
 		want              int    // expected score
 	}{
 		{
-			description:       "0_draft 0_final scores to 1",
+			description:       "0_draft 0_final",
 			haveDraftFilePath: "../test_fixtures/drafts/0.txt",
 			haveFinalFilePath: "../test_fixtures/finals/0.txt",
-			want:              2,
+			want:              3,
 		},
 		{
 			description:       "1_draft 0_final scores to 6",

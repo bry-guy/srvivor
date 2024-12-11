@@ -34,7 +34,7 @@ download:
 
 # Run tests
 test:
-	gotest -v ./...
+	SRVVR_LOG_LEVEL=DEBUG go test -v ./...
 
 # Build the app
 build:
