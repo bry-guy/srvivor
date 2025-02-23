@@ -4,8 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	unzip \
-    ca-certificates && \
     curl && \
+    ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://mise.run | sh
