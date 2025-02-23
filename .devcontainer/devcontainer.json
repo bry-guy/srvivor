@@ -2,10 +2,8 @@
   "name": "srvivor-dev",
   "image": "ghcr.io/bry-guy/srvivor-dev:latest",
   "remoteUser": "dev",
-  "workspaceMount": "source=/home/brain/.devpod/agent/contexts/default/workspaces/srvivor/content,target=/workspaces/srvivor,type=bind,consistency=cached,z",
   "workspaceFolder": "/workspaces/srvivor",
   "runArgs": [
     "--volume=/home/brain/.devpod/agent/contexts/default/workspaces/srvivor/content:/workspaces/srvivor:Z"
   ]
 }
-
