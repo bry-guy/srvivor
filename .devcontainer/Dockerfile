@@ -11,13 +11,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git && \
     rm -rf /var/lib/apt/lists/*
 
-# Create the non-root user "brain" with UID/GID 1000 and a home directory
+# Create the non-root user "dev" with UID/GID 1000 and a home directory
 RUN useradd -m -u 1000 -s /bin/zsh dev
 
-# Create workspaces directory and set permissions for "brain"
-RUN mkdir -p /workspaces/srvivor && chown -R brain:brain /workspaces
+# Create workspaces directory and set permissions for "dev"
+RUN mkdir -p /workspaces/srvivor && chown -R dev:dev /workspaces
 
-# Switch to the "brain" user
+# Switch to the "dev" user
 USER dev
 ENV HOME=/home/dev
 
@@ -25,7 +25,7 @@ ENV HOME=/home/dev
 RUN mkdir -p ${HOME}/.local/bin
 ENV PATH="${HOME}/.local/bin:${PATH}"
 
-# Install mise as the non-root user; it will now install to /home/brain/.local/bin
+# Install mise as the non-root user; it will now install to /home/dev/.local/bin
 RUN curl -fsSL https://mise.run | sh
 
 WORKDIR /workspaces/srvivor
