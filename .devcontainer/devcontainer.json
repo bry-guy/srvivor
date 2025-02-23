@@ -2,8 +2,5 @@
   "name": "srvivor-dev",
   "image": "ghcr.io/bry-guy/srvivor-dev:latest",
   "remoteUser": "dev",
-  "workspaceFolder": "/workspaces/srvivor",
-  "runArgs": [
-    "--volume=/home/brain/.devpod/agent/contexts/default/workspaces/srvivor/content:/workspaces/srvivor:Z"
-  ]
+  "securityOpt": [ "seccomp=label=disable" ],
 }
