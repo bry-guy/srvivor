@@ -1,19 +1,9 @@
 {
   "name": "srvivor-dev",
   "image": "ghcr.io/bry-guy/srvivor-dev:latest",
-  "features": {
-		  "ghcr.io/devcontainers/features/common-utils:2": {
-				  "installZsh": "true",
-				  "username": "brain",
-				  "userUid": "1000",
-				  "userGid": "1000",
-				  "upgradePackages": "true"
-		  },
-		  "ghcr.io/devcontainers/features/git:1": {
-				  "version": "latest",
-				  "ppa": "false"
-		  }
-  },
-  "remoteUser": "brain"
+  "remoteUser": "dev",
+  "mounts": [
+		  "source=${localWorkspaceFolder},target=/workspaces/srvivor,type=bind,consistency=cached,z"
+  ]
 }
 

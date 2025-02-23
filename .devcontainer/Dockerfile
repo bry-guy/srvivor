@@ -2,21 +2,37 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Install prerequisites including ca-certificates, curl, zsh, git, etc.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-	unzip \
+    unzip \
     curl \
-    ca-certificates && \
+    ca-certificates \
+    zsh \
+    git && \
     rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://mise.run | sh
+# Create the non-root user "brain" with UID/GID 1000 and a home directory
+RUN useradd -m -u 1000 -s /bin/zsh dev
 
-ENV PATH="/root/.local/bin:$PATH"
+# Create workspaces directory and set permissions for "brain"
+RUN mkdir -p /workspaces/srvivor && chown -R brain:brain /workspaces
+
+# Switch to the "brain" user
+USER dev
+ENV HOME=/home/dev
+
+# Ensure the local bin directory exists and update PATH so that it takes precedence
+RUN mkdir -p ${HOME}/.local/bin
+ENV PATH="${HOME}/.local/bin:${PATH}"
+
+# Install mise as the non-root user; it will now install to /home/brain/.local/bin
+RUN curl -fsSL https://mise.run | sh
 
 WORKDIR /workspaces/srvivor
 
+# Copy your configuration file and install mise dependencies
 COPY mise.toml ./
-
 RUN mise install
 
-CMD ["/bin/bash"]
+CMD ["/bin/zsh"]
 
