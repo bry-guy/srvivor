@@ -1,6 +1,7 @@
 {
   "name": "srvivor-dev",
   "image": "ghcr.io/bry-guy/srvivor-dev:latest",
+  "postStartCommand": "mise trust -y && mise install",
   "remoteUser": "dev",
   "securityOpt": [ "label=disable" ],
 }

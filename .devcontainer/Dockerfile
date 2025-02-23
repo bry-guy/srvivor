@@ -38,7 +38,7 @@ ENV PATH="${HOME}/.local/bin:${PATH}"
 RUN curl -fsSL https://mise.run | sh
 
 # Copy configuration file with proper ownership
-COPY .devcontainer/.default-go-packages ${HOME}
+COPY .devcontainer/.default-go-packages $HOME
 
 # Trust and install mise dependencies
 RUN mise trust -y
