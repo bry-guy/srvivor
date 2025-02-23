@@ -1,0 +1,10 @@
+{
+  "name": "srvivor-dev",
+  "image": "debian:bookworm-slim",
+  "workspaceFolder": "/workspace",
+  "postCreateCommand": "go install golang.org/x/tools/gopls@v0.13.0",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind"
+  ],
+}
+
