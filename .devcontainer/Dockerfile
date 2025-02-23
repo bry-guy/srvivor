@@ -39,7 +39,7 @@ RUN curl -fsSL https://mise.run | sh
 
 # Copy configuration file with proper ownership
 COPY mise.toml ./
-COPY ./devcontainer/.default-go-packages $HOME/.default-go-packages
+COPY ./.devcontainer/.default-go-packages $HOME/.default-go-packages
 
 # Trust and install mise dependencies
 RUN mise trust
