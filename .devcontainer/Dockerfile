@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Create the non-root user "dev" with UID/GID 1000 and a home directory
-RUN useradd -m -u 1000 -s /bin/zsh dev
+RUN useradd -m -u 2000 -s /bin/zsh dev
 
 # Create workspaces directory and set permissions for "dev"
 RUN mkdir -p /workspaces/srvivor && chown -R dev:dev /workspaces
