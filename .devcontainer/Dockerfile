@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     zsh \
     git \
+	make \
     sudo && \
     rm -rf /var/lib/apt/lists/*
 
@@ -37,11 +38,12 @@ ENV PATH="${HOME}/.local/bin:${PATH}"
 RUN curl -fsSL https://mise.run | sh
 
 # Copy configuration file with proper ownership
-COPY --chown=$USERNAME:$USERNAME mise.toml ./
+COPY mise.toml ./
+COPY ./devcontainer/.default-go-packages $HOME/.default-go-packages
 
 # Trust and install mise dependencies
 RUN mise trust
-RUN mise install
+RUN mise install -y
 
 CMD ["/bin/zsh"]
 
