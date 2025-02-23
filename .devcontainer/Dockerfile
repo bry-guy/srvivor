@@ -24,8 +24,7 @@ USER $USERNAME
 ENV HOME=/home/$USERNAME
 
 # Install prerequisites including ca-certificates, curl, zsh, git, etc.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    sudo \
+RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
     unzip \
     curl \
     ca-certificates \
