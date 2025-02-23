@@ -2,10 +2,5 @@
   "name": "srvivor-dev",
   "image": "ghcr.io/bry-guy/srvivor-dev:latest",
   "remoteUser": "dev",
-  "workspaceMount": "",
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  "runArgs": [
-		  "--volume=${localWorkspaceFolder}:/workspaces/${localWorkspaceFolderBasename}:Z"
-  ]
 }
 
