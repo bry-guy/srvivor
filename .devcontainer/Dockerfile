@@ -13,6 +13,12 @@ RUN groupadd --gid $USER_GID $USERNAME \
 # Create workspaces directory and set permissions 
 RUN mkdir -p /workspaces/srvivor && chown -R $USER_UID:$USER_GID /workspaces
 
+# Install sudo and add non-root user
+RUN apt-get update \
+    && apt-get install -y sudo \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
 # Switch to the user
 USER $USERNAME
 ENV HOME=/home/$USERNAME
@@ -25,9 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     zsh \
     git && \
-    rm -rf /var/lib/apt/lists/* && \
-	echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
-    && chmod 0440 /etc/sudoers.d/$USERNAME
+    rm -rf /var/lib/apt/lists/* 
+
 
 # Ensure the local bin directory exists and update PATH so that it takes precedence
 RUN mkdir -p ${HOME}/.local/bin
