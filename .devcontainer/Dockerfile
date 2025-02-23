@@ -8,7 +8,7 @@ ARG USER_GID=$USER_UID
 
 # Create the non-root user with UID/GID 1000 and a home directory
 RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
 
 # Create workspaces directory and set permissions 
 RUN mkdir -p /workspaces/srvivor && chown -R $USER_UID:USER_GID /workspaces
