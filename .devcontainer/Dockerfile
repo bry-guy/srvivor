@@ -1,14 +1,17 @@
 ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Create the non-root user with UID/GID 1000 and a home directory
-RUN useradd -m -u 2000 -s /bin/zsh $USERNAME
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
 
 # Create workspaces directory and set permissions 
-RUN mkdir -p /workspaces/srvivor && chown -R 2000:2000 /workspaces
+RUN mkdir -p /workspaces/srvivor && chown -R $USER_UID:USER_GID /workspaces
 
 # Switch to the user
 USER $USERNAME
