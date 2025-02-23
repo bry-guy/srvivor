@@ -11,7 +11,7 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
 
 # Create workspaces directory and set permissions 
-RUN mkdir -p /workspaces/srvivor && chown -R $USER_UID:USER_GID /workspaces
+RUN mkdir -p /workspaces/srvivor && chown -R $USER_UID:$USER_GID /workspaces
 
 # Switch to the user
 USER $USERNAME
