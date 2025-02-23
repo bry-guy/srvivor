@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	unzip \
-    curl && \
+    curl \
     ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
