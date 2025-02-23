@@ -1,5 +1,6 @@
 {
   "name": "srvivor-dev",
-  "image": "ghcr.io/bry-guy/srvivor-dev:latest"
+  "image": "ghcr.io/bry-guy/srvivor-dev:latest",
+  "remoteUser": "brain"
 }
 

@@ -12,7 +12,7 @@ RUN curl -fsSL https://mise.run | sh
 
 ENV PATH="/root/.local/bin:$PATH"
 
-WORKDIR /workspace
+WORKDIR /workspaces/srvivor
 
 COPY mise.toml ./
 
