@@ -1,10 +1,10 @@
-ARG USERNAME=dev
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-
 FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
 # Create the non-root user with UID/GID 1000 and a home directory
 RUN groupadd --gid $USER_GID $USERNAME \
