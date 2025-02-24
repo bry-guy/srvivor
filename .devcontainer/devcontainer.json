@@ -2,6 +2,6 @@
   "name": "srvivor-dev",
   "image": "ghcr.io/bry-guy/srvivor-dev:latest",
   "remoteUser": "dev",
-  "postStartCommand": "mise trust -y && eval \"$(mise activate zsh)\"",
+  "postStartCommand": "mise trust -y",
   "securityOpt": [ "label=disable" ]
 }
