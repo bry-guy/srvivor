@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zsh \
     git \
 	make \
+	openssh-client \
     sudo && \
     rm -rf /var/lib/apt/lists/*
 
