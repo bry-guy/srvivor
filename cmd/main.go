@@ -121,8 +121,8 @@ func main() {
 			}
 
 			for _, d := range drafts {
-					result := scores[d]
-					fmt.Printf("%s: %d (points available: %d)\n", d.metadata.drafter, result.score, result.pointsAvailable)
+				result := scores[d]
+				fmt.Printf("%s: %d (points available: %d)\n", d.metadata.drafter, result.score, result.pointsAvailable)
 			}
 		},
 	}
@@ -157,121 +157,121 @@ type entry struct {
 }
 
 type scoreResult struct {
-    score           int
-    pointsAvailable int
+	score           int
+	pointsAvailable int
 }
 
 func score(log *slog.Logger, draft, final *draft) (scoreResult, error) {
-    log.Debug("draft", "drafter", draft.metadata.drafter)
-    var result scoreResult
-    totalPositions := len(final.entries)
-    log.Debug("final", "total_positions", totalPositions)
+	log = log.With("draft", draft.metadata.drafter)
+	var result scoreResult
+	totalPositions := len(final.entries)
+	log.Debug("final", "total_positions", totalPositions)
 
-    // Calculate perfect score possible (n + (n-1) + ... + 1)
-    perfectScore := (totalPositions * (totalPositions + 1)) / 2
+	// Calculate perfect score possible (n + (n-1) + ... + 1)
+	perfectScore := (totalPositions * (totalPositions + 1)) / 2
 
-    // Map to store the final positions of the players for easy lookup
+	// Map to store the final positions of the players for easy lookup
 	currentPositions := 0 // number of positions taken in the final (players eliminated)
 	finalPositions := make(map[string]int)
-    maxPosition := 0
-    for _, e := range final.entries {
-        finalPositions[e.playerName] = e.position
-        log.Debug("final", "player", e.playerName, "position", e.position)
+	maxPosition := 0
+	for _, e := range final.entries {
+		finalPositions[e.playerName] = e.position
+		log.Debug("final", "player", e.playerName, "position", e.position)
 		if e.playerName != "" {
-				currentPositions++
+			currentPositions++
 		} else {
-				if e.position > maxPosition {
-						maxPosition = e.position
-				}
+			if e.position > maxPosition {
+				maxPosition = e.position
+			}
 		}
-    }
+	}
 
-    knownLosses := 0
-    currentScore := 0
-    currentMax := (currentPositions * (currentPositions + 1)) / 2
+	knownLosses := 0
+	currentScore := 0
+	currentMax := (currentPositions * (currentPositions + 1)) / 2
 
-    for _, draftEntry := range draft.entries {
-        // Calculate position value (inverse of position)
-        positionValue := totalPositions - draftEntry.position + 1
-        
-        finalPosition, ok := finalPositions[draftEntry.playerName]
-        if !ok {
-            if final.metadata.drafter == "Current" {
-                log.Warn("Season is current. Assuming player has not finished.", "player", draftEntry.playerName)
-            } else {
-                return scoreResult{}, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
-            }
-        }
+	for _, draftEntry := range draft.entries {
+		// Calculate position value (inverse of position)
+		positionValue := totalPositions - draftEntry.position + 1
 
-        // Calculate position distance and entry score
-        distance := abs(draftEntry.position - finalPosition)
-        entryScore := max(0, positionValue-distance)
-        
-        currentScore += entryScore
+		finalPosition, ok := finalPositions[draftEntry.playerName]
+		if !ok {
+			if final.metadata.drafter == "Current" {
+				log.Warn("Season is current. Assuming player has not finished.", "player", draftEntry.playerName)
+			} else {
+				return scoreResult{}, fmt.Errorf("Player not found in final results: %v", draftEntry.playerName)
+			}
+		}
 
-        log.Debug("score", 
-            "player", draftEntry.playerName,
-            "final_position", finalPosition,
-            "draft_position", draftEntry.position,
-            "position_val", positionValue,
-            "distance", distance,
-            "points", entryScore,
+		// Calculate position distance and entry score
+		distance := abs(draftEntry.position - finalPosition)
+		entryScore := max(0, positionValue-distance)
+
+		currentScore += entryScore
+
+		log.Debug("score",
+			"player", draftEntry.playerName,
+			"final_position", finalPosition,
+			"draft_position", draftEntry.position,
+			"position_val", positionValue,
+			"distance", distance,
+			"points", entryScore,
 			"currentScore", currentScore,
-        )
+		)
 
 		// Calculate known losses
 		knownLoss := 0
 		lossDistance := 0
 		if !ok {
-				lossDistance = abs(draftEntry.position - maxPosition)
-            if lossDistance > positionValue {
-                knownLoss = positionValue // Complete loss of points
-            } else if lossDistance > 0 {
-                knownLoss = distance // Partial loss of points
-            }
+			lossDistance = abs(draftEntry.position - maxPosition)
+			if lossDistance > positionValue {
+				knownLoss = positionValue // Complete loss of points
+			} else if lossDistance > 0 {
+				knownLoss = distance // Partial loss of points
+			}
 			knownLosses += knownLoss
 
-			log.Debug("loss", 
-			"player", draftEntry.playerName,
-			"draft_position", draftEntry.position,
-			"max_position", maxPosition,
-			"position_val", positionValue,
-			"lossDistance", lossDistance,
-			"knownLoss", knownLoss,
-			"knownLosses", knownLosses,
-	)
-        }
+			log.Debug("loss",
+				"player", draftEntry.playerName,
+				"draft_position", draftEntry.position,
+				"max_position", maxPosition,
+				"position_val", positionValue,
+				"lossDistance", lossDistance,
+				"knownLoss", knownLoss,
+				"knownLosses", knownLosses,
+			)
+		}
 
-    }
+	}
 
 	currentMisses := currentMax - currentScore
 
-    pointsAvailable := perfectScore - currentMax - currentMisses - knownLosses
+	pointsAvailable := perfectScore - currentMax - currentMisses - knownLosses
 
-	log.Debug("pointsAvailable", 
-			"pointsAvailable", pointsAvailable,
-			"perfectScore", perfectScore,
-			"currentMisses", currentMisses,
-			"currentMax", currentMax,
-			"knownLosses", knownLosses,
+	log.Debug("pointsAvailable",
+		"pointsAvailable", pointsAvailable,
+		"perfectScore", perfectScore,
+		"currentMisses", currentMisses,
+		"currentMax", currentMax,
+		"knownLosses", knownLosses,
 	)
 
-    result.score = currentScore
-    result.pointsAvailable = max(0, pointsAvailable)
+	result.score = currentScore
+	result.pointsAvailable = max(0, pointsAvailable)
 
-    return result, nil
+	return result, nil
 }
 
 func scores(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]scoreResult, error) {
-    scores := map[*draft]scoreResult{}
-    for _, draft := range drafts {
-        result, err := score(log, draft, final)
-        if err != nil {
-            return nil, err
-        }
-        scores[draft] = result
-    }
-    return scores, nil
+	scores := map[*draft]scoreResult{}
+	for _, draft := range drafts {
+		result, err := score(log, draft, final)
+		if err != nil {
+			return nil, err
+		}
+		scores[draft] = result
+	}
+	return scores, nil
 }
 
 // func score(log *slog.Logger, draft, final *draft) (int, error) {
@@ -303,19 +303,19 @@ func scores(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]scoreRe
 
 //         // Calculate position value (inverse of position)
 //         positionValue := totalPositions - draftEntry.position + 1
-        
+
 //         // Calculate position distance
 //         distance := abs(draftEntry.position - finalPosition)
-        
+
 //         // Calculate entry score (minimum 0)
 //         entryScore := max(0, positionValue-distance)
 
-// 		log.Debug("score", 
-// 				"player", 
-// 				draftEntry.playerName, 
-// 				"final_position", 
-// 				finalPosition, 
-// 				"draft_position", 
+// 		log.Debug("score",
+// 				"player",
+// 				draftEntry.playerName,
+// 				"final_position",
+// 				finalPosition,
+// 				"draft_position",
 // 				draftEntry.position,
 // 				"position_val",
 // 				positionValue,
@@ -324,7 +324,7 @@ func scores(log *slog.Logger, drafts []*draft, final *draft) (map[*draft]scoreRe
 // 				"points",
 // 				entryScore,
 // 		)
-        
+
 //         totalScore += entryScore
 // 		log.Debug("totalScore", "points", totalScore)
 //     }
