@@ -3,7 +3,7 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install prerequisites as root
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt update && apt install -y --no-install-recommends \
     unzip \
     curl \
     ca-certificates \
@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
 	make \
 	openssh-client \
+	procps \
     sudo && \
     rm -rf /var/lib/apt/lists/*
 

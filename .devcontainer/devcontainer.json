@@ -3,5 +3,15 @@
   "image": "ghcr.io/bry-guy/srvivor-dev:latest",
   "remoteUser": "dev",
   "postStartCommand": "mise trust -y",
-  "securityOpt": [ "label=disable" ]
+  "securityOpt": [ "label=disable" ],
+  "forwardPorts": [ 6666 ],
+  "dotfiles": {
+		  "repository": "https://github.com/bry-guy/dotfiles",
+		  "installCommand": "script/setup",
+  },
+  "customizations": {
+		  "devpod": {
+				  "prebuildRepository": "ghcr.io/bry-guy/srvivor"
+		  }
+  }
 }
