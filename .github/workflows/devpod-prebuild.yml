@@ -8,6 +8,7 @@ on:
   push:
     branches: [ main ]
     paths:
+      - '.github/workflows/devpod-prebuild.yml'
       - '.devcontainer/**'
       - 'mise.toml'
   workflow_dispatch:  
@@ -41,5 +42,5 @@ jobs:
       
       - name: Create and Push Prebuild
         run: |
-          devpod provider add github
-          devpod prebuild create . --repository=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          devpod provider add docker
+          devpod build . --repository=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }} --platform linux/amd64 --debug
