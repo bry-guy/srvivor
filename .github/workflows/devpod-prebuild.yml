@@ -43,4 +43,4 @@ jobs:
       - name: Create and Push Prebuild
         run: |
           devpod provider add docker
-          devpod build . --repository=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }} --platform linux/amd64 --debug
+          devpod build . --platform linux/amd64 --debug --tag test

@@ -11,7 +11,7 @@
   },
   "customizations": {
 		  "devpod": {
-				  "prebuildRepository": "ghcr.io/bry-guy/srvivor"
+				  "prebuildRepository": "ghcr.io/bry-guy/srvivor-dev"
 		  }
   }
 }
