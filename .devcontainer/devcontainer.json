@@ -8,10 +8,5 @@
   "dotfiles": {
 		  "repository": "https://github.com/bry-guy/dotfiles",
 		  "installCommand": "script/setup",
-  },
-  "customizations": {
-		  "devpod": {
-				  "prebuildRepository": "ghcr.io/bry-guy/srvivor-dev"
-		  }
   }
 }
