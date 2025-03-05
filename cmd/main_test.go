@@ -8,24 +8,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: Add tests checking for pointsAvailable (very ez cases)
 func TestScoreCalculation(t *testing.T) {
 	testCases := []struct {
 		description       string
 		haveDraftFilePath string // filePath to the draft data file
 		haveFinalFilePath string // filePath to the final results data file
-		want              int    // expected score
+		want              scoreResult    // expected score
 	}{
 		{
 			description:       "0_draft 0_final",
 			haveDraftFilePath: "../test_fixtures/drafts/0.txt",
 			haveFinalFilePath: "../test_fixtures/finals/0.txt",
-			want:              3,
+			want:              scoreResult{
+				score: 3,
+			},
 		},
 		{
 			description:       "1_draft 0_final scores to 6",
 			haveDraftFilePath: "../test_fixtures/drafts/1.txt",
 			haveFinalFilePath: "../test_fixtures/finals/0.txt",
-			want:              6,
+			want:              scoreResult{
+				score: 6,
+			},
 		},
 	}
 	for _, tc := range testCases {

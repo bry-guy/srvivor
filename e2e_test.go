@@ -12,7 +12,7 @@ import (
 
 func TestE2E_Score(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("../bin/srvivor"); os.IsNotExist(err) {
+	if _, err := os.Stat("./bin/srvivor"); os.IsNotExist(err) {
 		t.Fatalf("missing srvivor binary: %v", err)
 	}
 
@@ -47,7 +47,7 @@ func TestE2E_Score(t *testing.T) {
 		},
 		{
 			name:     "score with file and season",
-			args:     []string{"score", "-f", "../drafts/44/bryan.txt", "-s", "44"},
+			args:     []string{"score", "-f", "./drafts/44/bryan.txt", "-s", "44"},
 			env:      map[string]string{"SRVVR_LOG_LEVEL": "DEBUG"},
 			expected: "Bryan: ",
 			exitCode: 0,
@@ -68,7 +68,7 @@ func TestE2E_Score(t *testing.T) {
 		},
 		{
 			name:     "score with file for season 45",
-			args:     []string{"score", "-f", "../drafts/45/bryan.txt", "-s", "45"},
+			args:     []string{"score", "-f", "./drafts/45/bryan.txt", "-s", "45"},
 			env:      map[string]string{"SRVVR_LOG_LEVEL": "ERROR"},
 			expected: "Bryan: ",
 			exitCode: 0,
@@ -92,7 +92,7 @@ func TestE2E_Score(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// #nosec G204 - Test-only code with hardcoded arguments
-			cmd := exec.Command("../bin/srvivor", tc.args...)
+			cmd := exec.Command("./bin/srvivor", tc.args...)
 			
 			// Set environment variables
 			cmd.Env = os.Environ() // Start with current environment

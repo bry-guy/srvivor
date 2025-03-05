@@ -34,11 +34,14 @@ download:
 
 # Run tests
 test:
-	SRVVR_LOG_LEVEL=DEBUG go test -v ./...
+	SRVVR_LOG_LEVEL=DEBUG go test -v ./cmd/
+
+e2e: build
+	SRVVR_LOG_LEVEL=DEBUG go test -run "E2E"
 
 # Build the app
 build:
-	go build -o srvivor ./cmd
+	go build -o bin/srvivor ./cmd
 
 # Run the app
 FILEPATH :=
