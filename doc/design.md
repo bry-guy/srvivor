@@ -74,7 +74,7 @@ We can score the draft for _what we know_:
 
 ```
 1. Tom:     +8 Value -X Distance = +X points 
-2. Dick:    +7 Value -4 Distance = +2 points 
+2. Dick:    +7 Value -4 Distance = +3 points 
 3. Harry:   +6 Value -4 Distance = +2 points
 4. Cosmo:   +5 Value -X Distance = +X points
 5. Elaine:  +4 Value -X Distance = +X points
@@ -82,11 +82,11 @@ We can score the draft for _what we know_:
 7. Moe:     +2 Value -1 Distance = +1 points
 8. Curly:   +1 Value -X Distance = +X points 
 
-Draft Score (Week 4): +7 Points
+Draft Score (Week 4): +8 Points
 Final Score (Week 4 Max): +10 Points
 ```
 
-For this Draft, we know that we have missed +3 Points so far, since a perfect Draft through Week 4 would have scored +10 Points while our Draft has only scored +7 points.
+For this Draft, we know that we have missed +2 Points so far, since a perfect Draft through Week 4 would have scored +10 Points while our Draft has only scored +7 points.
 
 ## Calculating Mid-Season Points Available
 

@@ -1,4 +1,4 @@
-Drafter: Kate Riker
+Drafter: Kate
 Date: 2025-03-05
 Season: 48
 ---
@@ -9,13 +9,14 @@ Season: 48
 5. Justin  
 6. Mary  
 7. David  
-8. Kevin  
+8. Bianca  
 9. Thomas  
-10. Charity  
-11. Mitch  
-12. Chrissy  
-13. Star  
-14. Cedrek  
-15. Kamilla  
-16. Sai  
-17. Stephanie
+10. Kevin
+12. Charity  
+13. Mitch  
+14. Chrissy  
+15. Star  
+15. Cedrek  
+16. Kamilla  
+17. Sai  
+18. Stephanie
