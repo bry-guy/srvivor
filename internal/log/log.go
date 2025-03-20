@@ -15,10 +15,5 @@ func NewLogger(cfg *config.Config) *slog.Logger {
 		Level: cfg.LogLevel,
 	}))
 
-	// // Log config out when level is Debug
-	// // Config can't log itself, since it's the root configurer
-	// if cfg.LogLevel == slog.LevelDebug {
-	// 	log.Debug("log.NewLogger: ", "config", fmt.Sprintf("%+v", cfg))
-	// }
 	return log
 }

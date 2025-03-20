@@ -1,7 +1,6 @@
-package main
+package scorer
 
 import (
-	"log/slog"
 	"os"
 	"testing"
 
@@ -12,30 +11,29 @@ import (
 func TestScoreCalculation(t *testing.T) {
 	testCases := []struct {
 		description       string
-		haveDraftFilePath string // filePath to the draft data file
-		haveFinalFilePath string // filePath to the final results data file
-		want              scoreResult    // expected score
+		haveDraftFilePath string      // filePath to the draft data file
+		haveFinalFilePath string      // filePath to the final results data file
+		want              ScoreResult // expected score
 	}{
 		{
 			description:       "0_draft 0_final",
-			haveDraftFilePath: "../test_fixtures/drafts/0.txt",
-			haveFinalFilePath: "../test_fixtures/finals/0.txt",
-			want:              scoreResult{
-				score: 3,
+			haveDraftFilePath: "../../test_fixtures/drafts/0.txt",
+			haveFinalFilePath: "../../test_fixtures/finals/0.txt",
+			want: ScoreResult{
+				Score: 3,
 			},
 		},
 		{
 			description:       "1_draft 0_final scores to 6",
-			haveDraftFilePath: "../test_fixtures/drafts/1.txt",
-			haveFinalFilePath: "../test_fixtures/finals/0.txt",
-			want:              scoreResult{
-				score: 6,
+			haveDraftFilePath: "../../test_fixtures/drafts/1.txt",
+			haveFinalFilePath: "../../test_fixtures/finals/0.txt",
+			want: ScoreResult{
+				Score: 6,
 			},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			log := slog.Default()
 			// Open draft data file
 			draftFile, err := os.Open(tc.haveDraftFilePath)
 			assert.NoError(t, err, "Failed to open draft file")
@@ -55,7 +53,8 @@ func TestScoreCalculation(t *testing.T) {
 			assert.NoError(t, err, "Failed to parse final results")
 
 			// Calculate and assert score
-			got, _ := score(log, draft, final)
+			got, error := score(draft, final)
+			assert.NoError(t, error)
 			assert.Equal(t, tc.want, got, "Score mismatch")
 		})
 	}

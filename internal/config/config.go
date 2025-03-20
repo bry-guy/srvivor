@@ -13,7 +13,7 @@ type Config struct {
 
 func Validate() (*Config, error) {
 	var cfg Config
-	err := envconfig.Process("srvvr", &cfg)
+	err := envconfig.Process("srvvr", &cfg) // TODO: Remove srvvr prefix
 	if err != nil {
 		return nil, fmt.Errorf("config validate: %w", err)
 	}
