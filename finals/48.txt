@@ -1,5 +1,5 @@
 Drafter: Current
-Date: 2025-03-12
+Date: 2025-03-25
 Season: 48
 ---
 1. 
@@ -16,7 +16,7 @@ Season: 48
 12. 
 13. 
 14. 
-15. 
-16. 
+15. Thomas
+16. Justin
 17. Kevin
 18. Stephanie
