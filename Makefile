@@ -69,7 +69,7 @@ uninstall:
 
 # Clean up
 clean:
-	rm -f srvivor
+	rm -f .bin/srvivor
 
 # Set the default goal to 'help' when no targets are given on the command line
 .DEFAULT_GOAL := help
