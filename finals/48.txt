@@ -1,13 +1,13 @@
-Drafter: Current
-Date: 2025-03-25
+Drafter: Final
+Date: 2025-05-28
 Season: 48
 ---
-1. 
-2. 
-3. 
-4. 
-5. 
-6. 
+1. Kyle
+2. Eva
+3. Joe
+4. Kamilla
+5. Mitch
+6. Shauhin 
 7. Mary 
 8. Star 
 9. David 

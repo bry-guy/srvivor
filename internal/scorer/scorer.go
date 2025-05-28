@@ -25,11 +25,18 @@ type Entry struct {
 	playerName string // Name of the Survivor player
 }
 
+// TODO: The scored draft should be able to determine correct vs. incorrect picks, and points earned per pick
+// TODO: The scored draft should be printable, and may need to be extended from the Draft type
+// ScoreResults contains the score, points available, and scored draft
 type ScoreResult struct {
 	Score           int
 	PointsAvailable int
+	// Draft *Draft // TODO: Add a scored draft to the result
 }
 
+// TODO: Break score down into smaller functions
+// TODO: Add an additional function to create a "scored draft" struct
+// score calculates the score of a draft based on the final results
 func score(draft, final *Draft) (ScoreResult, error) {
 	log := slog.With("draft", draft.Metadata.Drafter)
 	var result ScoreResult
