@@ -1,0 +1,12 @@
+Drafter: Current
+Date: 2023-01-01
+Season: Test
+---
+1. 
+2. 
+3. 
+4. 
+5. Larry
+6. Dick
+7. Harry
+8. Moe
