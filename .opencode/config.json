@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-zen/grok-code",
+  "theme": "matrix",
+  "disabled_providers": ["openai", "anthropic"],
+  "provider": {
+    "google": {
+      "options": {
+        "apiKey": "{env:GEMINI_API_KEY}"
+      }
+    }
+  },
+  "lsp": {
+    "json": {
+      "command": ["vscode-json-languageserver", "--stdio"],
+      "extensions": [".json"]
+    },
+  },
+  "mcp": {
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {env:GITHUB_MCP_PAT}" 
+      }
+    },
+  },
+  "tools": {
+    "github*": false,
+  }
+}
+
