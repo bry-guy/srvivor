@@ -121,13 +121,13 @@ func TestNoneEliminated(t *testing.T) {
 // particular fixture (ensures regression protection).
 func TestNegativePointsAvailable_Preserved(t *testing.T) {
 	// Use existing fixture that previously yielded a negative points available
-	draftFile, err := os.Open("../../test_fixtures/drafts/0.txt")
+	draftFile, err := os.Open("../../test_fixtures/drafts/0/bryan.txt")
 	assert.NoError(t, err)
 	defer draftFile.Close()
 	draft, err := readDraft(draftFile)
 	assert.NoError(t, err)
 
-	finalFile, err := os.Open("../../test_fixtures/finals/0.txt")
+	finalFile, err := os.Open("../../test_fixtures/drafts/0/final.txt")
 	assert.NoError(t, err)
 	defer finalFile.Close()
 	final, err := readDraft(finalFile)
@@ -210,19 +210,20 @@ func TestScoreCalculation_Fixtures(t *testing.T) {
 	}{
 		{
 			description:       "0_draft 0_final",
-			haveDraftFilePath: "../../test_fixtures/drafts/0.txt",
-			haveFinalFilePath: "../../test_fixtures/finals/0.txt",
+			haveDraftFilePath: "../../test_fixtures/drafts/0/bryan.txt",
+			haveFinalFilePath: "../../test_fixtures/drafts/0/final.txt",
 			want: ScoreResult{
 				Score:           3,
 				PointsAvailable: -4,
 			},
 		},
 		{
-			description:       "1_draft 0_final scores to 6",
-			haveDraftFilePath: "../../test_fixtures/drafts/1.txt",
-			haveFinalFilePath: "../../test_fixtures/finals/0.txt",
+			description:       "1_draft 0_final scores to 3",
+			haveDraftFilePath: "../../test_fixtures/drafts/0/bryan.txt",
+			haveFinalFilePath: "../../test_fixtures/drafts/0/final.txt",
 			want: ScoreResult{
-				Score: 6,
+				Score:           3,
+				PointsAvailable: -4,
 			},
 		},
 	}

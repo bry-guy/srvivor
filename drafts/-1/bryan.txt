@@ -1,0 +1,12 @@
+Drafter: Bryan
+Date: 2023-01-01
+Season: -1
+---
+1. Tom
+2. Dick
+3. Harry
+4. Cosmo
+5. Elaine
+6. Larry
+7. Moe
+8. Curly

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	fpath "path/filepath"
 
@@ -53,7 +54,7 @@ func runScore(cmd *cobra.Command, args []string) {
 
 	// command season
 	season, err := cmd.Flags().GetInt("season")
-	if err != nil || season < 1 {
+	if err != nil {
 		slog.Error("You must specify a valid season.")
 		os.Exit(1)
 	}
@@ -108,7 +109,24 @@ func runScore(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	finalFilepath := fmt.Sprintf("./finals/%d.txt", season)
+	// Try new location first
+	finalFilepath := fmt.Sprintf("./drafts/%d/final.txt", season)
+	if _, err := os.Stat(finalFilepath); os.IsNotExist(err) {
+		// Fallback to old location with warning
+		oldPath := fmt.Sprintf("./finals/%d.txt", season)
+		if _, err := os.Stat(oldPath); err == nil {
+			slog.Warn("Using deprecated finals location", "old_path", oldPath, "new_path", finalFilepath)
+			finalFilepath = oldPath
+		} else {
+			// Auto-create empty final.txt
+			slog.Warn("No finals found, creating empty final.txt", "path", finalFilepath)
+			if err := createEmptyFinal(finalFilepath, season); err != nil {
+				slog.Error("Failed to create empty final", "error", err)
+				os.Exit(1)
+			}
+		}
+	}
+
 	final, err := scorer.ProcessFile(finalFilepath)
 	if err != nil {
 		slog.Error("Failed to process final file.", "error", err)
@@ -126,4 +144,31 @@ func runScore(cmd *cobra.Command, args []string) {
 		result := scores[d]
 		fmt.Printf("%s:\t%d\t(points available: %d)\n", d.Metadata.Drafter, result.Score, result.PointsAvailable)
 	}
+}
+
+func createEmptyFinal(filepath string, season int) error {
+	// Ensure directory exists
+	dir := fpath.Dir(filepath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	file, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write metadata
+	fmt.Fprintf(file, "Drafter: Current\n")
+	fmt.Fprintf(file, "Date: %s\n", time.Now().Format("2006-01-02"))
+	fmt.Fprintf(file, "Season: %d\n", season)
+	fmt.Fprintf(file, "---\n")
+
+	// Write 1-18 empty positions
+	for i := 1; i <= 18; i++ {
+		fmt.Fprintf(file, "%d. \n", i)
+	}
+
+	return nil
 }
