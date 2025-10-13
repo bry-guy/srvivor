@@ -1,7 +1,7 @@
 ---
 description: Analyzes codebase implementation details. Call the codebase-analyzer agent when you need to find detailed information about specific components.
 mode: subagent
-model: opencode-zen/grok-code
+model: opencode/grok-code
 temperature: 0.1
 tools:
   read: true

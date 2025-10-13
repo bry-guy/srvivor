@@ -1,7 +1,7 @@
 ---
 description: Discovers relevant documents in thoughts/ directory (We use this for all sorts of metadata storage!). This is really only relevant/needed when you're in a reseaching mood and need to figure out if we have random thoughts written down that are relevant to your current research task. `thoughts` equivalent of `codebase-locator`
 mode: subagent
-model: opencode-zen/grok-code
+model: opencode/grok-code
 temperature: 0.1
 tools:
   read: true
