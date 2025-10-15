@@ -2,14 +2,12 @@
 
 ## Overview
 
-Enhance the srvivor application to accept poorly formatted drafts with approximate or nickname-based contestant names, automatically validate and correct them against a canonical season roster using intelligent name matching, and unify the draft storage model by eliminating the separate `finals/` directory structure.
+Enhance the srvivor application to accept poorly formatted drafts with approximate or nickname-based contestant names, automatically validate and correct them against a canonical season roster using intelligent name matching.
 
 ## Goals
 
 1. Accept drafts with imprecise contestant names and normalize them to canonical names defined in `rosters/`
 2. Intelligently match input names against contestant data (first name, last name, nickname, or variations)
-3. Consolidate the `finals/` directory structure by moving final rankings into each season's `drafts/` directory as `final.txt`
-4. Maintain backward compatibility with existing draft file format
 5. Provide clear feedback on name corrections made during validation
 
 ## Current State
@@ -31,13 +29,12 @@ Season: [Number]
 drafts/
   [season]/
     [drafter].txt
-finals/
-  [season].txt
+    final.txt
 ```
 
 ### Current Behavior
 - Draft files must contain exact contestant names
-- Final rankings stored separately in `finals/` directory
+- Final rankings are stored separately in `drafts/seasons/final.txt` "draft"
 - Scoring compares drafts against finals using exact string matching
 
 ### Identified Issues in Season 49 Drafts
@@ -323,54 +320,10 @@ Summary: 1 correction made, 16 names unchanged, 1 error
 Draft partially saved to: drafts/49/kate.txt
 ````
 
-### 4. Directory Structure Changes
-
-#### New Structure
-```
-drafts/
-  [season]/
-    [drafter].txt
-    final.txt  # Canonical final ranking (replaces finals/ directory)
-rosters/
-  [season].json  # Canonical contestant roster
-test_fixtures/
-  drafts/
-    [season]/
-      [drafter].txt
-  rosters/
-    [season].json
-```
-
-#### Migration Path
-
-Manual migration required:
-1. Create `rosters/` directory
-2. Create roster JSON files for each season
-3. For each season with existing finals:
-   - Copy `finals/[season].txt` to `drafts/[season]/final.txt`
-   - Keep original in `finals/` for backward compatibility initially
-4. Update `score` command to check both locations
-5. After transition period, remove `finals/` directory
-
-Migration checklist:
-- [ ] Copy season 49 to season -1 (for non-destructive implementation and testing)
-- [ ] Create `rosters/` directory
-- [ ] Create `rosters/49.json` based on season 49 final rankings
-- [ ] Copy `finals/49.txt` to `drafts/49/final.txt`
-- [ ] Update tests for new location
-- [ ] Test `score` command with new location
-- [ ] Run `drafts` on season -1 drafts
-- [ ] Run `drafts fix` on season -1 drafts
-- [ ] Run `drafts fix --dry-run` on season -1 drafts
-- [ ] Run `drafts fix --threshold` on season -1 drafts
-- [ ] Run `drafts validate` on season -1 drafts
-- [ ] Verify corrected names match expected results
-
 ### 5. Updated `score` Command
 
 #### Changes
-- Look for final rankings at `./drafts/[season]/final.txt` first
-- Fall back to `./finals/[season].txt` with deprecation warning
+- Look for final rankings at `./drafts/[season]/final.txt`
 - No change to command-line interface
 
 #### Implementation
@@ -386,11 +339,8 @@ func runScore(cmd *cobra.Command, args []string) {
 		// Fall back to old location with warning
 		finalFilepath = fmt.Sprintf("./finals/%d.txt", season)
 		if _, err := os.Stat(finalFilepath); err == nil {
-			slog.Warn("Using deprecated finals/ directory structure. Consider running migration to use drafts/[season]/final.txt")
-		} else {
-			slog.Error("Final rankings file not found in either location", 
-				"new_location", fmt.Sprintf("./drafts/%d/final.txt", season),
-				"old_location", fmt.Sprintf("./finals/%d.txt", season))
+			slog.Error("Final rankings file not found", 
+				"new_location", fmt.Sprintf("./drafts/%d/final.txt", season)
 			os.Exit(1)
 		}
 	}
@@ -478,19 +428,6 @@ Suggestion: Run 'srvivor fix-drafts -s 49 -d "*"' to automatically correct names
 - Draft file rewriting logic that preserves format
 - Comprehensive output formatting
 - E2E tests using season -1 drafts
-
-### Phase 4: Directory Migration (Week 4)
-1. Update `score` command for new directory structure
-2. Implement backward compatibility layer
-3. Update test fixtures to use new structure
-4. Manual migration of existing finals to new location
-5. Update existing E2E tests
-
-**Deliverables**:
-- Updated `cmd/score.go` with dual location support
-- Migrated test fixtures
-- Updated E2E tests in `e2e_test.go`
-- Migration documentation
 
 ### Phase 5: Integration and Validation (Week 5)
 1. Add `--validate` flag to `score` command
@@ -667,12 +604,10 @@ Add new sections:
 1. **Commands** - Document `drafts` command with examples
 2. **Roster Management** - How to create and maintain roster files
 3. **Name Matching** - Explain intelligent matching algorithm
-4. **Migration Guide** - Steps to migrate from finals/ to drafts/[season]/final.txt
 
 ### New Documentation Files
 1. `docs/roster-format.md` - JSON schema and examples
 2. `docs/name-matching.md` - Detailed explanation of matching algorithm
-3. `docs/migration-guide.md` - Step-by-step migration instructions
 
 ### Command Help Text
 Update help text for all commands to reflect new features and options.
