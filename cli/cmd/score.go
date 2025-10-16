@@ -15,9 +15,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bry-guy/srvivor/internal/config"
-	"github.com/bry-guy/srvivor/internal/roster"
-	"github.com/bry-guy/srvivor/internal/scorer"
+	"github.com/bry-guy/srvivor/shared/config"
+	"github.com/bry-guy/srvivor/shared/roster"
+	"github.com/bry-guy/srvivor/shared/scorer"
 )
 
 func newScoreCmd() *cobra.Command {

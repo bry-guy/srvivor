@@ -1,4 +1,14 @@
 [tools]
-golang = '1.24.0'
+go = "1.24"
 golangci-lint = '1.64.5'
 golangci-lint-langserver = '0.0.10'
+
+[env]
+SRVIVOR_ENV = "development"
+
+[tasks]
+build = "cd cli && go build -o bin/srvivor ."
+test = "cd cli && go test ./..."
+lint = "cd cli && golangci-lint run"
+run = "cd cli && go run ."
+clean = "rm -rf cli/bin"

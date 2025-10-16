@@ -1,6 +1,6 @@
-# README
+# srvivor Monorepo
 
-`srvivor` is a Survivor Draft scoring app.
+`srvivor` is a suite of tools for Survivor TV show fantasy drafts, starting with a CLI scoring app.
 
 ## Commands
 
@@ -49,7 +49,7 @@ srvivor fix-drafts -s 49 -d bryan --threshold 0.80
 
 ## Roster Management
 
-Season rosters are stored in `rosters/[season].json` and contain canonical contestant information for name matching.
+Season rosters are stored in `packages/shared/go/rosters/[season].json` and contain canonical contestant information for name matching.
 
 ### Roster Format
 
@@ -79,10 +79,10 @@ The application intelligently matches input names against the canonical roster u
 ## Develop
 
 Pre-requisites:
-1. `make checkhealth`: verify developer tools are installed
-1. `make bootstrap`: install application development dependencies
-1. `make download`: get application modules
+1. Install Mise: https://mise.jdx.dev/
+2. `mise install`: install required tools
+3. `go work sync`: sync Go workspace dependencies
 
-Your main developer loop is `make test/build/run/clean`.
+Your main developer loop is `mise run test && mise run build && mise run run`.
 
-Test your changes via `make install/unistall`.
+Test your changes via `mise run test`.

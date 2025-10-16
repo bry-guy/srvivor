@@ -10,8 +10,8 @@ import (
 
 	fpath "path/filepath"
 
-	"github.com/bry-guy/srvivor/internal/matcher"
-	"github.com/bry-guy/srvivor/internal/roster"
+	"github.com/bry-guy/srvivor/shared/matcher"
+	"github.com/bry-guy/srvivor/shared/roster"
 	"github.com/spf13/cobra"
 )
 
