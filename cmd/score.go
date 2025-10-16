@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/bry-guy/srvivor/internal/config"
 	"github.com/bry-guy/srvivor/internal/roster"
 	"github.com/bry-guy/srvivor/internal/scorer"
 )
@@ -29,6 +33,8 @@ func newScoreCmd() *cobra.Command {
 	scoreCmd.Flags().IntP("season", "s", 0, "Season number of the Survivor game")
 	scoreCmd.Flags().Bool("validate", false, "Validate all contestant names against roster before scoring")
 	scoreCmd.Flags().BoolP("points-available", "p", false, "Show points available")
+	scoreCmd.Flags().Bool("publish", false, "Publish scores to Discord bot")
+	scoreCmd.Flags().StringSlice("voted-out", []string{}, "Names of contestants voted out this week")
 	if err := scoreCmd.MarkFlagRequired("season"); err != nil {
 		slog.Error("creating score command", "error", err)
 		os.Exit(1)
@@ -60,6 +66,23 @@ func runScore(cmd *cobra.Command, args []string) {
 	pointsAvailable, err := cmd.Flags().GetBool("points-available")
 	if err != nil {
 		slog.Error("parsing points-available flag", "error", err)
+		os.Exit(1)
+	}
+
+	publish, err := cmd.Flags().GetBool("publish")
+	if err != nil {
+		slog.Error("parsing publish flag", "error", err)
+		os.Exit(1)
+	}
+
+	votedOut, err := cmd.Flags().GetStringSlice("voted-out")
+	if err != nil {
+		slog.Error("parsing voted-out flag", "error", err)
+		os.Exit(1)
+	}
+
+	if publish && len(votedOut) == 0 {
+		slog.Error("voted-out is required when publishing")
 		os.Exit(1)
 	}
 
@@ -182,6 +205,20 @@ func runScore(cmd *cobra.Command, args []string) {
 		return drafts[i].Metadata.Drafter < drafts[j].Metadata.Drafter
 	})
 
+	if publish {
+		cfg, err := config.Validate()
+		if err != nil {
+			slog.Error("config validation", "error", err)
+			os.Exit(1)
+		}
+		message := buildMessage(season, votedOut, drafts, scores, pointsAvailable)
+		err = publishToDiscord(cfg.DiscordBotURL, message, season, votedOut)
+		if err != nil {
+			slog.Error("failed to publish to Discord", "error", err)
+			// continue to print
+		}
+	}
+
 	// Find the maximum length of drafter names for alignment
 	maxLen := 0
 	for _, d := range drafts {
@@ -272,5 +309,45 @@ func validateDraft(draft *scorer.Draft, canonicalNames map[string]bool, name str
 		return fmt.Errorf("validation failed")
 	}
 
+	return nil
+}
+
+func buildMessage(season int, votedOut []string, drafts []*scorer.Draft, scores map[*scorer.Draft]scorer.ScoreResult, showPoints bool) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("**Survivor Season %d Scores**\n", season))
+	if len(votedOut) > 0 {
+		sb.WriteString(fmt.Sprintf("Voted out this week: %s\n\n", strings.Join(votedOut, ", ")))
+	}
+	sb.WriteString("**Leaderboard:**\n")
+	for i, d := range drafts {
+		result := scores[d]
+		if showPoints {
+			sb.WriteString(fmt.Sprintf("%d. %s: %d (points available: %d)\n", i+1, d.Metadata.Drafter, result.Score, result.PointsAvailable))
+		} else {
+			sb.WriteString(fmt.Sprintf("%d. %s: %d\n", i+1, d.Metadata.Drafter, result.Score))
+		}
+	}
+	sb.WriteString("\n*Scores calculated automatically.*")
+	return sb.String()
+}
+
+func publishToDiscord(url, message string, season int, votedOut []string) error {
+	payload := map[string]interface{}{
+		"message":   message,
+		"season":    season,
+		"voted_out": votedOut,
+	}
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		slog.Warn("Discord bot responded with non-200", "status", resp.StatusCode)
+	}
 	return nil
 }
