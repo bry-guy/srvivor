@@ -15,6 +15,9 @@ type Config struct {
 	// Validation settings
 	FuzzyMatchThreshold float64 `envconfig:"SRVVR_FUZZY_THRESHOLD" envDefault:"0.70"`
 	RequireExactMatch   bool    `envconfig:"SRVVR_REQUIRE_EXACT" envDefault:"false"`
+
+	// Discord bot settings
+	DiscordBotURL string `envconfig:"DISCORD_BOT_URL" default:"http://localhost:8080/publish"`
 }
 
 func Validate() (*Config, error) {
