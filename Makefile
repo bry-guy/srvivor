@@ -34,10 +34,10 @@ download:
 
 # Run tests
 test:
-	SRVVR_LOG_LEVEL=DEBUG go test -v ./internal/*
+	LOG_LEVEL=DEBUG go test -v ./internal/*
 
 e2e: build
-	SRVVR_LOG_LEVEL=DEBUG go test -run "E2E"
+	LOG_LEVEL=DEBUG go test -run "E2E"
 
 # Build the app
 build:
@@ -50,9 +50,9 @@ SEASON :=
 
 run:
 ifdef FILEPATH
-	SRVVR_LOG_LEVEL=DEBUG ./srvivor score -f $(FILEPATH) -s $(SEASON)
+	LOG_LEVEL=DEBUG ./srvivor score -f $(FILEPATH) -s $(SEASON)
 else ifdef DRAFTER
-	SRVVR_LOG_LEVEL=DEBUG ./srvivor score -d $(DRAFTER) -s $(SEASON)
+	LOG_LEVEL=DEBUG ./srvivor score -d $(DRAFTER) -s $(SEASON)
 else
 	@echo "Error: Missing required arguments"
 	@echo "Usage: make run FILEPATH=<filepath> SEASON=<season>"

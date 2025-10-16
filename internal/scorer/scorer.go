@@ -22,7 +22,7 @@ type Draft struct {
 
 type Entry struct {
 	position   int    // Position in the draft
-	playerName string // Name of the Survivor player
+	PlayerName string // Name of the Survivor player
 }
 
 // TODO: The scored draft should be able to determine correct vs. incorrect picks, and points earned per pick
@@ -53,9 +53,9 @@ func score(draft, final *Draft) (ScoreResult, error) {
 	finalPositions := make(map[string]int)
 	maxPosition := 0
 	for _, e := range final.Entries {
-		log.Debug("final", "player", e.playerName, "position", e.position)
-		if e.playerName != "" {
-			finalPositions[e.playerName] = e.position
+		log.Debug("final", "player", e.PlayerName, "position", e.position)
+		if e.PlayerName != "" {
+			finalPositions[e.PlayerName] = e.position
 			currentPositions++
 		}
 		if e.position > maxPosition {
@@ -67,11 +67,11 @@ func score(draft, final *Draft) (ScoreResult, error) {
 	// is the current season. This preserves the original error/warn
 	// behavior exactly.
 	for _, draftEntry := range draft.Entries {
-		if _, ok := finalPositions[draftEntry.playerName]; !ok {
+		if _, ok := finalPositions[draftEntry.PlayerName]; !ok {
 			if final.Metadata.Drafter == "Current" {
-				log.Warn("Season is current. Assuming player has not finished.", "player", draftEntry.playerName)
+				log.Warn("Season is current. Assuming player has not finished.", "player", draftEntry.PlayerName)
 			} else {
-				return ScoreResult{}, fmt.Errorf("player not found in final results: %v", draftEntry.playerName)
+				return ScoreResult{}, fmt.Errorf("player not found in final results: %v", draftEntry.PlayerName)
 			}
 		}
 	}
@@ -99,7 +99,7 @@ func score(draft, final *Draft) (ScoreResult, error) {
 func calculateCurrentScore(draft *Draft, finalPositions map[string]int, totalPositions int) int {
 	currentScore := 0
 	for _, draftEntry := range draft.Entries {
-		if finalPosition, ok := finalPositions[draftEntry.playerName]; ok {
+		if finalPosition, ok := finalPositions[draftEntry.PlayerName]; ok {
 			distance := abs(draftEntry.position - finalPosition)
 			// Position value for current score is based on the draft pick value
 			// (higher for earlier draft picks). This matches the specification
@@ -126,7 +126,7 @@ func calculatePointsAvailable(draft *Draft, finalPositions map[string]int, total
 	// Build list of remaining survivors (not yet in final positions)
 	remainder := []Entry{}
 	for _, e := range draft.Entries {
-		if _, ok := finalPositions[e.playerName]; !ok {
+		if _, ok := finalPositions[e.PlayerName]; !ok {
 			remainder = append(remainder, e)
 		}
 	}
@@ -148,7 +148,7 @@ func calculatePointsAvailable(draft *Draft, finalPositions map[string]int, total
 		for _, draftEntry := range draft.Entries {
 			positionValue, entryScore, distance, lossDistance, knownLoss := 0, 0, 0, 0, 0
 
-			if finalPosition, ok := finalPositions[draftEntry.playerName]; ok {
+			if finalPosition, ok := finalPositions[draftEntry.PlayerName]; ok {
 				distance = abs(draftEntry.position - finalPosition)
 				positionValue = totalPositions - finalPosition + 1
 				entryScore = max(0, positionValue-distance)
@@ -294,7 +294,7 @@ func readDraft(file *os.File) (*Draft, error) {
 
 			d.Entries = append(d.Entries, Entry{
 				position:   position,
-				playerName: strings.TrimSpace(parts[1]),
+				PlayerName: strings.TrimSpace(parts[1]),
 			})
 		}
 	}

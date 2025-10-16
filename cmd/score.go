@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/bry-guy/srvivor/internal/roster"
 	"github.com/bry-guy/srvivor/internal/scorer"
 )
 
@@ -25,6 +27,8 @@ func newScoreCmd() *cobra.Command {
 	scoreCmd.Flags().StringP("file", "f", "", "Input file containing the draft")
 	scoreCmd.Flags().StringSliceP("drafters", "d", []string{}, "Drafter name(s) to lookup the draft")
 	scoreCmd.Flags().IntP("season", "s", 0, "Season number of the Survivor game")
+	scoreCmd.Flags().Bool("validate", false, "Validate all contestant names against roster before scoring")
+	scoreCmd.Flags().BoolP("points-available", "p", false, "Show points available")
 	if err := scoreCmd.MarkFlagRequired("season"); err != nil {
 		slog.Error("creating score command", "error", err)
 		os.Exit(1)
@@ -44,6 +48,18 @@ func runScore(cmd *cobra.Command, args []string) {
 	filepath, err := cmd.Flags().GetString("file")
 	if err != nil {
 		slog.Error("parsing file flag", "error", err)
+		os.Exit(1)
+	}
+
+	validate, err := cmd.Flags().GetBool("validate")
+	if err != nil {
+		slog.Error("parsing validate flag", "error", err)
+		os.Exit(1)
+	}
+
+	pointsAvailable, err := cmd.Flags().GetBool("points-available")
+	if err != nil {
+		slog.Error("parsing points-available flag", "error", err)
 		os.Exit(1)
 	}
 
@@ -88,6 +104,7 @@ func runScore(cmd *cobra.Command, args []string) {
 	slog.Debug("workdir: ", "workdir", wd)
 
 	var drafts []*scorer.Draft
+	failedDrafts := []string{}
 	if filepath != "" {
 		// Single file mode
 		draft, err := scorer.ProcessFile(filepath)
@@ -103,6 +120,7 @@ func runScore(cmd *cobra.Command, args []string) {
 			draft, err := scorer.ProcessFile(filepath)
 			if err != nil {
 				slog.Error("Failed to process file.", "error", err)
+				failedDrafts = append(failedDrafts, drafter)
 				continue
 			}
 			drafts = append(drafts, draft)
@@ -133,6 +151,17 @@ func runScore(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	if validate {
+		if len(failedDrafts) > 0 {
+			fmt.Printf("Validation failed: failed to process drafts: %v\n", failedDrafts)
+			os.Exit(1)
+		}
+		if err := validateDrafts(drafts, final, season); err != nil {
+			os.Exit(1)
+		}
+		fmt.Printf("Validation passed for season %d\n", season)
+	}
+
 	slog.Info("Calculating score for each draft.")
 	scores, err := scorer.Scores(drafts, final)
 	if err != nil {
@@ -140,9 +169,34 @@ func runScore(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Sort drafts by score (desc), then points available (desc), then name (asc)
+	sort.Slice(drafts, func(i, j int) bool {
+		si := scores[drafts[i]]
+		sj := scores[drafts[j]]
+		if si.Score != sj.Score {
+			return si.Score > sj.Score
+		}
+		if si.PointsAvailable != sj.PointsAvailable {
+			return si.PointsAvailable > sj.PointsAvailable
+		}
+		return drafts[i].Metadata.Drafter < drafts[j].Metadata.Drafter
+	})
+
+	// Find the maximum length of drafter names for alignment
+	maxLen := 0
+	for _, d := range drafts {
+		if len(d.Metadata.Drafter) > maxLen {
+			maxLen = len(d.Metadata.Drafter)
+		}
+	}
+
 	for _, d := range drafts {
 		result := scores[d]
-		fmt.Printf("%s:\t%d\t(points available: %d)\n", d.Metadata.Drafter, result.Score, result.PointsAvailable)
+		if pointsAvailable {
+			fmt.Printf("%-*s:\t%d\t(points available: %d)\n", maxLen, d.Metadata.Drafter, result.Score, result.PointsAvailable)
+		} else {
+			fmt.Printf("%-*s:\t%d\n", maxLen, d.Metadata.Drafter, result.Score)
+		}
 	}
 }
 
@@ -168,6 +222,54 @@ func createEmptyFinal(filepath string, season int) error {
 	// Write 1-18 empty positions
 	for i := 1; i <= 18; i++ {
 		fmt.Fprintf(file, "%d. \n", i)
+	}
+
+	return nil
+}
+
+func validateDrafts(drafts []*scorer.Draft, final *scorer.Draft, season int) error {
+	roster, err := roster.LoadRoster(season)
+	if err != nil {
+		return fmt.Errorf("failed to load roster: %w", err)
+	}
+
+	// Create map of canonical names
+	canonicalNames := make(map[string]bool)
+	for _, c := range roster.Contestants {
+		canonicalNames[c.CanonicalName] = true
+	}
+
+	// Validate final
+	if err := validateDraft(final, canonicalNames, "final"); err != nil {
+		return err
+	}
+
+	// Validate drafts
+	for _, draft := range drafts {
+		if err := validateDraft(draft, canonicalNames, draft.Metadata.Drafter); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateDraft(draft *scorer.Draft, canonicalNames map[string]bool, name string) error {
+	var errors []string
+	for _, entry := range draft.Entries {
+		if entry.PlayerName != "" && !canonicalNames[entry.PlayerName] {
+			errors = append(errors, fmt.Sprintf("  %s: %q is not an exact match for any contestant", name, entry.PlayerName))
+		}
+	}
+
+	if len(errors) > 0 {
+		fmt.Printf("Validating drafts for season...\n")
+		for _, e := range errors {
+			fmt.Println(e)
+		}
+		fmt.Printf("Validation failed: %d names do not exactly match roster\n", len(errors))
+		fmt.Printf("Suggestion: Run 'srvivor fix-drafts -s %d -d \"*\"' to automatically correct names\n", draft.Metadata.Season)
+		return fmt.Errorf("validation failed")
 	}
 
 	return nil

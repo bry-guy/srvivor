@@ -2,21 +2,21 @@ Drafter: Kate
 Date: 2025-10-08
 Season: 49
 ---
-1 Alex
-2 Steven
-3 Sophi B
-4 Shannon
-5 Jake
-6 Rizo
-7 Savannah
-8 Jeremiah
-9 Michelle
-10 Nate
-11 Sophie S
-12 Kristen
-13 Matt
-14 Sage
-15 Jason
-16 Jawan
-17 Annie
-18 Nicole
+1. Alex
+2. Steven
+3. Sophi B
+4. Shannon
+5. Jake
+6. Rizo
+7. Savannah
+8. Jeremiah
+9. MC
+10. Nate
+11. Sophie S
+12. Kristina
+13. Matt
+14. Sage
+15. Jason
+16. Jawann
+17. Annie
+18. Nicole

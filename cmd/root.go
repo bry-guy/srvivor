@@ -22,7 +22,9 @@ func init() {
 	slog.SetDefault(log.NewLogger(cfg))
 
 	scoreCmd := newScoreCmd()
+	fixCmd := newFixDraftsCmd()
 	rootCmd.AddCommand(scoreCmd)
+	rootCmd.AddCommand(fixCmd)
 }
 
 func Execute() {

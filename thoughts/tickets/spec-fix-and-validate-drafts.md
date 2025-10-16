@@ -1,3 +1,7 @@
+---
+status: implemented
+---
+
 # Specification: Draft Validation and Formatting Enhancement
 
 ## Overview
@@ -389,7 +393,7 @@ Suggestion: Run 'srvivor fix-drafts -s 49 -d "*"' to automatically correct names
 
 ## Implementation Plan
 
-### Phase 1: Core Infrastructure (Week 1)
+- [x] ### Phase 1: Core Infrastructure (Week 1)
 1. Create `internal/roster` package with data structures
 2. Implement roster JSON loading and parsing
 3. Add JSON schema validation
@@ -402,7 +406,7 @@ Suggestion: Run 'srvivor fix-drafts -s 49 -d "*"' to automatically correct names
 - `rosters/48.json` and `rosters/49.json`
 - Unit tests for roster package
 
-### Phase 2: Name Matching (Week 2)
+- [x] ### Phase 2: Name Matching (Week 2)
 1. Create `internal/matcher` package
 2. Implement name normalization utilities
 3. Implement matching algorithm with all match types
@@ -415,7 +419,7 @@ Suggestion: Run 'srvivor fix-drafts -s 49 -d "*"' to automatically correct names
 - Unit tests with season -1 test cases (Sophie, Sophi, MC, Kristina)
 - Benchmark tests for performance
 
-### Phase 3: Fix Command (Week 3)
+- [x] ### Phase 3: Fix Command (Week 3)
 1. Create `cmd/fix_drafts.go` with command structure
 2. Implement draft file reading with line tracking
 3. Implement name replacement logic preserving format
@@ -429,7 +433,7 @@ Suggestion: Run 'srvivor fix-drafts -s 49 -d "*"' to automatically correct names
 - Comprehensive output formatting
 - E2E tests using season -1 drafts
 
-### Phase 5: Integration and Validation (Week 5)
+- [x] ### Phase 5: Integration and Validation (Week 5)
 1. Add `--validate` flag to `score` command
 2. Implement validation logic
 3. Add integration tests for validation

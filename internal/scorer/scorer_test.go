@@ -11,21 +11,21 @@ import (
 func makeDraft(names []string) *Draft {
 	d := &Draft{}
 	for i, n := range names {
-		d.Entries = append(d.Entries, Entry{position: i + 1, playerName: n})
+		d.Entries = append(d.Entries, Entry{position: i + 1, PlayerName: n})
 	}
 	return d
 }
 
 // Helper to create a final results Draft with totalPositions entries. The
-// eliminated map maps playerName -> position. Positions without an eliminated
-// player will have empty playerName (survivors).
+// eliminated map maps PlayerName -> position. Positions without an eliminated
+// player will have empty PlayerName (survivors).
 func makeFinal(totalPositions int, eliminated map[string]int, drafter string) *Draft {
 	f := &Draft{Metadata: Metadata{Drafter: drafter}}
 	for i := 1; i <= totalPositions; i++ {
-		entry := Entry{position: i, playerName: ""}
+		entry := Entry{position: i, PlayerName: ""}
 		for name, pos := range eliminated {
 			if pos == i {
-				entry.playerName = name
+				entry.PlayerName = name
 				break
 			}
 		}

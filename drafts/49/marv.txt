@@ -2,21 +2,21 @@ Drafter: Marv
 Date: 2025-10-08
 Season: 49
 ---
-1) MC
-2) Alex
-3) Matt
-4) Kristina
-5) Nate 
-6) Savannah
-7) Sophie
-8) Rizo
-9) Steven
-10) Jake
-11) Sophi
-12) Jawan
-13) Jason
-14) Shannon 
-15) Annie
-16) Sage
-17) Jeremiah
-18) Nicole
+1. MC
+2. Alex
+3. Matt
+4. Kristina
+5. Nate
+6. Savannah
+7. Sophie S
+8. Rizo
+9. Steven
+10. Jake
+11. Sophi B
+12. Jawann
+13. Jason
+14. Shannon
+15. Annie
+16. Sage
+17. Jeremiah
+18. Nicole
