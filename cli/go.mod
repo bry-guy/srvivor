@@ -3,6 +3,7 @@ module github.com/bry-guy/srvivor
 go 1.24.0
 
 require (
+	github.com/agnivade/levenshtein v1.2.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lmittmann/tint v1.0.3
 	github.com/rakyll/gotest v0.0.6
@@ -11,7 +12,6 @@ require (
 )
 
 require (
-	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
