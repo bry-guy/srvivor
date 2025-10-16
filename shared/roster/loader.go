@@ -6,13 +6,13 @@ import (
 	"os"
 )
 
-// LoadRoster loads a season roster from the JSON file at rosters/[season].json
+// LoadRoster loads a season roster from the JSON file at cli/rosters/[season].json
 func LoadRoster(season int) (*SeasonRoster, error) {
-	// Try from project root first
-	filename := fmt.Sprintf("rosters/%d.json", season)
+	// Try from project root first (for CLI run from root)
+	filename := fmt.Sprintf("cli/rosters/%d.json", season)
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		// Try from internal/ subdirectory
-		filename = fmt.Sprintf("../../rosters/%d.json", season)
+		// Try from cli/ subdirectory
+		filename = fmt.Sprintf("rosters/%d.json", season)
 	}
 
 	data, err := os.ReadFile(filename)

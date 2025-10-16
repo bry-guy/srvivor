@@ -3,7 +3,7 @@ package matcher
 import (
 	"testing"
 
-	"github.com/bry-guy/srvivor/internal/roster"
+	"github.com/bry-guy/srvivor/shared/roster"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
