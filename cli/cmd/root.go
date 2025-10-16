@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/bry-guy/srvivor/shared/config"
-	"github.com/bry-guy/srvivor/shared/log"
+	"github.com/bry-guy/srvivor/internal/config"
+	"github.com/bry-guy/srvivor/internal/log"
 	"github.com/spf13/cobra"
 )
 
