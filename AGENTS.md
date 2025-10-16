@@ -17,7 +17,7 @@
 - **Variables**: Prefer single word names where possible
 - **Comments**: Add for complex functions explaining purpose
 - **Formatting**: Follow gofmt/goimports standards
-- **Commits**: Use conventional commit format (e.g., feat:, fix:, docs:, etc.)
+- **Commits**: Use conventional commit format (e.g., feat:, fix:, docs:, etc.). **ALWAYS** ask for review and permission from the user before committing.
 
 ## Agent Memory and Wiki Usage
 
@@ -29,7 +29,7 @@ Agents should store their memory and session notes in the `wiki/` Obsidian vault
 - Datetime should reflect when the note was created or the action occurred
 
 ### When to Save Notes
-- **Always save notes before committing changes**: Compact the session conversation into a note with examples, references, and key decisions, and include the note in the same commit as the code changes to avoid separate commits
+- **ALWAYS save notes before committing changes**: Compact the session conversation into a note with examples, references, and key decisions, and include the note in the same commit as the code changes to avoid separate commits
 - **Optionally save notes anytime**: For significant actions, discoveries, or context that might be useful later
 - **Update existing notes**: If working on the same topic (even across commits), update the existing note rather than creating new ones
 - **Create new notes**: For semantically different actions or topics
