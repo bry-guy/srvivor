@@ -305,7 +305,7 @@ func validateDraft(draft *scorer.Draft, canonicalNames map[string]bool, name str
 			fmt.Println(e)
 		}
 		fmt.Printf("Validation failed: %d names do not exactly match roster\n", len(errors))
-		fmt.Printf("Suggestion: Run 'srvivor fix-drafts -s %d -d \"*\"' to automatically correct names\n", draft.Metadata.Season)
+		fmt.Printf("Suggestion: Run 'srvivor fix-drafts -s %s -d \"*\"' to automatically correct names\n", draft.Metadata.Season)
 		return fmt.Errorf("validation failed")
 	}
 

@@ -12,7 +12,7 @@ import (
 
 func TestE2E_Score(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./bin/srvivor"); os.IsNotExist(err) {
+	if _, err := os.Stat("../bin/srvivor"); os.IsNotExist(err) {
 		t.Fatalf("missing srvivor binary: %v", err)
 	}
 
@@ -92,7 +92,7 @@ func TestE2E_Score(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// #nosec G204 - Test-only code with hardcoded arguments
-			cmd := exec.Command("./bin/srvivor", tc.args...)
+			cmd := exec.Command("../bin/srvivor", tc.args...)
 
 			// Set environment variables
 			cmd.Env = os.Environ() // Start with current environment
@@ -130,7 +130,7 @@ func TestE2E_Score(t *testing.T) {
 
 func TestE2E_ScoreWithValidation(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./bin/srvivor"); os.IsNotExist(err) {
+	if _, err := os.Stat("../bin/srvivor"); os.IsNotExist(err) {
 		t.Fatalf("missing srvivor binary: %v", err)
 	}
 
@@ -168,7 +168,7 @@ func TestE2E_ScoreWithValidation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// #nosec G204 - Test-only code with hardcoded arguments
-			cmd := exec.Command("./bin/srvivor", tc.args...)
+			cmd := exec.Command("../bin/srvivor", tc.args...)
 
 			// Set environment variables
 			cmd.Env = os.Environ() // Start with current environment
@@ -209,7 +209,7 @@ func TestE2E_ScoreWithValidation(t *testing.T) {
 
 func TestE2E_FixDrafts(t *testing.T) {
 	// Skip if binary doesn't exist
-	if _, err := os.Stat("./bin/srvivor"); os.IsNotExist(err) {
+	if _, err := os.Stat("../bin/srvivor"); os.IsNotExist(err) {
 		t.Fatalf("missing srvivor binary: %v", err)
 	}
 
@@ -254,7 +254,7 @@ func TestE2E_FixDrafts(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// #nosec G204 - Test-only code with hardcoded arguments
-			cmd := exec.Command("./bin/srvivor", tc.args...)
+			cmd := exec.Command("../bin/srvivor", tc.args...)
 
 			// Set environment variables
 			cmd.Env = os.Environ() // Start with current environment
