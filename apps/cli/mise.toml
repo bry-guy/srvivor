@@ -1,0 +1,21 @@
+[tasks.lint]
+run = "golangci-lint run"
+
+[tasks.test]
+depends = ["lint"]
+run = "go test ./..." 
+
+[tasks.run]
+depends = ["lint"]
+run = "go run ."
+
+[tasks.clean]
+run = "rm -rf ./bin"
+
+[tasks.build]
+depends = ["clean"]
+run = "go build -o bin/srvivor ."
+
+[tasks.ci]
+description = "Run all tasks for CI pipeline (lint, test, build)"
+depends = ["lint", "test", "build"]
