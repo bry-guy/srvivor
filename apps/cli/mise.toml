@@ -3,7 +3,7 @@ run = "golangci-lint run"
 
 [tasks.test]
 depends = ["lint"]
-run = "go test ./..." 
+run = "LOG_LEVEL=DEBUG go test -v ./internal/*" 
 
 [tasks.run]
 depends = ["lint"]
