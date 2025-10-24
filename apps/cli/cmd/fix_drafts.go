@@ -208,5 +208,5 @@ func readLines(filepath string) ([]string, error) {
 
 func writeLines(filepath string, lines []string) error {
 	content := strings.Join(lines, "\n")
-	return os.WriteFile(filepath, []byte(content), 0644)
+	return os.WriteFile(filepath, []byte(content), 0600)
 }
