@@ -7,6 +7,7 @@ import (
 
 	"github.com/bry-guy/srvivor/internal/config"
 	"github.com/bry-guy/srvivor/internal/log"
+	"github.com/bry-guy/srvivor/internal/messager"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,8 @@ func init() {
 
 	slog.SetDefault(log.NewLogger(cfg))
 
-	scoreCmd := newScoreCmd()
+	m := messager.NewDiscordMessager(cfg.DiscordBotURL)
+	scoreCmd := newScoreCmd(m)
 	fixCmd := newFixDraftsCmd()
 	rootCmd.AddCommand(scoreCmd)
 	rootCmd.AddCommand(fixCmd)

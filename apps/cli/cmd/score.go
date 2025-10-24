@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -15,17 +12,19 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bry-guy/srvivor/internal/config"
+	"github.com/bry-guy/srvivor/internal/messager"
 	"github.com/bry-guy/srvivor/internal/roster"
 	"github.com/bry-guy/srvivor/internal/scorer"
 )
 
-func newScoreCmd() *cobra.Command {
+func newScoreCmd(m messager.Messager) *cobra.Command {
 	scoreCmd := &cobra.Command{
 		Use:   "score [-f --file [filepath] | -d --drafters [drafters]] -s --season [season]",
 		Short: "Calculate the score for a Survivor drafts",
 		Long:  `Calculate and display the total score for Survivor drafts for a particular season.`,
-		Run:   runScore,
+		Run: func(cmd *cobra.Command, args []string) {
+			runScore(cmd, args, m)
+		},
 	}
 
 	scoreCmd.Flags().StringP("file", "f", "", "Input file containing the draft")
@@ -43,7 +42,7 @@ func newScoreCmd() *cobra.Command {
 	return scoreCmd
 }
 
-func runScore(cmd *cobra.Command, args []string) {
+func runScore(cmd *cobra.Command, args []string, m messager.Messager) {
 	// flags
 	drafters, err := cmd.Flags().GetStringSlice("drafters")
 	if err != nil {
@@ -206,15 +205,10 @@ func runScore(cmd *cobra.Command, args []string) {
 	})
 
 	if publish {
-		cfg, err := config.Validate()
-		if err != nil {
-			slog.Error("config validation", "error", err)
-			os.Exit(1)
-		}
 		message := buildMessage(season, votedOut, drafts, scores, pointsAvailable)
-		err = publishToDiscord(cfg.DiscordBotURL, message, season, votedOut)
+		err = m.Send(message)
 		if err != nil {
-			slog.Error("failed to publish to Discord", "error", err)
+			slog.Error("failed to publish", "error", err)
 			// continue to print
 		}
 	}
@@ -329,25 +323,4 @@ func buildMessage(season int, votedOut []string, drafts []*scorer.Draft, scores 
 	}
 	sb.WriteString("\n*Scores calculated automatically.*")
 	return sb.String()
-}
-
-func publishToDiscord(url, message string, season int, votedOut []string) error {
-	payload := map[string]interface{}{
-		"message":   message,
-		"season":    season,
-		"voted_out": votedOut,
-	}
-	jsonBytes, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBytes))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		slog.Warn("Discord bot responded with non-200", "status", resp.StatusCode)
-	}
-	return nil
 }
