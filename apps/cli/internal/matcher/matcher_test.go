@@ -190,7 +190,8 @@ func BenchmarkMatchContestant(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for _, name := range testNames {
-			MatchContestant(name, testRoster)
+			_, err := MatchContestant(name, testRoster)
+			_ = err
 		}
 	}
 }

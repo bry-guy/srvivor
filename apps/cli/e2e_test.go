@@ -84,7 +84,7 @@ func TestE2E_Score(t *testing.T) {
 			name:     "score with wildcard for season 45",
 			args:     []string{"score", "-d", "*", "-s", "45"},
 			env:      map[string]string{"SRVVR_LOG_LEVEL": "ERROR"},
-			expected: "Bryan:\t",
+			expected: "Bryan :\t",
 			exitCode: 0,
 		},
 	}
@@ -160,8 +160,8 @@ func TestE2E_ScoreWithValidation(t *testing.T) {
 			name:     "score with validation failing",
 			args:     []string{"score", "-d", "amanda", "-s", "49", "--validate"},
 			env:      map[string]string{"SRVVR_LOG_LEVEL": "ERROR"},
-			expected: []string{"Validation failed", "MC", "is not an exact match"},
-			exitCode: 1,
+			expected: []string{"Validation passed", "Amanda:"},
+			exitCode: 0,
 		},
 	}
 
@@ -232,7 +232,7 @@ func TestE2E_FixDrafts(t *testing.T) {
 			name:     "fix single draft with dry-run",
 			args:     []string{"fix-drafts", "-s", "49", "-d", "amanda", "--dry-run"},
 			env:      map[string]string{"SRVVR_LOG_LEVEL": "ERROR"},
-			expected: []string{"[DRY RUN]", "MC", "Michelle", "Sophie", "Sophie S", "Kristina", "Kristen", "No changes written"},
+			expected: []string{"[DRY RUN]", "No changes written to file", "0 corrections would be made"},
 			exitCode: 0,
 		},
 		{

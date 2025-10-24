@@ -55,7 +55,7 @@ func TestLoadRoster(t *testing.T) {
 			name:    "load non-existent season",
 			season:  99,
 			wantErr: true,
-			errMsg:  "failed to read roster file",
+			errMsg:  "failed to read roster file ../../rosters/99.json",
 		},
 	}
 
