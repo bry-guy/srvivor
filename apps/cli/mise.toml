@@ -2,20 +2,20 @@
 run = "golangci-lint run"
 
 [tasks.test]
-depends = ["lint"]
+depends = [":lint"]
 run = "LOG_LEVEL=DEBUG go test -v ./internal/*" 
 
 [tasks.run]
-depends = ["lint"]
+depends = [":lint"]
 run = "go run ."
 
 [tasks.clean]
 run = "rm -rf ./bin"
 
 [tasks.build]
-depends = ["clean"]
+depends = [":clean"]
 run = "go build -o bin/srvivor ."
 
 [tasks.ci]
 description = "Run all tasks for CI pipeline (lint, test, build)"
-depends = ["lint", "test", "build"]
+depends = [":lint", ":test", ":build"]
