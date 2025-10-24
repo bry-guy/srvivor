@@ -18,6 +18,25 @@
 - **Comments**: Add for complex functions explaining purpose
 - **Formatting**: Follow gofmt/goimports standards
 - **Commits**: Use conventional commit format (e.g., feat:, fix:, docs:, etc.). **ALWAYS** ask for review and permission from the user before committing.
+- **Patterns**: Refer to `wiki/code_patterns.md` for common patterns (e.g., interface-based dependency injection). Agents should consult this document when making any code changes to ensure consistency.
+
+## Build/Lint/Test Commands
+
+The app uses mise for task management. Available tasks:
+
+- **Root level** (`mise tasks ls` in repo root):
+  - `ci`: Run all monorepo CI tasks (runs `mise run //apps/...:ci`)
+
+- **Apps level** (`mise tasks ls` in `./apps`):
+  - `ci`: Run all monorepo CI tasks
+
+- **CLI app level** (`mise tasks ls` in `./apps/cli`):
+  - `lint`: Run golangci-lint
+  - `test`: Run tests (depends on lint)
+  - `run`: Run the app (depends on lint)
+  - `clean`: Remove bin directory
+  - `build`: Build the app (depends on clean)
+  - `ci`: Run lint, test, build for CI
 
 ## Agent Memory and Wiki Usage
 
