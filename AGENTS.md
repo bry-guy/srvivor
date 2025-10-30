@@ -20,6 +20,19 @@
 - **Commits**: Use conventional commit format (e.g., feat:, fix:, docs:, etc.). **ALWAYS** ask for review and permission from the user before committing.
 - **Patterns**: Refer to `wiki/code_patterns.md` for common patterns (e.g., interface-based dependency injection). Agents should consult this document when making any code changes to ensure consistency.
 
+## Testing Rules
+Agents MUST adhere to the following when handling tests:
+- **Regression Tests:** NEVER alter or remove existing regression tests without explicit user confirmation. This includes changes to test expectations, assertions, logic, or data in functions named with "Regression" (e.g., `TestSeason48Regression`). If a user explicitly creates a regression (e.g., "this is a regression test"), ask for confirmation before any modification. Agents may suggest changes but MUST NOT execute them without approval.
+- **Unit Tests:** Can be modified as needed during refactoring, bug fixes, or improvements (e.g., `TestCalculateCurrentScore_Isolated`).
+- **New Tests:** Can be added freely (e.g., new regression or unit tests).
+- **Uncertainty Protocol:** If unsure if a test is regression or unit, classify conservatively as regression and ask for user permission before any change.
+- **Logging:** Agents MUST log test actions, e.g., "Proposed change to regression test X: [details]. Awaiting user approval."
+- **Examples:**
+  - Allowed: Update `TestUnitFunction` assertions; add `TestNewRegression`.
+  - Forbidden: Change `TestHistoricalRegression` without user OK.
+
+Violations of these rules must be reported and reverted.
+
 ## Build/Lint/Test Commands
 
 The app uses mise for task management. Available tasks:

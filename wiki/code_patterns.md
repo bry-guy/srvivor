@@ -76,3 +76,10 @@ func runScore(cmd *cobra.Command, args []string, m Messager) {
 ```
 
 This pattern keeps code decoupled: the score logic doesn't know about HTTP or Discord specifics, only that it can send a message.
+
+## Testing Patterns
+- **Naming Conventions:** Prefer descriptive names over comments for test semantics. Use "Regression" in test names to indicate tests verifying historical or expected behavior (e.g., `TestSeason48Regression`). Avoid relying on comments for classification—names should be self-explanatory.
+- **Regression Test Identification:** Tests verifying historical behavior (e.g., season-specific scores, fixture-based expectations) should include "Regression" in the name.
+- **Unit Test Identification:** Tests for individual functions or components (e.g., `TestCalculateCurrentScore`) do not need "Regression" unless they verify historical data.
+- **Handling Changes:** For tests with "Regression" in the name, agents MUST propose changes and wait for user approval. For others, apply changes directly. Always add new tests without restriction.
+- **Best Practice:** When adding tests, ensure regression tests use real historical data; unit tests use controlled inputs. Use naming to make intent clear without comments.

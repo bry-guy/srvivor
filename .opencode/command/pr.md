@@ -3,6 +3,12 @@ description: Handle pull requests - pushes, addressing comments, fixing issues i
 ---
 **PULL REQUEST:** $ARGUMENTS
 
+## Constraints
+- ALL GitHub interactions MUST use the `@github` agent exclusively. Do NOT use external CLI tools like `gh`, `git`, or any bash commands for GitHub operations.
+- Stick STRICTLY to the defined workflows. Do NOT perform actions outside of the listed steps (e.g., no merging, no creating or deleting branches, no direct pushes).
+- In plan mode (read-only), ONLY observe, analyze, and plan. Do NOT execute changes.
+- If an action is not explicitly defined in the workflow, do NOT perform it. Seek user confirmation for any deviations.
+
 ## Argument Validation
 
 * PR identifier must be either:
@@ -42,3 +48,5 @@ description: Handle pull requests - pushes, addressing comments, fixing issues i
 3. **Self-Review:** Think deeply about your changes, and make improvements, if any.
 4. **Commit:** Commit your changes using /commit.
 5. **Push:** Use `@github` to push all commits to PR branch
+
+If no comments or issues, summarize status and await user instructions. Do NOT merge or close the PR.

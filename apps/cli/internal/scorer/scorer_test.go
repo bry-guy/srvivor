@@ -95,7 +95,7 @@ func TestCalculatePointsAvailable_Isolated(t *testing.T) {
 // Edge case: All eliminated (no survivors remain). PointsAvailable should be
 // computed by the preserved legacy path and in the canonical "perfect match"
 // case (final positions match draft positions) it should be 0.
-func TestAllEliminated(t *testing.T) {
+func TestAllEliminatedRegression(t *testing.T) {
 	d := makeDraft([]string{"P1", "P2", "P3", "P4", "P5"})
 	// Final exactly matches draft positions (everyone eliminated in draft order)
 	eliminated := map[string]int{"P1": 1, "P2": 2, "P3": 3, "P4": 4, "P5": 5}
@@ -119,7 +119,7 @@ func TestNoneEliminated(t *testing.T) {
 
 // Negative scenarios: verify known negative behavior preserved for a
 // particular fixture (ensures regression protection).
-func TestNegativePointsAvailable_Preserved(t *testing.T) {
+func TestNegativePointsAvailable_PreservedRegression(t *testing.T) {
 	// Use existing fixture that previously yielded a negative points available
 	draftFile, err := os.Open("../../../cli/test_fixtures/drafts/0/bryan.txt")
 	assert.NoError(t, err)
@@ -201,7 +201,7 @@ func TestIntegration_LargerDraft(t *testing.T) {
 
 // Existing tests that used fixtures are preserved to ensure previous
 // expectations still hold (regression protection).
-func TestScoreCalculation_Fixtures(t *testing.T) {
+func TestScoreCalculation_FixturesRegression(t *testing.T) {
 	testCases := []struct {
 		description       string
 		haveDraftFilePath string      // filePath to the draft data file
