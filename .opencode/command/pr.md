@@ -37,6 +37,8 @@ description: Handle pull requests - pushes, addressing comments, fixing issues i
 
 ## Workflow: Existing PR
 
+After performing all workflow steps (whether addressing code or CI/CD or both), update the PR description using `@github`. Make sure the description summarizes the notable semantic changes in the PR. If there is an existing description, append to it for your current changeset. It is okay to not update the description for minor changes.
+
 0. **PR Number Extraction:** If $ARGUMENTS is a URL, extract the PR number using regex pattern `/pull/(\d+)`
 1. **Fetch:** Use `@github` agent to get PR branch name and review comments. 
 2. **Setup**: Checkout and sync the PR branch, if needed. Check for and resolve git conflicts per Conflict Resolution guidelines. 

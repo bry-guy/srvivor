@@ -1,7 +1,9 @@
 package scorer
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,8 +55,8 @@ func TestWeek4Regression(t *testing.T) {
 	// Integration: full score
 	res, err := score(draft, final)
 	assert.NoError(t, err)
-	// Expected: Current Score=8, Points Available=13, Total=21
-	assert.Equal(t, 8, res.Score, "Week 4 current score mismatch")
+	// Expected: Current Score=3, Points Available=13, Total=16
+	assert.Equal(t, 3, res.Score, "Week 4 current score mismatch")
 	assert.Equal(t, 13, res.PointsAvailable, "Week 4 points available mismatch")
 }
 
@@ -65,7 +67,7 @@ func TestCalculateCurrentScore_Isolated(t *testing.T) {
 	draft := makeDraft([]string{"Tom", "Dick", "Harry", "Cosmo", "Elaine", "Larry", "Moe", "Curly"})
 	finalPositions := map[string]int{"Larry": 5, "Dick": 6, "Harry": 7, "Moe": 8}
 	current := calculateCurrentScore(draft, finalPositions, 8)
-	assert.Equal(t, 8, current, "calculateCurrentScore produced unexpected value")
+	assert.Equal(t, 3, current, "calculateCurrentScore produced unexpected value")
 
 	// Additional isolated test: single elimination
 	d := makeDraft([]string{"A", "B", "C"})
@@ -201,6 +203,42 @@ func TestIntegration_LargerDraft(t *testing.T) {
 
 // Existing tests that used fixtures are preserved to ensure previous
 // expectations still hold (regression protection).
+func TestSeason48Regression(t *testing.T) {
+	// Load final results
+	finalFile, err := os.Open("../../../cli/finals/48.txt")
+	assert.NoError(t, err)
+	defer finalFile.Close()
+	final, err := readDraft(finalFile)
+	assert.NoError(t, err)
+
+	// Expected scores map
+	expectedScores := map[string]int{
+		"Kyle":   129,
+		"Lauren": 111,
+		"Kenny":  109,
+		"Marv":   104,
+		"Grant":  103,
+		"Kate":   103,
+		"Katie":  101,
+		"Riley":  100,
+		"Mooney": 99,
+		"Bryan":  96,
+	}
+
+	// Score each draft and verify
+	for drafter, expected := range expectedScores {
+		draftFile, err := os.Open(fmt.Sprintf("../../../cli/drafts/48/%s.txt", strings.ToLower(drafter)))
+		assert.NoError(t, err)
+		draft, err := readDraft(draftFile)
+		assert.NoError(t, err)
+		draftFile.Close()
+
+		res, err := score(draft, final)
+		assert.NoError(t, err)
+		assert.Equal(t, expected, res.Score, "Score mismatch for %s", drafter)
+	}
+}
+
 func TestScoreCalculation_FixturesRegression(t *testing.T) {
 	testCases := []struct {
 		description       string

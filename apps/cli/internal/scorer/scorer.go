@@ -101,12 +101,10 @@ func calculateCurrentScore(draft *Draft, finalPositions map[string]int, totalPos
 	for _, draftEntry := range draft.Entries {
 		if finalPosition, ok := finalPositions[draftEntry.PlayerName]; ok {
 			distance := abs(draftEntry.position - finalPosition)
-			// Position value for current score is based on the draft pick value
-			// (higher for earlier draft picks). This matches the specification
-			// examples where, e.g., a pick at draft position 2 has higher
-			// potential value than a later pick regardless of the final
-			// elimination position.
-			positionValue := totalPositions + 1 - draftEntry.position
+			// Position value for current score is based on the final elimination position
+			// (higher for earlier eliminations). This matches the legacy behavior
+			// and the expected Season 48 scores.
+			positionValue := totalPositions - finalPosition + 1
 			entryScore := max(0, positionValue-distance)
 			currentScore += entryScore
 		}
