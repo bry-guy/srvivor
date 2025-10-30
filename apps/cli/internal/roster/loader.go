@@ -8,7 +8,7 @@ import (
 
 // LoadRoster loads a season roster from the JSON file at rosters/[season].json
 func LoadRoster(season int) (*SeasonRoster, error) {
-	filename := fmt.Sprintf("../../rosters/%d.json", season)
+	filename := fmt.Sprintf("./rosters/%d.json", season)
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
