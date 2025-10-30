@@ -33,23 +33,15 @@ Agents MUST adhere to the following when handling tests:
 
 Violations of these rules must be reported and reverted.
 
-## Build/Lint/Test Commands
+## Monorepo Tasks via Mise
 
-The app uses mise for task management. Available tasks:
+The app uses mise for task management using Mise Monorepo tasks.
 
-- **Root level** (`mise tasks ls` in repo root):
-  - `ci`: Run all monorepo CI tasks (runs `mise run //apps/...:ci`)
-
-- **Apps level** (`mise tasks ls` in `./apps`):
-  - `ci`: Run all monorepo CI tasks
-
-- **CLI app level** (`mise tasks ls` in `./apps/cli`):
-  - `lint`: Run golangci-lint
-  - `test`: Run tests (depends on lint)
-  - `run`: Run the app (depends on lint)
-  - `clean`: Remove bin directory
-  - `build`: Build the app (depends on clean)
-  - `ci`: Run lint, test, build for CI
+1. Run `mise tasks ls --all` in repo root to find available tasks.
+2. Run tasks e.g.:
+    a. `mise run //apps/...:*`: Run all tasks for all apps
+    b. `mise run //apps/cli:*`: Run all tasks for apps/cli app
+    c. `mise run //apps/cli:lint`: Run lint task for apps/cli app
 
 ## Agent Memory and Wiki Usage
 

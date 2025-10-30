@@ -221,12 +221,15 @@ func runScore(cmd *cobra.Command, args []string, m messager.Messager) {
 		}
 	}
 
+	tabWidth := 4
 	for _, d := range drafts {
 		result := scores[d]
+		name := d.Metadata.Drafter
+		spacesAfterColon := maxLen - len(name) + tabWidth
 		if pointsAvailable {
-			fmt.Printf("%-*s:\t%d\t(points available: %d)\n", maxLen, d.Metadata.Drafter, result.Score, result.PointsAvailable)
+			fmt.Printf("%s:%*s%3d (points available: %d)\n", name, spacesAfterColon, "", result.Score, result.PointsAvailable)
 		} else {
-			fmt.Printf("%-*s:\t%d\n", maxLen, d.Metadata.Drafter, result.Score)
+			fmt.Printf("%s:%*s%d\n", name, spacesAfterColon, "", result.Score)
 		}
 	}
 }

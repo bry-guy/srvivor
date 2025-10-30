@@ -2,6 +2,7 @@
 description: Handles all GitHub interactions (PRs, issues, comments).
 mode: subagent
 model: opencode-zen/grok-code
+temperature: 0.1
 reasoningEffort: low
 tools:
   github_*: true
