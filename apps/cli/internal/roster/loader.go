@@ -1,28 +1,29 @@
 package roster
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
-	"os"
 )
 
-// LoadRoster loads a season roster from the JSON file at rosters/[season].json
-func LoadRoster(season int) (*SeasonRoster, error) {
-	filename := fmt.Sprintf("./rosters/%d.json", season)
+//go:embed rosters/*.json
+var rostersFS embed.FS
 
-	data, err := os.ReadFile(filename)
+// LoadRoster loads a season roster from the embedded JSON file at rosters/[season].json
+func LoadRoster(season int) (*SeasonRoster, error) {
+	data, err := rostersFS.ReadFile(fmt.Sprintf("rosters/%d.json", season))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read roster file %s: %w", filename, err)
+		return nil, fmt.Errorf("failed to read embedded roster file rosters/%d.json: %w", season, err)
 	}
 
 	var roster SeasonRoster
 	if err := json.Unmarshal(data, &roster); err != nil {
-		return nil, fmt.Errorf("failed to parse roster JSON from %s: %w", filename, err)
+		return nil, fmt.Errorf("failed to parse roster JSON: %w", err)
 	}
 
 	// Validate the roster
 	if err := validateRoster(&roster); err != nil {
-		return nil, fmt.Errorf("invalid roster in %s: %w", filename, err)
+		return nil, fmt.Errorf("invalid roster: %w", err)
 	}
 
 	return &roster, nil
