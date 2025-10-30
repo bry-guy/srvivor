@@ -16,9 +16,12 @@ linters:
     - gosec
     - gofmt
     - goimports
-  disable:
-    - structcheck
-    - varcheck
+
+issues:
+  exclude-dirs:
+    - vendor
+  exclude-files:
+    - ".*\\.generated\\.go$"
 
 run:
   concurrency: 4
@@ -27,8 +30,4 @@ run:
   tests: true
   build-tags:
     - myTag
-  skip-dirs:
-    - vendor
-  skip-files:
-    - ".*\\.generated\\.go$"
 
