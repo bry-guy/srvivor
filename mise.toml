@@ -7,7 +7,42 @@ MISE_EXPERIMENTAL = 1
 go = "1.24"
 golangci-lint = '1.64.5'
 golangci-lint-langserver = '0.0.10'
+sqlc = '1.30.0'
+hurl = 'latest'
+fnox = '1.15.1'
 
 [tasks.ci]
 description = "Run all monorepo CI tasks"
-run = "mise run //apps/...:ci"
+run = "mise run //apps/cli:ci && mise run //apps/castaway-web:ci"
+
+[tasks.start]
+description = "Start castaway web stack"
+run = "docker compose up -d --build castawaydb castaway-web"
+
+[tasks.stop]
+description = "Stop castaway web stack"
+run = "docker compose down"
+
+[tasks.ps]
+description = "Show compose services"
+run = "docker compose ps"
+
+[tasks.logs]
+description = "Tail compose logs"
+run = "docker compose logs -f castaway-web castawaydb"
+
+[tasks.db-shell]
+description = "Open psql shell to castawaydb"
+run = "docker compose exec castawaydb psql -U castaway -d castaway"
+
+[tasks.db-reset]
+description = "Reset castaway database volume and restart stack"
+run = "docker compose down -v && docker compose up -d --build castawaydb castaway-web"
+
+[tasks.seed]
+description = "Seed castawaydb with historical seasons"
+run = "mise run //apps/castaway-web:seed"
+
+[tasks.openapi]
+description = "Generate OpenAPI from TypeSpec"
+run = "mise run //apps/castaway-web:openapi"

@@ -1,0 +1,36 @@
+services:
+  castawaydb:
+    image: postgres:16
+    container_name: castawaydb
+    environment:
+      POSTGRES_DB: castaway
+      POSTGRES_USER: castaway
+      POSTGRES_PASSWORD: castaway
+    ports:
+      - "5432:5432"
+    volumes:
+      - castawaydb-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U castaway -d castaway"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  castaway-web:
+    container_name: castaway-web
+    build:
+      context: ./apps/castaway-web
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://castaway:castaway@castawaydb:5432/castaway?sslmode=disable
+      PORT: "8080"
+      AUTO_MIGRATE: "true"
+      MIGRATIONS_DIR: /app/db/migrations
+    ports:
+      - "8080:8080"
+    depends_on:
+      castawaydb:
+        condition: service_healthy
+
+volumes:
+  castawaydb-data:

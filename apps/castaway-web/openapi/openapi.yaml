@@ -1,0 +1,531 @@
+openapi: 3.0.0
+info:
+  title: Castaway Web API
+  version: 0.0.0
+tags: []
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /instances:
+    get:
+      operationId: listInstances
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListInstancesResponse'
+    post:
+      operationId: createInstance
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInstanceResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+  /instances/{instanceID}:
+    get:
+      operationId: getInstance
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetInstanceResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/contestants:
+    post:
+      operationId: createContestant
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateContestantResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContestantRequest'
+    get:
+      operationId: listContestants
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListContestantsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/drafts/{participantID}:
+    put:
+      operationId: replaceDraft
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ReplaceDraftResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceDraftRequest'
+    get:
+      operationId: getDraft
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetDraftResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/leaderboard:
+    get:
+      operationId: leaderboard
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/LeaderboardResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/outcomes:
+    get:
+      operationId: listOutcomes
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListOutcomesResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/outcomes/{position}:
+    put:
+      operationId: upsertOutcome
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: position
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/UpsertOutcomeResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertOutcomeRequest'
+  /instances/{instanceID}/participants:
+    post:
+      operationId: createParticipant
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateParticipantResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateParticipantRequest'
+    get:
+      operationId: listParticipants
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListParticipantsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    Contestant:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    CreateContestantRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    CreateContestantResponse:
+      type: object
+      required:
+        - contestant
+      properties:
+        contestant:
+          $ref: '#/components/schemas/Contestant'
+    CreateInstanceRequest:
+      type: object
+      required:
+        - name
+        - season
+      properties:
+        name:
+          type: string
+        season:
+          type: integer
+          format: int32
+        contestants:
+          type: array
+          items:
+            type: string
+    CreateInstanceResponse:
+      type: object
+      required:
+        - instance
+      properties:
+        instance:
+          $ref: '#/components/schemas/Instance'
+    CreateParticipantRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    CreateParticipantResponse:
+      type: object
+      required:
+        - participant
+      properties:
+        participant:
+          $ref: '#/components/schemas/Participant'
+    DraftPick:
+      type: object
+      required:
+        - position
+        - contestant_id
+        - contestant_name
+      properties:
+        position:
+          type: integer
+          format: int32
+        contestant_id:
+          type: string
+        contestant_name:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+    GetDraftResponse:
+      type: object
+      required:
+        - participant
+        - picks
+      properties:
+        participant:
+          $ref: '#/components/schemas/Participant'
+        picks:
+          type: array
+          items:
+            $ref: '#/components/schemas/DraftPick'
+    GetInstanceResponse:
+      type: object
+      required:
+        - instance
+        - contestants
+        - participants
+      properties:
+        instance:
+          $ref: '#/components/schemas/Instance'
+        contestants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contestant'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+    Instance:
+      type: object
+      required:
+        - id
+        - name
+        - season
+        - created_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        season:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+    LeaderboardResponse:
+      type: object
+      required:
+        - leaderboard
+      properties:
+        leaderboard:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardRow'
+    LeaderboardRow:
+      type: object
+      required:
+        - participant_id
+        - participant_name
+        - score
+        - points_available
+      properties:
+        participant_id:
+          type: string
+        participant_name:
+          type: string
+        score:
+          type: integer
+          format: int32
+        points_available:
+          type: integer
+          format: int32
+    ListContestantsResponse:
+      type: object
+      required:
+        - contestants
+      properties:
+        contestants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contestant'
+    ListInstancesResponse:
+      type: object
+      required:
+        - instances
+      properties:
+        instances:
+          type: array
+          items:
+            $ref: '#/components/schemas/Instance'
+    ListOutcomesResponse:
+      type: object
+      required:
+        - outcomes
+      properties:
+        outcomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Outcome'
+    ListParticipantsResponse:
+      type: object
+      required:
+        - participants
+      properties:
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+    Outcome:
+      type: object
+      required:
+        - position
+      properties:
+        position:
+          type: integer
+          format: int32
+        contestant_id:
+          type: string
+        contestant_name:
+          type: string
+    Participant:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    ReplaceDraftRequest:
+      type: object
+      required:
+        - contestant_ids
+      properties:
+        contestant_ids:
+          type: array
+          items:
+            type: string
+    ReplaceDraftResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+    UpsertOutcomeRequest:
+      type: object
+      properties:
+        contestant_id:
+          type: string
+    UpsertOutcomeResponse:
+      type: object
+      required:
+        - outcome
+      properties:
+        outcome:
+          type: object
+          properties:
+            position:
+              type: integer
+              format: int32
+            contestant_id:
+              type: string
+          required:
+            - position
+servers:
+  - url: http://localhost:8080
+    description: Local development
+    variables: {}

@@ -1,0 +1,32 @@
+[tasks.lint]
+run = "golangci-lint run"
+
+[tasks.test]
+depends = [":lint"]
+run = "go test -v ./..."
+
+[tasks.build]
+run = "go build -o bin/castaway-web ./cmd/server"
+
+[tasks.run]
+depends = [":lint"]
+run = "go run ./cmd/server"
+
+[tasks.migrate]
+run = "go run ./cmd/migrate"
+
+[tasks.sqlc]
+run = "sqlc generate"
+
+[tasks.generate-seeds]
+run = "go run ./cmd/generate-seeds"
+
+[tasks.seed]
+run = "go run ./cmd/seed"
+
+[tasks.openapi]
+run = "cd typespec && npm install && npx tsp compile . && cp tsp-output/@typespec/openapi/openapi.yaml ../openapi/openapi.yaml"
+
+[tasks.ci]
+description = "Run all tasks for CI pipeline (lint, test, build)"
+depends = [":lint", ":test", ":build"]

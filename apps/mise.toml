@@ -1,0 +1,3 @@
+[tasks.ci]
+description = "Run all app CI tasks"
+run = "mise run //apps/cli:ci && mise run //apps/castaway-web:ci"

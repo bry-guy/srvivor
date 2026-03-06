@@ -1,0 +1,14 @@
+{
+  "name": "castaway-web-typespec",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@typespec/compiler": "^1.6.0",
+    "@typespec/http": "^1.6.0",
+    "@typespec/openapi3": "^1.6.0"
+  },
+  "scripts": {
+    "compile": "tsp compile ."
+  }
+}

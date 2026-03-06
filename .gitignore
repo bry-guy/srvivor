@@ -1,1 +1,3 @@
 srvivor
+apps/**/bin/
+apps/castaway-web/typespec/node_modules/

@@ -1,0 +1,1768 @@
+[
+  {
+    "season": 44,
+    "instance_name": "Historical Season 44",
+    "contestants": [
+      "Matthew",
+      "Claire",
+      "Helen",
+      "Sarah",
+      "Frannie",
+      "Kane",
+      "Carson",
+      "Danny",
+      "Brandon",
+      "Josh",
+      "Heidi",
+      "Yam Yam",
+      "Jaime",
+      "Matt",
+      "Lauren",
+      "Carolyn",
+      "Maddy",
+      "Bruce"
+    ],
+    "participants": [
+      {
+        "name": "Bryan",
+        "picks": [
+          "Matthew",
+          "Claire",
+          "Helen",
+          "Sarah",
+          "Frannie",
+          "Kane",
+          "Carson",
+          "Danny",
+          "Brandon",
+          "Josh",
+          "Heidi",
+          "Yam Yam",
+          "Jaime",
+          "Matt",
+          "Lauren",
+          "Carolyn",
+          "Maddy",
+          "Bruce"
+        ]
+      },
+      {
+        "name": "Fred",
+        "picks": [
+          "Matt",
+          "Helen",
+          "Danny",
+          "Claire",
+          "Jaime",
+          "Carson",
+          "Frannie",
+          "Brandon",
+          "Josh",
+          "Matthew",
+          "Yam Yam",
+          "Lauren",
+          "Sarah",
+          "Kane",
+          "Heidi",
+          "Carolyn",
+          "Maddy",
+          "Bruce"
+        ]
+      },
+      {
+        "name": "Josie",
+        "picks": [
+          "Claire",
+          "Matt",
+          "Frannie",
+          "Helen",
+          "Danny",
+          "Carson",
+          "Brandon",
+          "Heidi",
+          "Matthew",
+          "Yam Yam",
+          "Jaime",
+          "Josh",
+          "Carolyn",
+          "Kane",
+          "Sarah",
+          "Lauren",
+          "Maddy",
+          "Bruce"
+        ]
+      },
+      {
+        "name": "Peter",
+        "picks": [
+          "Lauren",
+          "Carson",
+          "Helen",
+          "Claire",
+          "Matthew",
+          "Sarah",
+          "Yam Yam",
+          "Matt",
+          "Heidi",
+          "Jaime",
+          "Danny",
+          "Frannie",
+          "Kane",
+          "Brandon",
+          "Carolyn",
+          "Josh",
+          "Maddy",
+          "Bruce"
+        ]
+      },
+      {
+        "name": "Riley",
+        "picks": [
+          "Claire",
+          "Helen",
+          "Carson",
+          "Brandon",
+          "Matt",
+          "Heidi",
+          "Frannie",
+          "Kane",
+          "Matthew",
+          "Lauren",
+          "Danny",
+          "Yam Yam",
+          "Sarah",
+          "Josh",
+          "Carolyn",
+          "Jaime",
+          "Maddy",
+          "Bruce"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "position": 1,
+        "contestant_name": "Yam Yam"
+      },
+      {
+        "position": 2,
+        "contestant_name": "Heidi"
+      },
+      {
+        "position": 3,
+        "contestant_name": "Carolyn"
+      },
+      {
+        "position": 4,
+        "contestant_name": "Carson"
+      },
+      {
+        "position": 5,
+        "contestant_name": "Lauren"
+      },
+      {
+        "position": 6,
+        "contestant_name": "Jaime"
+      },
+      {
+        "position": 7,
+        "contestant_name": "Danny"
+      },
+      {
+        "position": 8,
+        "contestant_name": "Frannie"
+      },
+      {
+        "position": 9,
+        "contestant_name": "Kane"
+      },
+      {
+        "position": 10,
+        "contestant_name": "Brandon"
+      },
+      {
+        "position": 11,
+        "contestant_name": "Matthew"
+      },
+      {
+        "position": 12,
+        "contestant_name": "Josh"
+      },
+      {
+        "position": 13,
+        "contestant_name": "Matt"
+      },
+      {
+        "position": 14,
+        "contestant_name": "Sarah"
+      },
+      {
+        "position": 15,
+        "contestant_name": "Claire"
+      },
+      {
+        "position": 16,
+        "contestant_name": "Helen"
+      },
+      {
+        "position": 17,
+        "contestant_name": "Maddy"
+      },
+      {
+        "position": 18,
+        "contestant_name": "Bruce"
+      }
+    ]
+  },
+  {
+    "season": 45,
+    "instance_name": "Historical Season 45",
+    "contestants": [
+      "Dee",
+      "Drew",
+      "Katurah",
+      "Austin",
+      "Brando",
+      "Jake",
+      "Sabiyah",
+      "Bruce",
+      "Sean",
+      "Sifu",
+      "Brandon",
+      "Kendra",
+      "Kaleb",
+      "Kellie",
+      "Julie",
+      "Emily",
+      "Janani",
+      "Hannah"
+    ],
+    "participants": [
+      {
+        "name": "Bryan",
+        "picks": [
+          "Dee",
+          "Drew",
+          "Katurah",
+          "Austin",
+          "Brando",
+          "Jake",
+          "Sabiyah",
+          "Bruce",
+          "Sean",
+          "Sifu",
+          "Brandon",
+          "Kendra",
+          "Kaleb",
+          "Kellie",
+          "Julie",
+          "Emily",
+          "Janani",
+          "Hannah"
+        ]
+      },
+      {
+        "name": "Josie",
+        "picks": [
+          "Kellie",
+          "Sean",
+          "Brando",
+          "Dee",
+          "Kaleb",
+          "Julie",
+          "Kendra",
+          "Janani",
+          "Austin",
+          "Drew",
+          "Sabiyah",
+          "Jake",
+          "Katurah",
+          "Sifu",
+          "Bruce",
+          "Brandon",
+          "Emily",
+          "Hannah"
+        ]
+      },
+      {
+        "name": "Katie",
+        "picks": [
+          "Katurah",
+          "Brando",
+          "Sabiyah",
+          "Janani",
+          "Dee",
+          "Austin",
+          "Kellie",
+          "Sifu",
+          "Sean",
+          "Kaleb",
+          "Kendra",
+          "Drew",
+          "Jake",
+          "Julie",
+          "Bruce",
+          "Emily",
+          "Brandon",
+          "Hannah"
+        ]
+      },
+      {
+        "name": "Kyle",
+        "picks": [
+          "Kellie",
+          "Sean",
+          "Sabiyah",
+          "Austin",
+          "Brando",
+          "Drew",
+          "Janani",
+          "Jake",
+          "Kendra",
+          "Sifu",
+          "Bruce",
+          "Dee",
+          "Kaleb",
+          "Julie",
+          "Brandon",
+          "Katurah",
+          "Emily",
+          "Hannah"
+        ]
+      },
+      {
+        "name": "Mooney",
+        "picks": [
+          "Janani",
+          "Katurah",
+          "Emily",
+          "Drew",
+          "Brando",
+          "Sabiyah",
+          "Austin",
+          "Dee",
+          "Kendra",
+          "Kellie",
+          "Sifu",
+          "Kaleb",
+          "Jake",
+          "Sean",
+          "Julie",
+          "Bruce",
+          "Brandon",
+          "Hannah"
+        ]
+      },
+      {
+        "name": "Peter",
+        "picks": [
+          "Brando",
+          "Sean",
+          "Kellie",
+          "Janani",
+          "Katurah",
+          "Drew",
+          "Austin",
+          "Julie",
+          "Kaleb",
+          "Kendra",
+          "Dee",
+          "Jake",
+          "Sabiyah",
+          "Sifu",
+          "Bruce",
+          "Brandon",
+          "Emily",
+          "Hannah"
+        ]
+      },
+      {
+        "name": "Riley",
+        "picks": [
+          "Austin",
+          "Julie",
+          "Drew",
+          "Sabiyah",
+          "Katurah",
+          "Brando",
+          "Sean",
+          "Jake",
+          "Sifu",
+          "Janani",
+          "Bruce",
+          "Kendra",
+          "Kellie",
+          "Kaleb",
+          "Dee",
+          "Brandon",
+          "Emily",
+          "Hannah"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "position": 1,
+        "contestant_name": "Dee"
+      },
+      {
+        "position": 2,
+        "contestant_name": "Austin"
+      },
+      {
+        "position": 3,
+        "contestant_name": "Jake"
+      },
+      {
+        "position": 4,
+        "contestant_name": "Katurah"
+      },
+      {
+        "position": 5,
+        "contestant_name": "Julie"
+      },
+      {
+        "position": 6,
+        "contestant_name": "Drew"
+      },
+      {
+        "position": 7,
+        "contestant_name": "Emily"
+      },
+      {
+        "position": 8,
+        "contestant_name": "Bruce"
+      },
+      {
+        "position": 9,
+        "contestant_name": "Kendra"
+      },
+      {
+        "position": 10,
+        "contestant_name": "Kellie"
+      },
+      {
+        "position": 11,
+        "contestant_name": "Kaleb"
+      },
+      {
+        "position": 12,
+        "contestant_name": "Sifu"
+      },
+      {
+        "position": 13,
+        "contestant_name": "Janani"
+      },
+      {
+        "position": 14,
+        "contestant_name": "Brando"
+      },
+      {
+        "position": 15,
+        "contestant_name": "Sean"
+      },
+      {
+        "position": 16,
+        "contestant_name": "Sabiyah"
+      },
+      {
+        "position": 17,
+        "contestant_name": "Brandon"
+      },
+      {
+        "position": 18,
+        "contestant_name": "Hannah"
+      }
+    ]
+  },
+  {
+    "season": 46,
+    "instance_name": "Historical Season 46",
+    "contestants": [
+      "Tevin",
+      "Tiffany",
+      "Hunter",
+      "Jess",
+      "Jem",
+      "Ben",
+      "Charlie",
+      "Maria",
+      "Bhanu",
+      "Moriah",
+      "Q",
+      "Venus",
+      "Randen",
+      "Tim",
+      "Kenzie",
+      "Liz",
+      "Soda",
+      "Jelinsky"
+    ],
+    "participants": [
+      {
+        "name": "Bryan",
+        "picks": [
+          "Tevin",
+          "Tiffany",
+          "Hunter",
+          "Jess",
+          "Jem",
+          "Ben",
+          "Charlie",
+          "Maria",
+          "Bhanu",
+          "Moriah",
+          "Q",
+          "Venus",
+          "Randen",
+          "Tim",
+          "Kenzie",
+          "Liz",
+          "Soda",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Josie",
+        "picks": [
+          "Hunter",
+          "Tiffany",
+          "Randen",
+          "Ben",
+          "Tim",
+          "Kenzie",
+          "Jem",
+          "Bhanu",
+          "Q",
+          "Maria",
+          "Venus",
+          "Tevin",
+          "Moriah",
+          "Liz",
+          "Soda",
+          "Jess",
+          "Charlie",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Katie",
+        "picks": [
+          "Maria",
+          "Tevin",
+          "Kenzie",
+          "Tiffany",
+          "Hunter",
+          "Venus",
+          "Q",
+          "Liz",
+          "Ben",
+          "Moriah",
+          "Jem",
+          "Bhanu",
+          "Tim",
+          "Charlie",
+          "Randen",
+          "Soda",
+          "Jess",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Kenny",
+        "picks": [
+          "Hunter",
+          "Charlie",
+          "Tiffany",
+          "Maria",
+          "Tim",
+          "Venus",
+          "Tevin",
+          "Jem",
+          "Randen",
+          "Soda",
+          "Bhanu",
+          "Q",
+          "Kenzie",
+          "Liz",
+          "Ben",
+          "Jess",
+          "Moriah",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Kyle",
+        "picks": [
+          "Venus",
+          "Maria",
+          "Bhanu",
+          "Tiffany",
+          "Jem",
+          "Tevin",
+          "Ben",
+          "Hunter",
+          "Q",
+          "Kenzie",
+          "Soda",
+          "Tim",
+          "Liz",
+          "Randen",
+          "Jess",
+          "Charlie",
+          "Moriah",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Lauren",
+        "picks": [
+          "Bhanu",
+          "Hunter",
+          "Soda",
+          "Tevin",
+          "Q",
+          "Tiffany",
+          "Maria",
+          "Kenzie",
+          "Moriah",
+          "Charlie",
+          "Tim",
+          "Jem",
+          "Ben",
+          "Venus",
+          "Randen",
+          "Jess",
+          "Liz",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Marv",
+        "picks": [
+          "Tiffany",
+          "Tim",
+          "Hunter",
+          "Bhanu",
+          "Randen",
+          "Jem",
+          "Charlie",
+          "Liz",
+          "Kenzie",
+          "Ben",
+          "Moriah",
+          "Soda",
+          "Venus",
+          "Q",
+          "Maria",
+          "Tevin",
+          "Jess",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Mooney",
+        "picks": [
+          "Maria",
+          "Tiffany",
+          "Bhanu",
+          "Tevin",
+          "Q",
+          "Hunter",
+          "Jem",
+          "Charlie",
+          "Kenzie",
+          "Soda",
+          "Venus",
+          "Randen",
+          "Ben",
+          "Moriah",
+          "Liz",
+          "Tim",
+          "Jess",
+          "Jelinsky"
+        ]
+      },
+      {
+        "name": "Riley",
+        "picks": [
+          "Randen",
+          "Venus",
+          "Ben",
+          "Tevin",
+          "Kenzie",
+          "Tim",
+          "Tiffany",
+          "Charlie",
+          "Moriah",
+          "Soda",
+          "Jem",
+          "Bhanu",
+          "Liz",
+          "Maria",
+          "Hunter",
+          "Jess",
+          "Q",
+          "Jelinsky"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "position": 1,
+        "contestant_name": "Kenzie"
+      },
+      {
+        "position": 2,
+        "contestant_name": "Charlie"
+      },
+      {
+        "position": 3,
+        "contestant_name": "Ben"
+      },
+      {
+        "position": 4,
+        "contestant_name": "Liz"
+      },
+      {
+        "position": 5,
+        "contestant_name": "Maria"
+      },
+      {
+        "position": 6,
+        "contestant_name": "Q"
+      },
+      {
+        "position": 7,
+        "contestant_name": "Venus"
+      },
+      {
+        "position": 8,
+        "contestant_name": "Tiffany"
+      },
+      {
+        "position": 9,
+        "contestant_name": "Hunter"
+      },
+      {
+        "position": 10,
+        "contestant_name": "Tevin"
+      },
+      {
+        "position": 11,
+        "contestant_name": "Soda"
+      },
+      {
+        "position": 12,
+        "contestant_name": "Tim"
+      },
+      {
+        "position": 13,
+        "contestant_name": "Moriah"
+      },
+      {
+        "position": 14,
+        "contestant_name": "Jem"
+      },
+      {
+        "position": 15,
+        "contestant_name": "Bhanu"
+      },
+      {
+        "position": 16,
+        "contestant_name": "Randen"
+      },
+      {
+        "position": 17,
+        "contestant_name": "Jess"
+      },
+      {
+        "position": 18,
+        "contestant_name": "Jelinsky"
+      }
+    ]
+  },
+  {
+    "season": 47,
+    "instance_name": "Historical Season 47",
+    "contestants": [
+      "Tiyana",
+      "Sue",
+      "Sol",
+      "TK",
+      "Rome",
+      "Sierra",
+      "Rachel",
+      "Caroline",
+      "Aysha",
+      "Anika",
+      "Kishan",
+      "Kyle",
+      "Teeny",
+      "Genevieve",
+      "Gabe",
+      "Sam",
+      "Andy",
+      "Jon"
+    ],
+    "participants": [
+      {
+        "name": "Bryan",
+        "picks": [
+          "Tiyana",
+          "Sue",
+          "Sol",
+          "TK",
+          "Rome",
+          "Sierra",
+          "Rachel",
+          "Caroline",
+          "Aysha",
+          "Anika",
+          "Kishan",
+          "Kyle",
+          "Teeny",
+          "Genevieve",
+          "Gabe",
+          "Sam",
+          "Andy",
+          "Jon"
+        ]
+      },
+      {
+        "name": "Katie",
+        "picks": [
+          "Aysha",
+          "Genevieve",
+          "Kyle",
+          "Sierra",
+          "TK",
+          "Tiyana",
+          "Anika",
+          "Sue",
+          "Gabe",
+          "Caroline",
+          "Sam",
+          "Teeny",
+          "Rachel",
+          "Rome",
+          "Sol",
+          "Andy",
+          "Kishan",
+          "Jon"
+        ]
+      },
+      {
+        "name": "Kenny",
+        "picks": [
+          "Tiyana",
+          "Sol",
+          "Kyle",
+          "Genevieve",
+          "Anika",
+          "Sierra",
+          "TK",
+          "Sam",
+          "Rome",
+          "Caroline",
+          "Aysha",
+          "Sue",
+          "Teeny",
+          "Rachel",
+          "Kishan",
+          "Andy",
+          "Gabe",
+          "Jon"
+        ]
+      },
+      {
+        "name": "Kyle",
+        "picks": [
+          "Aysha",
+          "Rachel",
+          "TK",
+          "Teeny",
+          "Sol",
+          "Tiyana",
+          "Sue",
+          "Genevieve",
+          "Anika",
+          "Sam",
+          "Gabe",
+          "Kishan",
+          "Kyle",
+          "Sierra",
+          "Caroline",
+          "Andy",
+          "Rome",
+          "Jon"
+        ]
+      },
+      {
+        "name": "Lauren",
+        "picks": [
+          "TK",
+          "Teeny",
+          "Rachel",
+          "Sol",
+          "Kyle",
+          "Aysha",
+          "Kishan",
+          "Sue",
+          "Sam",
+          "Genevieve",
+          "Tiyana",
+          "Sierra",
+          "Rome",
+          "Gabe",
+          "Andy",
+          "Anika",
+          "Caroline",
+          "Jon"
+        ]
+      },
+      {
+        "name": "marv",
+        "picks": [
+          "Caroline",
+          "Rachel",
+          "Sam",
+          "Aysha",
+          "Sol",
+          "Teeny",
+          "Rome",
+          "TK",
+          "Genevieve",
+          "Kyle",
+          "Andy",
+          "Tiyana",
+          "Kishan",
+          "Anika",
+          "Gabe",
+          "Sue",
+          "Sierra",
+          "Jon"
+        ]
+      },
+      {
+        "name": "Mooney",
+        "picks": [
+          "Rachel",
+          "Sam",
+          "Teeny",
+          "TK",
+          "Anika",
+          "Gabe",
+          "Sol",
+          "Aysha",
+          "Sue",
+          "Kishan",
+          "Rome",
+          "Kyle",
+          "Andy",
+          "Caroline",
+          "Tiyana",
+          "Sierra",
+          "Genevieve",
+          "Jon"
+        ]
+      },
+      {
+        "name": "Tina",
+        "picks": [
+          "Anika",
+          "Sam",
+          "Teeny",
+          "Rachel",
+          "Kishan",
+          "Aysha",
+          "Gabe",
+          "TK",
+          "Kyle",
+          "Sol",
+          "Genevieve",
+          "Rome",
+          "Sue",
+          "Caroline",
+          "Tiyana",
+          "Sierra",
+          "Andy",
+          "Jon"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "position": 1,
+        "contestant_name": "Rachel"
+      },
+      {
+        "position": 2,
+        "contestant_name": "Sam"
+      },
+      {
+        "position": 3,
+        "contestant_name": "Sue"
+      },
+      {
+        "position": 4,
+        "contestant_name": "Teeny"
+      },
+      {
+        "position": 5,
+        "contestant_name": "Genevieve"
+      },
+      {
+        "position": 6,
+        "contestant_name": "Andy"
+      },
+      {
+        "position": 7,
+        "contestant_name": "Caroline"
+      },
+      {
+        "position": 8,
+        "contestant_name": "Kyle"
+      },
+      {
+        "position": 9,
+        "contestant_name": "Gabe"
+      },
+      {
+        "position": 10,
+        "contestant_name": "Sol"
+      },
+      {
+        "position": 11,
+        "contestant_name": "Sierra"
+      },
+      {
+        "position": 12,
+        "contestant_name": "Tiyana"
+      },
+      {
+        "position": 13,
+        "contestant_name": "Rome"
+      },
+      {
+        "position": 14,
+        "contestant_name": "Anika"
+      },
+      {
+        "position": 15,
+        "contestant_name": "Kishan"
+      },
+      {
+        "position": 16,
+        "contestant_name": "Aysha"
+      },
+      {
+        "position": 17,
+        "contestant_name": "TK"
+      },
+      {
+        "position": 18,
+        "contestant_name": "Jon"
+      }
+    ]
+  },
+  {
+    "season": 48,
+    "instance_name": "Historical Season 48",
+    "contestants": [
+      "Kyle",
+      "Eva",
+      "Joe",
+      "Kamilla",
+      "Mitch",
+      "Shauhin",
+      "Mary",
+      "Star",
+      "David",
+      "Chrissy",
+      "Cedrek",
+      "Sai",
+      "Charity",
+      "Bianca",
+      "Thomas",
+      "Justin",
+      "Kevin",
+      "Stephanie"
+    ],
+    "participants": [
+      {
+        "name": "Bryan",
+        "picks": [
+          "Mitch",
+          "Kamilla",
+          "Kevin",
+          "Chrissy",
+          "Eva",
+          "Thomas",
+          "Bianca",
+          "Joe",
+          "Mary",
+          "Sai",
+          "David",
+          "Kyle",
+          "Justin",
+          "Cedrek",
+          "Charity",
+          "Shauhin",
+          "Star",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Grant",
+        "picks": [
+          "Kevin",
+          "Joe",
+          "Eva",
+          "Charity",
+          "Cedrek",
+          "Thomas",
+          "Chrissy",
+          "Star",
+          "Shauhin",
+          "Mary",
+          "Kamilla",
+          "Kyle",
+          "Bianca",
+          "David",
+          "Sai",
+          "Justin",
+          "Mitch",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Kate",
+        "picks": [
+          "Shauhin",
+          "Joe",
+          "Kyle",
+          "Eva",
+          "Justin",
+          "Mary",
+          "David",
+          "Bianca",
+          "Thomas",
+          "Kevin",
+          "Charity",
+          "Mitch",
+          "Chrissy",
+          "Star",
+          "Cedrek",
+          "Kamilla",
+          "Sai",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Katie",
+        "picks": [
+          "Bianca",
+          "Justin",
+          "Eva",
+          "Shauhin",
+          "Kamilla",
+          "Thomas",
+          "Kevin",
+          "David",
+          "Mitch",
+          "Sai",
+          "Joe",
+          "Kyle",
+          "Chrissy",
+          "Star",
+          "Mary",
+          "Cedrek",
+          "Charity",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Kenny",
+        "picks": [
+          "Kyle",
+          "Eva",
+          "Kevin",
+          "Shauhin",
+          "Mary",
+          "Bianca",
+          "Chrissy",
+          "Joe",
+          "Charity",
+          "Justin",
+          "Sai",
+          "Mitch",
+          "Kamilla",
+          "David",
+          "Star",
+          "Thomas",
+          "Cedrek",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Kyle",
+        "picks": [
+          "Joe",
+          "Thomas",
+          "Eva",
+          "Kyle",
+          "Shauhin",
+          "Kamilla",
+          "Mitch",
+          "Mary",
+          "David",
+          "Kevin",
+          "Justin",
+          "Chrissy",
+          "Bianca",
+          "Cedrek",
+          "Sai",
+          "Star",
+          "Charity",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Lauren",
+        "picks": [
+          "Charity",
+          "Star",
+          "Mary",
+          "Eva",
+          "Kevin",
+          "Joe",
+          "Kyle",
+          "Kamilla",
+          "David",
+          "Shauhin",
+          "Justin",
+          "Cedrek",
+          "Sai",
+          "Chrissy",
+          "Mitch",
+          "Bianca",
+          "Thomas",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Marv",
+        "picks": [
+          "Mary",
+          "Kyle",
+          "Joe",
+          "Mitch",
+          "Justin",
+          "Shauhin",
+          "Charity",
+          "Kevin",
+          "Bianca",
+          "Eva",
+          "Kamilla",
+          "Thomas",
+          "David",
+          "Sai",
+          "Cedrek",
+          "Star",
+          "Chrissy",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Mooney",
+        "picks": [
+          "Sai",
+          "Shauhin",
+          "Chrissy",
+          "Joe",
+          "Eva",
+          "Mitch",
+          "Kevin",
+          "Thomas",
+          "Kyle",
+          "Justin",
+          "Cedrek",
+          "Kamilla",
+          "David",
+          "Mary",
+          "Charity",
+          "Bianca",
+          "Star",
+          "Stephanie"
+        ]
+      },
+      {
+        "name": "Riley",
+        "picks": [
+          "Thomas",
+          "Mitch",
+          "Mary",
+          "Eva",
+          "Joe",
+          "Justin",
+          "Shauhin",
+          "Chrissy",
+          "Bianca",
+          "Sai",
+          "Kevin",
+          "Star",
+          "David",
+          "Cedrek",
+          "Kyle",
+          "Kamilla",
+          "Charity",
+          "Stephanie"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "position": 1,
+        "contestant_name": "Kyle"
+      },
+      {
+        "position": 2,
+        "contestant_name": "Eva"
+      },
+      {
+        "position": 3,
+        "contestant_name": "Joe"
+      },
+      {
+        "position": 4,
+        "contestant_name": "Kamilla"
+      },
+      {
+        "position": 5,
+        "contestant_name": "Mitch"
+      },
+      {
+        "position": 6,
+        "contestant_name": "Shauhin"
+      },
+      {
+        "position": 7,
+        "contestant_name": "Mary"
+      },
+      {
+        "position": 8,
+        "contestant_name": "Star"
+      },
+      {
+        "position": 9,
+        "contestant_name": "David"
+      },
+      {
+        "position": 10,
+        "contestant_name": "Chrissy"
+      },
+      {
+        "position": 11,
+        "contestant_name": "Cedrek"
+      },
+      {
+        "position": 12,
+        "contestant_name": "Sai"
+      },
+      {
+        "position": 13,
+        "contestant_name": "Charity"
+      },
+      {
+        "position": 14,
+        "contestant_name": "Bianca"
+      },
+      {
+        "position": 15,
+        "contestant_name": "Thomas"
+      },
+      {
+        "position": 16,
+        "contestant_name": "Justin"
+      },
+      {
+        "position": 17,
+        "contestant_name": "Kevin"
+      },
+      {
+        "position": 18,
+        "contestant_name": "Stephanie"
+      }
+    ]
+  },
+  {
+    "season": 49,
+    "instance_name": "Historical Season 49",
+    "contestants": [
+      "Alex",
+      "Annie",
+      "Jake",
+      "Jawann",
+      "Jason",
+      "Jeremiah",
+      "Kristina",
+      "Matt",
+      "MC",
+      "Nate",
+      "Nicole",
+      "Rizo",
+      "Sage",
+      "Savannah",
+      "Shannon",
+      "Sophie S",
+      "Sophi B",
+      "Steven"
+    ],
+    "participants": [
+      {
+        "name": "Amanda",
+        "picks": [
+          "Matt",
+          "Rizo",
+          "Alex",
+          "Savannah",
+          "Sophi B",
+          "MC",
+          "Steven",
+          "Nate",
+          "Jake",
+          "Sophie S",
+          "Shannon",
+          "Jeremiah",
+          "Jawann",
+          "Jason",
+          "Annie",
+          "Kristina",
+          "Sage",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Bryan",
+        "picks": [
+          "Steven",
+          "Nate",
+          "MC",
+          "Rizo",
+          "Alex",
+          "Savannah",
+          "Jason",
+          "Jeremiah",
+          "Jake",
+          "Sophi B",
+          "Matt",
+          "Shannon",
+          "Sage",
+          "Kristina",
+          "Sophie S",
+          "Annie",
+          "Jawann",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Grant",
+        "picks": [
+          "Sophie S",
+          "Jason",
+          "Annie",
+          "Matt",
+          "Alex",
+          "Shannon",
+          "Savannah",
+          "Kristina",
+          "Nate",
+          "MC",
+          "Sage",
+          "Jake",
+          "Steven",
+          "Sophi B",
+          "Jeremiah",
+          "Rizo",
+          "Jawann",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Kate",
+        "picks": [
+          "Alex",
+          "Steven",
+          "Sophi B",
+          "Shannon",
+          "Jake",
+          "Rizo",
+          "Savannah",
+          "Jeremiah",
+          "MC",
+          "Nate",
+          "Sophie S",
+          "Kristina",
+          "Matt",
+          "Sage",
+          "Jason",
+          "Jawann",
+          "Annie",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Katie",
+        "picks": [
+          "Savannah",
+          "MC",
+          "Shannon",
+          "Steven",
+          "Alex",
+          "Sophi B",
+          "Jake",
+          "Rizo",
+          "Kristina",
+          "Matt",
+          "Sophie S",
+          "Jason",
+          "Nate",
+          "Annie",
+          "Jeremiah",
+          "Jawann",
+          "Sage",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Keith",
+        "picks": [
+          "Alex",
+          "Sage",
+          "Jeremiah",
+          "Rizo",
+          "Nate",
+          "Matt",
+          "Jake",
+          "MC",
+          "Savannah",
+          "Sophie S",
+          "Steven",
+          "Sophi B",
+          "Shannon",
+          "Jason",
+          "Kristina",
+          "Jawann",
+          "Annie",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Kenny",
+        "picks": [
+          "Nate",
+          "MC",
+          "Alex",
+          "Jake",
+          "Sophi B",
+          "Matt",
+          "Savannah",
+          "Jason",
+          "Sage",
+          "Rizo",
+          "Jeremiah",
+          "Jawann",
+          "Kristina",
+          "Shannon",
+          "Steven",
+          "Annie",
+          "Sophie S",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Kyle",
+        "picks": [
+          "Savannah",
+          "Jake",
+          "Alex",
+          "Shannon",
+          "Jeremiah",
+          "Rizo",
+          "Nate",
+          "Sophi B",
+          "Matt",
+          "MC",
+          "Jason",
+          "Kristina",
+          "Sophie S",
+          "Steven",
+          "Sage",
+          "Annie",
+          "Jawann",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Lauren",
+        "picks": [
+          "Kristina",
+          "Rizo",
+          "Jake",
+          "Jeremiah",
+          "Matt",
+          "Savannah",
+          "Jason",
+          "Shannon",
+          "Nate",
+          "Alex",
+          "Sophi B",
+          "Steven",
+          "MC",
+          "Sophie S",
+          "Jawann",
+          "Annie",
+          "Sage",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Marv",
+        "picks": [
+          "MC",
+          "Alex",
+          "Matt",
+          "Kristina",
+          "Nate",
+          "Savannah",
+          "Sophie S",
+          "Rizo",
+          "Steven",
+          "Jake",
+          "Sophi B",
+          "Jawann",
+          "Jason",
+          "Shannon",
+          "Annie",
+          "Sage",
+          "Jeremiah",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Mooney",
+        "picks": [
+          "Savannah",
+          "Jason",
+          "Matt",
+          "Rizo",
+          "Alex",
+          "Nate",
+          "Kristina",
+          "Jeremiah",
+          "Sophi B",
+          "Shannon",
+          "Sophie S",
+          "Jake",
+          "MC",
+          "Steven",
+          "Annie",
+          "Sage",
+          "Jawann",
+          "Nicole"
+        ]
+      },
+      {
+        "name": "Riley",
+        "picks": [
+          "Steven",
+          "Savannah",
+          "Alex",
+          "Nate",
+          "MC",
+          "Sophi B",
+          "Rizo",
+          "Jason",
+          "Matt",
+          "Jawann",
+          "Shannon",
+          "Sophie S",
+          "Kristina",
+          "Jake",
+          "Jeremiah",
+          "Sage",
+          "Annie",
+          "Nicole"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "position": 1
+      },
+      {
+        "position": 2
+      },
+      {
+        "position": 3
+      },
+      {
+        "position": 4
+      },
+      {
+        "position": 5
+      },
+      {
+        "position": 6
+      },
+      {
+        "position": 7
+      },
+      {
+        "position": 8,
+        "contestant_name": "Jawann"
+      },
+      {
+        "position": 9,
+        "contestant_name": "Alex"
+      },
+      {
+        "position": 10,
+        "contestant_name": "MC"
+      },
+      {
+        "position": 11,
+        "contestant_name": "Nate"
+      },
+      {
+        "position": 12,
+        "contestant_name": "Shannon"
+      },
+      {
+        "position": 13,
+        "contestant_name": "Jason"
+      },
+      {
+        "position": 14,
+        "contestant_name": "Matt"
+      },
+      {
+        "position": 15,
+        "contestant_name": "Jeremiah"
+      },
+      {
+        "position": 16,
+        "contestant_name": "Jake"
+      },
+      {
+        "position": 17,
+        "contestant_name": "Annie"
+      },
+      {
+        "position": 18,
+        "contestant_name": "Nicole"
+      }
+    ]
+  }
+]
