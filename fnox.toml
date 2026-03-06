@@ -1,0 +1,5 @@
+# Repository-local fnox configuration.
+#
+# This file exists so repo commands can consistently use `fnox exec ...`.
+# Secrets may come from your configured fnox provider or your ambient shell
+# environment during local development.

@@ -21,4 +21,5 @@ The app uses mise for task management. Available tasks:
 ## Change Rules
 
 - ALWAYS ensure the app lints, tests, builds, and runs before committing or PRing
+- Commit complete thoughts frequently; this repo squash merges PRs, so prefer smaller committed checkpoints over large uncommitted changesets
 - NEVER remove or update a regression test without asking permission
