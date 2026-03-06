@@ -1,5 +1,19 @@
 # Repository-local fnox configuration.
 #
-# This file exists so repo commands can consistently use `fnox exec ...`.
-# Secrets may come from your configured fnox provider or your ambient shell
-# environment during local development.
+# The entire monorepo uses the shared 1Password vault named `castaway`.
+# Each app should select only the profile it needs via mise/env (for example,
+# `apps/castaway-discord-bot` uses the `castaway-discord-bot` profile).
+#
+# fnox resolves the secret values through the 1Password CLI (`op`). For local
+# development, either sign in with `op signin` or provide
+# `OP_SERVICE_ACCOUNT_TOKEN` / `FNOX_OP_SERVICE_ACCOUNT_TOKEN` in your shell.
+
+[providers.op]
+type = "1password"
+vault = "castaway"
+
+[profiles.castaway-discord-bot.secrets]
+CASTAWAY_DISCORD_BOT_TOKEN = { provider = "op", value = "CASTAWAY_DISCORD_BOT_TOKEN/password", description = "Discord bot token for castaway-discord-bot" }
+CASTAWAY_DISCORD_APPLICATION_ID = { provider = "op", value = "CASTAWAY_DISCORD_APPLICATION_ID/password", description = "Discord application ID for castaway-discord-bot" }
+DISCORD_PODRACING_SERVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERVER_ID/password", description = "Development guild/server ID for castaway-discord-bot" }
+CASTAWAY_DISCORD_PUBLIC_KEY = { provider = "op", value = "CASTAWAY_DISCORD_PUBLIC_KEY/password", description = "Reserved for future Discord signature verification workflows" }

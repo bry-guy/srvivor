@@ -13,6 +13,7 @@ Add a standalone Discord bot app at `apps/castaway-discord-bot` that reads draft
 - `castaway-web` remains the source of truth for scoring and draft state
 - `castaway-discord-bot` owns Discord UX, formatting, and saved instance context
 - Use existing repo tooling: `mise` for tasks and `fnox` for secrets/env injection
+- Root `fnox.toml` points at the shared 1Password vault `castaway`; the bot selects its own fnox profile via `mise`
 
 ## Small castaway-web API enhancements
 
@@ -92,9 +93,9 @@ apps/castaway-discord-bot/
 1. Start and seed the API stack:
    - `mise run start`
    - `mise run seed`
-2. Provide Discord credentials and local bot config via `fnox exec` or your shell env
+2. Ensure `op`/fnox can resolve the `castaway-discord-bot` profile from the shared `castaway` vault
 3. Run the bot locally:
-   - `fnox exec -- mise run //apps/castaway-discord-bot:run`
+   - `mise run //apps/castaway-discord-bot:run`
 
 Use guild-scoped command registration in development so command updates propagate quickly.
 

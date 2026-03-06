@@ -21,7 +21,7 @@ mise install
 mise run ci
 ```
 
-When running apps that require credentials, prefer `fnox exec -- ...` so local secrets stay out of the repo.
+The monorepo shares a single 1Password vault, `castaway`, through the root `fnox.toml`. Each app selects only the fnox profile it needs through `mise` configuration, while non-secret defaults live in `mise.toml` env blocks.
 
 ### Web stack
 
@@ -58,3 +58,4 @@ See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord
 - `docs/castaway-discord-bot-plan.md`
 - `docs/non-functional-requirements.md`
 - `docs/production-readiness-checklist.md`
+- `docs/secrets-and-config.md`

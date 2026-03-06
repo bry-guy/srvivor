@@ -1,3 +1,9 @@
+[env]
+FNOX_PROFILE = "castaway-discord-bot"
+CASTAWAY_API_BASE_URL = "http://localhost:8080"
+BOT_STATE_PATH = "./data/state.db"
+LOG_LEVEL = "INFO"
+
 [tasks.lint]
 run = "golangci-lint run"
 
@@ -9,10 +15,10 @@ run = "go test -v ./..."
 run = "go build -o bin/castaway-discord-bot ./cmd/bot"
 
 [tasks.run]
-run = "fnox exec -- go run ./cmd/bot"
+run = "fnox check && fnox exec -- go run ./cmd/bot"
 
 [tasks.check-config]
-run = "fnox exec -- go run ./cmd/bot --check-config"
+run = "fnox check && fnox exec -- go run ./cmd/bot --check-config"
 
 [tasks.ci]
 description = "Run all tasks for CI pipeline (lint, test, build)"

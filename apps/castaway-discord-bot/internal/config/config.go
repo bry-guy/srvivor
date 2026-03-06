@@ -13,9 +13,9 @@ type Config struct {
 	LogLevelStr string `envconfig:"LOG_LEVEL" default:"INFO"`
 	LogLevel    slog.Level
 
-	DiscordBotToken      string `envconfig:"DISCORD_BOT_TOKEN" required:"true"`
-	DiscordApplicationID string `envconfig:"DISCORD_APPLICATION_ID" required:"true"`
-	DiscordDevGuildID    string `envconfig:"DISCORD_DEV_GUILD_ID"`
+	DiscordBotToken      string `envconfig:"CASTAWAY_DISCORD_BOT_TOKEN" required:"true"`
+	DiscordApplicationID string `envconfig:"CASTAWAY_DISCORD_APPLICATION_ID" required:"true"`
+	DiscordDevGuildID    string `envconfig:"DISCORD_PODRACING_SERVER_ID"`
 
 	CastawayAPIBaseURL string `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
 	StatePath          string `envconfig:"BOT_STATE_PATH" default:"./data/state.db"`

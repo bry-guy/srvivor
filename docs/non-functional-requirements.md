@@ -16,6 +16,8 @@ This document tracks cross-cutting requirements that apply across Castaway apps,
 
 ### Secrets management
 - Secrets must not be committed to the repository.
+- The monorepo standard is the shared 1Password vault `castaway` accessed through the root `fnox.toml` provider.
+- Apps should select only the fnox profile they need via `mise.toml` and keep non-secret defaults in `mise.toml` env blocks.
 - Discord tokens and production API credentials should be provided via fnox-backed environment injection or an equivalent managed secret provider.
 - Logs must never include secrets or authorization headers.
 
