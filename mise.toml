@@ -13,7 +13,7 @@ fnox = '1.15.1'
 
 [tasks.ci]
 description = "Run all monorepo CI tasks"
-run = "mise run //apps/cli:ci && mise run //apps/castaway-web:ci"
+run = "mise run //apps/cli:ci && mise run //apps/castaway-web:ci && mise run //apps/castaway-discord-bot:ci"
 
 [tasks.start]
 description = "Start castaway web stack"

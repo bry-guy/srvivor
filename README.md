@@ -49,6 +49,10 @@ See `apps/cli/README.md` for CLI command usage.
 
 See `apps/castaway-web/README.md` for API + workflow details.
 
+### castaway-discord-bot
+
+See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord app configuration.
+
 ### Planning and production docs
 
 - `docs/castaway-discord-bot-plan.md`

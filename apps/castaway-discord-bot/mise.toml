@@ -1,0 +1,19 @@
+[tasks.lint]
+run = "golangci-lint run"
+
+[tasks.test]
+depends = [":lint"]
+run = "go test -v ./..."
+
+[tasks.build]
+run = "go build -o bin/castaway-discord-bot ./cmd/bot"
+
+[tasks.run]
+run = "fnox exec -- go run ./cmd/bot"
+
+[tasks.check-config]
+run = "fnox exec -- go run ./cmd/bot --check-config"
+
+[tasks.ci]
+description = "Run all tasks for CI pipeline (lint, test, build)"
+depends = [":lint", ":test", ":build"]
