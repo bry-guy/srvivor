@@ -72,6 +72,13 @@ mise run //apps/castaway-discord-bot:check-config
 mise run //apps/castaway-discord-bot:run
 ```
 
+The root stack tasks also use the same fnox profile when starting the Docker Compose bot service:
+
+```bash
+mise run start
+mise run bot
+```
+
 ## Adding secrets for another app
 
 When another app needs secrets:

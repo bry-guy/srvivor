@@ -2,6 +2,7 @@ package discord
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -46,7 +47,8 @@ func (b *Bot) Start(ctx context.Context) error {
 		return fmt.Errorf("open discord session: %w", err)
 	}
 
-	if err := b.syncCommands(); err != nil {
+	commandScope, err := b.syncCommands()
+	if err != nil {
 		_ = b.session.Close()
 		return err
 	}
@@ -58,11 +60,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		}
 	}()
 
-	scope := "global"
-	if b.devGuildID != "" {
-		scope = "guild"
-	}
-	b.log.Info("discord session opened", "command_scope", scope)
+	b.log.Info("discord session opened", "command_scope", commandScope)
 	return nil
 }
 
@@ -73,10 +71,28 @@ func (b *Bot) Close() error {
 	return b.session.Close()
 }
 
-func (b *Bot) syncCommands() error {
+func (b *Bot) syncCommands() (string, error) {
 	commands := applicationCommands()
-	if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, b.devGuildID, commands); err != nil {
-		return fmt.Errorf("sync application commands: %w", err)
+	if b.devGuildID != "" {
+		if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, b.devGuildID, commands); err == nil {
+			return "guild", nil
+		} else if !isDiscordMissingAccess(err) {
+			return "", fmt.Errorf("sync guild application commands: %w", err)
+		} else {
+			b.log.Warn("guild command sync failed; falling back to global commands", "guild_id", b.devGuildID, "error", err)
+		}
 	}
-	return nil
+
+	if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, "", commands); err != nil {
+		return "", fmt.Errorf("sync global application commands: %w", err)
+	}
+	return "global", nil
+}
+
+func isDiscordMissingAccess(err error) bool {
+	var restErr *discordgo.RESTError
+	if !errors.As(err, &restErr) {
+		return false
+	}
+	return restErr.Response != nil && restErr.Response.StatusCode == 403 && restErr.Message != nil && restErr.Message.Code == 50001
 }

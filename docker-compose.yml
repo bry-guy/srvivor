@@ -32,5 +32,25 @@ services:
       castawaydb:
         condition: service_healthy
 
+  castaway-discord-bot:
+    container_name: castaway-discord-bot
+    build:
+      context: ./apps/castaway-discord-bot
+      dockerfile: Dockerfile
+    environment:
+      CASTAWAY_DISCORD_BOT_TOKEN:
+      CASTAWAY_DISCORD_APPLICATION_ID:
+      DISCORD_PODRACING_SERVER_ID:
+      CASTAWAY_DISCORD_PUBLIC_KEY:
+      CASTAWAY_API_BASE_URL: ${CASTAWAY_API_BASE_URL:-http://castaway-web:8080}
+      BOT_STATE_PATH: ${BOT_STATE_PATH:-/app/data/state.db}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - castaway-discord-bot-data:/app/data
+    depends_on:
+      castaway-web:
+        condition: service_started
+
 volumes:
   castawaydb-data:
+  castaway-discord-bot-data:

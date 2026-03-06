@@ -23,15 +23,21 @@ mise run ci
 
 The monorepo shares a single 1Password vault, `castaway`, through the root `fnox.toml`. Each app selects only the fnox profile it needs through `mise` configuration, while non-secret defaults live in `mise.toml` env blocks.
 
-### Web stack
+### Local stack
 
 ```bash
 mise run start
 mise run seed
 mise run ps
 mise run logs
+mise run bot-logs
 mise run stop
 ```
+
+`mise run start` now starts the full local stack:
+- `castawaydb`
+- `castaway-web`
+- `castaway-discord-bot`
 
 ### Legacy CLI (`srvivor`)
 

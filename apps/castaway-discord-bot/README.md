@@ -19,12 +19,17 @@ Top-level command: `/castaway`
 
 ## Local development
 
-Start and seed the API stack from the repo root:
+Start and seed the full local stack from the repo root:
 
 ```bash
 mise run start
 mise run seed
 ```
+
+That starts:
+- `castawaydb`
+- `castaway-web`
+- `castaway-discord-bot`
 
 ### Secret setup
 
@@ -64,6 +69,23 @@ Non-secret defaults are provided through `apps/castaway-discord-bot/mise.toml`:
 Override them in your shell only when you need a non-default local setup.
 
 ### Run the bot locally
+
+The default local workflow is to let the root stack manage the bot lifecycle:
+
+```bash
+mise run start
+mise run bot-logs
+mise run stop
+```
+
+If you want to run only the bot service, use:
+
+```bash
+mise run bot
+mise run bot-logs
+```
+
+If you want to run the process directly on the host instead of through Docker Compose, you can still use:
 
 ```bash
 mise run //apps/castaway-discord-bot:run
