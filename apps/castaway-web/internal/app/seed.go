@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/seeddata"
 	"github.com/jackc/pgx/v5"
@@ -44,7 +45,7 @@ func SeedHistorical(ctx context.Context, pool *pgxpool.Pool, seasons []seeddata.
 
 func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, result *SeedResult) error {
 	q := db.New(tx)
-	seasonNumber, err := toInt32(season.Season)
+	seasonNumber, err := conv.ToInt32(season.Season)
 	if err != nil {
 		return fmt.Errorf("convert season number %d: %w", season.Season, err)
 	}
@@ -108,7 +109,7 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 				continue
 			}
 
-			position, err := toInt32(index + 1)
+			position, err := conv.ToInt32(index + 1)
 			if err != nil {
 				return fmt.Errorf("draft pick position for season %d: %w", season.Season, err)
 			}
@@ -126,7 +127,7 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 	}
 
 	for _, outcome := range season.Outcomes {
-		position, err := toInt32(outcome.Position)
+		position, err := conv.ToInt32(outcome.Position)
 		if err != nil {
 			return fmt.Errorf("outcome position for season %d: %w", season.Season, err)
 		}
@@ -161,13 +162,6 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 
 	result.Seasons++
 	return nil
-}
-
-func toInt32(value int) (int32, error) {
-	if value > int(^uint32(0)>>1) || value < -int(^uint32(0)>>1)-1 {
-		return 0, fmt.Errorf("value out of int32 range: %d", value)
-	}
-	return int32(value), nil
 }
 
 func SeedSummary(result SeedResult) string {

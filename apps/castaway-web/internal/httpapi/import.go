@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -130,7 +131,7 @@ func (s *Server) importInstance(c *gin.Context) {
 			if !ok {
 				continue
 			}
-			position, convErr := toInt32(index + 1)
+			position, convErr := conv.ToInt32(index + 1)
 			if convErr != nil {
 				c.JSON(http.StatusBadRequest, errorResponse{Error: convErr.Error()})
 				return
@@ -188,7 +189,7 @@ func (s *Server) parseImportPayload(c *gin.Context) (importInstanceRequest, erro
 		if name == "" {
 			name = fmt.Sprintf("Season %d", season)
 		}
-		seasonInt32, convErr := toInt32(season)
+		seasonInt32, convErr := conv.ToInt32(season)
 		if convErr != nil {
 			return importInstanceRequest{}, convErr
 		}

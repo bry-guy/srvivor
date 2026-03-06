@@ -2,11 +2,11 @@ package httpapi
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
 
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/scoring"
 	"github.com/gin-gonic/gin"
@@ -403,7 +403,7 @@ func (s *Server) replaceDraft(c *gin.Context) {
 	}
 
 	for i, contestantID := range contestantUUIDs {
-		position, err := toInt32(i + 1)
+		position, err := conv.ToInt32(i + 1)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 			return
@@ -532,7 +532,7 @@ func (s *Server) upsertOutcome(c *gin.Context) {
 		contestantParam = toPGUUID(contestantID)
 	}
 
-	positionInt32, err := toInt32(position)
+	positionInt32, err := conv.ToInt32(position)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
@@ -693,13 +693,4 @@ func statusFromPg(err error) int {
 		}
 	}
 	return http.StatusInternalServerError
-}
-
-func toInt32(value int) (int32, error) {
-	const maxInt32 = int(^uint32(0) >> 1)
-	const minInt32 = -maxInt32 - 1
-	if value > maxInt32 || value < minInt32 {
-		return 0, fmt.Errorf("value %d is out of int32 range", value)
-	}
-	return int32(value), nil
 }
