@@ -41,6 +41,7 @@ mise run logs
 mise run db-shell
 mise run db-reset
 mise run openapi
+mise run openapi-check
 ```
 
 After seeding, try:
@@ -75,21 +76,28 @@ Regenerate:
 mise run openapi
 ```
 
+Verify that committed OpenAPI stays in sync with TypeSpec and the registered Gin routes:
+
+```bash
+mise run openapi-check
+```
+
 ## API (MVP)
 
 - `GET /healthz`
-- `GET /instances`
+- `GET /instances` (`season`, `name` filters supported)
 - `POST /instances`
+- `POST /instances/import`
 - `GET /instances/:instanceID`
 - `POST /instances/:instanceID/contestants`
 - `GET /instances/:instanceID/contestants`
 - `POST /instances/:instanceID/participants`
-- `GET /instances/:instanceID/participants`
+- `GET /instances/:instanceID/participants` (`name` filter supported)
 - `PUT /instances/:instanceID/drafts/:participantID`
 - `GET /instances/:instanceID/drafts/:participantID`
 - `PUT /instances/:instanceID/outcomes/:position`
 - `GET /instances/:instanceID/outcomes`
-- `GET /instances/:instanceID/leaderboard`
+- `GET /instances/:instanceID/leaderboard` (`participant_id` filter supported)
 
 ## Seed data
 

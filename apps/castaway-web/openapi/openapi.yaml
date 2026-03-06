@@ -18,7 +18,20 @@ paths:
   /instances:
     get:
       operationId: listInstances
-      parameters: []
+      parameters:
+        - name: season
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
       responses:
         '200':
           description: The request has succeeded.
@@ -42,6 +55,29 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateInstanceRequest'
+  /instances/import:
+    post:
+      operationId: importInstance
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInstanceResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportInstanceRequest'
   /instances/{instanceID}:
     get:
       operationId: getInstance
@@ -165,6 +201,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: participant_id
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
       responses:
         '200':
           description: The request has succeeded.
@@ -258,6 +300,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: name
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
       responses:
         '200':
           description: The request has succeeded.
@@ -386,6 +434,33 @@ components:
       properties:
         status:
           type: string
+    ImportInstanceRequest:
+      type: object
+      required:
+        - season
+        - submissions
+      properties:
+        season:
+          type: integer
+          format: int32
+        name:
+          type: string
+        submissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportSubmission'
+    ImportSubmission:
+      type: object
+      required:
+        - participant_name
+        - rankings
+      properties:
+        participant_name:
+          type: string
+        rankings:
+          type: array
+          items:
+            type: string
     Instance:
       type: object
       required:

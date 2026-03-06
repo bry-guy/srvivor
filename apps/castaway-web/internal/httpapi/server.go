@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
@@ -77,6 +78,12 @@ func toInstanceResponse(id pgtype.UUID, name string, season int32, createdAt pgt
 }
 
 func (s *Server) listInstances(c *gin.Context) {
+	seasonFilter, ok := parseOptionalSeasonQuery(c)
+	if !ok {
+		return
+	}
+	nameFilter := strings.TrimSpace(c.Query("name"))
+
 	instances, err := s.queries.ListInstances(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -85,6 +92,12 @@ func (s *Server) listInstances(c *gin.Context) {
 
 	response := make([]instanceResponse, 0, len(instances))
 	for _, instance := range instances {
+		if seasonFilter != nil && instance.Season != *seasonFilter {
+			continue
+		}
+		if !matchesContainsFold(instance.Name, nameFilter) {
+			continue
+		}
 		response = append(response, toInstanceResponse(instance.ID, instance.Name, instance.Season, instance.CreatedAt))
 	}
 
@@ -291,6 +304,7 @@ func (s *Server) listParticipants(c *gin.Context) {
 	if !ok {
 		return
 	}
+	nameFilter := strings.TrimSpace(c.Query("name"))
 
 	participantRows, err := s.queries.ListParticipantsByInstance(c.Request.Context(), toPGUUID(instanceID))
 	if err != nil {
@@ -300,6 +314,9 @@ func (s *Server) listParticipants(c *gin.Context) {
 
 	participants := make([]gin.H, 0, len(participantRows))
 	for _, participant := range participantRows {
+		if !matchesContainsFold(participant.Name, nameFilter) {
+			continue
+		}
 		participants = append(participants, gin.H{
 			"id":   uuid.UUID(participant.ID.Bytes).String(),
 			"name": participant.Name,
@@ -604,6 +621,11 @@ func (s *Server) leaderboard(c *gin.Context) {
 		return
 	}
 
+	participantFilter, ok := parseOptionalParticipantIDQuery(c)
+	if !ok {
+		return
+	}
+
 	contestants, err := s.queries.ListContestantsByInstance(c.Request.Context(), toPGUUID(instanceID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -656,6 +678,9 @@ func (s *Server) leaderboard(c *gin.Context) {
 
 	response := make([]gin.H, 0, len(leaderboard))
 	for _, row := range leaderboard {
+		if participantFilter != nil && row.ParticipantID != participantFilter.String() {
+			continue
+		}
 		response = append(response, gin.H{
 			"participant_id":   row.ParticipantID,
 			"participant_name": row.ParticipantName,
@@ -665,6 +690,48 @@ func (s *Server) leaderboard(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"leaderboard": response})
+}
+
+func parseOptionalSeasonQuery(c *gin.Context) (*int32, bool) {
+	raw := strings.TrimSpace(c.Query("season"))
+	if raw == "" {
+		return nil, true
+	}
+
+	season, err := strconv.Atoi(raw)
+	if err != nil || season <= 0 {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "season must be a positive integer"})
+		return nil, false
+	}
+
+	seasonInt32, err := conv.ToInt32(season)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return nil, false
+	}
+	return &seasonInt32, true
+}
+
+func parseOptionalParticipantIDQuery(c *gin.Context) (*uuid.UUID, bool) {
+	raw := strings.TrimSpace(c.Query("participant_id"))
+	if raw == "" {
+		return nil, true
+	}
+
+	participantID, err := uuid.Parse(raw)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid participant_id"})
+		return nil, false
+	}
+	return &participantID, true
+}
+
+func matchesContainsFold(candidate, filter string) bool {
+	trimmedFilter := strings.TrimSpace(filter)
+	if trimmedFilter == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(candidate), strings.ToLower(trimmedFilter))
 }
 
 func parseUUIDPath(c *gin.Context, key string) (uuid.UUID, bool) {

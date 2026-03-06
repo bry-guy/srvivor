@@ -27,6 +27,9 @@ run = "go run ./cmd/seed"
 [tasks.openapi]
 run = "cd typespec && npm install && npx tsp compile . && cp tsp-output/@typespec/openapi/openapi.yaml ../openapi/openapi.yaml"
 
+[tasks.openapi-check]
+run = "mise run :openapi && git diff --exit-code -- openapi/openapi.yaml"
+
 [tasks.ci]
-description = "Run all tasks for CI pipeline (lint, test, build)"
-depends = [":lint", ":test", ":build"]
+description = "Run all tasks for CI pipeline (lint, test, build, openapi-check)"
+depends = [":lint", ":test", ":build", ":openapi-check"]

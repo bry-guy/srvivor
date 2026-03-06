@@ -127,13 +127,24 @@ model LeaderboardResponse {
   leaderboard: LeaderboardRow[];
 }
 
+model ImportSubmission {
+  participant_name: string;
+  rankings: string[];
+}
+
+model ImportInstanceRequest {
+  season: int32;
+  name?: string;
+  submissions: ImportSubmission[];
+}
+
 @route("/healthz")
 @get
 op healthz(): HealthResponse;
 
 @route("/instances")
 @get
-op listInstances(): ListInstancesResponse;
+op listInstances(@query season?: int32, @query name?: string): ListInstancesResponse;
 
 @route("/instances")
 @post
@@ -141,6 +152,13 @@ op createInstance(@body body: CreateInstanceRequest): {
   @statusCode statusCode: 201;
   ...CreateInstanceResponse;
 };
+
+@route("/instances/import")
+@post
+op importInstance(@body body: ImportInstanceRequest): {
+  @statusCode statusCode: 201;
+  ...CreateInstanceResponse;
+} | ErrorResponse;
 
 @route("/instances/{instanceID}")
 @get
@@ -172,7 +190,10 @@ op createParticipant(
 
 @route("/instances/{instanceID}/participants")
 @get
-op listParticipants(@path instanceID: string): ListParticipantsResponse | ErrorResponse;
+op listParticipants(
+  @path instanceID: string,
+  @query name?: string,
+): ListParticipantsResponse | ErrorResponse;
 
 @route("/instances/{instanceID}/drafts/{participantID}")
 @put
@@ -200,4 +221,7 @@ op listOutcomes(@path instanceID: string): ListOutcomesResponse | ErrorResponse;
 
 @route("/instances/{instanceID}/leaderboard")
 @get
-op leaderboard(@path instanceID: string): LeaderboardResponse | ErrorResponse;
+op leaderboard(
+  @path instanceID: string,
+  @query participant_id?: string,
+): LeaderboardResponse | ErrorResponse;
