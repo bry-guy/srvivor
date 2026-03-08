@@ -41,7 +41,7 @@ Required secret items in the shared vault:
 
 - `CASTAWAY_DISCORD_BOT_TOKEN`
 - `CASTAWAY_DISCORD_APPLICATION_ID`
-- `DISCORD_PODRACING_SERVER_ID`
+- `DISCORD_BRAINLAND_SERVER_ID`
 - `CASTAWAY_DISCORD_PUBLIC_KEY` (loaded now for future Discord signature verification work; not currently consumed by the gateway bot)
 
 Make sure `fnox` can access 1Password through `op` by doing one of the following:
@@ -54,7 +54,7 @@ Validate access from the repo root:
 ```bash
 fnox check -P castaway-discord-bot
 fnox exec -P castaway-discord-bot -- env \
-  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_PODRACING_SERVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
+  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_BRAINLAND_SERVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
   | sed 's/=.*$/=<redacted>/'
 ```
 
@@ -99,7 +99,7 @@ mise run //apps/castaway-discord-bot:check-config
 
 ## Discord setup notes
 
-- Use a dedicated development guild; the bot reads its dev guild from the shared vault item `DISCORD_PODRACING_SERVER_ID`, which is exposed to the app as the guild ID environment variable.
+- Use a dedicated development guild; the bot currently reads its dev guild from the shared vault item `DISCORD_BRAINLAND_SERVER_ID`.
 - Invite the bot with both the `bot` and `applications.commands` scopes.
 - The bot only needs guild slash command support for the MVP; it does not require privileged message content intent.
 

@@ -36,7 +36,7 @@ The Discord bot uses the `castaway-discord-bot` profile. It maps the following 1
 
 - `CASTAWAY_DISCORD_BOT_TOKEN`
 - `CASTAWAY_DISCORD_APPLICATION_ID`
-- `DISCORD_PODRACING_SERVER_ID`
+- `DISCORD_BRAINLAND_SERVER_ID`
 - `CASTAWAY_DISCORD_PUBLIC_KEY`
 
 Only the first three are currently consumed by the gateway-based bot. The public key is loaded and documented now for future Discord signature-verification workflows.
@@ -46,7 +46,7 @@ Validate the profile without printing secret values:
 ```bash
 fnox check -P castaway-discord-bot
 fnox exec -P castaway-discord-bot -- env \
-  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_PODRACING_SERVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
+  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_BRAINLAND_SERVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
   | sed 's/=.*$/=<redacted>/'
 ```
 
