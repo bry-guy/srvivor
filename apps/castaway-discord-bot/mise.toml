@@ -12,7 +12,7 @@ depends = [":lint"]
 run = "go test -v ./..."
 
 [tasks.build]
-run = "go build -o bin/castaway-discord-bot ./cmd/bot"
+run = "go build -ldflags \"-X github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/buildinfo.Version=${VERSION:-dev} -X github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/buildinfo.Commit=${GIT_COMMIT:-unknown} -X github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/buildinfo.BuildDate=${BUILD_DATE:-unknown}\" -o bin/castaway-discord-bot ./cmd/bot"
 
 [tasks.run]
 run = "fnox check && fnox exec -- go run ./cmd/bot"

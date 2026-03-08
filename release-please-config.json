@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "packages": {
+    "apps/castaway-web": {
+      "release-type": "simple",
+      "component": "castaway-web",
+      "include-component-in-tag": true
+    },
+    "apps/castaway-discord-bot": {
+      "release-type": "simple",
+      "component": "castaway-discord-bot",
+      "include-component-in-tag": true
+    }
+  }
+}

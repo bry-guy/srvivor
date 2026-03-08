@@ -63,6 +63,7 @@ mise run sqlc
 mise run generate-seeds
 mise run seed
 mise run openapi
+./bin/castaway-web --version
 ```
 
 ## OpenAPI

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/buildinfo"
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/config"
 	discordbot "github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/discord"
@@ -26,7 +27,12 @@ func main() {
 
 func run() error {
 	checkConfig := flag.Bool("check-config", false, "validate configuration and local state setup, then exit")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(buildinfo.String())
+		return nil
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -48,7 +54,7 @@ func run() error {
 	}
 
 	if *checkConfig {
-		logger.Info("configuration valid", "api_base_url", cfg.CastawayAPIBaseURL, "state_path", cfg.StatePath)
+		logger.Info("configuration valid", "version", buildinfo.String(), "api_base_url", cfg.CastawayAPIBaseURL, "state_path", cfg.StatePath)
 		return nil
 	}
 
@@ -65,7 +71,7 @@ func run() error {
 		return err
 	}
 
-	logger.Info("castaway-discord-bot running")
+	logger.Info("castaway-discord-bot running", "version", buildinfo.String())
 	<-ctx.Done()
 	logger.Info("castaway-discord-bot shutting down")
 	return nil

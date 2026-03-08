@@ -112,6 +112,7 @@ mise run test
 mise run build
 mise run run
 mise run check-config
+./bin/castaway-discord-bot --version
 ```
 
 If the bot cannot resolve secrets, `mise run run` and `mise run check-config` will fail fast via `fnox check` before starting the process.

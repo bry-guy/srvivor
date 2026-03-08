@@ -65,3 +65,4 @@ See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord
 - `docs/non-functional-requirements.md`
 - `docs/production-readiness-checklist.md`
 - `docs/secrets-and-config.md`
+- `docs/versioning-and-releases.md`

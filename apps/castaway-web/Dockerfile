@@ -5,7 +5,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/castaway-web ./cmd/server
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo.Version=${VERSION} -X github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo.Commit=${GIT_COMMIT} -X github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo.BuildDate=${BUILD_DATE}" -o /out/castaway-web ./cmd/server
 
 FROM gcr.io/distroless/base-debian12
 WORKDIR /app

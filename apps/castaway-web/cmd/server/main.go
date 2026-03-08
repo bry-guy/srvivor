@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/app"
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/config"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/httpapi"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,6 +25,13 @@ func main() {
 }
 
 func run() error {
+	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println(buildinfo.String())
+		return nil
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -67,6 +76,7 @@ func run() error {
 		close(shutdownDone)
 	}()
 
+	log.Printf("castaway-web starting %s", buildinfo.String())
 	log.Printf("castaway-web listening on :%s", cfg.Port)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("http server error: %w", err)

@@ -6,7 +6,7 @@ depends = [":lint"]
 run = "go test -v ./..."
 
 [tasks.build]
-run = "go build -o bin/castaway-web ./cmd/server"
+run = "go build -ldflags \"-X github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo.Version=${VERSION:-dev} -X github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo.Commit=${GIT_COMMIT:-unknown} -X github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo.BuildDate=${BUILD_DATE:-unknown}\" -o bin/castaway-web ./cmd/server"
 
 [tasks.run]
 depends = [":lint"]
