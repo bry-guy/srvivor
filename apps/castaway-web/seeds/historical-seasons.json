@@ -1699,25 +1699,32 @@
     ],
     "outcomes": [
       {
-        "position": 1
+        "position": 1,
+        "contestant_name": "Savannah"
       },
       {
-        "position": 2
+        "position": 2,
+        "contestant_name": "Sophi B"
       },
       {
-        "position": 3
+        "position": 3,
+        "contestant_name": "Sage"
       },
       {
-        "position": 4
+        "position": 4,
+        "contestant_name": "Rizo"
       },
       {
-        "position": 5
+        "position": 5,
+        "contestant_name": "Kristina"
       },
       {
-        "position": 6
+        "position": 6,
+        "contestant_name": "Steven"
       },
       {
-        "position": 7
+        "position": 7,
+        "contestant_name": "Sophie S"
       },
       {
         "position": 8,
@@ -1762,6 +1769,579 @@
       {
         "position": 18,
         "contestant_name": "Nicole"
+      }
+    ]
+  },
+  {
+    "season": 50,
+    "instance_name": "Historical Season 50",
+    "contestants": [
+      "Angelina",
+      "Aubry",
+      "Charlie",
+      "Chrissy",
+      "Christian",
+      "Cirie",
+      "Coach",
+      "Colby",
+      "Dee",
+      "Emily",
+      "Genevieve",
+      "Jenna",
+      "Joe",
+      "Jonathan",
+      "Kamilla",
+      "Kyle",
+      "Mike",
+      "Ozzy",
+      "Q",
+      "Rick",
+      "Rizo",
+      "Savannah",
+      "Stephanie",
+      "Tiffany"
+    ],
+    "participants": [
+      {
+        "name": "Adam",
+        "picks": [
+          "Mike",
+          "Q",
+          "Genevieve",
+          "Aubry",
+          "Cirie",
+          "Chrissy",
+          "Christian",
+          "Tiffany",
+          "Kamilla",
+          "Charlie",
+          "Rick",
+          "Jonathan",
+          "Dee",
+          "Joe",
+          "Ozzy",
+          "Rizo",
+          "Coach",
+          "Angelina",
+          "Colby",
+          "Emily",
+          "Savannah",
+          "Stephanie",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Amanda",
+        "picks": [
+          "Genevieve",
+          "Christian",
+          "Emily",
+          "Aubry",
+          "Cirie",
+          "Charlie",
+          "Ozzy",
+          "Dee",
+          "Q",
+          "Savannah",
+          "Chrissy",
+          "Tiffany",
+          "Kamilla",
+          "Angelina",
+          "Jonathan",
+          "Mike",
+          "Colby",
+          "Rick",
+          "Joe",
+          "Rizo",
+          "Coach",
+          "Stephanie",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Bryan",
+        "picks": [
+          "Emily",
+          "Christian",
+          "Q",
+          "Genevieve",
+          "Jonathan",
+          "Rick",
+          "Rizo",
+          "Dee",
+          "Ozzy",
+          "Charlie",
+          "Kamilla",
+          "Savannah",
+          "Tiffany",
+          "Angelina",
+          "Mike",
+          "Chrissy",
+          "Cirie",
+          "Stephanie",
+          "Colby",
+          "Coach",
+          "Joe",
+          "Aubry",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Grant",
+        "picks": [
+          "Stephanie",
+          "Christian",
+          "Rick",
+          "Genevieve",
+          "Emily",
+          "Mike",
+          "Jonathan",
+          "Charlie",
+          "Joe",
+          "Dee",
+          "Q",
+          "Colby",
+          "Coach",
+          "Savannah",
+          "Kamilla",
+          "Rizo",
+          "Chrissy",
+          "Tiffany",
+          "Cirie",
+          "Ozzy",
+          "Aubry",
+          "Angelina",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Kate",
+        "picks": [
+          "Genevieve",
+          "Colby",
+          "Christian",
+          "Emily",
+          "Mike",
+          "Joe",
+          "Q",
+          "Savannah",
+          "Ozzy",
+          "Kamilla",
+          "Charlie",
+          "Rick",
+          "Coach",
+          "Angelina",
+          "Jonathan",
+          "Rizo",
+          "Chrissy",
+          "Stephanie",
+          "Dee",
+          "Aubry",
+          "Cirie",
+          "Tiffany",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Katie",
+        "picks": [
+          "Christian",
+          "Charlie",
+          "Genevieve",
+          "Tiffany",
+          "Emily",
+          "Dee",
+          "Joe",
+          "Q",
+          "Jonathan",
+          "Rick",
+          "Ozzy",
+          "Stephanie",
+          "Savannah",
+          "Coach",
+          "Rizo",
+          "Aubry",
+          "Kamilla",
+          "Mike",
+          "Colby",
+          "Cirie",
+          "Angelina",
+          "Chrissy",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Keeling",
+        "picks": [
+          "Aubry",
+          "Joe",
+          "Jonathan",
+          "Rizo",
+          "Genevieve",
+          "Christian",
+          "Ozzy",
+          "Cirie",
+          "Rick",
+          "Mike",
+          "Coach",
+          "Tiffany",
+          "Kamilla",
+          "Emily",
+          "Colby",
+          "Chrissy",
+          "Charlie",
+          "Q",
+          "Stephanie",
+          "Dee",
+          "Angelina",
+          "Savannah",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Keith",
+        "picks": [
+          "Stephanie",
+          "Aubry",
+          "Rizo",
+          "Angelina",
+          "Savannah",
+          "Jonathan",
+          "Coach",
+          "Colby",
+          "Q",
+          "Chrissy",
+          "Rick",
+          "Christian",
+          "Dee",
+          "Emily",
+          "Joe",
+          "Mike",
+          "Tiffany",
+          "Charlie",
+          "Cirie",
+          "Ozzy",
+          "Genevieve",
+          "Kamilla",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Kenny",
+        "picks": [
+          "Charlie",
+          "Angelina",
+          "Genevieve",
+          "Mike",
+          "Jonathan",
+          "Aubry",
+          "Joe",
+          "Kamilla",
+          "Dee",
+          "Rizo",
+          "Q",
+          "Rick",
+          "Savannah",
+          "Colby",
+          "Tiffany",
+          "Christian",
+          "Cirie",
+          "Chrissy",
+          "Ozzy",
+          "Stephanie",
+          "Emily",
+          "Coach",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Kyle",
+        "picks": [
+          "Christian",
+          "Coach",
+          "Cirie",
+          "Dee",
+          "Ozzy",
+          "Mike",
+          "Genevieve",
+          "Joe",
+          "Savannah",
+          "Tiffany",
+          "Aubry",
+          "Stephanie",
+          "Q",
+          "Jonathan",
+          "Rizo",
+          "Angelina",
+          "Emily",
+          "Colby",
+          "Charlie",
+          "Kamilla",
+          "Chrissy",
+          "Rick",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Lauren",
+        "picks": [
+          "Ozzy",
+          "Christian",
+          "Cirie",
+          "Mike",
+          "Colby",
+          "Rick",
+          "Coach",
+          "Angelina",
+          "Q",
+          "Joe",
+          "Tiffany",
+          "Aubry",
+          "Genevieve",
+          "Charlie",
+          "Jonathan",
+          "Kamilla",
+          "Stephanie",
+          "Emily",
+          "Savannah",
+          "Chrissy",
+          "Rizo",
+          "Dee",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Marv",
+        "picks": [
+          "Charlie",
+          "Christian",
+          "Aubry",
+          "Cirie",
+          "Tiffany",
+          "Rick",
+          "Genevieve",
+          "Kamilla",
+          "Ozzy",
+          "Emily",
+          "Rizo",
+          "Jonathan",
+          "Mike",
+          "Q",
+          "Joe",
+          "Dee",
+          "Colby",
+          "Angelina",
+          "Savannah",
+          "Coach",
+          "Stephanie",
+          "Chrissy",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Mooney",
+        "picks": [
+          "Christian",
+          "Q",
+          "Tiffany",
+          "Mike",
+          "Emily",
+          "Kamilla",
+          "Coach",
+          "Dee",
+          "Rick",
+          "Colby",
+          "Joe",
+          "Chrissy",
+          "Cirie",
+          "Rizo",
+          "Jonathan",
+          "Stephanie",
+          "Genevieve",
+          "Ozzy",
+          "Savannah",
+          "Aubry",
+          "Charlie",
+          "Angelina",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Riley",
+        "picks": [
+          "Stephanie",
+          "Tiffany",
+          "Christian",
+          "Charlie",
+          "Q",
+          "Emily",
+          "Rick",
+          "Coach",
+          "Kamilla",
+          "Dee",
+          "Jonathan",
+          "Mike",
+          "Rizo",
+          "Colby",
+          "Angelina",
+          "Genevieve",
+          "Joe",
+          "Chrissy",
+          "Savannah",
+          "Cirie",
+          "Aubry",
+          "Ozzy",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Sarah",
+        "picks": [
+          "Christian",
+          "Rick",
+          "Aubry",
+          "Dee",
+          "Mike",
+          "Emily",
+          "Q",
+          "Rizo",
+          "Stephanie",
+          "Savannah",
+          "Colby",
+          "Angelina",
+          "Jonathan",
+          "Ozzy",
+          "Coach",
+          "Genevieve",
+          "Joe",
+          "Chrissy",
+          "Cirie",
+          "Charlie",
+          "Tiffany",
+          "Kamilla",
+          "Kyle",
+          "Jenna"
+        ]
+      },
+      {
+        "name": "Yacob",
+        "picks": [
+          "Christian",
+          "Rick",
+          "Mike",
+          "Savannah",
+          "Joe",
+          "Emily",
+          "Jonathan",
+          "Rizo",
+          "Ozzy",
+          "Genevieve",
+          "Q",
+          "Colby",
+          "Tiffany",
+          "Stephanie",
+          "Angelina",
+          "Chrissy",
+          "Coach",
+          "Aubry",
+          "Charlie",
+          "Dee",
+          "Kamilla",
+          "Cirie",
+          "Kyle",
+          "Jenna"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "position": 1
+      },
+      {
+        "position": 2
+      },
+      {
+        "position": 3
+      },
+      {
+        "position": 4
+      },
+      {
+        "position": 5
+      },
+      {
+        "position": 6
+      },
+      {
+        "position": 7
+      },
+      {
+        "position": 8
+      },
+      {
+        "position": 9
+      },
+      {
+        "position": 10
+      },
+      {
+        "position": 11
+      },
+      {
+        "position": 12
+      },
+      {
+        "position": 13
+      },
+      {
+        "position": 14
+      },
+      {
+        "position": 15
+      },
+      {
+        "position": 16
+      },
+      {
+        "position": 17
+      },
+      {
+        "position": 18
+      },
+      {
+        "position": 19
+      },
+      {
+        "position": 20
+      },
+      {
+        "position": 21
+      },
+      {
+        "position": 22,
+        "contestant_name": "Savannah"
+      },
+      {
+        "position": 23,
+        "contestant_name": "Kyle"
+      },
+      {
+        "position": 24,
+        "contestant_name": "Jenna"
       }
     ]
   }

@@ -52,6 +52,21 @@ func TestLoadRoster(t *testing.T) {
 			},
 		},
 		{
+			name:    "load season 50 roster",
+			season:  50,
+			wantErr: false,
+			validate: func(t *testing.T, roster *SeasonRoster) {
+				assert.Equal(t, 50, roster.Season)
+				assert.Len(t, roster.Contestants, 24)
+				assert.Contains(t, roster.Contestants, Contestant{
+					CanonicalName: "Savannah",
+					FirstName:     "Savannah",
+					LastName:      "",
+					Nickname:      "",
+				})
+			},
+		},
+		{
 			name:    "load non-existent season",
 			season:  99,
 			wantErr: true,
