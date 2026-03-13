@@ -2,6 +2,17 @@
 
 `srvivor` is a suite of tools for Survivor TV show fantasy drafts, starting with a CLI scoring app.
 
+This CLI is a completed legacy app and is expected to remain in maintenance/archive mode while new platform work continues elsewhere in the monorepo.
+
+## Documentation
+
+- Changelog: `CHANGELOG.md`
+- Functional requirements: `functional-requirements.md`
+- Non-functional requirements: `non-functional-requirements.md`
+- Production readiness: `production-readiness-checklist.md`
+- Plans: `plans/`
+- Historical context: `../../docs/archive-wiki/`
+
 ## Commands
 
 ### Score Command

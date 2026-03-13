@@ -59,6 +59,15 @@ See `apps/castaway-web/README.md` for API + workflow details.
 
 See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord app configuration.
 
+## Documentation
+
+- Functional requirements: `functional-requirements.md`
+- Non-functional requirements: `non-functional-requirements.md`
+- Production readiness: `production-readiness-checklist.md`
+- Plans: `plans/`
+- Shared docs index: `docs/README.md`
+- Documentation standards: `docs/documentation-standards.md`
+
 ### Planning and production docs
 
 - `docs/castaway-discord-bot-plan.md`

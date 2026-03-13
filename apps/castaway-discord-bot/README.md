@@ -2,6 +2,15 @@
 
 `castaway-discord-bot` is a standalone Discord bot that queries `castaway-web` and presents Survivor draft data through slash commands.
 
+## Documentation
+
+- Changelog: `CHANGELOG.md`
+- Functional requirements: `functional-requirements.md`
+- Non-functional requirements: `non-functional-requirements.md`
+- Production readiness: `production-readiness-checklist.md`
+- Plans: `plans/`
+- Shared app plan: `../../docs/castaway-discord-bot-plan.md`
+
 ## Commands
 
 Top-level command: `/castaway`

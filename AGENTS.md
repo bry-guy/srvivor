@@ -23,3 +23,9 @@ The app uses mise for task management. Available tasks:
 - ALWAYS ensure the app lints, tests, builds, and runs before committing or PRing
 - Commit complete thoughts frequently; this repo squash merges PRs, so prefer smaller committed checkpoints over large uncommitted changesets
 - NEVER remove or update a regression test without asking permission
+
+## Documentation Rules
+
+- Keep repository and app docs aligned with `docs/documentation-standards.md`
+- Each app should keep `README.md`, `CHANGELOG.md`, `functional-requirements.md`, `non-functional-requirements.md`, `production-readiness-checklist.md`, and `plans/` present and in sync
+- Plan documents should be well-named and carry a status of `planning`, `in-progress`, or `done`
