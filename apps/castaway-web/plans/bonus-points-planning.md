@@ -15,4 +15,4 @@ Extend `castaway-web` beyond core draft placement scoring to support bonus scori
 
 ## Notes
 
-This plan corresponds to the deferred work currently described in `../../docs/castaway-web-future-work.md`.
+This plan corresponds to the deferred work described in `../../docs/castaway-web-future-work.md` and the shared bonus-points design in `../../docs/castaway-bonus-points-plan.md`.

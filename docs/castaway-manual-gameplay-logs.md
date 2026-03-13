@@ -2,11 +2,139 @@
 
 Castaway, as a game, was largely manual until early Season 50. Seasons 44-49 were run via `srvivor`, which is now named `cli` in apps. `srvivor` primarily assisted in scoring the game.
 
-For Season 50, "Survivor Fantasy" became "Castaway", a fully-fledged async, remote game. The features of Castaway are being developed during the Season, and not all have been implemented in the Castaway software. Castaway is played almost entirely in Discord. The features listed here are not exhaustive, and all features _should_ be documented into docs/functional-requirements.md, if not yet done so. 
+For Season 50, "Survivor Fantasy" became "Castaway", a fully-fledged async, remote game. The features of Castaway are being developed during the Season, and not all have been implemented in the Castaway software. Castaway is played almost entirely in Discord. The features listed here are not exhaustive, and all features should be documented in `functional-requirements.md` if they are not already captured there.
 
 Castaway can be understood through the Discord logs - game state is essentially tracked, and published through it, which represents the output of the game's features. Manual features include anything I set up as a human, typically using outside software. For instance, I used tally.so to get people's drafts this year, and I've used wordle for a few things. I'm also semi-manually scoring bonus points, since they aren't yet in the software.
 
 I may inject into the logs myself via NOTE: implying my own commentary or explanation of what happened.
+
+## Bonus gameplay modeling notes
+
+### Current state
+
+- `castaway-web` stores draft state and computes draft points.
+- Bonus points are not persisted in `castaway-web` yet.
+- Bonus gameplay is being coordinated and resolved manually in Discord.
+- Discord posts and messages act as the operational log for what happened, who participated, and what points were awarded.
+
+### Manual concepts in play today
+
+#### Castaway tribes
+
+Participants in a game instance can be grouped into Castaway tribes.
+
+Those tribes matter for bonus gameplay because some bonus events award points to a tribe rather than to a single participant.
+
+#### Ponies
+
+A Castaway tribe can be assigned an in-game Survivor tribe as its pony.
+
+Current manual interpretation:
+- a Castaway tribe has a pony assignment
+- if that pony tribe wins immunity
+- the Castaway tribe earns a bonus point for each member of that tribe
+
+#### Wordle challenges
+
+There is a Wordle-style challenge where winning tribes receive bonus points.
+
+Current manual interpretation:
+- a Wordle challenge happens
+- one or more Castaway tribes win
+- those winning tribes receive bonus points
+
+#### Journeys
+
+There is now a journey mechanic modeled after Survivor.
+
+Current manual interpretation:
+- 3 players are selected by their tribes
+- those selected players participate in a journey
+- the current journey game is `tribal diplomacy`
+- the journey has its own outcome logic and bonus-point consequences
+
+Canonical journey prompts and rules currently live in `docs/gameplay/journey-tribal-diplomancy.md`.
+
+### What needs to be captured from Discord for each bonus event
+
+For every manually-scored bonus event, the eventual system needs enough information to reconstruct:
+
+1. what happened
+   - event type (`pony_immunity`, `wordle`, `journey`, etc.)
+   - event name / round label
+   - when it happened
+2. who participated
+   - participating tribes
+   - participating individuals
+   - role in the event (`delegate`, `winner`, `loser`, etc.)
+3. what source or target was involved
+   - pony assignment (`Castaway tribe -> Survivor tribe`)
+   - journey game name (`tribal diplomacy`)
+4. what the result was
+   - winner(s)
+   - loser(s)
+   - any event-specific outcome details
+5. what points were awarded
+   - recipient participant(s)
+   - recipient tribe, if points are awarded by tribe and then expanded to members
+   - point value
+   - reason / provenance
+6. where the decision was recorded
+   - Discord message URL or message ID if available
+   - optional freeform notes
+
+### Suggested manual log shape
+
+| Field | Meaning |
+| --- | --- |
+| `instance` | Castaway game instance |
+| `event_type` | `pony_immunity`, `wordle`, `journey`, `manual_adjustment` |
+| `event_name` | Human-readable label |
+| `occurred_at` | When the event happened |
+| `tribes_involved` | Castaway tribes involved |
+| `participants_involved` | Individual participants involved |
+| `external_subjects` | Pony tribe name, journey game name, etc. |
+| `result` | Winner/loser/outcome summary |
+| `points_awarded` | Award rows or tribe-level awards |
+| `source_ref` | Discord link/message id |
+| `notes` | Freeform explanation |
+
+### Example manual log entries
+
+#### Example: pony immunity
+
+- `event_type`: `pony_immunity`
+- `event_name`: `Episode 2 immunity`
+- `tribes_involved`: `Castaway Tribe A`
+- `external_subjects`:
+  - `pony_survivor_tribe = "Example Survivor Tribe"`
+  - `winning_survivor_tribe = "Example Survivor Tribe"`
+- `result`: `pony tribe won immunity`
+- `points_awarded`: `+1 bonus point to the eligible Castaway tribe recipients`
+- `source_ref`: `Discord manual scoring post`
+
+#### Example: wordle challenge
+
+- `event_type`: `wordle`
+- `event_name`: `Week 3 wordle`
+- `tribes_involved`: `Castaway Tribe A`, `Castaway Tribe B`
+- `result`: `Castaway Tribe B won`
+- `points_awarded`: `+1 bonus point to the winning tribe recipients`
+- `source_ref`: `Discord challenge result post`
+
+#### Example: journey
+
+- `event_type`: `journey`
+- `event_name`: `Journey 1 - Tribal Diplomacy`
+- `participants_involved`:
+  - `Participant 1` (`delegate`)
+  - `Participant 2` (`delegate`)
+  - `Participant 3` (`delegate`)
+- `external_subjects`:
+  - `journey_game = "tribal diplomacy"`
+- `result`: `event-specific journey outcome`
+- `points_awarded`: `bonus points according to journey rules`
+- `source_ref`: `Discord journey resolution post`
 
 ## Season 50 Logs
 

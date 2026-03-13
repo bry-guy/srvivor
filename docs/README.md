@@ -6,8 +6,9 @@ Documentation requirements and placement rules live in `documentation-standards.
 ## Structure
 
 - `archive-wiki/`: historical project notes and legacy wiki content from the `srvivor` phase.
+- `castaway-bonus-points-plan.md`: bonus points data design, requirements, and implementation planning.
 - `castaway-discord-bot-plan.md`: architecture and implementation plan for the Discord bot app.
-- `castaway-manual-gameplay-logs.md`: logs from manually-run gameplay, useful for backfilling requirements and game mechanics.
+- `castaway-manual-gameplay-logs.md`: manual gameplay logs and operational notes used to backfill bonus-point requirements and mechanics.
 - `castaway-web-future-work.md`: deferred and future `castaway-web` ideas that are intentionally out of scope today.
 - `documentation-standards.md`: minimum required documentation and placement rules for the repo and each app.
 - `gameplay/`: gameplay mechanic documentation and player-facing prompts for journeys, twists, and bonus point systems.
