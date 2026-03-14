@@ -340,3 +340,35 @@ _Choose wisely. Trust is easy to give and hard to get back._
 
 You **must** submit your choices by 11:59pm EDT on Friday, 3/13. I will DM each of you privately for your choice.
 
+#### Post: Tribal Diplomacy Player Choices
+
+All 3 decisions are in!
+
+<@198239741265707008> chose to STEAL
+<@1184907069531377774> chose to STEAL
+<@1330603695594799245> chose to SHARE
+
+The lotus tribe 🪷 will receive 1 bonus point, and the other tribes will receive 0 bonus points. For participating in the journey, each of you have earned a bonus point for yourself. 
+
+Your journey has nearly come to an end. However, one action remains for each of you.
+
+_Before you leave, you are being **offered a risk**._
+
+_You **will not know** what the risk is, what you stand to gain, or what you stand to lose **until you accept it**._
+_**The risk is private**. The other players will not know whether you accepted or declined._
+
+_The choice is yours._
+
+DM me if you choose to TAKE THE RISK or RETURN TO YOUR TRIBE by 11:59pm EDT tonight.
+
+#### Post (in DM, privately to each player who chose risk): Lost for Wordle
+
+### Lost for Words
+
+_You have been awarded **3 secret bonus points**. No one else knows about them — not the other journey players, not your tribe. Players will have opportunities to use bonus points, including secret bonus points, to your advantage in the future._
+
+_But you must earn the right to keep them._
+
+_You must complete [Lost for Wordle](https://www.nytimes.com/games/create/wordle/0TE34KB6UX886zrber39cJdYKve8ZnhZcQzpSahLmKQT6P8EJTXqwqQRzEtSayaGM9J0HxsDPXQhoZg=). For every guess you use, you will lose 1 bonus point. All of your bonus points are at risk. You lose secret bonus points first._
+
+_Good luck._
