@@ -6,303 +6,452 @@ Add bonus points to Castaway while keeping them:
 
 - separate from draft points
 - additive to participant totals
-- traceable to explicit source events
-- flexible enough for ponies, Wordle challenges, journeys, and manual corrections
+- traceable to explicit gameplay sources
+- flexible enough for tribe mechanics, journeys, Wordle-style challenges, and manual corrections
+- aware of game time so gameplay can be resolved in real time today and virtualized time later
 
-## Scope
+## Summary recommendation
 
-### In scope
+Use a **temporal activity model** plus a **bonus point ledger**.
 
-- `castaway-web` data model and API updates
-- leaderboard scoring changes so `draft + bonus = total`
-- provenance tracking for bonus awards
-- participant/group/event modeling needed for manual Discord-driven gameplay
-- `castaway-discord-bot` read/display updates
+The shared document captures cross-app design and product semantics. The concrete `castaway-web` schema draft and migration-oriented implementation plan live in `../apps/castaway-web/plans/bonus-points-planning.md`.
 
-### Out of scope
+In practice, that means:
 
-- CLI changes
-- a fully generic bonus-rules engine in v1
-- Discord write workflows for bonus administration
+1. keep draft scoring logic exactly as it works today
+2. add per-instance episode scheduling so each game has its own notion of time
+3. represent bonus mechanics as instance activities that can span time
+4. represent concrete scoring moments inside those activities as activity occurrences
+5. write participant-level bonus awards into a ledger
+6. compute bonus totals by summing ledger rows
+7. keep rule evaluation in application code, with SQL handling persistence and aggregation
 
-## Current state summary
+## Teaching note: what a ledger means here
 
-Today:
+A ledger is **not** a single `bonus_points` number stored on a participant.
 
-- `castaway-web` stores:
-  - instances
-  - contestants
-  - participants
-  - draft picks
-  - outcome positions
-- draft score is computed from draft picks + outcome positions
-- the leaderboard returns:
-  - `score`
-  - `points_available`
-- bonus points are explicitly deferred
-- the Discord bot assumes `score` is draft score only
+A ledger is a list of point transactions.
 
-Relevant current references:
+Instead of storing:
 
-- `apps/castaway-web/internal/scoring/scoring.go`
-- `apps/castaway-web/internal/httpapi/server.go`
-- `apps/castaway-web/typespec/main.tsp`
-- `apps/castaway-discord-bot/internal/castaway/client.go`
-- `apps/castaway-discord-bot/internal/format/format.go`
-- `docs/castaway-web-future-work.md`
-- `docs/castaway-manual-gameplay-logs.md`
+- `participant.bonus_points = 5`
 
-## Recommendation summary
+we store rows like:
 
-Use a **manual-first, event-driven ledger model**.
+| participant | source | points | effective_at |
+| --- | --- | ---: | --- |
+| Bryan | Episode 1 pony immunity | 1 | 2026-03-05T21:00:00-05:00 |
+| Bryan | Week 1 tribe Wordle win | 1 | 2026-03-10T18:00:00-05:00 |
+| Bryan | Journey attendance | 1 | 2026-03-12T20:15:00-05:00 |
+| Bryan | Manual correction | -1 | 2026-03-13T10:00:00-05:00 |
 
-That means:
+Then:
 
-1. keep draft scoring exactly as it is today
-2. add first-class bonus events and bonus ledger entries
-3. materialize bonus awards per participant in a ledger
-4. compute totals as `draft_points + bonus_points`
-5. model tribes/groups and event participants so provenance is queryable
-6. use event type + metadata for bespoke mechanics instead of building a full rules engine now
+- `bonus_points = sum(points)`
+- here, `1 + 1 + 1 - 1 = 2`
 
-This is the lowest-risk design because the current process is already manual in Discord and the journey mechanics are bespoke.
+### Why this is useful
 
-## Functional requirements update
+A ledger lets the system answer:
 
-### Scoring
+- why does this player have 2 bonus points?
+- which activity created them?
+- when did they become effective in game time?
+- who participated in the source activity?
+- what correction changed the total later?
 
-1. The system must track **draft points** and **bonus points** separately.
-2. The participant total used for standings must be `draft_points + bonus_points`.
-3. Existing draft scoring logic must remain unchanged and independently testable.
-4. Bonus points must support positive and negative values so corrections or penalties are possible.
-5. `points_available` should remain a **draft-only** concept unless and until bonus-point potential becomes formally predictable.
+It also makes corrections much safer.
 
-### Provenance and auditability
+If an award was wrong, the system does **not** need to overwrite history. It can add a compensating row such as `-1`.
 
-6. Every bonus award must be linked to a named source event.
-7. The system must record where a bonus award came from, not just the current total.
-8. The system must be able to answer:
-   - which event created these points?
-   - what kind of event was it?
-   - who participated?
-   - which tribe or participant received points?
-   - why were the points awarded?
-9. Historical bonus awards must remain stable even if tribe membership changes later.
+### Why the ledger should be participant-level
 
-### Gameplay modeling
+When an activity produces a tribe-level effect, I recommend resolving that effect into **one ledger row per eligible participant**.
 
-10. The system must support tribe-based bonus mechanics.
-11. The system must support individual-participant bonus mechanics.
-12. The system must support long-lived mappings such as a Castaway tribe’s pony assignment.
-13. The system must support bespoke journey events without requiring schema changes per journey game.
-14. The system must support manual adjustments as a first-class event type.
+Important nuance:
+- the activity rule decides who the eligible recipients are
+- that may be all current members of a tribe
+- or it may be a narrower participant set derived from the activity structure
 
-### API and bot behavior
+So if Lotus earns a tribe-derived award, the system should first resolve the intended participant recipients for that activity, then write participant-level rows for those recipients.
 
-15. `castaway-web` must expose bonus-aware leaderboard data.
-16. `castaway-web` must expose bonus provenance data for participant-level inspection.
-17. The Discord bot must interpret leaderboard rows as `draft + bonus = total`.
-18. The Discord bot must display bonus points separately from draft points in `score` and `scores` output.
-19. CLI behavior must remain unchanged.
+That is better than storing only a tribe-level balance because:
 
-## Proposed data design
+- participant totals become trivial to compute
+- historical totals stay stable if tribe membership changes later
+- the bot can explain point provenance per participant
+- corrections stay localized and auditable
 
-### Design principles
+## Teaching note: state history is different from a points ledger
 
-- keep draft and bonus scoring independent
-- use append-only-ish ledger rows for bonus awards
-- model source events explicitly
-- expand group awards into participant ledger rows at award time
-- prefer typed metadata over over-engineered rule tables in v1
+There are really two kinds of historical data here:
 
-## Proposed tables
+### 1. State-over-time
 
-### 1. `participant_groups`
+Examples:
+
+- which participants were in Lotus during Episode 2?
+- which Survivor tribe was Lotus mapped to at that time?
+- which activities were active between Episode 1 and Episode 2?
+
+This data is best modeled with **effective time windows**, such as `starts_at` and `ends_at`.
+
+### 2. Point transactions
+
+Examples:
+
+- Bryan earned `+1` from pony immunity
+- Riley earned `+1` from journey attendance
+- Kate lost `-1` because of a correction
+
+This data is best modeled as a **ledger**.
+
+So:
+
+- group memberships are historical state
+- activity assignments are historical state
+- bonus awards are ledger entries
+
+They are related, but they are not the same thing.
+
+## Time model recommendation
+
+### Why time needs to be explicit
+
+Your Episode framing is the right model.
+
+The system needs to know both:
+
+- the ordered episode progression of the game, and
+- the exact game-time when activities and awards happen
+
+because activities can happen:
+
+- before an episode airs
+- exactly when an episode airs
+- between episodes
+- across a span of time
+
+### Recommended approach
+
+Make time **instance-specific**.
+
+That supports both:
+
+- **real-time play**: episode air times follow the real Survivor schedule in Eastern Time
+- **virtualized play**: the same season can be replayed with a compressed or custom schedule
+
+The key idea is:
+
+- an instance owns its own episode schedule
+- each instance should get its own copied schedule at creation time
+- the current gameplay state is derived from that schedule plus activity timestamps
+
+## Proposed shared data design
+
+### 1. `instance_episodes`
 
 Purpose:
-- represent Castaway tribes or other participant collections used by bonus gameplay
+- define the timeline checkpoints for a specific instance
+
+Suggested columns:
+- `id BIGSERIAL PRIMARY KEY`
+- `instance_id BIGINT NOT NULL REFERENCES instances(id) ON DELETE CASCADE`
+- `episode_number INTEGER NOT NULL CHECK (episode_number >= 0)`
+- `label TEXT NOT NULL`
+- `airs_at TIMESTAMPTZ NOT NULL`
+- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- unique key on `(instance_id, episode_number)`
+- unique key on `(instance_id, airs_at)`
+
+Notes:
+- Episode `0` is the pre-air baseline.
+- “The instance is at Episode N” means `Episode N.airs_at <= now` for that instance schedule.
+- For virtualized play later, just create a different `airs_at` schedule for the same season structure.
+
+### 2. `participant_groups`
+
+Purpose:
+- represent reusable participant collections inside an instance, such as tribes
 
 Suggested columns:
 - `id BIGSERIAL PRIMARY KEY`
 - `public_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid()`
 - `instance_id BIGINT NOT NULL REFERENCES instances(id) ON DELETE CASCADE`
 - `name TEXT NOT NULL`
-- `kind TEXT NOT NULL` — e.g. `tribe`, `ad_hoc`
+- `kind TEXT NOT NULL` — e.g. `tribe`, `alliance`, `ad_hoc`
 - `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
 - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
 - unique key on `(instance_id, kind, name)`
 
 Notes:
-- start with `tribe` as the primary kind
-- `metadata` can carry display color, short code, etc.
+- this remains generic and is not bonus-specific
 
-### 2. `participant_group_memberships`
-
-Purpose:
-- record which participants belong to which Castaway tribe/group
-
-Suggested columns:
-- `participant_group_id BIGINT NOT NULL REFERENCES participant_groups(id) ON DELETE CASCADE`
-- `participant_id BIGINT NOT NULL REFERENCES participants(id) ON DELETE CASCADE`
-- `role TEXT NOT NULL DEFAULT 'member'`
-- `starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-- `ends_at TIMESTAMPTZ`
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-- primary key on `(participant_group_id, participant_id, starts_at)`
-
-Notes:
-- effective dating is worth adding now if tribe swaps are even remotely possible
-- historical awards should still be materialized into the ledger and not re-derived later
-
-### 3. `participant_group_targets`
+### 3. `participant_group_membership_periods`
 
 Purpose:
-- store long-lived mappings from a Castaway group to an external gameplay target such as a pony Survivor tribe
+- record who belongs to a group over time
 
 Suggested columns:
 - `id BIGSERIAL PRIMARY KEY`
-- `public_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid()`
 - `participant_group_id BIGINT NOT NULL REFERENCES participant_groups(id) ON DELETE CASCADE`
-- `target_type TEXT NOT NULL` — e.g. `survivor_tribe`
-- `target_key TEXT NOT NULL`
-- `target_name TEXT NOT NULL`
-- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
-- `starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+- `participant_id BIGINT NOT NULL REFERENCES participants(id) ON DELETE CASCADE`
+- `role TEXT NOT NULL DEFAULT 'member'`
+- `starts_at TIMESTAMPTZ NOT NULL`
 - `ends_at TIMESTAMPTZ`
+- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
 - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
 
 Notes:
-- this cleanly models ponies without forcing contestant-tribe history into v1
-- if contestant-tribe tracking becomes necessary later, this can be replaced or supplemented by stronger references
+- this is historical state, not a points ledger
+- use this table to answer who was in a tribe at a given time
+- if a participant can only be in one tribe at a time, enforce that rule in code and later with stronger DB constraints if needed
 
-### 4. `bonus_events`
+### 4. `instance_activities`
 
 Purpose:
-- represent the source event that can create one or more bonus awards
+- represent a configured gameplay mechanic running within an instance
 
 Suggested columns:
 - `id BIGSERIAL PRIMARY KEY`
 - `public_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid()`
 - `instance_id BIGINT NOT NULL REFERENCES instances(id) ON DELETE CASCADE`
-- `event_type TEXT NOT NULL` — e.g. `pony_immunity`, `wordle`, `journey`, `manual_adjustment`
+- `activity_type TEXT NOT NULL` — e.g. `tribal_pony`, `tribe_wordle`, `journey`, `manual_adjustment`
 - `name TEXT NOT NULL`
-- `status TEXT NOT NULL DEFAULT 'completed'` — e.g. `planned`, `open`, `completed`, `cancelled`
-- `occurred_at TIMESTAMPTZ NOT NULL`
-- `source_ref TEXT` — Discord message link/id or other provenance pointer
-- `description TEXT NOT NULL DEFAULT ''`
+- `status TEXT NOT NULL DEFAULT 'active'` — e.g. `planned`, `active`, `completed`, `cancelled`
+- `starts_at TIMESTAMPTZ NOT NULL`
+- `ends_at TIMESTAMPTZ`
 - `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
 - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
 - `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
 
 Notes:
-- `metadata` carries event-specific details like `journey_game = tribal_diplomacy`
-- this table is the durable answer to “what source events exist?”
+- this replaces the earlier `bonus_events` idea
+- an activity can span multiple episodes
+- an activity does not need to award points every time it exists
+- reuse across instances comes from reusing the same `activity_type` on many instance rows
 
-### 5. `bonus_event_group_participants`
+### 5. `activity_group_assignments`
 
 Purpose:
-- record group-level participation in a bonus event
+- connect participant groups to an activity over time
 
 Suggested columns:
-- `bonus_event_id BIGINT NOT NULL REFERENCES bonus_events(id) ON DELETE CASCADE`
+- `id BIGSERIAL PRIMARY KEY`
+- `activity_id BIGINT NOT NULL REFERENCES instance_activities(id) ON DELETE CASCADE`
 - `participant_group_id BIGINT NOT NULL REFERENCES participant_groups(id) ON DELETE CASCADE`
-- `role TEXT NOT NULL` — e.g. `competing_group`, `winning_group`, `recipient_group`
-- `result TEXT NOT NULL DEFAULT ''` — e.g. `won`, `lost`, `selected`
-- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
-- primary key on `(bonus_event_id, participant_group_id, role)`
+- `role TEXT NOT NULL`
+- `starts_at TIMESTAMPTZ NOT NULL`
+- `ends_at TIMESTAMPTZ`
+- `configuration JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
 
 Notes:
-- useful for Wordle and tribe-awarded events
-- lets the system explain which tribes were involved even if awards are eventually expanded to participants
+- this is where generic activity-specific mapping lives
+- example: a `tribal_pony` activity can assign a Castaway tribe with configuration such as `{ "pony_survivor_tribe": "kalo" }`
+- this avoids creating a pony-specific schema table
+- activity configuration changes should happen at explicit episode boundaries, not arbitrary mid-episode timestamps
 
-### 6. `bonus_event_individual_participants`
+### 6. `activity_participant_assignments`
 
 Purpose:
-- record individual participation in a bonus event
+- connect individual participants to an activity over time
 
 Suggested columns:
-- `bonus_event_id BIGINT NOT NULL REFERENCES bonus_events(id) ON DELETE CASCADE`
+- `id BIGSERIAL PRIMARY KEY`
+- `activity_id BIGINT NOT NULL REFERENCES instance_activities(id) ON DELETE CASCADE`
 - `participant_id BIGINT NOT NULL REFERENCES participants(id) ON DELETE CASCADE`
 - `participant_group_id BIGINT REFERENCES participant_groups(id) ON DELETE SET NULL`
-- `role TEXT NOT NULL` — e.g. `delegate`, `winner`, `loser`, `recipient`
-- `result TEXT NOT NULL DEFAULT ''`
-- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
-- primary key on `(bonus_event_id, participant_id, role)`
+- `role TEXT NOT NULL`
+- `starts_at TIMESTAMPTZ NOT NULL`
+- `ends_at TIMESTAMPTZ`
+- `configuration JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
 
 Notes:
-- this is the main journey-participation table
-- `metadata` can hold event-specific outcomes if a journey has custom states
+- useful for journey delegates, eligible players, and similar mechanics
+- this supports activities that involve only some members of a tribe
 
-### 7. `bonus_ledger_entries`
+### 7. `activity_occurrences`
 
 Purpose:
-- store the actual participant-level bonus points that count toward standings
+- represent concrete moments or phases inside an activity
+
+Suggested columns:
+- `id BIGSERIAL PRIMARY KEY`
+- `public_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid()`
+- `activity_id BIGINT NOT NULL REFERENCES instance_activities(id) ON DELETE CASCADE`
+- `occurrence_type TEXT NOT NULL` — e.g. `immunity_result`, `challenge_result`, `journey_attendance`, `journey_resolution`, `manual_correction`
+- `name TEXT NOT NULL`
+- `effective_at TIMESTAMPTZ NOT NULL`
+- `starts_at TIMESTAMPTZ`
+- `ends_at TIMESTAMPTZ`
+- `status TEXT NOT NULL DEFAULT 'recorded'`
+- `source_ref TEXT`
+- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+Notes:
+- an activity is the long-lived mechanic; an occurrence is the actual scoring moment or phase
+- this is the right place to capture the time a result became effective in game state
+- examples:
+  - Episode 1 immunity result inside `tribal_pony`
+  - Week 1 Wordle result inside `tribe_wordle`
+  - Journey attendance bonus inside `journey`
+  - Tribal Diplomacy resolution inside `journey`
+
+### 8. `activity_occurrence_groups`
+
+Purpose:
+- record which groups participated in a specific occurrence and what happened to them
+
+Suggested columns:
+- `id BIGSERIAL PRIMARY KEY`
+- `activity_occurrence_id BIGINT NOT NULL REFERENCES activity_occurrences(id) ON DELETE CASCADE`
+- `participant_group_id BIGINT NOT NULL REFERENCES participant_groups(id) ON DELETE CASCADE`
+- `role TEXT NOT NULL`
+- `result TEXT NOT NULL DEFAULT ''`
+- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+Notes:
+- this answers which tribes were involved in a given occurrence
+- examples: `winning_tribe`, `competing_tribe`, `recipient_group`
+
+### 9. `activity_occurrence_participants`
+
+Purpose:
+- record which individuals participated in a specific occurrence and what happened to them
+
+Suggested columns:
+- `id BIGSERIAL PRIMARY KEY`
+- `activity_occurrence_id BIGINT NOT NULL REFERENCES activity_occurrences(id) ON DELETE CASCADE`
+- `participant_id BIGINT NOT NULL REFERENCES participants(id) ON DELETE CASCADE`
+- `participant_group_id BIGINT REFERENCES participant_groups(id) ON DELETE SET NULL`
+- `role TEXT NOT NULL`
+- `result TEXT NOT NULL DEFAULT ''`
+- `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+
+Notes:
+- this answers which players actually took part in a given journey or challenge phase
+- examples: `delegate`, `winner`, `sharer`, `stealer`, `risk_taker`
+
+### 10. `bonus_point_ledger_entries`
+
+Purpose:
+- store the participant-level bonus points that count toward standings
 
 Suggested columns:
 - `id BIGSERIAL PRIMARY KEY`
 - `public_id UUID NOT NULL UNIQUE DEFAULT gen_random_uuid()`
 - `instance_id BIGINT NOT NULL REFERENCES instances(id) ON DELETE CASCADE`
 - `participant_id BIGINT NOT NULL REFERENCES participants(id) ON DELETE CASCADE`
-- `bonus_event_id BIGINT NOT NULL REFERENCES bonus_events(id) ON DELETE CASCADE`
+- `activity_occurrence_id BIGINT NOT NULL REFERENCES activity_occurrences(id) ON DELETE CASCADE`
 - `source_group_id BIGINT REFERENCES participant_groups(id) ON DELETE SET NULL`
+- `entry_kind TEXT NOT NULL` — e.g. `award`, `correction`, `spend`, `conversion`, `reveal`
 - `points INTEGER NOT NULL CHECK (points <> 0)`
+- `visibility TEXT NOT NULL DEFAULT 'public'` — e.g. `public`, `secret`, `revealed`
 - `reason TEXT NOT NULL`
+- `effective_at TIMESTAMPTZ NOT NULL`
 - `award_key TEXT`
 - `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`
 - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-- optional unique index on `(bonus_event_id, participant_id, award_key)` when `award_key` is not null
+- optional unique index on `(activity_occurrence_id, participant_id, award_key)` when `award_key` is not null
 
 Notes:
-- this is the source of truth for `bonus_points`
-- group-awarded points should be expanded into one row per recipient participant
-- a correction should be a new ledger row, not an in-place overwrite
+- this is the bonus points source of truth
+- totals are computed from this table
+- corrections should be new rows, not in-place edits
+- spending should also be modeled in this same ledger using negative rows
+- `effective_at` supports time-aware state queries
+- `visibility` is included because the journey rules mention secret bonus points
+- secret entries should remain internal and be excluded from public leaderboard totals until they are revealed or converted at end-of-game
+- once authentication exists, a participant should be able to see their own secret entries without exposing them to other players
+- if secret points are converted or revealed, prefer explicit balancing rows in the same ledger over mutating old rows in place
 
-## Why this design fits the current gameplay
+## How the model fits the current mechanics
 
-### Pony immunity
-
-Model:
-- Castaway tribes live in `participant_groups`
-- tribe membership lives in `participant_group_memberships`
-- pony assignment lives in `participant_group_targets`
-- each immunity result is a `bonus_event` with `event_type = pony_immunity`
-- participant awards are stored in `bonus_ledger_entries`
-
-Flow:
-1. create or update pony assignment for each tribe
-2. create a `pony_immunity` event with the winning Survivor tribe in metadata
-3. find Castaway groups whose active pony matches that winner
-4. expand the group award into participant ledger rows
-
-### Wordle
+### `tribal_pony`
 
 Model:
-- the Wordle round is a `bonus_event`
-- tribes involved are stored in `bonus_event_group_participants`
-- winner tribes are identified by `role/result`
-- awards are expanded into participant ledger rows
+- each Castaway tribe is a `participant_group`
+- tribe membership lives in `participant_group_membership_periods`
+- the `tribal_pony` mechanic is an optional `instance_activity`
+- each tribe is attached through `activity_group_assignments`
+- the pony mapping lives in `activity_group_assignments.configuration`
+- each immunity result is an `activity_occurrence`
+- resulting participant bonus awards are written to `bonus_point_ledger_entries`
 
-### Journey / Tribal Diplomacy
+Notes:
+- this should usually be modeled as one long-lived `tribal_pony` activity per instance
+- an instance can simply omit this activity entirely if pony scoring is turned off for that run
+
+Example configuration:
+
+- activity: `tribal_pony`
+- group assignment for Lotus:
+  - `role = tribe`
+  - `configuration = { "pony_survivor_tribe": "vatu" }`
+
+Example resolution flow:
+
+1. record an immunity occurrence with metadata such as `{ "winning_survivor_tribes": ["vatu", "kalo"] }`
+2. load activity group assignments active at the occurrence time
+3. find assigned tribes whose configured pony matches a winning Survivor tribe
+4. load the members of those Castaway tribes at the occurrence time
+5. write one bonus ledger row per eligible participant
+
+### `tribe_wordle`
 
 Model:
-- the journey is a `bonus_event` with `event_type = journey`
-- `metadata` includes `journey_game = tribal_diplomacy`
-- the selected 3 players are stored in `bonus_event_individual_participants`
-- awards are stored in `bonus_ledger_entries`
+- the challenge is an `instance_activity`
+- the actual result is an `activity_occurrence`
+- tribe participation and winners are recorded in `activity_occurrence_groups`
+- individual submissions or top scorers can be recorded in `activity_occurrence_participants`
+- awards are written to the participant ledger
 
-Why this is important:
-- it records both the people who played and the people who got points
-- it avoids baking one journey game’s rules directly into the database schema
+Season 50 gameplay note:
+- the challenge is currently scored by averaging the top 3 individual tribe results
+- lower guess counts are better
+- that means participant occurrence metadata likely needs at least `guess_count`, and occurrence/group metadata likely needs the derived tribe average used to pick winners
 
-### Manual adjustments
+### `journey`
 
 Model:
-- represent a manual correction as its own `bonus_event` with `event_type = manual_adjustment`
-- insert one or more positive/negative `bonus_ledger_entries`
+- the journey is an `instance_activity`
+- selected delegates are assigned through `activity_participant_assignments`
+- attendance, diplomacy resolution, and private risk outcomes can each be separate `activity_occurrences`
+- participant choices and results live in `activity_occurrence_participants`
+- tribe-level effects live in `activity_occurrence_groups`
+- all actual bonus awards still land in `bonus_point_ledger_entries`
 
-Why this matters:
-- every point change still has provenance
-- the audit trail stays consistent
+Season 50 gameplay note:
+- delegates are first selected by tribe vote
+- journeys are participant-centric activities
+- journey attendance awards each delegate `+1` personal bonus point
+- `tribal_diplomacy` is a private choice phase where each delegate chooses `SHARE` or `STEAL`
+- the diplomacy outcome can create tribe impacts derived from participant choices
+- the optional `lost_for_words` risk can mint `3` secret bonus points, then reduce them according to Wordle guess count, with secret points depleted first
+
+This supports:
+
+- individual bonus points
+- tribe-derived bonus points
+- multiple phases within one journey
+- private and public point awards when needed
+
+### `manual_adjustment`
+
+Model:
+- the correction is an `instance_activity` with `activity_type = manual_adjustment`
+- the specific fix is an `activity_occurrence`
+- the correction rows are written into the bonus ledger as positive or negative entries
+
+Policy:
+- corrections should take effect when they are entered
+- they should not backdate public scoring history unless a future admin workflow explicitly adds that concept
 
 ## Scoring model update
 
@@ -314,12 +463,23 @@ Leaderboard score today is effectively:
 
 ### Proposed
 
-Leaderboard should become:
+Leaderboard should expose:
 
-- `draft_points` = existing computed draft score
-- `bonus_points` = sum of `bonus_ledger_entries.points` for the participant
+- `draft_points` = existing draft score
+- `bonus_points` = sum of visible/public bonus ledger entries only
 - `total_points` = `draft_points + bonus_points`
-- `draft_points_available` = existing `points_available` concept
+- `points_available` = existing draft-only concept
+
+Secret bonus point policy:
+- secret bonus points remain internal during active play
+- they are excluded from public leaderboard output
+- future authenticated views may expose a participant's own secret point state to that participant only
+- secret points may later be consumed by activities or revealed into public bonus points
+- at end-of-game, remaining secret bonus points convert into normal bonus points and count toward final scoring
+
+Season 50 gameplay note:
+- manual public score posts currently use the format `Jeff: Total (Draft+Bonus)`
+- the bot and API should preserve that mental model even if they expose more structured fields
 
 ### Backward-compatibility recommendation
 
@@ -339,185 +499,87 @@ Suggested response shape:
 }
 ```
 
-Notes:
-- `points_available` should be documented as draft-only
-- once clients are migrated, `score` can eventually be deprecated in favor of `total_points`
+## Implementation guidance: code vs SQL
 
-## API update plan
+I recommend putting **activity resolution logic in application code**, not SQL.
 
-### Minimal read API changes
+Use SQL for:
 
-### Extend leaderboard rows
+- storing activities, occurrences, assignments, memberships, and ledger rows
+- querying active state at a given time
+- aggregating bonus totals
+- returning provenance and breakdowns
+
+Use Go code for:
+
+- applying the rule for `tribal_pony`
+- applying the rule for `tribe_wordle`
+- applying the rule for `journey` / `tribal_diplomacy`
+- turning a resolved occurrence into participant-level ledger rows
+
+Why:
+
+- the mechanics are bespoke and evolving
+- conditional branching is easier to test in Go than in SQL
+- it keeps schema generic while rules stay explicit and readable
+
+## API direction
+
+### Minimal read changes
 
 Update `GET /instances/:instanceID/leaderboard` to include:
+
 - `draft_points`
 - `bonus_points`
 - `total_points`
 - existing `points_available`
 
-### Add bonus provenance endpoint
-
-Recommended new read route:
+Recommended new route:
 
 - `GET /instances/:instanceID/participants/:participantID/bonus-ledger`
 
-Suggested response contents:
-- total bonus points for the participant
-- event-linked ledger rows
-- event type, event name, occurred_at
+Suggested response:
+
+- participant bonus total
+- ledger rows
+- activity type
+- activity name
+- occurrence type
+- occurrence time
+- reason
 - source group if applicable
-- reason text
-- source ref if present
+- visibility
 
-Optional broader route:
-- `GET /instances/:instanceID/bonus-events`
-- optional filters by `event_type`, `participant_id`, `group_id`
+Optional future route:
 
-### Minimal write API changes
+- `GET /instances/:instanceID/leaderboard?as_of=<timestamp>`
 
-Because `castaway-web` is the source of truth, something needs to persist bonus data even if Discord remains read-only.
+That would expose the temporal model directly once needed.
 
-Recommended admin/write routes:
+### Minimal write direction
 
-- `POST /instances/:instanceID/participant-groups`
-- `PUT /instances/:instanceID/participant-groups/:groupID/memberships`
-- `PUT /instances/:instanceID/participant-groups/:groupID/targets`
-- `POST /instances/:instanceID/bonus-events`
-- `POST /instances/:instanceID/bonus-events/:eventID/group-participants`
-- `POST /instances/:instanceID/bonus-events/:eventID/individual-participants`
-- `POST /instances/:instanceID/bonus-events/:eventID/awards`
+Recommended initial persistence surface:
 
-If that surface feels too large for v1, the fallback is:
-- implement the tables and internal service layer now
-- expose only the read endpoints publicly
-- let early writes happen through seed/admin tooling until a tighter API is finalized
+- create/update episode schedules
+- create groups and membership periods
+- create activities and assignments
+- record occurrences
+- resolve occurrences into ledger rows
 
-## Discord bot update plan
+Whether those arrive as public API routes or admin-only tooling can be decided separately.
 
-### Client model changes
+## Resolved planning decisions
 
-Update `apps/castaway-discord-bot/internal/castaway/client.go` to parse:
-- `draft_points`
-- `bonus_points`
-- `total_points`
+1. Secret bonus points remain hidden during active play and are excluded from public leaderboard totals.
+2. Future authenticated views should allow a participant to see their own secret bonus points.
+3. Secret bonus points may later be consumed by activities and may become revealed/public upon use.
+4. Remaining secret bonus points convert to normal bonus points at end-of-game and count toward final scoring.
+5. Corrections take effect when entered, not retroactively.
+6. Activity configuration changes should happen at explicit episode boundaries.
+7. Each instance should own a copied episode schedule at creation time.
+8. `tribal_pony` should usually be modeled as one long-lived optional activity per instance, with many occurrences under it.
+9. Spendable bonus points should be modeled as negative rows in the same bonus ledger.
 
-### Formatting changes
+## Remaining open questions
 
-Update existing commands:
-
-### `/castaway score`
-
-Current style:
-- `Bryan — 21 points (points available: 46)`
-
-Proposed style:
-- `Bryan — 26 total (draft: 21, bonus: 5, draft points available: 46)`
-
-### `/castaway scores`
-
-Current style:
-- `1. Bryan — 21 (points available: 46)`
-
-Proposed style:
-- `1. Bryan — 26 total (draft: 21, bonus: 5, available: 46)`
-
-## Optional future bot enhancement
-
-If provenance needs to be visible in Discord, add a dedicated command such as:
-
-- `/castaway bonus participant:<name> [instance] [season]`
-
-That command would list the participant’s bonus source events and point rows.
-
-## Implementation plan
-
-### Phase 0: rules confirmation
-
-1. Add the manual gameplay doc.
-2. Use `docs/gameplay/journey-tribal-diplomancy.md` as the canonical journey reference and fill any missing resolution details there.
-3. Confirm tribe-award semantics:
-   - does a tribe earning `+1` mean every member gets `+1`?
-4. Confirm whether negative bonus outcomes are possible.
-5. Confirm whether Castaway tribe membership can change mid-season.
-
-### Phase 1: data foundation in `castaway-web`
-
-1. Add DB migrations for:
-   - `participant_groups`
-   - `participant_group_memberships`
-   - `participant_group_targets`
-   - `bonus_events`
-   - `bonus_event_group_participants`
-   - `bonus_event_individual_participants`
-   - `bonus_ledger_entries`
-2. Add `sqlc` queries and generated models.
-3. Add repository/service helpers for:
-   - active group membership lookup
-   - pony resolution
-   - bonus ledger aggregation
-   - participant bonus history lookup
-
-### Phase 2: scoring and API
-
-1. Refactor scoring so draft scoring remains isolated.
-2. Add bonus aggregation into leaderboard generation.
-3. Extend TypeSpec models and regenerate OpenAPI.
-4. Add read endpoints for bonus-aware leaderboard + participant bonus ledger.
-5. Optionally add write/admin endpoints for groups, events, participants, and awards.
-
-### Phase 3: Discord bot
-
-1. Update castaway client models.
-2. Update `score` and `scores` formatting.
-3. Add tests for bonus-aware formatting.
-4. Optionally add a dedicated bonus-breakdown command.
-
-### Phase 4: validation and examples
-
-1. Add migration tests / integration tests for bonus tables.
-2. Add scoring tests covering:
-   - no bonus points
-   - direct individual award
-   - tribe-wide award expanded to members
-   - manual correction row
-   - journey participation + award provenance
-3. Add API tests for leaderboard and bonus-ledger responses.
-4. Add bot formatter tests for total/draft/bonus rendering.
-
-## Key implementation decisions
-
-### Decision 1: do not build `bonus_rules` first
-
-Even though the earlier future-work sketch mentioned `bonus_rules`, the better v1 is:
-- event type + metadata
-- explicit participant/group participation rows
-- explicit bonus ledger rows
-
-That is simpler, more auditable, and better matched to manual Discord play.
-
-### Decision 2: materialize participant awards
-
-If a tribe wins bonus points, write one ledger row per participant recipient.
-
-Do **not** only store a tribe total and derive participant totals on the fly.
-
-Why:
-- historical totals stay stable
-- corrections are easier
-- provenance is clearer
-- leaderboard aggregation stays simple
-
-### Decision 3: keep `points_available` draft-only
-
-Bonus points are currently event-driven and sometimes bespoke.
-
-Until bonus opportunity math becomes formalized, keep `points_available` tied to draft scoring only and label it clearly in the bot/UI.
-
-## Open questions
-
-1. Does a tribe-earned bonus point become `+1` for each current member of that tribe?
-2. Can a journey award points to a tribe, an individual, or both?
-3. Can journeys or other mechanics subtract points?
-4. Can Castaway tribe membership change after the initial assignment?
-5. Should the bot expose a dedicated bonus-breakdown command, or is updating `score`/`scores` enough for now?
-6. Does `docs/gameplay/journey-tribal-diplomancy.md` need more detail before it can drive metadata examples and tests?
+1. Is there any bonus mechanic that needs a recipient that is neither a participant nor a participant group?
