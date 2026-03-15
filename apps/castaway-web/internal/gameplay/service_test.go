@@ -197,11 +197,18 @@ type fakeQuerier struct {
 	participantGroup                      db.GetParticipantGroupRow
 	membershipRow                         db.CreateParticipantGroupMembershipPeriodRow
 	createdMemberships                    []db.CreateParticipantGroupMembershipPeriodParams
+	activeMembershipsByGroup              map[[16]byte][]db.ListActiveParticipantGroupMembershipsAtRow
+	activityOccurrence                    db.GetActivityOccurrenceRow
+	occurrenceGroups                      []db.ListActivityOccurrenceGroupsRow
+	occurrenceParticipants                []db.ListActivityOccurrenceParticipantsRow
 	instanceActivity                      db.GetInstanceActivityRow
 	activityGroupAssignmentRow            db.CreateActivityGroupAssignmentRow
 	createdActivityGroupAssignments       []db.CreateActivityGroupAssignmentParams
+	activeActivityGroupAssignments        []db.ListActiveActivityGroupAssignmentsAtRow
 	activityParticipantAssignmentRow      db.CreateActivityParticipantAssignmentRow
 	createdActivityParticipantAssignments []db.CreateActivityParticipantAssignmentParams
+	activeActivityParticipantAssignments  []db.ListActiveActivityParticipantAssignmentsAtRow
+	createdBonusLedgerEntries             []db.CreateBonusPointLedgerEntryParams
 	visibleTotal                          int32
 	secretTotal                           int32
 	visibleTotalAsOf                      int32
@@ -234,8 +241,15 @@ func (f *fakeQuerier) CreateParticipantGroupMembershipPeriod(_ context.Context, 
 	return f.membershipRow, nil
 }
 
-func (f *fakeQuerier) ListActiveParticipantGroupMembershipsAt(context.Context, db.ListActiveParticipantGroupMembershipsAtParams) ([]db.ListActiveParticipantGroupMembershipsAtRow, error) {
-	return nil, errors.New("unexpected call")
+func (f *fakeQuerier) ListActiveParticipantGroupMembershipsAt(_ context.Context, arg db.ListActiveParticipantGroupMembershipsAtParams) ([]db.ListActiveParticipantGroupMembershipsAtRow, error) {
+	if f.activeMembershipsByGroup == nil {
+		return nil, errors.New("unexpected call")
+	}
+	return f.activeMembershipsByGroup[arg.ParticipantGroupID.Bytes], nil
+}
+
+func (f *fakeQuerier) GetActivityOccurrence(context.Context, pgtype.UUID) (db.GetActivityOccurrenceRow, error) {
+	return f.activityOccurrence, nil
 }
 
 func (f *fakeQuerier) GetInstanceActivity(context.Context, pgtype.UUID) (db.GetInstanceActivityRow, error) {
@@ -248,7 +262,10 @@ func (f *fakeQuerier) CreateActivityGroupAssignment(_ context.Context, arg db.Cr
 }
 
 func (f *fakeQuerier) ListActiveActivityGroupAssignmentsAt(context.Context, db.ListActiveActivityGroupAssignmentsAtParams) ([]db.ListActiveActivityGroupAssignmentsAtRow, error) {
-	return nil, errors.New("unexpected call")
+	if f.activeActivityGroupAssignments == nil {
+		return nil, errors.New("unexpected call")
+	}
+	return f.activeActivityGroupAssignments, nil
 }
 
 func (f *fakeQuerier) CreateActivityParticipantAssignment(_ context.Context, arg db.CreateActivityParticipantAssignmentParams) (db.CreateActivityParticipantAssignmentRow, error) {
@@ -257,7 +274,35 @@ func (f *fakeQuerier) CreateActivityParticipantAssignment(_ context.Context, arg
 }
 
 func (f *fakeQuerier) ListActiveActivityParticipantAssignmentsAt(context.Context, db.ListActiveActivityParticipantAssignmentsAtParams) ([]db.ListActiveActivityParticipantAssignmentsAtRow, error) {
-	return nil, errors.New("unexpected call")
+	if f.activeActivityParticipantAssignments == nil {
+		return nil, errors.New("unexpected call")
+	}
+	return f.activeActivityParticipantAssignments, nil
+}
+
+func (f *fakeQuerier) ListActivityOccurrenceGroups(context.Context, pgtype.UUID) ([]db.ListActivityOccurrenceGroupsRow, error) {
+	return f.occurrenceGroups, nil
+}
+
+func (f *fakeQuerier) ListActivityOccurrenceParticipants(context.Context, pgtype.UUID) ([]db.ListActivityOccurrenceParticipantsRow, error) {
+	return f.occurrenceParticipants, nil
+}
+
+func (f *fakeQuerier) CreateBonusPointLedgerEntry(_ context.Context, arg db.CreateBonusPointLedgerEntryParams) (db.CreateBonusPointLedgerEntryRow, error) {
+	f.createdBonusLedgerEntries = append(f.createdBonusLedgerEntries, arg)
+	return db.CreateBonusPointLedgerEntryRow{
+		InstanceID:           arg.InstanceID,
+		ParticipantID:        arg.ParticipantID,
+		ActivityOccurrenceID: arg.ActivityOccurrenceID,
+		SourceGroupID:        arg.SourceGroupID,
+		EntryKind:            arg.EntryKind,
+		Points:               arg.Points,
+		Visibility:           arg.Visibility,
+		Reason:               arg.Reason,
+		EffectiveAt:          arg.EffectiveAt,
+		AwardKey:             arg.AwardKey,
+		Metadata:             arg.Metadata,
+	}, nil
 }
 
 func (f *fakeQuerier) GetVisibleBonusTotalByParticipant(context.Context, db.GetVisibleBonusTotalByParticipantParams) (int32, error) {
