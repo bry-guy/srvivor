@@ -18,6 +18,7 @@ Castaway (global), and each app, should include _at least_ the following structu
 - `docs/README.md` remains the shared documentation map for the repository-level `docs/` directory.
 - If docs are added for a separate concern, give them their own well-named file.
 - Shared cross-app documentation belongs in the repo-level `docs/` directory unless it is clearly app-local.
+- Reusable operator or agent prompt packs may live under the repo-level `prompts/` directory when they are operational artifacts rather than normative product documentation.
 
 ## Placement rules
 

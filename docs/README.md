@@ -19,4 +19,6 @@ Documentation requirements and placement rules live in `documentation-standards.
 
 Repository-level plans now live under `/plans`, not under `docs/`.
 
+Reusable operator/agent prompt packs may live under the repo-level `/prompts/` directory when they are operational artifacts rather than normative product documentation.
+
 As active shared docs are added, place them at the top level under `docs/` unless they belong in a more specific subdirectory such as `docs/gameplay/`.
