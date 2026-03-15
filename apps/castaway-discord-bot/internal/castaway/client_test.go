@@ -73,7 +73,7 @@ func TestGetLeaderboardSendsParticipantFilter(t *testing.T) {
 		if got := r.URL.Query().Get("participant_id"); got != "p1" {
 			t.Fatalf("expected participant filter, got %q", got)
 		}
-		if _, err := w.Write([]byte(`{"leaderboard":[{"participant_id":"p1","participant_name":"Bryan","score":21,"points_available":46}]}`)); err != nil {
+		if _, err := w.Write([]byte(`{"leaderboard":[{"participant_id":"p1","participant_name":"Bryan","score":21,"draft_points":18,"bonus_points":3,"total_points":21,"points_available":46}]}`)); err != nil {
 			t.Fatalf("write response: %v", err)
 		}
 	}))
@@ -87,8 +87,12 @@ func TestGetLeaderboardSendsParticipantFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get leaderboard: %v", err)
 	}
-	if len(rows) != 1 || rows[0].ParticipantID != "p1" {
+	if len(rows) != 1 {
 		t.Fatalf("unexpected rows: %#v", rows)
+	}
+	row := rows[0]
+	if row.ParticipantID != "p1" || row.DraftPoints != 18 || row.BonusPoints != 3 || row.TotalPoints != 21 || row.PointsAvailable != 46 {
+		t.Fatalf("unexpected row: %#v", row)
 	}
 }
 

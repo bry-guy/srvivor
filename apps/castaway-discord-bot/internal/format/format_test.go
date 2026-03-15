@@ -18,11 +18,38 @@ func TestTrimMessageTruncatesLongResponses(t *testing.T) {
 	}
 }
 
-func TestSingleScoreIncludesInstanceLabel(t *testing.T) {
+func TestSingleScoreIncludesTotalDraftAndBonus(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
-	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 21, PointsAvailable: 46}
+	row := castaway.LeaderboardRow{
+		ParticipantName: "Bryan",
+		Score:           26,
+		DraftPoints:     21,
+		BonusPoints:     5,
+		TotalPoints:     26,
+		PointsAvailable: 46,
+	}
+
 	message := SingleScore(instance, row)
-	if !strings.Contains(message, "Season 49") || !strings.Contains(message, "Bryan") {
-		t.Fatalf("unexpected message: %q", message)
+	expected := "**Season 49 — Office Pool**\nBryan — 26 points (21+5; points available: 46)"
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
+	instance := castaway.Instance{Name: "Office Pool", Season: 49}
+	rows := []castaway.LeaderboardRow{
+		{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46},
+		{ParticipantName: "Riley", Score: 19, DraftPoints: 19, BonusPoints: 0, TotalPoints: 19, PointsAvailable: 41},
+	}
+
+	message := Leaderboard(instance, rows)
+	expected := strings.Join([]string{
+		"**Season 49 — Office Pool**",
+		"1. Bryan — 26 (21+5; points available: 46)",
+		"2. Riley — 19 (19+0; points available: 41)",
+	}, "\n")
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
 }

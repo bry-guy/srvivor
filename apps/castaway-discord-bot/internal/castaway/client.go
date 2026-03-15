@@ -33,7 +33,28 @@ type LeaderboardRow struct {
 	ParticipantID   string `json:"participant_id"`
 	ParticipantName string `json:"participant_name"`
 	Score           int    `json:"score"`
+	DraftPoints     int    `json:"draft_points"`
+	BonusPoints     int    `json:"bonus_points"`
+	TotalPoints     int    `json:"total_points"`
 	PointsAvailable int    `json:"points_available"`
+}
+
+func (r LeaderboardRow) Total() int {
+	if r.TotalPoints == 0 && r.Score != 0 {
+		return r.Score
+	}
+	return r.TotalPoints
+}
+
+func (r LeaderboardRow) Draft() int {
+	if r.DraftPoints == 0 && (r.TotalPoints != 0 || r.Score != 0 || r.BonusPoints != 0) {
+		return r.Total() - r.BonusPoints
+	}
+	return r.DraftPoints
+}
+
+func (r LeaderboardRow) Bonus() int {
+	return r.BonusPoints
 }
 
 type DraftPick struct {

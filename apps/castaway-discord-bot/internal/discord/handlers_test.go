@@ -31,7 +31,7 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 			"instance-49": {{ID: "participant-bryan", Name: "Bryan"}},
 		},
 		leaderboardByInstance: map[string][]castaway.LeaderboardRow{
-			"instance-49": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 81, PointsAvailable: -198}},
+			"instance-49": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198}},
 		},
 	})
 
@@ -49,7 +49,7 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := "**Season 49 — Historical Season 49**\nBryan — 81 points (points available: -198)"
+	expected := "**Season 49 — Historical Season 49**\nBryan — 81 points (76+5; points available: -198)"
 	if message != expected {
 		t.Fatalf("unexpected score message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -60,9 +60,9 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
 		leaderboardByInstance: map[string][]castaway.LeaderboardRow{
 			"instance-50": {
-				{ParticipantID: "participant-keeling", ParticipantName: "Keeling", Score: 6, PointsAvailable: 294},
-				{ParticipantID: "participant-adam", ParticipantName: "Adam", Score: 5, PointsAvailable: 292},
-				{ParticipantID: "participant-amanda", ParticipantName: "Amanda", Score: 3, PointsAvailable: 281},
+				{ParticipantID: "participant-keeling", ParticipantName: "Keeling", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
+				{ParticipantID: "participant-adam", ParticipantName: "Adam", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
+				{ParticipantID: "participant-amanda", ParticipantName: "Amanda", Score: 3, DraftPoints: 2, BonusPoints: 1, TotalPoints: 3, PointsAvailable: 281},
 			},
 		},
 	})
@@ -79,9 +79,9 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 
 	expected := strings.Join([]string{
 		"**Season 50 — Historical Season 50**",
-		"1. Keeling — 6 (points available: 294)",
-		"2. Adam — 5 (points available: 292)",
-		"3. Amanda — 3 (points available: 281)",
+		"1. Keeling — 6 (5+1; points available: 294)",
+		"2. Adam — 5 (5+0; points available: 292)",
+		"3. Amanda — 3 (2+1; points available: 281)",
 	}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected leaderboard message:\nexpected: %q\nactual:   %q", expected, message)
