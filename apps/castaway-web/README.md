@@ -92,6 +92,21 @@ Verify that committed OpenAPI stays in sync with TypeSpec and the registered Gin
 mise run openapi-check
 ```
 
+## Regression coverage
+
+A self-contained Hurl suite lives in `hurl/` and exercises:
+- seeded historical read behavior for seasons 49 and 50
+- create/update leaderboard workflows
+- import alias normalization behavior
+
+Run it with:
+
+```bash
+mise run regression
+```
+
+The task starts a disposable PostgreSQL container, seeds historical data, runs `castaway-web` locally, and executes the Hurl files.
+
 ## API (MVP)
 
 - `GET /healthz`

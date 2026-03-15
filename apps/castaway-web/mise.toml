@@ -30,6 +30,10 @@ run = "cd typespec && npm install && npx tsp compile . && cp tsp-output/@typespe
 [tasks.openapi-check]
 run = "mise run :openapi && git diff --exit-code -- openapi/openapi.yaml"
 
+[tasks.regression]
+description = "Run Hurl regression coverage against a seeded local castaway-web instance"
+run = "./script/run-hurl-regression.sh"
+
 [tasks.ci]
-description = "Run all tasks for CI pipeline (lint, test, build, openapi-check)"
-depends = [":lint", ":test", ":build", ":openapi-check"]
+description = "Run all tasks for CI pipeline (lint, test, build, openapi-check, regression)"
+depends = [":lint", ":test", ":build", ":openapi-check", ":regression"]
