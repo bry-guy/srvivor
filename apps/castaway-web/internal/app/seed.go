@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
@@ -65,11 +66,13 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 	if err != nil {
 		return fmt.Errorf("create instance for season %d: %w", season.Season, err)
 	}
-	if err := gameplay.NewService(q).CopyInstanceSchedule(ctx, instance.ID, seasonNumber); err != nil {
+	gameplayService := gameplay.NewService(q)
+	if err := gameplayService.CopyInstanceSchedule(ctx, instance.ID, seasonNumber); err != nil {
 		return fmt.Errorf("copy episode schedule for season %d: %w", season.Season, err)
 	}
 
 	contestantIDByName := make(map[string]pgtype.UUID, len(season.Contestants))
+	participantIDByName := make(map[string]pgtype.UUID, len(season.Participants))
 	for _, name := range season.Contestants {
 		trimmed := strings.TrimSpace(name)
 		if trimmed == "" {
@@ -86,13 +89,15 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 	}
 
 	for _, participantSeed := range season.Participants {
+		participantName := strings.TrimSpace(participantSeed.Name)
 		participant, err := q.CreateParticipant(ctx, db.CreateParticipantParams{
 			InstanceID: instance.ID,
-			Name:       strings.TrimSpace(participantSeed.Name),
+			Name:       participantName,
 		})
 		if err != nil {
 			return fmt.Errorf("create participant %q for season %d: %w", participantSeed.Name, season.Season, err)
 		}
+		participantIDByName[normalizeSeedName(participantName)] = participant.ID
 		result.Participants++
 
 		for index, contestantName := range participantSeed.Picks {
@@ -164,8 +169,132 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 		result.Outcomes++
 	}
 
+	if err := seedActivityHistory(ctx, q, gameplayService, season, instance.ID, participantIDByName); err != nil {
+		return fmt.Errorf("seed activities for season %d: %w", season.Season, err)
+	}
+
 	result.Seasons++
 	return nil
+}
+
+func seedActivityHistory(
+	ctx context.Context,
+	q *db.Queries,
+	gameplayService *gameplay.Service,
+	season seeddata.SeasonSeed,
+	instanceID pgtype.UUID,
+	participantIDByName map[string]pgtype.UUID,
+) error {
+	for _, activitySeed := range season.Activities {
+		if activitySeed.StartsAt.IsZero() {
+			return fmt.Errorf("activity %q must include starts_at", activitySeed.Name)
+		}
+
+		status := strings.TrimSpace(activitySeed.Status)
+		if status == "" {
+			status = "active"
+		}
+
+		activity, err := q.CreateInstanceActivity(ctx, db.CreateInstanceActivityParams{
+			InstanceID:   instanceID,
+			ActivityType: strings.TrimSpace(activitySeed.ActivityType),
+			Name:         strings.TrimSpace(activitySeed.Name),
+			Status:       status,
+			StartsAt:     timestamptz(activitySeed.StartsAt),
+			EndsAt:       optionalTimestamptz(activitySeed.EndsAt),
+			Metadata:     jsonBytesOrEmpty(activitySeed.Metadata),
+		})
+		if err != nil {
+			return fmt.Errorf("create activity %q: %w", activitySeed.Name, err)
+		}
+
+		for _, occurrenceSeed := range activitySeed.Occurrences {
+			if occurrenceSeed.EffectiveAt.IsZero() {
+				return fmt.Errorf("activity %q occurrence %q must include effective_at", activitySeed.Name, occurrenceSeed.Name)
+			}
+
+			occurrenceStatus := strings.TrimSpace(occurrenceSeed.Status)
+			if occurrenceStatus == "" {
+				occurrenceStatus = "recorded"
+			}
+
+			occurrence, err := q.CreateActivityOccurrence(ctx, db.CreateActivityOccurrenceParams{
+				ActivityID:     activity.ID,
+				OccurrenceType: strings.TrimSpace(occurrenceSeed.OccurrenceType),
+				Name:           strings.TrimSpace(occurrenceSeed.Name),
+				EffectiveAt:    timestamptz(occurrenceSeed.EffectiveAt),
+				StartsAt:       optionalTimestamptz(occurrenceSeed.StartsAt),
+				EndsAt:         optionalTimestamptz(occurrenceSeed.EndsAt),
+				Status:         occurrenceStatus,
+				SourceRef:      optionalText(occurrenceSeed.SourceRef),
+				Metadata:       jsonBytesOrEmpty(occurrenceSeed.Metadata),
+			})
+			if err != nil {
+				return fmt.Errorf("create occurrence %q for activity %q: %w", occurrenceSeed.Name, activitySeed.Name, err)
+			}
+
+			for _, participantSeed := range occurrenceSeed.Participants {
+				participantID, ok := participantIDByName[normalizeSeedName(participantSeed.Name)]
+				if !ok {
+					return fmt.Errorf("resolve participant %q for occurrence %q", participantSeed.Name, occurrenceSeed.Name)
+				}
+
+				role := strings.TrimSpace(participantSeed.Role)
+				if role == "" {
+					role = "participant"
+				}
+
+				if _, err := q.CreateActivityOccurrenceParticipant(ctx, db.CreateActivityOccurrenceParticipantParams{
+					ActivityOccurrenceID: occurrence.ID,
+					ParticipantID:        participantID,
+					ParticipantGroupID:   pgtype.UUID{},
+					Role:                 role,
+					Result:               strings.TrimSpace(participantSeed.Result),
+					Metadata:             jsonBytesOrEmpty(participantSeed.Metadata),
+				}); err != nil {
+					return fmt.Errorf("create occurrence participant %q for occurrence %q: %w", participantSeed.Name, occurrenceSeed.Name, err)
+				}
+			}
+
+			if occurrenceSeed.Resolve {
+				if _, err := gameplayService.ResolveActivityOccurrence(ctx, occurrence.ID); err != nil {
+					return fmt.Errorf("resolve occurrence %q for activity %q: %w", occurrenceSeed.Name, activitySeed.Name, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func normalizeSeedName(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func optionalText(value string) pgtype.Text {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: trimmed, Valid: true}
+}
+
+func jsonBytesOrEmpty(value []byte) []byte {
+	if len(value) == 0 {
+		return []byte("{}")
+	}
+	return value
+}
+
+func timestamptz(value time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: value, Valid: true}
+}
+
+func optionalTimestamptz(value *time.Time) pgtype.Timestamptz {
+	if value == nil {
+		return pgtype.Timestamptz{}
+	}
+	return timestamptz(*value)
 }
 
 func SeedSummary(result SeedResult) string {

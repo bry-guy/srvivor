@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type SeasonSeed struct {
@@ -17,6 +18,7 @@ type SeasonSeed struct {
 	Contestants  []string          `json:"contestants"`
 	Participants []ParticipantSeed `json:"participants"`
 	Outcomes     []OutcomeSeed     `json:"outcomes"`
+	Activities   []ActivitySeed    `json:"activities,omitempty"`
 }
 
 type ParticipantSeed struct {
@@ -27,6 +29,36 @@ type ParticipantSeed struct {
 type OutcomeSeed struct {
 	Position       int    `json:"position"`
 	ContestantName string `json:"contestant_name,omitempty"`
+}
+
+type ActivitySeed struct {
+	ActivityType string           `json:"activity_type"`
+	Name         string           `json:"name"`
+	Status       string           `json:"status,omitempty"`
+	StartsAt     time.Time        `json:"starts_at"`
+	EndsAt       *time.Time       `json:"ends_at,omitempty"`
+	Metadata     json.RawMessage  `json:"metadata,omitempty"`
+	Occurrences  []OccurrenceSeed `json:"occurrences,omitempty"`
+}
+
+type OccurrenceSeed struct {
+	OccurrenceType string                      `json:"occurrence_type"`
+	Name           string                      `json:"name"`
+	EffectiveAt    time.Time                   `json:"effective_at"`
+	StartsAt       *time.Time                  `json:"starts_at,omitempty"`
+	EndsAt         *time.Time                  `json:"ends_at,omitempty"`
+	Status         string                      `json:"status,omitempty"`
+	SourceRef      string                      `json:"source_ref,omitempty"`
+	Metadata       json.RawMessage             `json:"metadata,omitempty"`
+	Resolve        bool                        `json:"resolve,omitempty"`
+	Participants   []OccurrenceParticipantSeed `json:"participants,omitempty"`
+}
+
+type OccurrenceParticipantSeed struct {
+	Name     string          `json:"name"`
+	Role     string          `json:"role,omitempty"`
+	Result   string          `json:"result,omitempty"`
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 type parsedDraft struct {

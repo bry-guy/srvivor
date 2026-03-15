@@ -2329,7 +2329,8 @@
         "position": 20
       },
       {
-        "position": 21
+        "position": 21,
+        "contestant_name": "Q"
       },
       {
         "position": 22,
@@ -2342,6 +2343,307 @@
       {
         "position": 24,
         "contestant_name": "Jenna"
+      }
+    ],
+    "activities": [
+      {
+        "activity_type": "manual_adjustment",
+        "name": "Historical bonus backfill",
+        "status": "completed",
+        "starts_at": "2026-03-12T00:00:00Z",
+        "occurrences": [
+          {
+            "occurrence_type": "manual_correction",
+            "name": "Week 2 public bonus snapshot",
+            "effective_at": "2026-03-12T01:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Keeling",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 2,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Adam",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Amanda",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 3,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Bryan",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 3,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Katie",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 3,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Lauren",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 3,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Mooney",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 3,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Riley",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 3,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Yacob",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 3,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Kate",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 2,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Kenny",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 2,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Marv",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 2,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Sarah",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 2,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Grant",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Keith",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              },
+              {
+                "name": "Kyle",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 public bonus snapshot",
+                  "award_key": "season50:week2-public-bonus-snapshot"
+                }
+              }
+            ]
+          },
+          {
+            "occurrence_type": "manual_correction",
+            "name": "Journey attendance public backfill",
+            "effective_at": "2026-03-13T01:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Adam",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey attendance public backfill",
+                  "award_key": "season50:journey-attendance-public"
+                }
+              },
+              {
+                "name": "Mooney",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey attendance public backfill",
+                  "award_key": "season50:journey-attendance-public"
+                }
+              },
+              {
+                "name": "Katie",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey attendance public backfill",
+                  "award_key": "season50:journey-attendance-public"
+                }
+              }
+            ]
+          },
+          {
+            "occurrence_type": "manual_correction",
+            "name": "Journey diplomacy public backfill",
+            "effective_at": "2026-03-14T01:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Keeling",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey diplomacy public backfill",
+                  "award_key": "season50:journey-diplomacy-public"
+                }
+              },
+              {
+                "name": "Katie",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey diplomacy public backfill",
+                  "award_key": "season50:journey-diplomacy-public"
+                }
+              },
+              {
+                "name": "Kenny",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey diplomacy public backfill",
+                  "award_key": "season50:journey-diplomacy-public"
+                }
+              },
+              {
+                "name": "Marv",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey diplomacy public backfill",
+                  "award_key": "season50:journey-diplomacy-public"
+                }
+              },
+              {
+                "name": "Sarah",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Journey diplomacy public backfill",
+                  "award_key": "season50:journey-diplomacy-public"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "activity_type": "journey",
+        "name": "Journey 1",
+        "status": "completed",
+        "starts_at": "2026-03-13T00:00:00Z",
+        "occurrences": [
+          {
+            "occurrence_type": "secret_risk_result",
+            "name": "Lost for Words \u2014 Mooney",
+            "effective_at": "2026-03-14T02:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Mooney",
+                "role": "participant",
+                "metadata": {
+                  "guess_count": 3
+                }
+              }
+            ]
+          }
+        ]
       }
     ]
   }

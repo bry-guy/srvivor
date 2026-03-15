@@ -80,10 +80,49 @@ jsonpath "$.picks[0].contestant_name" == "Emily"
 jsonpath "$.picks[1].contestant_name" == "Christian"
 jsonpath "$.picks[2].contestant_name" == "Q"
 
+GET {{base_url}}/instances/{{season50_instance_id}}/participants?name=katie
+HTTP 200
+[Captures]
+season50_katie_id: jsonpath "$.participants[0].id"
+[Asserts]
+jsonpath "$.participants" count == 1
+jsonpath "$.participants[0].name" == "Katie"
+
+GET {{base_url}}/instances/{{season50_instance_id}}/leaderboard
+HTTP 200
+[Asserts]
+jsonpath "$.leaderboard[0].participant_name" == "Keeling"
+jsonpath "$.leaderboard[0].draft_points" == 7
+jsonpath "$.leaderboard[0].bonus_points" == 3
+jsonpath "$.leaderboard[0].total_points" == 10
+jsonpath "$.leaderboard[1].participant_name" == "Katie"
+jsonpath "$.leaderboard[1].draft_points" == 3
+jsonpath "$.leaderboard[1].bonus_points" == 5
+jsonpath "$.leaderboard[1].total_points" == 8
+jsonpath "$.leaderboard[2].participant_name" == "Adam"
+jsonpath "$.leaderboard[2].total_points" == 7
+jsonpath "$.leaderboard[3].participant_name" == "Mooney"
+jsonpath "$.leaderboard[3].total_points" == 7
+
+GET {{base_url}}/instances/{{season50_instance_id}}/participants/{{season50_katie_id}}/bonus-ledger
+HTTP 200
+[Asserts]
+jsonpath "$.participant.name" == "Katie"
+jsonpath "$.bonus_points" == 5
+jsonpath "$.ledger" count == 3
+jsonpath "$.ledger[0].points" == 3
+jsonpath "$.ledger[1].points" == 1
+jsonpath "$.ledger[2].points" == 1
+jsonpath "$.ledger[0].visibility" == "public"
+jsonpath "$.ledger[1].visibility" == "public"
+jsonpath "$.ledger[2].visibility" == "public"
+
 GET {{base_url}}/instances/{{season50_instance_id}}/outcomes
 HTTP 200
 [Asserts]
 jsonpath "$.outcomes" count == 24
+jsonpath "$.outcomes[20].position" == 21
+jsonpath "$.outcomes[20].contestant_name" == "Q"
 jsonpath "$.outcomes[21].position" == 22
 jsonpath "$.outcomes[21].contestant_name" == "Savannah"
 jsonpath "$.outcomes[22].position" == 23

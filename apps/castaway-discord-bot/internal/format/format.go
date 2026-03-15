@@ -14,7 +14,7 @@ func InstanceLabel(instance castaway.Instance) string {
 }
 
 func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow) string {
-	content := fmt.Sprintf("**%s**\n%s — %s", InstanceLabel(instance), row.ParticipantName, scoreSummary(row, true))
+	content := fmt.Sprintf("**%s**\n%s — %s", InstanceLabel(instance), row.ParticipantName, scoreSummary(row, true, true))
 	return TrimMessage(content)
 }
 
@@ -24,15 +24,18 @@ func Leaderboard(instance castaway.Instance, rows []castaway.LeaderboardRow) str
 	builder.WriteString(InstanceLabel(instance))
 	builder.WriteString("**\n")
 	for index, row := range rows {
-		builder.WriteString(fmt.Sprintf("%d. %s — %s\n", index+1, row.ParticipantName, scoreSummary(row, false)))
+		builder.WriteString(fmt.Sprintf("%d. %s — %s\n", index+1, row.ParticipantName, scoreSummary(row, false, false)))
 	}
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func scoreSummary(row castaway.LeaderboardRow, includePointsLabel bool) string {
+func scoreSummary(row castaway.LeaderboardRow, includePointsLabel bool, includePointsAvailable bool) string {
 	label := ""
 	if includePointsLabel {
 		label = " points"
+	}
+	if !includePointsAvailable {
+		return fmt.Sprintf("%d%s (%d%+d)", row.Total(), label, row.Draft(), row.Bonus())
 	}
 	return fmt.Sprintf("%d%s (%d%+d; points available: %d)", row.Total(), label, row.Draft(), row.Bonus(), row.PointsAvailable)
 }

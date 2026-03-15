@@ -79,9 +79,9 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 
 	expected := strings.Join([]string{
 		"**Season 50 — Historical Season 50**",
-		"1. Keeling — 6 (5+1; points available: 294)",
-		"2. Adam — 5 (5+0; points available: 292)",
-		"3. Amanda — 3 (2+1; points available: 281)",
+		"1. Keeling — 6 (5+1)",
+		"2. Adam — 5 (5+0)",
+		"3. Amanda — 3 (2+1)",
 	}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected leaderboard message:\nexpected: %q\nactual:   %q", expected, message)

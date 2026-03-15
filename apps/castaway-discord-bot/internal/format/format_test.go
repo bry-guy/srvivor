@@ -46,8 +46,8 @@ func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 	message := Leaderboard(instance, rows)
 	expected := strings.Join([]string{
 		"**Season 49 — Office Pool**",
-		"1. Bryan — 26 (21+5; points available: 46)",
-		"2. Riley — 19 (19+0; points available: 41)",
+		"1. Bryan — 26 (21+5)",
+		"2. Riley — 19 (19+0)",
 	}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
