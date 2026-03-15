@@ -48,7 +48,35 @@ model LeaderboardRow {
   participant_id: string;
   participant_name: string;
   score: int32;
+  draft_points: int32;
+  bonus_points: int32;
+  total_points: int32;
   points_available: int32;
+}
+
+model BonusLedgerEntry {
+  id: string;
+  activity_id: string;
+  activity_type: string;
+  activity_name: string;
+  activity_occurrence_id: string;
+  occurrence_type: string;
+  occurrence_name: string;
+  source_group_id?: string;
+  source_group_name?: string;
+  entry_kind: string;
+  points: int32;
+  visibility: string;
+  reason: string;
+  effective_at: utcDateTime;
+  award_key?: string;
+  created_at: utcDateTime;
+}
+
+model ParticipantBonusLedgerResponse {
+  participant: Participant;
+  bonus_points: int32;
+  ledger: BonusLedgerEntry[];
 }
 
 model ListInstancesResponse {
@@ -194,6 +222,13 @@ op listParticipants(
   @path instanceID: string,
   @query name?: string,
 ): ListParticipantsResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/participants/{participantID}/bonus-ledger")
+@get
+op getParticipantBonusLedger(
+  @path instanceID: string,
+  @path participantID: string,
+): ParticipantBonusLedgerResponse | ErrorResponse;
 
 @route("/instances/{instanceID}/drafts/{participantID}")
 @put

@@ -42,6 +42,7 @@ func (s *Server) Router() *gin.Engine {
 
 	r.POST("/instances/:instanceID/participants", s.createParticipant)
 	r.GET("/instances/:instanceID/participants", s.listParticipants)
+	r.GET("/instances/:instanceID/participants/:participantID/bonus-ledger", s.bonusLedger)
 
 	r.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
 	r.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)
@@ -680,7 +681,19 @@ func (s *Server) leaderboard(c *gin.Context) {
 		finalPositions[uuid.UUID(outcome.ContestantID.Bytes).String()] = int(outcome.Position)
 	}
 
-	leaderboard := scoring.CalculateLeaderboard(len(contestants), participantNames, draftsByParticipant, finalPositions)
+	visibleBonusByParticipant := make(map[string]int, len(participants))
+	gameplayService := gameplay.NewService(s.queries)
+	for _, participant := range participants {
+		participantID := uuid.UUID(participant.ID.Bytes).String()
+		bonusPoints, err := gameplayService.VisibleBonusTotalByParticipant(c.Request.Context(), toPGUUID(instanceID), participant.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		visibleBonusByParticipant[participantID] = int(bonusPoints)
+	}
+
+	leaderboard := scoring.CalculateLeaderboard(len(contestants), participantNames, draftsByParticipant, finalPositions, visibleBonusByParticipant)
 
 	response := make([]gin.H, 0, len(leaderboard))
 	for _, row := range leaderboard {
@@ -691,11 +704,88 @@ func (s *Server) leaderboard(c *gin.Context) {
 			"participant_id":   row.ParticipantID,
 			"participant_name": row.ParticipantName,
 			"score":            row.Score,
+			"draft_points":     row.DraftPoints,
+			"bonus_points":     row.BonusPoints,
+			"total_points":     row.TotalPoints,
 			"points_available": row.PointsAvailable,
 		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"leaderboard": response})
+}
+
+func (s *Server) bonusLedger(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	participantID, ok := parseUUIDPath(c, "participantID")
+	if !ok {
+		return
+	}
+
+	participant, err := s.queries.GetParticipant(c.Request.Context(), toPGUUID(participantID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if participant.InstanceID != toPGUUID(instanceID) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+		return
+	}
+
+	bonusPoints, err := s.queries.GetVisibleBonusTotalByParticipant(c.Request.Context(), db.GetVisibleBonusTotalByParticipantParams{
+		InstanceID:    toPGUUID(instanceID),
+		ParticipantID: toPGUUID(participantID),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	ledgerRows, err := s.queries.ListVisibleBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListVisibleBonusPointLedgerEntriesForParticipantParams{
+		InstanceID:    toPGUUID(instanceID),
+		ParticipantID: toPGUUID(participantID),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	ledger := make([]gin.H, 0, len(ledgerRows))
+	for _, row := range ledgerRows {
+		ledger = append(ledger, gin.H{
+			"id":                     pgUUIDString(row.ID),
+			"activity_id":            pgUUIDString(row.ActivityID),
+			"activity_type":          row.ActivityType,
+			"activity_name":          row.ActivityName,
+			"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
+			"occurrence_type":        row.OccurrenceType,
+			"occurrence_name":        row.OccurrenceName,
+			"source_group_id":        pgUUIDPointer(row.SourceGroupID),
+			"source_group_name":      pgTextPointer(row.SourceGroupName),
+			"entry_kind":             row.EntryKind,
+			"points":                 row.Points,
+			"visibility":             row.Visibility,
+			"reason":                 row.Reason,
+			"effective_at":           formatTimestamp(row.EffectiveAt),
+			"award_key":              pgTextPointer(row.AwardKey),
+			"created_at":             formatTimestamp(row.CreatedAt),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"participant": gin.H{
+			"id":   pgUUIDString(participant.ID),
+			"name": participant.Name,
+		},
+		"bonus_points": bonusPoints,
+		"ledger":       ledger,
+	})
 }
 
 func parseOptionalSeasonQuery(c *gin.Context) (*int32, bool) {
@@ -738,6 +828,30 @@ func matchesContainsFold(candidate, filter string) bool {
 		return true
 	}
 	return strings.Contains(strings.ToLower(candidate), strings.ToLower(trimmedFilter))
+}
+
+func formatTimestamp(value pgtype.Timestamptz) string {
+	return value.Time.UTC().Format("2006-01-02T15:04:05Z07:00")
+}
+
+func pgUUIDString(value pgtype.UUID) string {
+	return uuid.UUID(value.Bytes).String()
+}
+
+func pgUUIDPointer(value pgtype.UUID) *string {
+	if !value.Valid {
+		return nil
+	}
+	formatted := pgUUIDString(value)
+	return &formatted
+}
+
+func pgTextPointer(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	formatted := value.String
+	return &formatted
 }
 
 func parseUUIDPath(c *gin.Context, key string) (uuid.UUID, bool) {

@@ -11,6 +11,9 @@ type LeaderboardEntry struct {
 	ParticipantID   string
 	ParticipantName string
 	Score           int
+	DraftPoints     int
+	BonusPoints     int
+	TotalPoints     int
 	PointsAvailable int
 }
 
@@ -19,22 +22,29 @@ func CalculateLeaderboard(
 	participantNames map[string]string,
 	draftsByParticipant map[string][]DraftPick,
 	finalPositions map[string]int,
+	visibleBonusByParticipant map[string]int,
 ) []LeaderboardEntry {
 	entries := make([]LeaderboardEntry, 0, len(participantNames))
 	for participantID, participantName := range participantNames {
 		draft := draftsByParticipant[participantID]
+		draftPoints := calculateCurrentScore(draft, finalPositions, totalPositions)
+		bonusPoints := visibleBonusByParticipant[participantID]
+		totalPoints := draftPoints + bonusPoints
 		entry := LeaderboardEntry{
 			ParticipantID:   participantID,
 			ParticipantName: participantName,
-			Score:           calculateCurrentScore(draft, finalPositions, totalPositions),
+			Score:           totalPoints,
+			DraftPoints:     draftPoints,
+			BonusPoints:     bonusPoints,
+			TotalPoints:     totalPoints,
 			PointsAvailable: calculatePointsAvailable(draft, finalPositions, totalPositions),
 		}
 		entries = append(entries, entry)
 	}
 
 	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].Score != entries[j].Score {
-			return entries[i].Score > entries[j].Score
+		if entries[i].TotalPoints != entries[j].TotalPoints {
+			return entries[i].TotalPoints > entries[j].TotalPoints
 		}
 		return entries[i].ParticipantName < entries[j].ParticipantName
 	})

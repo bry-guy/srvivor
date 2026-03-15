@@ -315,8 +315,83 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/ListParticipantsResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/participants/{participantID}/bonus-ledger:
+    get:
+      operationId: getParticipantBonusLedger
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ParticipantBonusLedgerResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
+    BonusLedgerEntry:
+      type: object
+      required:
+        - id
+        - activity_id
+        - activity_type
+        - activity_name
+        - activity_occurrence_id
+        - occurrence_type
+        - occurrence_name
+        - entry_kind
+        - points
+        - visibility
+        - reason
+        - effective_at
+        - created_at
+      properties:
+        id:
+          type: string
+        activity_id:
+          type: string
+        activity_type:
+          type: string
+        activity_name:
+          type: string
+        activity_occurrence_id:
+          type: string
+        occurrence_type:
+          type: string
+        occurrence_name:
+          type: string
+        source_group_id:
+          type: string
+        source_group_name:
+          type: string
+        entry_kind:
+          type: string
+        points:
+          type: integer
+          format: int32
+        visibility:
+          type: string
+        reason:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        award_key:
+          type: string
+        created_at:
+          type: string
+          format: date-time
     Contestant:
       type: object
       required:
@@ -494,6 +569,9 @@ components:
         - participant_id
         - participant_name
         - score
+        - draft_points
+        - bonus_points
+        - total_points
         - points_available
       properties:
         participant_id:
@@ -501,6 +579,15 @@ components:
         participant_name:
           type: string
         score:
+          type: integer
+          format: int32
+        draft_points:
+          type: integer
+          format: int32
+        bonus_points:
+          type: integer
+          format: int32
+        total_points:
           type: integer
           format: int32
         points_available:
@@ -564,6 +651,22 @@ components:
           type: string
         name:
           type: string
+    ParticipantBonusLedgerResponse:
+      type: object
+      required:
+        - participant
+        - bonus_points
+        - ledger
+      properties:
+        participant:
+          $ref: '#/components/schemas/Participant'
+        bonus_points:
+          type: integer
+          format: int32
+        ledger:
+          type: array
+          items:
+            $ref: '#/components/schemas/BonusLedgerEntry'
     ReplaceDraftRequest:
       type: object
       required:
