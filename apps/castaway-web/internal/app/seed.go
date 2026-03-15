@@ -8,6 +8,7 @@ import (
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/gameplay"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/seeddata"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -63,6 +64,9 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 	})
 	if err != nil {
 		return fmt.Errorf("create instance for season %d: %w", season.Season, err)
+	}
+	if err := gameplay.NewService(q).CopyInstanceSchedule(ctx, instance.ID, seasonNumber); err != nil {
+		return fmt.Errorf("copy episode schedule for season %d: %w", season.Season, err)
 	}
 
 	contestantIDByName := make(map[string]pgtype.UUID, len(season.Contestants))

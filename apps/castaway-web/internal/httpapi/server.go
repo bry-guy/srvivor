@@ -9,6 +9,7 @@ import (
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/gameplay"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/scoring"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -153,6 +154,11 @@ func (s *Server) createInstance(c *gin.Context) {
 			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 			return
 		}
+	}
+
+	if err := gameplay.NewService(qtx).CopyInstanceSchedule(c.Request.Context(), createdInstance.ID, createdInstance.Season); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {

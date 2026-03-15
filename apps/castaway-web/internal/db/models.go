@@ -8,6 +8,83 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ActivityGroupAssignment struct {
+	ID                 int64              `json:"id"`
+	ActivityID         int64              `json:"activity_id"`
+	ParticipantGroupID int64              `json:"participant_group_id"`
+	Role               string             `json:"role"`
+	StartsAt           pgtype.Timestamptz `json:"starts_at"`
+	EndsAt             pgtype.Timestamptz `json:"ends_at"`
+	Configuration      []byte             `json:"configuration"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type ActivityOccurrence struct {
+	ID             int64              `json:"id"`
+	PublicID       pgtype.UUID        `json:"public_id"`
+	ActivityID     int64              `json:"activity_id"`
+	OccurrenceType string             `json:"occurrence_type"`
+	Name           string             `json:"name"`
+	EffectiveAt    pgtype.Timestamptz `json:"effective_at"`
+	StartsAt       pgtype.Timestamptz `json:"starts_at"`
+	EndsAt         pgtype.Timestamptz `json:"ends_at"`
+	Status         string             `json:"status"`
+	SourceRef      pgtype.Text        `json:"source_ref"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ActivityOccurrenceGroup struct {
+	ID                   int64              `json:"id"`
+	ActivityOccurrenceID int64              `json:"activity_occurrence_id"`
+	ParticipantGroupID   int64              `json:"participant_group_id"`
+	Role                 string             `json:"role"`
+	Result               string             `json:"result"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type ActivityOccurrenceParticipant struct {
+	ID                   int64              `json:"id"`
+	ActivityOccurrenceID int64              `json:"activity_occurrence_id"`
+	ParticipantID        int64              `json:"participant_id"`
+	ParticipantGroupID   pgtype.Int8        `json:"participant_group_id"`
+	Role                 string             `json:"role"`
+	Result               string             `json:"result"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type ActivityParticipantAssignment struct {
+	ID                 int64              `json:"id"`
+	ActivityID         int64              `json:"activity_id"`
+	ParticipantID      int64              `json:"participant_id"`
+	ParticipantGroupID pgtype.Int8        `json:"participant_group_id"`
+	Role               string             `json:"role"`
+	StartsAt           pgtype.Timestamptz `json:"starts_at"`
+	EndsAt             pgtype.Timestamptz `json:"ends_at"`
+	Configuration      []byte             `json:"configuration"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type BonusPointLedgerEntry struct {
+	ID                   int64              `json:"id"`
+	PublicID             pgtype.UUID        `json:"public_id"`
+	InstanceID           int64              `json:"instance_id"`
+	ParticipantID        int64              `json:"participant_id"`
+	ActivityOccurrenceID int64              `json:"activity_occurrence_id"`
+	SourceGroupID        pgtype.Int8        `json:"source_group_id"`
+	EntryKind            string             `json:"entry_kind"`
+	Points               int32              `json:"points"`
+	Visibility           string             `json:"visibility"`
+	Reason               string             `json:"reason"`
+	EffectiveAt          pgtype.Timestamptz `json:"effective_at"`
+	AwardKey             pgtype.Text        `json:"award_key"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
 type Contestant struct {
 	ID        int64              `json:"id"`
 	PublicID  pgtype.UUID        `json:"public_id"`
@@ -23,6 +100,21 @@ type DraftPick struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
+type Import struct {
+	ID               int64              `json:"id"`
+	PublicID         pgtype.UUID        `json:"public_id"`
+	InstanceID       pgtype.Int8        `json:"instance_id"`
+	Name             string             `json:"name"`
+	Season           int32              `json:"season"`
+	ContentType      string             `json:"content_type"`
+	Payload          string             `json:"payload"`
+	Status           string             `json:"status"`
+	Error            pgtype.Text        `json:"error"`
+	SubmissionsCount int32              `json:"submissions_count"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Instance struct {
 	ID        int64              `json:"id"`
 	PublicID  pgtype.UUID        `json:"public_id"`
@@ -31,10 +123,36 @@ type Instance struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type InstanceActivity struct {
+	ID           int64              `json:"id"`
+	PublicID     pgtype.UUID        `json:"public_id"`
+	InstanceID   int64              `json:"instance_id"`
+	ActivityType string             `json:"activity_type"`
+	Name         string             `json:"name"`
+	Status       string             `json:"status"`
+	StartsAt     pgtype.Timestamptz `json:"starts_at"`
+	EndsAt       pgtype.Timestamptz `json:"ends_at"`
+	Metadata     []byte             `json:"metadata"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type InstanceContestant struct {
 	InstanceID   int64              `json:"instance_id"`
 	ContestantID int64              `json:"contestant_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type InstanceEpisode struct {
+	ID            int64              `json:"id"`
+	PublicID      pgtype.UUID        `json:"public_id"`
+	InstanceID    int64              `json:"instance_id"`
+	EpisodeNumber int32              `json:"episode_number"`
+	Label         string             `json:"label"`
+	AirsAt        pgtype.Timestamptz `json:"airs_at"`
+	Metadata      []byte             `json:"metadata"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type OutcomePosition struct {
@@ -50,4 +168,26 @@ type Participant struct {
 	InstanceID int64              `json:"instance_id"`
 	Name       string             `json:"name"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ParticipantGroup struct {
+	ID         int64              `json:"id"`
+	PublicID   pgtype.UUID        `json:"public_id"`
+	InstanceID int64              `json:"instance_id"`
+	Name       string             `json:"name"`
+	Kind       string             `json:"kind"`
+	Metadata   []byte             `json:"metadata"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ParticipantGroupMembershipPeriod struct {
+	ID                 int64              `json:"id"`
+	ParticipantGroupID int64              `json:"participant_group_id"`
+	ParticipantID      int64              `json:"participant_id"`
+	Role               string             `json:"role"`
+	StartsAt           pgtype.Timestamptz `json:"starts_at"`
+	EndsAt             pgtype.Timestamptz `json:"ends_at"`
+	Metadata           []byte             `json:"metadata"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
