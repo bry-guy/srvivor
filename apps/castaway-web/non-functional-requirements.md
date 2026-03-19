@@ -10,6 +10,7 @@
 
 - The app must fail fast on invalid configuration.
 - Database migrations must be applied consistently before serving traffic.
+- Production deployments must run migrations through a dedicated migration Job or equivalent pre-traffic hook rather than relying on app-startup auto-migration.
 - Seed workflows must remain repeatable for local development.
 
 ## Observability

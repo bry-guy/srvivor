@@ -9,7 +9,7 @@
 - Non-functional requirements: `non-functional-requirements.md`
 - Production readiness: `production-readiness-checklist.md`
 - Plans: `plans/`
-- Shared app plan: `../../docs/castaway-discord-bot-plan.md`
+- Shared app blueprint: `../../docs/castaway-discord-bot-blueprint.md`
 
 ## Commands
 

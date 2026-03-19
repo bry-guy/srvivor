@@ -15,4 +15,4 @@ Ship the initial standalone Discord bot that reads Castaway draft state from `ca
 
 ## Notes
 
-The larger planning context remains documented in `../../docs/castaway-discord-bot-plan.md`.
+The larger design context remains documented in `../../docs/castaway-discord-bot-blueprint.md`.

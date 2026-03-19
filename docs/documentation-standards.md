@@ -18,11 +18,13 @@ Castaway (global), and each app, should include _at least_ the following structu
 - `docs/README.md` remains the shared documentation map for the repository-level `docs/` directory.
 - If docs are added for a separate concern, give them their own well-named file.
 - Shared cross-app documentation belongs in the repo-level `docs/` directory unless it is clearly app-local.
+- Use a plan for executable implementation work; use a blueprint or roadmap for design, structure, or future-oriented reference documentation.
 - Reusable operator or agent prompt packs may live under the repo-level `prompts/` directory when they are operational artifacts rather than normative product documentation.
 
 ## Placement rules
 
 - App-specific minimum documentation should live at the root of each app directory.
 - App-specific planning documents should live under `apps/<app>/plans/`.
-- Shared repository planning documents should live under the repo-level `plans/` directory.
+- Shared repository implementation plans should live under the repo-level `plans/` directory.
+- Shared repository blueprints, roadmaps, and other design/reference documents should live under the repo-level `docs/` directory.
 - Keep `README.md` focused on developer and operator entrypoints; use dedicated documents for deeper concerns.

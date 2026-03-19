@@ -8,6 +8,7 @@
 
 ## Reliability
 - [ ] Database backup and restore procedure documented
+- [ ] Dedicated migration job or pre-traffic hook wired into the deployment environment
 - [ ] Migration rollout and rollback procedure documented
 - [ ] Health checks wired into the deployment environment
 - [ ] Seed/dev-only workflows clearly separated from production operations
@@ -22,9 +23,10 @@
 - [ ] Route parity check enforced in CI
 - [ ] Public API docs updated for externally visible changes
 
-## Follow-up thread
+## Follow-up threads
 
 - `plans/auth-and-authorization-planning.md`
+- `plans/service-to-service-authentication-planning.md`
 
 ## Operational status
 

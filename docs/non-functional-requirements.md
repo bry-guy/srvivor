@@ -55,5 +55,6 @@ This document tracks cross-cutting requirements that apply across Castaway apps,
 ## Deployment and operations
 
 - Production rollout requires documented runbooks for bot restarts, API outages, and credential rotation.
+- Production `castaway-web` deployments should run database migrations through a dedicated migration Job or equivalent pre-traffic hook.
 - Backups or migration plans are required for any persistent bot state used in production.
 - Rollback steps should be documented for API and bot releases.

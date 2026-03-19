@@ -15,6 +15,7 @@ Use this checklist before exposing Castaway services to production users.
 
 ## Reliability and operations
 - [ ] Health checks documented for `castaway-web` and `castaway-discord-bot`
+- [ ] Dedicated migration job or pre-traffic hook documented for `castaway-web` production deploys
 - [ ] Alerts defined for API downtime and bot startup failures
 - [ ] Persistent bot state backup/restore plan documented
 - [ ] Rollback procedure documented

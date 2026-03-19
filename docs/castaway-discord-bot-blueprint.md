@@ -1,8 +1,10 @@
-# castaway-discord-bot plan
+# castaway-discord-bot blueprint
 
 ## Goal
 
 Add a standalone Discord bot app at `apps/castaway-discord-bot` that reads draft state from `castaway-web`, presents Discord-native slash command workflows, and stays easy to run locally during development.
+
+This document is shared design/reference documentation. Executable implementation work belongs in app-local or repository plans.
 
 ## Decisions
 
@@ -99,7 +101,7 @@ apps/castaway-discord-bot/
 
 Use guild-scoped command registration in development so command updates propagate quickly.
 
-## Delivery plan
+## Implementation slices
 
 ### Phase 1
 - docs, non-functional requirements, and production checklist

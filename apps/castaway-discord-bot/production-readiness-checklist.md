@@ -22,9 +22,11 @@
 - [ ] Bot invite and required scopes documented
 - [ ] Slash command help/docs aligned with shipped behavior
 
-## Follow-up thread
+## Follow-up threads
 
 - `plans/state-backend-and-operations-planning.md`
+- `plans/service-to-service-authentication-planning.md`
+- `plans/postgres-state-backend-planning.md`
 
 ## Operational status
 

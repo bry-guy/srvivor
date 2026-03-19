@@ -10,7 +10,7 @@ Use the implementation plan as the execution source of truth:
 
 Use these shared references for product semantics and gameplay context:
 
-- `docs/castaway-bonus-points-plan.md`
+- `docs/castaway-bonus-points-blueprint.md`
 - `docs/castaway-manual-gameplay-logs.md`
 - `docs/gameplay/journey-tribal-diplomancy.md`
 
@@ -36,7 +36,7 @@ Agent 3 should wait until Agent 2 has merged, or at least until the leaderboard/
 Create a fresh ez-worktree and implement the Castaway bonus-points persistence foundation only.
 
 Read first:
-- docs/castaway-bonus-points-plan.md
+- docs/castaway-bonus-points-blueprint.md
 - apps/castaway-web/plans/bonus-points-planning.md
 - docs/castaway-manual-gameplay-logs.md
 - docs/gameplay/journey-tribal-diplomancy.md
@@ -82,7 +82,7 @@ When finished:
 Create a fresh ez-worktree from the latest main and implement the Castaway bonus-points web domain/application work, but do not update the Discord bot.
 
 Read first:
-- docs/castaway-bonus-points-plan.md
+- docs/castaway-bonus-points-blueprint.md
 - apps/castaway-web/plans/bonus-points-planning.md
 - docs/castaway-manual-gameplay-logs.md
 - docs/gameplay/journey-tribal-diplomancy.md
@@ -131,14 +131,14 @@ When finished:
 Create a fresh ez-worktree from the latest main and implement the Discord bot read-model changes for Castaway bonus points.
 
 Read first:
-- docs/castaway-bonus-points-plan.md
+- docs/castaway-bonus-points-blueprint.md
 - apps/castaway-web/plans/bonus-points-planning.md
 - apps/castaway-discord-bot/README.md
 - apps/castaway-discord-bot/internal/castaway/client.go
 - apps/castaway-discord-bot/internal/format/format.go
 - apps/castaway-discord-bot/internal/format/format_test.go
 
-Assume Agent 2 has already merged the public leaderboard/API response changes. Implement only the bot-facing work described in the Castaway bonus-points plan:
+Assume Agent 2 has already merged the public leaderboard/API response changes. Implement only the bot-facing work described in the Castaway bonus-points blueprint:
 - parse `draft_points`, `bonus_points`, `total_points`
 - update existing `score` and `scores` output
 - do not add a dedicated bonus command

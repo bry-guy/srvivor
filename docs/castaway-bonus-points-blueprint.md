@@ -1,6 +1,8 @@
-# castaway bonus points plan
+# castaway bonus points blueprint
 
 ## Goal
+
+This document is shared design/reference documentation. Executable implementation work belongs in app-local or repository plans.
 
 Add bonus points to Castaway while keeping them:
 

@@ -75,6 +75,10 @@ mise run openapi
 ./bin/castaway-web --version
 ```
 
+## Production deployment note
+
+For self-hosted Kubernetes deployments, production migrations should run through a dedicated migration Job or equivalent pre-traffic hook. Do not rely on app-startup auto-migration for production rollouts.
+
 ## OpenAPI
 
 - TypeSpec source: `typespec/main.tsp`

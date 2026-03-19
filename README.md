@@ -71,7 +71,7 @@ See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord
 
 ### Planning and production docs
 
-- `docs/castaway-discord-bot-plan.md`
+- `docs/castaway-discord-bot-blueprint.md`
 - `docs/non-functional-requirements.md`
 - `docs/production-readiness-checklist.md`
 - `docs/secrets-and-config.md`

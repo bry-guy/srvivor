@@ -4,9 +4,9 @@
 
 This is intentionally postponed while core persistence + draft gameplay stabilize.
 
-Detailed planning now lives in:
+Detailed design and planning now live in:
 - `docs/castaway-manual-gameplay-logs.md`
-- `docs/castaway-bonus-points-plan.md`
+- `docs/castaway-bonus-points-blueprint.md`
 
 The current recommendation is a manual-first, event-driven bonus ledger model instead of starting with a fully generic rules engine.
 

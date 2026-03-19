@@ -14,7 +14,7 @@ That keeps the work inside the normal `plans/` structure instead of creating a b
 
 ## Primary references
 
-- `../../../docs/castaway-bonus-points-plan.md`
+- `../../../docs/castaway-bonus-points-blueprint.md`
 - `../../../docs/castaway-manual-gameplay-logs.md`
 - `../../../docs/gameplay/journey-tribal-diplomancy.md`
 - `../functional-requirements.md`
