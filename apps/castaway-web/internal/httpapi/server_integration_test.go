@@ -59,6 +59,54 @@ type bonusLedgerResponse struct {
 	} `json:"ledger"`
 }
 
+func TestServiceAuthProtectsNonHealthRoutes(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	queries := db.New(pool)
+	instance := createInstanceForTest(t, ctx, queries, "Auth Integration", 50)
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{
+		Enabled:      true,
+		BearerTokens: []string{"top-secret-token"},
+	}))
+	router := server.Router()
+
+	healthReq := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	healthRecorder := httptest.NewRecorder()
+	router.ServeHTTP(healthRecorder, healthReq)
+	if healthRecorder.Code != http.StatusOK {
+		t.Fatalf("healthz status = %d, body = %s", healthRecorder.Code, healthRecorder.Body.String())
+	}
+
+	missingReq := httptest.NewRequest(http.MethodGet, "/instances", nil)
+	missingRecorder := httptest.NewRecorder()
+	router.ServeHTTP(missingRecorder, missingReq)
+	if missingRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("missing auth status = %d, body = %s", missingRecorder.Code, missingRecorder.Body.String())
+	}
+
+	invalidReq := httptest.NewRequest(http.MethodGet, "/instances", nil)
+	invalidReq.Header.Set("Authorization", "Bearer wrong-token")
+	invalidRecorder := httptest.NewRecorder()
+	router.ServeHTTP(invalidRecorder, invalidReq)
+	if invalidRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("invalid auth status = %d, body = %s", invalidRecorder.Code, invalidRecorder.Body.String())
+	}
+
+	validReq := httptest.NewRequest(http.MethodGet, "/instances", nil)
+	validReq.Header.Set("Authorization", "Bearer top-secret-token")
+	validRecorder := httptest.NewRecorder()
+	router.ServeHTTP(validRecorder, validReq)
+	if validRecorder.Code != http.StatusOK {
+		t.Fatalf("valid auth status = %d, body = %s", validRecorder.Code, validRecorder.Body.String())
+	}
+	if !strings.Contains(validRecorder.Body.String(), uuid.UUID(instance.ID.Bytes).String()) {
+		t.Fatalf("expected instances response to include created instance, body = %s", validRecorder.Body.String())
+	}
+}
+
 func TestLeaderboardAndBonusLedgerHideSecretPoints(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	defer pool.Close()

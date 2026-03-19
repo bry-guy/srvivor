@@ -79,6 +79,19 @@ mise run openapi
 
 For self-hosted Kubernetes deployments, production migrations should run through a dedicated migration Job or equivalent pre-traffic hook. Do not rely on app-startup auto-migration for production rollouts.
 
+The production container image now includes a dedicated migration entrypoint:
+
+- `/app/castaway-web-migrate`
+
+Recommended production defaults for the web Deployment:
+
+- `AUTO_MIGRATE=false`
+- `SERVICE_AUTH_ENABLED=true`
+- `SERVICE_AUTH_BEARER_TOKENS` populated from managed secrets
+- `SERVICE_AUTH_PRINCIPAL=castaway-discord-bot`
+
+`/healthz` remains unauthenticated for cluster health checks.
+
 ## OpenAPI
 
 - TypeSpec source: `typespec/main.tsp`

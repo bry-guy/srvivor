@@ -2,6 +2,7 @@
 
 ## Security
 - [ ] Authentication approach selected and documented
+- [ ] Bot-to-API bearer-token authentication enforced on all production routes except `/healthz`
 - [ ] Authorization model documented for any write-capable workflows
 - [ ] Secrets provided through managed secret storage
 - [ ] Public exposure reviewed for TLS, ingress, and network policy
@@ -9,6 +10,7 @@
 ## Reliability
 - [ ] Database backup and restore procedure documented
 - [ ] Dedicated migration job or pre-traffic hook wired into the deployment environment
+- [ ] Production web pods configured with `AUTO_MIGRATE=false`
 - [ ] Migration rollout and rollback procedure documented
 - [ ] Health checks wired into the deployment environment
 - [ ] Seed/dev-only workflows clearly separated from production operations

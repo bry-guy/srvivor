@@ -20,12 +20,37 @@ import (
 )
 
 type Server struct {
-	pool    *pgxpool.Pool
-	queries *db.Queries
+	pool                    *pgxpool.Pool
+	queries                 *db.Queries
+	serviceAuth             ServiceAuthConfig
+	serviceAuthBearerTokens map[string]struct{}
 }
 
-func New(pool *pgxpool.Pool) *Server {
-	return &Server{pool: pool, queries: db.New(pool)}
+type Option func(*Server)
+
+func WithServiceAuth(cfg ServiceAuthConfig) Option {
+	return func(s *Server) {
+		normalized := normalizeServiceAuthConfig(cfg)
+		s.serviceAuth = normalized
+		tokens := make(map[string]struct{}, len(normalized.BearerTokens))
+		for _, token := range normalized.BearerTokens {
+			tokens[token] = struct{}{}
+		}
+		s.serviceAuthBearerTokens = tokens
+	}
+}
+
+func New(pool *pgxpool.Pool, options ...Option) *Server {
+	server := &Server{
+		pool:                    pool,
+		queries:                 db.New(pool),
+		serviceAuth:             normalizeServiceAuthConfig(ServiceAuthConfig{}),
+		serviceAuthBearerTokens: make(map[string]struct{}),
+	}
+	for _, option := range options {
+		option(server)
+	}
+	return server
 }
 
 func (s *Server) Router() *gin.Engine {
@@ -33,24 +58,26 @@ func (s *Server) Router() *gin.Engine {
 
 	r.GET("/healthz", s.health)
 
-	r.GET("/instances", s.listInstances)
-	r.POST("/instances", s.createInstance)
-	r.POST("/instances/import", s.importInstance)
-	r.GET("/instances/:instanceID", s.getInstance)
-	r.POST("/instances/:instanceID/contestants", s.createContestant)
-	r.GET("/instances/:instanceID/contestants", s.listContestants)
+	protected := r.Group("/")
+	protected.Use(s.requireServiceAuth())
+	protected.GET("/instances", s.listInstances)
+	protected.POST("/instances", s.createInstance)
+	protected.POST("/instances/import", s.importInstance)
+	protected.GET("/instances/:instanceID", s.getInstance)
+	protected.POST("/instances/:instanceID/contestants", s.createContestant)
+	protected.GET("/instances/:instanceID/contestants", s.listContestants)
 
-	r.POST("/instances/:instanceID/participants", s.createParticipant)
-	r.GET("/instances/:instanceID/participants", s.listParticipants)
-	r.GET("/instances/:instanceID/participants/:participantID/bonus-ledger", s.bonusLedger)
+	protected.POST("/instances/:instanceID/participants", s.createParticipant)
+	protected.GET("/instances/:instanceID/participants", s.listParticipants)
+	protected.GET("/instances/:instanceID/participants/:participantID/bonus-ledger", s.bonusLedger)
 
-	r.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
-	r.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)
+	protected.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
+	protected.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)
 
-	r.PUT("/instances/:instanceID/outcomes/:position", s.upsertOutcome)
-	r.GET("/instances/:instanceID/outcomes", s.listOutcomes)
+	protected.PUT("/instances/:instanceID/outcomes/:position", s.upsertOutcome)
+	protected.GET("/instances/:instanceID/outcomes", s.listOutcomes)
 
-	r.GET("/instances/:instanceID/leaderboard", s.leaderboard)
+	protected.GET("/instances/:instanceID/leaderboard", s.leaderboard)
 
 	return r
 }

@@ -3,6 +3,7 @@
 ## Security
 
 - Production deployments must define and enforce an authentication model before public exposure.
+- Bot-to-API traffic should use bearer-token service authentication on all routes except `/healthz`.
 - Secrets must be supplied through managed environment injection and must never be committed.
 - Logs must avoid leaking secrets, tokens, or sensitive request data.
 
