@@ -72,8 +72,14 @@ fnox exec -P castaway-discord-bot -- env \
 Non-secret defaults are provided through `apps/castaway-discord-bot/mise.toml`:
 
 - `CASTAWAY_API_BASE_URL=http://localhost:8080`
+- `BOT_STATE_BACKEND=bolt`
 - `BOT_STATE_PATH=./data/state.db`
 - `LOG_LEVEL=INFO`
+
+Optional production-oriented config:
+
+- `CASTAWAY_API_AUTH_TOKEN` for bot-to-API bearer authentication
+- `BOT_STATE_DATABASE_URL` when `BOT_STATE_BACKEND=postgres`
 
 Override them in your shell only when you need a non-default local setup.
 
@@ -100,10 +106,16 @@ If you want to run the process directly on the host instead of through Docker Co
 mise run //apps/castaway-discord-bot:run
 ```
 
-Validate config and local writable state without connecting to Discord:
+Validate config and state wiring without connecting to Discord:
 
 ```bash
 mise run //apps/castaway-discord-bot:check-config
+```
+
+If you are migrating saved defaults from BoltDB to PostgreSQL, set `BOT_STATE_BACKEND=postgres`, set `BOT_STATE_DATABASE_URL`, and run:
+
+```bash
+BOLT_STATE_IMPORT_PATH=./data/state.db mise run import-bolt-state
 ```
 
 ## Discord setup notes
@@ -121,6 +133,7 @@ mise run test
 mise run build
 mise run run
 mise run check-config
+mise run import-bolt-state
 ./bin/castaway-discord-bot --version
 ```
 
@@ -129,4 +142,6 @@ If the bot cannot resolve secrets, `mise run run` and `mise run check-config` wi
 ## Notes
 
 - Guild default instance changes require Discord Manage Server permissions.
-- Bot instance defaults are currently stored in a local file-backed state store. This is fine for local and single-instance use, but must be revisited before multi-replica production deployment.
+- Production bot-to-API traffic can be authenticated with `CASTAWAY_API_AUTH_TOKEN` as a bearer token.
+- The bot supports both `bolt` and `postgres` state backends. PostgreSQL is the intended production direction and should use its own logical database, `castaway_discord_bot`, with separate credentials from `castaway-web`.
+- BoltDB remains a valid local and compatibility backend, and `import-bolt-state` provides an explicit migration path into PostgreSQL.

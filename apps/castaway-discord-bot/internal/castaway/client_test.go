@@ -24,7 +24,7 @@ func TestListInstancesSendsFilters(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, nil)
+	client, err := NewClient(server.URL, nil, Options{})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestListParticipantsSendsNameFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, nil)
+	client, err := NewClient(server.URL, nil, Options{})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestGetLeaderboardSendsParticipantFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, nil)
+	client, err := NewClient(server.URL, nil, Options{})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
@@ -96,6 +96,27 @@ func TestGetLeaderboardSendsParticipantFilter(t *testing.T) {
 	}
 }
 
+func TestClientAddsBearerAuthorizationHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer shared-token" {
+			t.Fatalf("unexpected authorization header: %q", got)
+		}
+		if _, err := w.Write([]byte(`{"instances":[]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{BearerToken: "shared-token"})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	_, err = client.ListInstances(context.Background(), ListInstancesOptions{})
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+}
+
 func TestGetJSONReturnsTypedAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -105,7 +126,7 @@ func TestGetJSONReturnsTypedAPIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewClient(server.URL, nil)
+	client, err := NewClient(server.URL, nil, Options{})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}

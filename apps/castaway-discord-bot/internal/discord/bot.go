@@ -18,11 +18,11 @@ type Bot struct {
 	log        *slog.Logger
 
 	castaway *castaway.Client
-	state    *state.Store
+	state    state.Store
 	session  *discordgo.Session
 }
 
-func New(cfg *config.Config, client *castaway.Client, store *state.Store, logger *slog.Logger) (*Bot, error) {
+func New(cfg *config.Config, client *castaway.Client, store state.Store, logger *slog.Logger) (*Bot, error) {
 	session, err := discordgo.New("Bot " + cfg.DiscordBotToken)
 	if err != nil {
 		return nil, fmt.Errorf("create discord session: %w", err)

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/state"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -17,8 +18,12 @@ type Config struct {
 	DiscordApplicationID string `envconfig:"CASTAWAY_DISCORD_APPLICATION_ID" required:"true"`
 	DiscordDevGuildID    string `envconfig:"DISCORD_BRAINLAND_SERVER_ID"`
 
-	CastawayAPIBaseURL string `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
-	StatePath          string `envconfig:"BOT_STATE_PATH" default:"./data/state.db"`
+	CastawayAPIBaseURL   string `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
+	CastawayAPIAuthToken string `envconfig:"CASTAWAY_API_AUTH_TOKEN"`
+
+	StateBackend     string `envconfig:"BOT_STATE_BACKEND" default:"bolt"`
+	StatePath        string `envconfig:"BOT_STATE_PATH" default:"./data/state.db"`
+	StateDatabaseURL string `envconfig:"BOT_STATE_DATABASE_URL"`
 }
 
 func Load() (*Config, error) {
@@ -27,12 +32,29 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
-	if strings.TrimSpace(cfg.StatePath) == "" {
-		return nil, fmt.Errorf("BOT_STATE_PATH is required")
-	}
+	cfg.StateBackend = strings.ToLower(strings.TrimSpace(cfg.StateBackend))
+	cfg.CastawayAPIAuthToken = strings.TrimSpace(cfg.CastawayAPIAuthToken)
+	cfg.StatePath = strings.TrimSpace(cfg.StatePath)
+	cfg.StateDatabaseURL = strings.TrimSpace(cfg.StateDatabaseURL)
 
 	if _, err := url.ParseRequestURI(cfg.CastawayAPIBaseURL); err != nil {
 		return nil, fmt.Errorf("parse CASTAWAY_API_BASE_URL: %w", err)
+	}
+
+	switch state.Backend(cfg.StateBackend) {
+	case state.BackendBolt:
+		if cfg.StatePath == "" {
+			return nil, fmt.Errorf("BOT_STATE_PATH is required when BOT_STATE_BACKEND=bolt")
+		}
+	case state.BackendPostgres:
+		if cfg.StateDatabaseURL == "" {
+			return nil, fmt.Errorf("BOT_STATE_DATABASE_URL is required when BOT_STATE_BACKEND=postgres")
+		}
+		if _, err := url.ParseRequestURI(cfg.StateDatabaseURL); err != nil {
+			return nil, fmt.Errorf("parse BOT_STATE_DATABASE_URL: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("invalid BOT_STATE_BACKEND: %s", cfg.StateBackend)
 	}
 
 	switch strings.ToUpper(cfg.LogLevelStr) {

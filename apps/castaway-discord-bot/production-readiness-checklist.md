@@ -9,6 +9,7 @@
 ## Reliability
 - [ ] `castaway-web` outage behavior documented and tested
 - [ ] State backup/restore expectations documented for the selected deployment model
+- [ ] BoltDB-to-PostgreSQL state migration path documented and validated
 - [ ] Restart/runbook documentation created
 - [ ] Default-instance persistence validated under expected usage
 

@@ -227,18 +227,18 @@ func TestResolveInstanceRegression_ClearsStaleUserDefaultBeforeGuildFallback(t *
 	}
 }
 
-func newTestBot(t *testing.T, api testCastawayAPI) (*Bot, *state.Store) {
+func newTestBot(t *testing.T, api testCastawayAPI) (*Bot, *state.BoltStore) {
 	t.Helper()
 
 	server := httptest.NewServer(api.handler(t))
 	t.Cleanup(server.Close)
 
-	client, err := castaway.NewClient(server.URL, server.Client())
+	client, err := castaway.NewClient(server.URL, server.Client(), castaway.Options{})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
 
-	store, err := state.Open(filepath.Join(t.TempDir(), "state.db"))
+	store, err := state.OpenBolt(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {
 		t.Fatalf("open state store: %v", err)
 	}

@@ -13,8 +13,13 @@ import (
 )
 
 type Client struct {
-	baseURL    *url.URL
-	httpClient *http.Client
+	baseURL     *url.URL
+	httpClient  *http.Client
+	bearerToken string
+}
+
+type Options struct {
+	BearerToken string
 }
 
 type Instance struct {
@@ -93,7 +98,7 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("castaway api: %s", e.Message)
 }
 
-func NewClient(baseURL string, httpClient *http.Client) (*Client, error) {
+func NewClient(baseURL string, httpClient *http.Client, opts Options) (*Client, error) {
 	parsed, err := url.Parse(strings.TrimRight(baseURL, "/"))
 	if err != nil {
 		return nil, fmt.Errorf("parse base url: %w", err)
@@ -101,7 +106,7 @@ func NewClient(baseURL string, httpClient *http.Client) (*Client, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 10 * time.Second}
 	}
-	return &Client{baseURL: parsed, httpClient: httpClient}, nil
+	return &Client{baseURL: parsed, httpClient: httpClient, bearerToken: strings.TrimSpace(opts.BearerToken)}, nil
 }
 
 func (c *Client) ListInstances(ctx context.Context, opts ListInstancesOptions) ([]Instance, error) {
@@ -187,6 +192,9 @@ func (c *Client) getJSON(ctx context.Context, requestURL *url.URL, out any) erro
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
+	}
+	if c.bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.bearerToken)
 	}
 
 	resp, err := c.httpClient.Do(req)

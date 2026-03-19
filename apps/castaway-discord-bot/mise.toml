@@ -1,6 +1,7 @@
 [env]
 FNOX_PROFILE = "castaway-discord-bot"
 CASTAWAY_API_BASE_URL = "http://localhost:8080"
+BOT_STATE_BACKEND = "bolt"
 BOT_STATE_PATH = "./data/state.db"
 LOG_LEVEL = "INFO"
 
@@ -19,6 +20,9 @@ run = "fnox check && fnox exec -- go run ./cmd/bot"
 
 [tasks.check-config]
 run = "fnox check && fnox exec -- go run ./cmd/bot --check-config"
+
+[tasks.import-bolt-state]
+run = "fnox check && fnox exec -- go run ./cmd/bot --import-bolt-state-from ${BOLT_STATE_IMPORT_PATH:?set BOLT_STATE_IMPORT_PATH}"
 
 [tasks.ci]
 description = "Run all tasks for CI pipeline (lint, test, build)"

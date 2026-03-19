@@ -15,6 +15,7 @@ WORKDIR /app
 COPY --from=build /out/castaway-discord-bot /app/castaway-discord-bot
 
 ENV CASTAWAY_API_BASE_URL=http://castaway-web:8080
+ENV BOT_STATE_BACKEND=bolt
 ENV BOT_STATE_PATH=/app/data/state.db
 ENV LOG_LEVEL=INFO
 
