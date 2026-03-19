@@ -78,17 +78,30 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	if season50.Activities[1].ActivityType != "journey" {
 		t.Fatalf("expected second activity to be journey, got %q", season50.Activities[1].ActivityType)
 	}
-	if got := len(season50.Activities[0].Occurrences); got != 3 {
-		t.Fatalf("manual adjustment activity expected 3 occurrences, got %d", got)
+	if got := len(season50.Activities[0].Occurrences); got != 6 {
+		t.Fatalf("manual adjustment activity expected 6 occurrences, got %d", got)
+	}
+	if got := len(season50.Activities[1].Occurrences); got != 2 {
+		t.Fatalf("journey activity expected 2 occurrences, got %d", got)
 	}
 
-	var secretRisk struct {
+	var mooneySecretRisk struct {
 		GuessCount int `json:"guess_count"`
 	}
-	if err := json.Unmarshal(season50.Activities[1].Occurrences[0].Participants[0].Metadata, &secretRisk); err != nil {
-		t.Fatalf("unmarshal secret risk metadata: %v", err)
+	if err := json.Unmarshal(season50.Activities[1].Occurrences[0].Participants[0].Metadata, &mooneySecretRisk); err != nil {
+		t.Fatalf("unmarshal Mooney secret risk metadata: %v", err)
 	}
-	if secretRisk.GuessCount != 3 {
-		t.Fatalf("expected Mooney secret risk guess_count 3, got %d", secretRisk.GuessCount)
+	if mooneySecretRisk.GuessCount != 3 {
+		t.Fatalf("expected Mooney secret risk guess_count 3, got %d", mooneySecretRisk.GuessCount)
+	}
+
+	var adamSecretRisk struct {
+		GuessCount int `json:"guess_count"`
+	}
+	if err := json.Unmarshal(season50.Activities[1].Occurrences[1].Participants[0].Metadata, &adamSecretRisk); err != nil {
+		t.Fatalf("unmarshal Adam secret risk metadata: %v", err)
+	}
+	if adamSecretRisk.GuessCount != 2 {
+		t.Fatalf("expected Adam secret risk guess_count 2, got %d", adamSecretRisk.GuessCount)
 	}
 }

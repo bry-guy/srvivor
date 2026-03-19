@@ -2350,173 +2350,311 @@
         "activity_type": "manual_adjustment",
         "name": "Historical bonus backfill",
         "status": "completed",
-        "starts_at": "2026-03-12T00:00:00Z",
+        "starts_at": "2026-03-05T01:00:00Z",
         "occurrences": [
           {
             "occurrence_type": "manual_correction",
-            "name": "Week 2 public bonus snapshot",
-            "effective_at": "2026-03-12T01:00:00Z",
+            "name": "Episode 1 pony immunity backfill",
+            "effective_at": "2026-03-05T01:00:00Z",
             "status": "resolved",
             "resolve": true,
             "participants": [
               {
-                "name": "Keeling",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 2,
-                  "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
-                }
-              },
-              {
-                "name": "Adam",
+                "name": "Bryan",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
-                }
-              },
-              {
-                "name": "Amanda",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 3,
-                  "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
-                }
-              },
-              {
-                "name": "Bryan",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 3,
-                  "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
-                }
-              },
-              {
-                "name": "Katie",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 3,
-                  "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
-                }
-              },
-              {
-                "name": "Lauren",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 3,
-                  "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
-                }
-              },
-              {
-                "name": "Mooney",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 3,
-                  "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
                 }
               },
               {
                 "name": "Riley",
                 "role": "adjustment",
                 "metadata": {
-                  "points": 3,
+                  "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
+                }
+              },
+              {
+                "name": "Lauren",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
+                }
+              },
+              {
+                "name": "Mooney",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
+                }
+              },
+              {
+                "name": "Amanda",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
                 }
               },
               {
                 "name": "Yacob",
                 "role": "adjustment",
                 "metadata": {
-                  "points": 3,
+                  "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
-                }
-              },
-              {
-                "name": "Kate",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 2,
-                  "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
                 }
               },
               {
                 "name": "Kenny",
                 "role": "adjustment",
                 "metadata": {
-                  "points": 2,
+                  "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
                 }
               },
               {
                 "name": "Marv",
                 "role": "adjustment",
                 "metadata": {
-                  "points": 2,
+                  "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
+                }
+              },
+              {
+                "name": "Keeling",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
                 }
               },
               {
                 "name": "Sarah",
                 "role": "adjustment",
                 "metadata": {
-                  "points": 2,
+                  "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
                 }
               },
               {
-                "name": "Grant",
+                "name": "Katie",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 1 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep1"
                 }
-              },
+              }
+            ]
+          },
+          {
+            "occurrence_type": "manual_correction",
+            "name": "Episode 2 pony immunity backfill",
+            "effective_at": "2026-03-12T00:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
               {
-                "name": "Keith",
+                "name": "Bryan",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
                 }
               },
               {
-                "name": "Kyle",
+                "name": "Riley",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Week 2 public bonus snapshot",
-                  "award_key": "season50:week2-public-bonus-snapshot"
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Lauren",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Mooney",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Amanda",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Yacob",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Kenny",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Marv",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Keeling",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Sarah",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              },
+              {
+                "name": "Katie",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 2 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep2"
+                }
+              }
+            ]
+          },
+          {
+            "occurrence_type": "manual_correction",
+            "name": "Week 2 tribe wordle winner backfill",
+            "effective_at": "2026-03-12T01:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Bryan",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 tribe wordle winner backfill",
+                  "award_key": "season50:tribe-wordle-week2"
+                }
+              },
+              {
+                "name": "Riley",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 tribe wordle winner backfill",
+                  "award_key": "season50:tribe-wordle-week2"
+                }
+              },
+              {
+                "name": "Lauren",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 tribe wordle winner backfill",
+                  "award_key": "season50:tribe-wordle-week2"
+                }
+              },
+              {
+                "name": "Mooney",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 tribe wordle winner backfill",
+                  "award_key": "season50:tribe-wordle-week2"
+                }
+              },
+              {
+                "name": "Amanda",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 tribe wordle winner backfill",
+                  "award_key": "season50:tribe-wordle-week2"
+                }
+              },
+              {
+                "name": "Yacob",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Week 2 tribe wordle winner backfill",
+                  "award_key": "season50:tribe-wordle-week2"
                 }
               }
             ]
@@ -2618,6 +2756,125 @@
                 }
               }
             ]
+          },
+          {
+            "occurrence_type": "manual_correction",
+            "name": "Episode 3 pony immunity backfill",
+            "effective_at": "2026-03-19T00:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Bryan",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Riley",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Lauren",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Mooney",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Amanda",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Yacob",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Kyle",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Adam",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Grant",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Kate",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              },
+              {
+                "name": "Keith",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Episode 3 pony immunity backfill",
+                  "award_key": "season50:pony-immunity-ep3"
+                }
+              }
+            ]
           }
         ]
       },
@@ -2629,7 +2886,7 @@
         "occurrences": [
           {
             "occurrence_type": "secret_risk_result",
-            "name": "Lost for Words \u2014 Mooney",
+            "name": "Lost for Words — Mooney",
             "effective_at": "2026-03-14T02:00:00Z",
             "status": "resolved",
             "resolve": true,
@@ -2639,6 +2896,22 @@
                 "role": "participant",
                 "metadata": {
                   "guess_count": 3
+                }
+              }
+            ]
+          },
+          {
+            "occurrence_type": "secret_risk_result",
+            "name": "Lost for Words — Adam",
+            "effective_at": "2026-03-14T02:05:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Adam",
+                "role": "participant",
+                "metadata": {
+                  "guess_count": 2
                 }
               }
             ]
