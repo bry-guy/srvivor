@@ -1,0 +1,125 @@
+name: Publish Images
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/castaway-web/**'
+      - 'apps/castaway-discord-bot/**'
+      - '.github/workflows/publish-images.yml'
+      - 'script/update-home-k3s-digests.py'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      castaway_web: ${{ steps.filter.outputs.castaway_web }}
+      castaway_discord_bot: ${{ steps.filter.outputs.castaway_discord_bot }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            castaway_web:
+              - 'apps/castaway-web/**'
+            castaway_discord_bot:
+              - 'apps/castaway-discord-bot/**'
+
+  build-castaway-web:
+    needs: changes
+    if: needs.changes.outputs.castaway_web == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/castaway-web
+          tags: |
+            type=raw,value=sha-${{ github.sha }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/castaway-web
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=sha-${{ github.sha }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+  build-castaway-discord-bot:
+    needs: changes
+    if: needs.changes.outputs.castaway_discord_bot == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/castaway-discord-bot
+          tags: |
+            type=raw,value=sha-${{ github.sha }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/castaway-discord-bot
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=sha-${{ github.sha }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+  update-home-k3s:
+    needs:
+      - changes
+      - build-castaway-web
+      - build-castaway-discord-bot
+    if: always() && (needs.changes.outputs.castaway_web == 'true' || needs.changes.outputs.castaway_discord_bot == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Update castaway-web digest
+        if: needs.changes.outputs.castaway_web == 'true'
+        run: |
+          python3 script/update-home-k3s-digests.py ghcr.io/${{ github.repository_owner }}/castaway-web ${{ needs.build-castaway-web.outputs.digest }}
+      - name: Update castaway-discord-bot digest
+        if: needs.changes.outputs.castaway_discord_bot == 'true'
+        run: |
+          python3 script/update-home-k3s-digests.py ghcr.io/${{ github.repository_owner }}/castaway-discord-bot ${{ needs.build-castaway-discord-bot.outputs.digest }}
+      - name: Commit digest updates
+        run: |
+          if git diff --quiet -- deploy/environments/home-k3s/kustomization.yaml; then
+            exit 0
+          fi
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add deploy/environments/home-k3s/kustomization.yaml
+          git commit -m "chore(deploy): update home-k3s image digests [skip ci]"
+          git push

@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: castaway-web-migrate
+  labels:
+    app.kubernetes.io/name: castaway-web-migrate
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: castaway
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: castaway-web-migrate
+        app.kubernetes.io/component: migration
+        app.kubernetes.io/part-of: castaway
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: castaway-web-migrate
+          image: ghcr.io/bry-guy/castaway-web:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /app/castaway-web-migrate
+          envFrom:
+            - configMapRef:
+                name: castaway-web-config
+            - secretRef:
+                name: castaway-web-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

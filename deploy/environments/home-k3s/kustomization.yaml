@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: castaway
+resources:
+  - namespace.yaml
+  - ../../base/postgres
+  - ../../base/castaway-web
+  - ../../base/castaway-discord-bot
+  - postgres-init-configmap.yaml
+  - web-configmap.yaml
+  - bot-configmap.yaml
+  - ingress-web.yaml
+patches:
+  - path: postgres-patch.yaml
+  - path: web-patch.yaml
+  - path: web-migration-hook-patch.yaml
+  - path: bot-patch.yaml
+images:
+  - name: ghcr.io/bry-guy/castaway-web
+    newName: ghcr.io/bry-guy/castaway-web
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  - name: ghcr.io/bry-guy/castaway-discord-bot
+    newName: ghcr.io/bry-guy/castaway-discord-bot
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000

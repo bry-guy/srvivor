@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: castaway-web-config
+  labels:
+    app.kubernetes.io/name: castaway-web-config
+    app.kubernetes.io/part-of: castaway
+data:
+  PORT: "8080"
+  AUTO_MIGRATE: "false"
+  MIGRATIONS_DIR: /app/db/migrations
+  SERVICE_AUTH_ENABLED: "true"
+  SERVICE_AUTH_PRINCIPAL: castaway-discord-bot

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: castaway-discord-bot-config
+  labels:
+    app.kubernetes.io/name: castaway-discord-bot-config
+    app.kubernetes.io/part-of: castaway
+data:
+  CASTAWAY_API_BASE_URL: http://castaway-web:8080
+  BOT_STATE_BACKEND: postgres
+  LOG_LEVEL: INFO
