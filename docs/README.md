@@ -12,16 +12,17 @@ Documentation requirements and placement rules live in `documentation-standards.
 - `castaway-web-future-work.md`: deferred and future `castaway-web` ideas that are intentionally out of scope today.
 - `documentation-standards.md`: minimum required documentation and placement rules for the repo and each app.
 - `gameplay/`: gameplay mechanic documentation and player-facing prompts for journeys, twists, and bonus point systems.
+- `guides/`: shared human-oriented guides for operating, deploying, maintaining, or otherwise accomplishing concrete tasks with Castaway.
 - `non-functional-requirements.md`: cross-cutting security, reliability, and operational requirements.
 - `production-readiness-checklist.md`: explicit pre-production checklist across apps.
 - `secrets-and-config.md`: shared 1Password/fnox/mise secret and config conventions.
-- `selfhost-home-k3s-operators-guide.md`: practical operator guide for bootstrapping, deploying, and verifying the private home `k3s` Castaway environment.
 - `selfhost-k3s-deployment-blueprint.md`: structural design blueprint for the first self-hosted Castaway deployment target.
 - `versioning-and-releases.md`: semver rules, release heuristics, and GitHub release flow.
 
 Repository-level implementation plans live under `/plans`, not under `docs/`.
-Blueprints, roadmaps, and other design/reference documents belong under `docs/`.
+Repository-level guides live under `docs/guides/`.
+Blueprints, roadmaps, and other design/reference documents belong under `docs/` unless they fit a more specific subdirectory.
 
 Reusable operator/agent prompt packs may live under the repo-level `/prompts/` directory when they are operational artifacts rather than normative product documentation.
 
-As active shared docs are added, place them at the top level under `docs/` unless they belong in a more specific subdirectory such as `docs/gameplay/`.
+As active shared docs are added, place them in the most specific fitting location under `docs/`, such as `docs/guides/` for instructional documents or `docs/gameplay/` for gameplay-focused content.
