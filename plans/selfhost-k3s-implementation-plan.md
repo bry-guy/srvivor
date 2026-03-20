@@ -4,27 +4,29 @@ Status: `planning`
 
 ## Goal
 
-Turn `docs/selfhost-k3s-deployment-blueprint.md` into an executable, agent-friendly set of implementation work for the first self-hosted deployment target.
+Turn `docs/selfhost-k3s-deployment-blueprint.md` into an executable, agent-friendly set of implementation work for the current self-hosted deployment target.
 
 This document is the implementation plan. The blueprint remains the structural design/reference doc.
 
 ## Scope
 
-This plan covers the first self-hosted deployment target only:
+This plan covers the current self-hosted deployment target only:
 
 - `home-k3s`
 - GitHub Actions + GHCR + Argo CD
-- in-cluster PostgreSQL with persistent storage
+- external PostgreSQL hosted outside the app repo's Kubernetes overlay
 - dedicated `castaway-web` migration Job
 - bot-to-API service authentication
-- bot state migration toward PostgreSQL
+- PostgreSQL-backed bot state
 - private Tailscale-first access
+- service-node placement for stateless workloads
 
 ## Required inputs
 
 Agents should read these documents before starting work:
 
 - `docs/selfhost-k3s-deployment-blueprint.md`
+- `docs/guides/selfhost-home-k3s-operators-guide.md`
 - `apps/castaway-web/plans/service-to-service-authentication-planning.md`
 - `apps/castaway-discord-bot/plans/service-to-service-authentication-planning.md`
 - `apps/castaway-discord-bot/plans/postgres-state-backend-planning.md`
@@ -35,7 +37,7 @@ Agents should read these documents before starting work:
 - Only `home-k3s` is in scope for implementation.
 - Production `castaway-web` deploys must use a dedicated migration Job or equivalent pre-traffic hook.
 - Production web pods must not rely on startup auto-migration.
-- PostgreSQL must remain persistent across app rollouts.
+- The app repo must not assume ownership of PostgreSQL deployment, bootstrap, or backup resources for this target.
 - The home public IP must not be exposed.
 - 1Password `bry-guy` remains the deployment secret source of truth for the self-hosted path.
 - This does not replace the repo's existing local-development `castaway` vault workflow.
@@ -51,7 +53,6 @@ If an assumption is insufficient or contradictory during implementation, stop an
 - Kubernetes namespace name
 - image names and registry paths
 - Kubernetes object names for:
-  - PostgreSQL
   - `castaway-web`
   - `castaway-discord-bot`
   - migration Job
@@ -62,6 +63,8 @@ If an assumption is insufficient or contradictory during implementation, stop an
 - migration command contract for `castaway-web`
 - service-auth header and environment variable names
 - bot database environment variable names
+- service-node label:
+  - `selfhost.bry-guy.net/role=service`
 
 ### Recommended defaults
 
@@ -69,7 +72,6 @@ Use these values unless the user chooses different ones:
 
 - namespace: `castaway`
 - web Service name: `castaway-web`
-- Postgres Service name: `castaway-postgres`
 - bot Deployment name: `castaway-discord-bot`
 - migration Job name: `castaway-web-migrate`
 - config objects:
@@ -78,7 +80,6 @@ Use these values unless the user chooses different ones:
 - secret objects:
   - `castaway-web-secrets`
   - `castaway-discord-bot-secrets`
-  - `castaway-postgres-secrets`
 
 ## Rules of engagement for agents
 
@@ -97,6 +98,7 @@ Use these values unless the user chooses different ones:
 ### Contract discipline
 
 - Do not rename shared Kubernetes objects, env vars, image names, or database names on your own.
+- Do not reintroduce in-cluster PostgreSQL manifests for `home-k3s` without an explicit contract change.
 - If an interface is underspecified, document the gap and ask the user for the missing decision.
 
 ### Validation discipline
@@ -116,32 +118,23 @@ The work is intentionally sliced by file ownership so multiple agents can progre
 **Primary file ownership:**
 
 - `deploy/**`
-- deployment-related docs under `plans/` only when explicitly assigned
 
 **Deliverables:**
 
-- `deploy/base/postgres`
 - `deploy/base/castaway-web`
 - `deploy/base/castaway-discord-bot`
 - `deploy/environments/home-k3s`
 - `deploy/argocd`
 - dedicated `castaway-web` migration Job manifest
 - overlay patch that turns the migration Job into an Argo CD `PreSync` hook or equivalent ordered sync step
+- service-node placement patches for web, migration, and bot workloads
 - web Deployment configured for startup auto-migration disabled in cluster
-- bot Deployment configured for one replica and `Recreate` semantics while file-backed state remains
-
-**Dependencies:**
-
-- locked assumptions above
-- migration command contract once finalized in `apps/castaway-web`
-
-**Parallelizable with:**
-
-- Workstreams B, C, D, E
+- bot Deployment configured for one replica and `Recreate` semantics
+- no in-cluster PostgreSQL resources in the active `home-k3s` overlay
 
 **Validation expectation:**
 
-- render the Kustomize bases and `home-k3s` overlay
+- render the `home-k3s` overlay
 - if no render task exists yet, add a minimal repeatable render check instead of relying on manual eyeballing
 
 ### Workstream B — GitHub Actions image publishing and digest updates
@@ -156,18 +149,14 @@ The work is intentionally sliced by file ownership so multiple agents can progre
 **Deliverables:**
 
 - workflow to build and publish changed app images to GHCR
-- workflow or script path to update image digests in `deploy/environments/home-k3s`
+- script path to update image digests in `deploy/environments/home-k3s`
 - path filtering so unchanged apps do not rebuild unnecessarily
 - immutable image reference flow suitable for Argo CD consumption
+- render validation for the active `home-k3s` overlay so delivery automation cannot silently drift
 
 **Dependencies:**
 
-- locked assumptions above
 - deployment path shape from Workstream A
-
-**Parallelizable with:**
-
-- Workstreams A, C, D, E
 
 **Validation expectation:**
 
@@ -191,14 +180,6 @@ The work is intentionally sliced by file ownership so multiple agents can progre
 - tests for missing, invalid, and valid service credentials
 - startup/config validation that matches the agreed production contract
 
-**Dependencies:**
-
-- locked assumptions above
-
-**Parallelizable with:**
-
-- Workstreams A, B, D, E
-
 **Validation expectation:**
 
 Run at least:
@@ -210,8 +191,6 @@ mise run test
 mise run build
 ```
 
-If request-path behavior changes materially, also run the regression suite or document why it was deferred.
-
 ### Workstream D — `castaway-discord-bot` production client and state backend
 
 **Owner repo:** `srvivor`
@@ -220,10 +199,6 @@ If request-path behavior changes materially, also run the regression suite or do
 
 - `apps/castaway-discord-bot/**`
 
-**Why this stays one stream:**
-
-The bot auth client work and the PostgreSQL state backend both naturally touch bot config and runtime wiring. Keeping them in one stream avoids avoidable merge conflicts in `internal/config/config.go` and related startup code.
-
 **Deliverables:**
 
 - bot-to-API auth header support
@@ -231,14 +206,6 @@ The bot auth client work and the PostgreSQL state backend both naturally touch b
 - PostgreSQL-backed state store using the bot's own logical database
 - explicit migration/import path from BoltDB if existing saved defaults must be preserved
 - updated bot docs and operational notes
-
-**Dependencies:**
-
-- locked assumptions above
-
-**Parallelizable with:**
-
-- Workstreams A, B, C, E
 
 **Validation expectation:**
 
@@ -263,43 +230,32 @@ mise run build
 
 **Deliverables:**
 
-- self-hosted k3s VM/bootstrap path
-- Tailscale reachability for the VM
+- self-hosted `k3s` VM/bootstrap path
+- service-node labeling and scheduling contract
+- Tailscale reachability for the VM(s)
 - Argo CD installation/bootstrap path
 - unattended 1Password service-account path for secret reads
 - first secret bridge into Kubernetes
+- external PostgreSQL host and backup flow
 - private access path to Traefik over the tailnet
 - later tunnel readiness for `castaway.bry-guy.net`
-
-**Dependencies:**
-
-- infra plan inputs already documented
-
-**Parallelizable with:**
-
-- Workstreams A, B, C, D
-
-**Validation expectation:**
-
-- use the infra repo's `mise` tasks and smoke tests
-- document operator verification steps for Tailscale access, secret materialization, and Argo CD readiness
 
 ## Suggested implementation order
 
 Work can happen in parallel, but integration should prefer this order:
 
-1. Workstream C
-2. Workstream D
-3. Workstream A
-4. Workstream B
+1. Workstream A
+2. Workstream B
+3. Workstream C
+4. Workstream D
 5. Workstream E
 6. final integration and smoke validation
 
 Why this order:
 
-- app-level contracts land before deployment wiring depends on them
-- deployment manifests land before automation starts mutating overlay digests
-- infra bootstrap can proceed in parallel, but final cluster hookup is most useful once manifests and images are real
+- deployment wiring defines the active target path
+- delivery automation must follow that path to avoid digest drift
+- app and infra work can then validate against a stable deployment contract
 
 ## Final integration checklist
 
@@ -312,13 +268,15 @@ One final integration pass should verify the combined result.
 - run repo-level CI
 - render the `home-k3s` Kustomize overlay
 - verify the web migration hook path is included and ordered correctly
-- verify the bot stays single-replica until PostgreSQL state is complete and deployed
+- verify the bot stays single-replica
+- verify the overlay does not include in-cluster PostgreSQL resources
+- verify the placement rules target `selfhost.bry-guy.net/role=service`
 
 ### In the infra repo
 
 - verify Tailscale-only access path
 - verify Kubernetes secrets exist before Argo CD syncs app workloads
-- verify PostgreSQL persistence strategy is documented and understood
+- verify PostgreSQL host provisioning and backups are documented and understood
 - verify no WAN exposure was introduced as part of bootstrap
 
 ## Agent handoff template
@@ -335,8 +293,9 @@ Each agent should hand back a short note with:
 
 - Treat the blueprint as design reference and this file as the executable plan.
 - Preserve locked assumptions unless the user changes them.
-- Split implementation by file ownership, not by vague feature labels.
-- Keep `castaway-web` migration work in a dedicated production path from day one.
-- Keep all bot runtime changes in one stream to avoid config conflicts.
-- Keep infra work in the infra repo.
+- Keep `home-k3s` as the single active self-hosted overlay.
+- Keep delivery automation aligned to that one overlay to prevent digest drift.
+- Keep `castaway-web` migration work in a dedicated production path.
+- Keep bot runtime changes in one stream to avoid config conflicts.
+- Keep PostgreSQL host lifecycle in the infra repo.
 - Use a final integration pass to validate the combined system.

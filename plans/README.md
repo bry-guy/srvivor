@@ -6,6 +6,7 @@
 - `production-follow-ups-planning.md` — status: `planning`
 - `docs-standardization-done.md` — status: `done`
 - `monorepo-restructure-done.md` — status: `done`
+- `selfhost-home-k3s-shared-vm-follow-through-done.md` — status: `done`
 
 Use `planning`, `in-progress`, or `done` in each plan document.
 
