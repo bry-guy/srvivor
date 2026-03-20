@@ -3,18 +3,18 @@ kind: Kustomization
 namespace: castaway
 resources:
   - namespace.yaml
-  - ../../base/postgres
   - ../../base/castaway-web
   - ../../base/castaway-discord-bot
-  - postgres-init-configmap.yaml
   - web-configmap.yaml
   - bot-configmap.yaml
   - ingress-web.yaml
 patches:
-  - path: postgres-patch.yaml
   - path: web-patch.yaml
+  - path: web-placement-patch.yaml
   - path: web-migration-hook-patch.yaml
+  - path: web-migration-placement-patch.yaml
   - path: bot-patch.yaml
+  - path: bot-placement-patch.yaml
 images:
   - name: ghcr.io/bry-guy/castaway-web
     newName: ghcr.io/bry-guy/castaway-web

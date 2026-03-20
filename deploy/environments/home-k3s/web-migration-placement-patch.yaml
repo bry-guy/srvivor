@@ -1,0 +1,9 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: castaway-web-migrate
+spec:
+  template:
+    spec:
+      nodeSelector:
+        selfhost.bry-guy.net/role: service
