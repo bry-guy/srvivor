@@ -10,6 +10,7 @@ golangci-lint-langserver = '0.0.10'
 sqlc = '1.30.0'
 hurl = 'latest'
 fnox = '1.15.1'
+kubectl = 'latest'
 
 [tasks.ci]
 description = "Run all monorepo CI tasks"
