@@ -16,6 +16,7 @@ Documentation requirements and placement rules live in `documentation-standards.
 - `non-functional-requirements.md`: cross-cutting security, reliability, and operational requirements.
 - `production-readiness-checklist.md`: explicit pre-production checklist across apps.
 - `secrets-and-config.md`: shared 1Password/fnox/mise secret and config conventions.
+- `selfhost-home-k3s-deployment-readiness-checklist.md`: deployment readiness checklist for the self-hosted `home-k3s` target.
 - `selfhost-k3s-deployment-blueprint.md`: structural design blueprint for the first self-hosted Castaway deployment target.
 - `versioning-and-releases.md`: semver rules, release heuristics, and GitHub release flow.
 

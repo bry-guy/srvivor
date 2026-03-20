@@ -95,27 +95,29 @@ jsonpath "$.leaderboard[0].participant_name" == "Keeling"
 jsonpath "$.leaderboard[0].draft_points" == 7
 jsonpath "$.leaderboard[0].bonus_points" == 3
 jsonpath "$.leaderboard[0].total_points" == 10
-jsonpath "$.leaderboard[1].participant_name" == "Katie"
+jsonpath "$.leaderboard[1].participant_name" == "Mooney"
 jsonpath "$.leaderboard[1].draft_points" == 3
 jsonpath "$.leaderboard[1].bonus_points" == 5
 jsonpath "$.leaderboard[1].total_points" == 8
 jsonpath "$.leaderboard[2].participant_name" == "Adam"
 jsonpath "$.leaderboard[2].total_points" == 7
-jsonpath "$.leaderboard[3].participant_name" == "Mooney"
+jsonpath "$.leaderboard[3].participant_name" == "Amanda"
 jsonpath "$.leaderboard[3].total_points" == 7
 
 GET {{base_url}}/instances/{{season50_instance_id}}/participants/{{season50_katie_id}}/bonus-ledger
 HTTP 200
 [Asserts]
 jsonpath "$.participant.name" == "Katie"
-jsonpath "$.bonus_points" == 5
-jsonpath "$.ledger" count == 3
-jsonpath "$.ledger[0].points" == 3
+jsonpath "$.bonus_points" == 4
+jsonpath "$.ledger" count == 4
+jsonpath "$.ledger[0].points" == 1
 jsonpath "$.ledger[1].points" == 1
 jsonpath "$.ledger[2].points" == 1
+jsonpath "$.ledger[3].points" == 1
 jsonpath "$.ledger[0].visibility" == "public"
 jsonpath "$.ledger[1].visibility" == "public"
 jsonpath "$.ledger[2].visibility" == "public"
+jsonpath "$.ledger[3].visibility" == "public"
 
 GET {{base_url}}/instances/{{season50_instance_id}}/outcomes
 HTTP 200
