@@ -1,100 +1,86 @@
 # Self-Hosted k3s Deployment Blueprint
 
-Status: `planning`
+Status: `reference`
 Type: `blueprint`
 
 ## Goal
 
-Define the Castaway deployment contract for the current self-hosted `home-k3s` target.
+Define the current Castaway self-hosted deployment contract for the home `k3s` target.
 
-The preferred target now assumes:
+This document describes the app-repo side only. Infrastructure provisioning, VM lifecycle, PostgreSQL installation, backups, and secret materialization belong in `~/dev/infra`.
 
-- shared **appliance / service / stateful** VMs managed from `~/dev/infra`
-- k3s running on the appliance and service nodes
-- PostgreSQL running **outside** the Castaway k3s overlay on the shared stateful VM
-- GitHub Actions publishing images to GHCR
-- Argo CD reconciling the app repo into the cluster
-
-This document is descriptive design/reference documentation. Execution sequencing lives in:
+Execution history and follow-through planning live in:
 
 - `plans/selfhost-k3s-implementation-plan.md`
+- `docs/plans/selfhost-home-k3s-shared-vm-follow-through-plan.md`
 
-## Scope
+## Current target shape
 
-This blueprint is for the app repo deployment contract only.
+Castaway targets a shared-VM home lab layout:
 
-It covers:
+- appliance/control-plane VM(s) for cluster control functions
+- service VM node(s) for stateless Castaway workloads
+- a shared stateful VM hosting PostgreSQL outside Kubernetes
+- delivery path: `GitHub Actions -> GHCR -> Argo CD`
 
-- app Kubernetes manifests under `deploy/`
-- Argo CD application wiring
-- image publishing and digest pinning expectations
-- runtime scheduling expectations for app workloads
-- the app/infra boundary for secrets and database ownership
+This repo owns Kubernetes manifests for the Castaway applications only.
 
-It does **not** cover:
-
-- VM provisioning
-- k3s bootstrap
-- PostgreSQL installation on the shared stateful VM
-- backup and restore automation
-- Tailscale, LAN, or tunnel implementation details
-
-Those belong in `~/dev/infra`.
-
-## Locked-in decisions
+## Locked decisions
 
 ### Delivery model
 
 Use pull-based GitOps:
 
 1. merge to `main`
-2. GitHub Actions runs CI and publishes changed images to GHCR
-3. GitHub Actions updates pinned digests in `deploy/environments/home-k3s/kustomization.yaml`
-4. Argo CD syncs the `home-k3s` overlay into the cluster
-5. the `castaway-web` migration Job runs before new web pods serve traffic
-6. web and bot roll out onto the service node pool
-
-### Overlay model
-
-There is one active self-hosted deployment overlay in this repo:
-
-- `deploy/environments/home-k3s`
-
-That overlay is the external-PostgreSQL/shared-VM target.
-
-This repo no longer treats in-cluster PostgreSQL as part of the active selfhost contract.
+2. GitHub Actions runs CI
+3. changed app images are built and pushed to GHCR
+4. image digests are pinned in `deploy/environments/home-k3s/kustomization.yaml`
+5. Argo CD syncs that desired state into the cluster
+6. the `castaway-web` migration Job runs as a `PreSync` hook
+7. updated workloads roll out on the service node pool
 
 ### Database model
 
-For the current self-hosted target:
+For the active `home-k3s` target, PostgreSQL is external to Kubernetes.
 
-- PostgreSQL is external to the Castaway overlay
-- infra owns PostgreSQL installation, lifecycle, and backups
-- `castaway-web` consumes `DATABASE_URL` from `castaway-web-secrets`
-- `castaway-discord-bot` consumes `BOT_STATE_DATABASE_URL` from `castaway-discord-bot-secrets`
-- both apps point at the same PostgreSQL server
-- each app uses its own logical database and credentials
+Requirements:
 
-Expected logical databases:
-
-- `castaway_web`
-- `castaway_discord_bot`
+- `castaway-web` reads `DATABASE_URL` from `castaway-web-secrets`
+- `castaway-discord-bot` reads `BOT_STATE_DATABASE_URL` from `castaway-discord-bot-secrets`
+- both applications point at the same PostgreSQL server
+- each application uses its own logical database and credentials
+- database host provisioning, patching, backups, and restore drills are infra-owned concerns
 
 ### Bot runtime model
 
-- `castaway-discord-bot` remains single replica
-- `BOT_STATE_BACKEND=postgres` remains the selfhost target contract
-- bot and web continue using the existing service-auth contract
+The bot is PostgreSQL-backed in the self-hosted target.
+
+Requirements:
+
+- `BOT_STATE_BACKEND=postgres`
+- one replica
+- `Recreate` deployment strategy remains acceptable for this target
+- bot and web databases stay logically separated even on the same PostgreSQL server
+- service-to-service auth remains enabled between bot and web
+
+### Secrets source of truth
+
+Use 1Password as the deployment secret source of truth.
+
+Operational constraint:
+
+- the app repo references Kubernetes `Secret` names only
+- infra is responsible for materializing those secrets into the cluster for unattended operation
 
 ### Scheduling model
 
-Stateless Castaway workloads should land on shared service nodes, not on the appliance/control-plane node by default.
+Castaway stateless workloads should land on service nodes, not the appliance/control-plane node by default.
 
-Current node-label contract:
+Current node label contract:
 
 - `selfhost.bry-guy.net/role=service`
 
-`castaway-web`, `castaway-web-migrate`, and `castaway-discord-bot` should target that label consistently.
+This label is applied by infra to the appropriate cluster node or nodes.
 
 ## Repository layout
 
@@ -130,6 +116,12 @@ deploy/
     app-home-k3s.yaml
 ```
 
+Notes:
+
+- `home-k3s` is the single active self-hosted overlay in this repo
+- there is no in-cluster PostgreSQL base for the active target
+- image digests are pinned in the overlay Argo CD watches
+
 ## Workload responsibilities
 
 ### `deploy/base/castaway-web`
@@ -137,17 +129,16 @@ deploy/
 Responsible for:
 
 - API deployment
-- dedicated migration Job definition
-- internal service
+- migration Job definition
+- internal Service
 - health checks
-- consuming config and secrets from Kubernetes
+- config and secret consumption
 
 Runtime assumptions:
 
-- `DATABASE_URL` comes from `castaway-web-secrets`
-- startup auto-migration is disabled in deployed web pods
-- production migrations run through the dedicated Job
-- the migration Job remains an Argo CD `PreSync` hook via the overlay
+- production deployments do not rely on startup auto-migration
+- `castaway-web-migrate` runs before app rollout serves traffic
+- PostgreSQL is reachable through the external `DATABASE_URL`
 
 ### `deploy/base/castaway-discord-bot`
 
@@ -155,109 +146,79 @@ Responsible for:
 
 - bot deployment only
 - no ingress
-- consuming bot config and secrets from Kubernetes
+- config and secret consumption
+- bot-to-API traffic aimed at the in-cluster `castaway-web` Service
 
 Runtime assumptions:
 
 - one replica
-- `BOT_STATE_BACKEND=postgres`
-- `BOT_STATE_DATABASE_URL` comes from `castaway-discord-bot-secrets`
-- internal API calls target the cluster-local `castaway-web` Service
+- PostgreSQL-backed bot state
+- service-to-service auth remains enabled between bot and web
 
-### `deploy/environments/home-k3s`
+## Delivery flow in detail
 
-Responsible for:
+### CI and image publishing
 
-- namespace
-- environment ConfigMaps
-- ingress
-- rollout/scheduling patches
-- image digest pinning
-- Argo CD migration hook annotations
+Keep GitHub Actions responsible for:
 
-Not responsible for:
+- lint, test, and build validation
+- building changed application images
+- publishing those images to GHCR
+- updating the pinned digests in `deploy/environments/home-k3s/kustomization.yaml`
+- validating that the `home-k3s` overlay still renders
 
-- PostgreSQL StatefulSet/Service manifests
-- PostgreSQL initialization scripts
-- PostgreSQL storage and backup policy
+### Argo CD sync
 
-## Secrets and configuration model
+Argo CD should watch:
 
-### Kubernetes-facing contract
+- `deploy/environments/home-k3s`
 
-The manifests in this repo assume these Kubernetes objects exist:
+Recommended behavior:
 
-- `castaway-web-config`
-- `castaway-web-secrets`
-- `castaway-discord-bot-config`
-- `castaway-discord-bot-secrets`
+- auto-sync enabled
+- prune enabled
+- self-heal enabled
+- `castaway-web-migrate` preserved as a `PreSync` hook
 
-This repo should not rename those objects unless app and infra changes are coordinated together.
+## Operator responsibilities split
 
-### Secret source of truth
+### App repo (`~/dev/srvivor`)
 
-1Password `bry-guy` remains the deployment secret source of truth.
+Owns:
 
-The app repo references Kubernetes secret names only. The bridge from 1Password into Kubernetes belongs to infra.
+- application code
+- Dockerfiles
+- Kubernetes manifests under `deploy/`
+- Argo CD `AppProject` and `Application` manifests
+- image digest pinning in git
 
-## Delivery flow
+### Infra repo (`~/dev/infra`)
 
-### Image publishing
+Owns:
 
-GitHub Actions should:
+- VM provisioning and lifecycle
+- k3s bootstrap
+- node labels and taints
+- external PostgreSQL host installation and hardening
+- database backups and restore tests
+- secret bridge from 1Password into Kubernetes
 
-- build changed app images
-- publish them to GHCR
-- capture immutable digests
-- update `deploy/environments/home-k3s/kustomization.yaml`
+## Validation expectations
 
-### Drift prevention
+The minimum repeatable deployment validation for this target is:
 
-Delivery automation must stay aligned with the single active selfhost overlay.
+```bash
+kubectl kustomize deploy/environments/home-k3s > /tmp/home-k3s-render.yaml
+```
 
-That means:
-
-- Argo CD points at `deploy/environments/home-k3s`
-- digest-update automation writes to `deploy/environments/home-k3s/kustomization.yaml`
-- CI validates that the `home-k3s` overlay still renders cleanly
-
-If more overlays are introduced later, digest ownership must be refactored intentionally rather than allowing separate overlays to drift.
-
-### Argo CD sync behavior
-
-Argo CD should:
-
-- watch `deploy/environments/home-k3s`
-- auto-sync
-- prune removed resources
-- self-heal drift where appropriate
-- run `castaway-web-migrate` before web rollout
-
-## Access model
-
-This deployment is private-first.
-
-Expected shape:
-
-- operator access through Tailscale
-- private ingress through cluster networking / Traefik
-- no direct public exposure of the home public IP
-- any friendly hostname or outbound tunnel remains an infra concern
-
-## Verification expectations
-
-At minimum, the app repo should support validating:
-
-- `deploy/environments/home-k3s` renders successfully
-- migration hook annotations remain present
-- web and bot secret references remain intact
-- scheduling patches target the service-node label cleanly
+Broader verification should still run repo CI before merge.
 
 ## Compact summary
 
-- `home-k3s` is now the external-PostgreSQL selfhost target.
-- This repo deploys app workloads only.
-- Infra owns PostgreSQL hosting and backups.
-- Web and bot still deploy through Argo CD and still use pinned image digests in Git.
-- `castaway-web-migrate` remains the pre-traffic migration path.
-- Stateless workloads should land on nodes labeled `selfhost.bry-guy.net/role=service`.
+The active self-hosted Castaway contract is:
+
+- one `home-k3s` overlay
+- external PostgreSQL
+- Argo CD deploys only app workloads
+- image digests stay pinned in the overlay git path Argo watches
+- web, bot, and migration Job are scheduled onto service nodes via node label

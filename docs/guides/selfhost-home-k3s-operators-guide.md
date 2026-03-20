@@ -5,38 +5,38 @@ Type: `operators-guide`
 
 ## Short summary
 
-Operate Castaway on the self-hosted `home-k3s` target like this:
+Operate Castaway on the home `k3s` target like this:
 
-1. Bootstrap shared VMs, k3s, secrets, and PostgreSQL from `~/dev/infra`.
-2. Apply the Argo CD project/application from `~/dev/srvivor` once.
-3. Make app changes in `~/dev/srvivor`, validate them, and merge to `main`.
-4. GitHub Actions publishes changed images to GHCR.
-5. GitHub Actions updates pinned digests in `deploy/environments/home-k3s/kustomization.yaml`.
-6. Argo CD pulls the new desired state and deploys app workloads into the cluster.
-7. `castaway-web-migrate` runs before the new web rollout serves traffic.
+1. bootstrap VMs, k3s, PostgreSQL, and secrets from `~/dev/infra`
+2. apply the Argo CD project and app manifests from `~/dev/srvivor` once
+3. make app changes in `~/dev/srvivor` and merge to `main`
+4. GitHub Actions builds images, pins digests into `deploy/environments/home-k3s/kustomization.yaml`, and validates the overlay render
+5. Argo CD syncs the app workloads into the cluster
+6. `castaway-web-migrate` runs before the web rollout serves traffic
 
-The normal deployment path is:
+In steady state, the deployment path is:
 
-- **git change -> merge to `main` -> GitHub Actions publishes image -> Argo CD deploys**
+- **git change -> merge to `main` -> GitHub Actions publishes image and updates digest -> Argo CD deploys**
 
 ## Scope
 
-This guide covers the current self-hosted deployment contract only:
+This guide covers the active self-hosted deployment path only:
 
 - private home `k3s`
 - GHCR for images
-- Argo CD for cluster sync
+- Argo CD for sync
 - Kubernetes manifests under `deploy/`
-- PostgreSQL hosted **outside** the Castaway overlay on the shared stateful VM
-- private Tailscale-first access
+- external PostgreSQL on a shared stateful VM
+- service-node scheduling for app workloads
+- private access patterns managed by infra
 
-## Repo responsibilities
+## Primary repos
 
 ### App repo
 
 - `~/dev/srvivor`
 
-Owns:
+This repo owns:
 
 - application code
 - Dockerfiles
@@ -48,25 +48,29 @@ Owns:
 
 - `~/dev/infra`
 
-Owns:
+This repo owns:
 
 - VM/bootstrap access and cluster bootstrap
-- PostgreSQL installation, lifecycle, and backups on the shared stateful VM
 - Tailscale and kubeconfig bootstrap path
 - Argo CD installation bootstrap
-- 1Password -> Kubernetes secret materialization
-- service-node labels and wider cluster placement policy
+- Kubernetes secret materialization from 1Password
+- external PostgreSQL installation, patching, backups, and restore drills
+- node labels such as `selfhost.bry-guy.net/role=service`
 
-## Current deployment contract
+## Operating model
 
-For `home-k3s`:
+The intended delivery path is:
 
-- Argo CD watches `deploy/environments/home-k3s`
-- PostgreSQL is external to the Castaway overlay
-- `castaway-web` reads `DATABASE_URL` from `castaway-web-secrets`
-- `castaway-discord-bot` reads `BOT_STATE_DATABASE_URL` from `castaway-discord-bot-secrets`
-- both apps point at the same PostgreSQL server with separate DB/users
-- stateless app workloads target nodes labeled `selfhost.bry-guy.net/role=service`
+1. make a code change in `srvivor`
+2. validate locally
+3. merge to `main`
+4. GitHub Actions builds and pushes changed images to GHCR
+5. GitHub Actions updates image digests in `deploy/environments/home-k3s/kustomization.yaml`
+6. CI validates `kubectl kustomize deploy/environments/home-k3s`
+7. Argo CD detects the git change
+8. Argo CD syncs the cluster
+9. `castaway-web` migration runs before the web rollout
+10. workloads settle healthy on service nodes
 
 ## Day-0 bootstrap
 
@@ -76,41 +80,39 @@ Day-0 bootstrap is mostly performed from `~/dev/infra`.
 
 You need:
 
-- appliance / service / stateful VMs ready or planned in infra
-- Tailscale reachability
-- required 1Password items in vault `bry-guy`
+- appliance/control-plane and service/stateful VM targets prepared by infra
+- Tailscale reachability where required
+- required 1Password items in the deployment vault
 - local `mise`, `fnox`, and `kubectl`
-- configured values in `~/dev/infra/mise.toml`
-- configured secret mappings in `~/dev/infra/fnox.toml`
+- configured infra-side bootstrap values
 
-### Bootstrap infra-managed dependencies
+### Bootstrap infra-managed components
 
-From `~/dev/infra`:
+From `~/dev/infra`, run the project-specific bootstrap tasks that install or configure:
 
-```bash
-mise run "selfhost:castaway:k3s:bootstrap"
-mise run "selfhost:castaway:kubeconfig:fetch"
-mise run "selfhost:castaway:argocd:bootstrap"
-mise run "selfhost:castaway:secrets:sync"
-```
+- k3s
+- Argo CD
+- Kubernetes secrets
+- external PostgreSQL
+- node labels for workload placement
+- backups and restore verification for PostgreSQL
 
-Infra should also ensure:
+Exact commands live in the infra repo because this repo does not own those workflows.
 
-- PostgreSQL exists on the shared stateful VM
-- Castaway web and bot databases/users exist
-- the connection strings materialized into Kubernetes secrets match the names expected by this repo
-- service nodes are labeled `selfhost.bry-guy.net/role=service`
-
-### Verify basic cluster state
+### Verify the basic cluster state
 
 ```bash
-KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl get nodes --show-labels
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl get nodes -o wide --show-labels
 KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl get ns
 KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n argocd get pods
 KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get secrets
 ```
 
-## Argo CD bootstrap for the app repo
+Before deploying apps, confirm at least one target node has:
+
+- `selfhost.bry-guy.net/role=service`
+
+## Argo CD bootstrap for the Castaway app repo
 
 After the cluster and Argo CD exist, apply the app repo resources once.
 
@@ -126,11 +128,24 @@ This tells Argo CD to watch:
 - repo: `https://github.com/bry-guy/srvivor.git`
 - path: `deploy/environments/home-k3s`
 
-## Normal operator workflow
+## Secrets and database contract
 
-### 1. Make changes in `srvivor`
+The active self-hosted target assumes external PostgreSQL.
 
-Typical changes live in:
+Application contracts:
+
+- `castaway-web-secrets` provides `DATABASE_URL`
+- `castaway-discord-bot-secrets` provides `BOT_STATE_DATABASE_URL`
+- `castaway-web` and `castaway-discord-bot` use separate logical databases and credentials
+- `BOT_STATE_BACKEND=postgres`
+
+This repo does **not** create or manage PostgreSQL as a Kubernetes workload.
+
+## Normal operator workflow for app changes
+
+### 1. Make code or deployment changes in `srvivor`
+
+Typical locations:
 
 - `apps/castaway-web/**`
 - `apps/castaway-discord-bot/**`
@@ -138,166 +153,151 @@ Typical changes live in:
 - `.github/workflows/**`
 - `script/update-home-k3s-digests.py`
 
-### 2. Validate before merging
+### 2. Validate locally before merging
 
-Run the narrowest meaningful checks for the changed area.
+If you changed app code, run the app-local checks.
 
-#### Web app
+If you changed deployment wiring, at minimum render the overlay:
 
 ```bash
-cd ~/dev/srvivor/apps/castaway-web
-mise run lint
-mise run test
-mise run build
+kubectl kustomize deploy/environments/home-k3s > /tmp/home-k3s-render.yaml
 ```
 
-#### Discord bot
+If you want a broader pass:
 
 ```bash
-cd ~/dev/srvivor/apps/castaway-discord-bot
-mise run lint
-mise run test
-mise run build
-```
-
-#### Deploy and automation changes
-
-```bash
-cd ~/dev/srvivor
-python3 -m py_compile script/update-home-k3s-digests.py
 mise run ci
 ```
 
-### 3. Merge to `main`
+### 3. Commit and merge to `main`
 
-Merging to `main` is the normal deployment trigger.
+Once your change is ready:
 
-## How a change reaches the cluster
+```bash
+git add .
+git commit -m "feat: ..."
+git push
+```
 
-Once a digest update lands in `main`, Argo CD syncs:
+Merging to `main` is the normal deploy trigger.
 
-- `deploy/environments/home-k3s`
+## How images and desired state are updated
 
-That overlay includes:
+GitHub Actions is responsible for:
 
-- `castaway-web` Deployment, Service, and migration Job
-- `castaway-discord-bot` Deployment
-- ConfigMaps
+- building changed app images
+- pushing them to GHCR
+- updating pinned digests in `deploy/environments/home-k3s/kustomization.yaml`
+- validating that the active overlay still renders
+
+This avoids delivery automation drift because Argo CD watches the same overlay file CI updates.
+
+## What Argo CD deploys
+
+The active overlay contains:
+
+- namespace
+- `castaway-web` deployment and service
+- `castaway-web-migrate` job
+- `castaway-discord-bot` deployment
+- configmaps
 - ingress
-- environment-specific patches
-- service-node placement rules
+- scheduling patches for service-node placement
 
-It does **not** include PostgreSQL manifests.
+The overlay does **not** contain:
 
-During rollout:
+- PostgreSQL StatefulSet
+- PostgreSQL Service
+- PostgreSQL init ConfigMap
 
-- `castaway-web-migrate` runs as a `PreSync` hook
-- the new web Deployment rolls out
-- the bot and web settle to healthy state
+## Placement and rollout expectations
 
-## Rollout verification
-
-### Check workloads
-
-```bash
-KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get pods
-KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get jobs
-KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get svc,ingress
-```
-
-### Check migration job
-
-```bash
-KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway logs job/castaway-web-migrate
-```
-
-### Check workload placement
-
-```bash
-KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get pods -o wide
-```
-
-Confirm the web, migration, and bot workloads landed on nodes carrying:
+Stateless Castaway workloads should schedule onto nodes labeled:
 
 - `selfhost.bry-guy.net/role=service`
 
-### Check app logs
+This includes:
+
+- `castaway-web`
+- `castaway-web-migrate`
+- `castaway-discord-bot`
+
+If pods remain Pending, first verify the label exists on at least one schedulable node.
+
+## Rollout verification
+
+Useful checks:
 
 ```bash
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get all
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get pods -o wide
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway describe job castaway-web-migrate
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway logs job/castaway-web-migrate
 KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway logs deploy/castaway-web
 KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway logs deploy/castaway-discord-bot
 ```
 
-## Secrets operations
+Confirm:
 
-Deployment secrets are sourced from 1Password `bry-guy` and materialized into Kubernetes by infra-owned automation.
+- migration Job succeeded
+- web pods are Ready
+- bot pod is running
+- workloads landed on service nodes
 
-If deploy-time secrets change, rerun from `~/dev/infra`:
+## Troubleshooting checklist
+
+### Argo app exists but workloads do not progress
+
+Check:
+
+- Argo CD application sync status
+- overlay render success locally
+- missing secrets in `castaway` namespace
+- service-node label presence
+
+### Migration job fails
+
+Check:
+
+- `DATABASE_URL` secret contents
+- network reachability from service node to external PostgreSQL host
+- migration binary and container image digest
+
+### Bot fails to start
+
+Check:
+
+- `BOT_STATE_DATABASE_URL`
+- `BOT_STATE_BACKEND=postgres`
+- Discord token secret values
+- API auth token alignment between bot and web secrets/config
+
+### Pods remain Pending
+
+Check:
 
 ```bash
-mise run "selfhost:castaway:secrets:sync"
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl get nodes --show-labels | grep selfhost.bry-guy.net/role=service
 ```
 
-Important checks:
+If no node matches, fix infra/node labeling first.
 
-- `castaway-web-secrets` must include `DATABASE_URL`
-- `castaway-discord-bot-secrets` must include `BOT_STATE_DATABASE_URL`
-- service-auth values must still match the app contract
+## Responsibilities that stay outside this repo
 
-## PostgreSQL operations boundary
+Do not use this repo to manage:
 
-PostgreSQL operations are not owned by this repo.
+- VM provisioning
+- PostgreSQL installation or upgrades
+- PostgreSQL backups and restore drills
+- Tailscale topology
+- cluster node labeling policy beyond consuming the agreed label
 
-For the current target, infra is responsible for:
+## Compact summary
 
-- PostgreSQL installation on the shared stateful VM
-- logical database/user provisioning
-- backups and restore testing
-- server health and capacity
-- host-level maintenance
+For the active self-hosted target:
 
-The app repo operator should only need to confirm that application secrets point at the right PostgreSQL host and that migrations succeed.
-
-## Troubleshooting
-
-### Image did not deploy
-
-Check:
-
-- the GitHub Actions run for `publish-images.yml`
-- whether the digest update commit landed on `main`
-- whether Argo CD synced the latest commit
-
-### Overlay does not render or sync
-
-Check:
-
-- Argo CD application status
-- whether the `home-k3s` overlay still renders in CI
-- whether image entries still exist in `deploy/environments/home-k3s/kustomization.yaml`
-
-### Pods are crash-looping or unhealthy
-
-Check:
-
-- required secrets exist
-- migration job logs
-- web and bot logs
-- the external PostgreSQL host is reachable from the cluster
-
-### Workloads landed on the wrong node
-
-Check:
-
-- service-node labels exist on the intended nodes
-- the overlay still contains the placement patches
-- cluster taints/tolerations did not change under the contract
-
-## Related references
-
-- `README.md`
-- `docs/selfhost-k3s-deployment-blueprint.md`
-- `plans/selfhost-k3s-implementation-plan.md`
-- `deploy/argocd/project-castaway.yaml`
-- `deploy/argocd/app-home-k3s.yaml`
-- `/Users/brain/dev/infra/docs/selfhost-castaway-k3s-bootstrap.md`
+- infra owns PostgreSQL and secrets materialization
+- this repo owns app manifests and Argo CD app wiring
+- `home-k3s` is the single active overlay
+- CI updates the same overlay Argo CD watches
+- workloads schedule to nodes labeled `selfhost.bry-guy.net/role=service`

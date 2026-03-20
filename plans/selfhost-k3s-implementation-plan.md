@@ -14,7 +14,7 @@ This plan covers the current self-hosted deployment target only:
 
 - `home-k3s`
 - GitHub Actions + GHCR + Argo CD
-- external PostgreSQL hosted outside the app repo's Kubernetes overlay
+- external PostgreSQL hosted on the shared stateful VM
 - dedicated `castaway-web` migration Job
 - bot-to-API service authentication
 - PostgreSQL-backed bot state
@@ -222,80 +222,13 @@ mise run build
 
 **Owner repo:** `infra`
 
-**Primary file ownership:**
+This remains outside this repo.
 
-- `/Users/brain/dev/infra/selfhost/**`
-- `/Users/brain/dev/infra/docs/plans/**`
-- any supporting infra scripts/config owned by that repo
+## Final integration expectations
 
-**Deliverables:**
+At integration time, verify at minimum:
 
-- self-hosted `k3s` VM/bootstrap path
-- service-node labeling and scheduling contract
-- Tailscale reachability for the VM(s)
-- Argo CD installation/bootstrap path
-- unattended 1Password service-account path for secret reads
-- first secret bridge into Kubernetes
-- external PostgreSQL host and backup flow
-- private access path to Traefik over the tailnet
-- later tunnel readiness for `castaway.bry-guy.net`
-
-## Suggested implementation order
-
-Work can happen in parallel, but integration should prefer this order:
-
-1. Workstream A
-2. Workstream B
-3. Workstream C
-4. Workstream D
-5. Workstream E
-6. final integration and smoke validation
-
-Why this order:
-
-- deployment wiring defines the active target path
-- delivery automation must follow that path to avoid digest drift
-- app and infra work can then validate against a stable deployment contract
-
-## Final integration checklist
-
-One final integration pass should verify the combined result.
-
-### In the app repo
-
-- rebase all surviving workstreams onto current `main`
-- resolve any remaining contract drift explicitly
-- run repo-level CI
-- render the `home-k3s` Kustomize overlay
-- verify the web migration hook path is included and ordered correctly
-- verify the bot stays single-replica
-- verify the overlay does not include in-cluster PostgreSQL resources
-- verify the placement rules target `selfhost.bry-guy.net/role=service`
-
-### In the infra repo
-
-- verify Tailscale-only access path
-- verify Kubernetes secrets exist before Argo CD syncs app workloads
-- verify PostgreSQL host provisioning and backups are documented and understood
-- verify no WAN exposure was introduced as part of bootstrap
-
-## Agent handoff template
-
-Each agent should hand back a short note with:
-
-- files changed
-- locked assumptions relied on
-- checks run
-- known follow-ups
-- anything that blocks another workstream
-
-## Compact handoff summary
-
-- Treat the blueprint as design reference and this file as the executable plan.
-- Preserve locked assumptions unless the user changes them.
-- Keep `home-k3s` as the single active self-hosted overlay.
-- Keep delivery automation aligned to that one overlay to prevent digest drift.
-- Keep `castaway-web` migration work in a dedicated production path.
-- Keep bot runtime changes in one stream to avoid config conflicts.
-- Keep PostgreSQL host lifecycle in the infra repo.
-- Use a final integration pass to validate the combined system.
+- the `home-k3s` overlay renders
+- CI and image-publishing automation still point at the active `home-k3s` overlay
+- docs describe external PostgreSQL ownership correctly
+- app secret contracts remain unchanged
