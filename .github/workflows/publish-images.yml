@@ -113,6 +113,11 @@ jobs:
         if: needs.changes.outputs.castaway_discord_bot == 'true'
         run: |
           python3 script/update-home-k3s-digests.py ghcr.io/${{ github.repository_owner }}/castaway-discord-bot ${{ needs.build-castaway-discord-bot.outputs.digest }}
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+      - name: Render home-k3s overlay after digest update
+        run: kubectl kustomize deploy/environments/home-k3s > /tmp/home-k3s-render.yaml
       - name: Commit digest updates
         run: |
           if git diff --quiet -- deploy/environments/home-k3s/kustomization.yaml; then
