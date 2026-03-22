@@ -22,9 +22,10 @@ spec:
           imagePullPolicy: IfNotPresent
           command:
             - /app/castaway-web-migrate
+          env:
+            - name: MIGRATIONS_DIR
+              value: /app/db/migrations
           envFrom:
-            - configMapRef:
-                name: castaway-web-config
             - secretRef:
                 name: castaway-web-secrets
           resources:
