@@ -46,7 +46,7 @@ It is specifically about whether the self-hosted deployment path is actually wir
 - [ ] `BOT_STATE_DATABASE_URL`
 
 ### Environment-specific optional keys
-- [ ] `DISCORD_BRAINLAND_SERVER_ID` is set if the target bot workflow needs a dev/test guild binding
+- [ ] `DISCORD_TARGET_SEVER_ID` is set if the target bot workflow needs a dev/test guild binding
 
 ## App contract checks
 - [ ] `castaway-web` is configured with `AUTO_MIGRATE=false`

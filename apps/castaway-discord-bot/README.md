@@ -46,11 +46,11 @@ This app uses the shared monorepo 1Password vault, `castaway`, through the root 
 
 The app's `mise.toml` sets `FNOX_PROFILE=castaway-discord-bot`, so you should not need to inline secret env vars before `fnox exec` or `mise run`.
 
-Required secret items in the shared vault:
+Secret env vars used by the bot:
 
 - `CASTAWAY_DISCORD_BOT_TOKEN`
 - `CASTAWAY_DISCORD_APPLICATION_ID`
-- `DISCORD_BRAINLAND_SERVER_ID`
+- `DISCORD_TARGET_SEVER_ID`
 - `CASTAWAY_DISCORD_PUBLIC_KEY` (loaded now for future Discord signature verification work; not currently consumed by the gateway bot)
 
 Make sure `fnox` can access 1Password through `op` by doing one of the following:
@@ -63,7 +63,7 @@ Validate access from the repo root:
 ```bash
 fnox check -P castaway-discord-bot
 fnox exec -P castaway-discord-bot -- env \
-  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_BRAINLAND_SERVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
+  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_TARGET_SEVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
   | sed 's/=.*$/=<redacted>/'
 ```
 
@@ -120,7 +120,7 @@ BOLT_STATE_IMPORT_PATH=./data/state.db mise run import-bolt-state
 
 ## Discord setup notes
 
-- Use a dedicated development guild; the bot currently reads its dev guild from the shared vault item `DISCORD_BRAINLAND_SERVER_ID`.
+- Use a dedicated target guild; the bot reads its guild ID from `DISCORD_TARGET_SEVER_ID`, which can be sourced from whichever 1Password item matches the environment.
 - Invite the bot with both the `bot` and `applications.commands` scopes.
 - The bot only needs guild slash command support for the MVP; it does not require privileged message content intent.
 

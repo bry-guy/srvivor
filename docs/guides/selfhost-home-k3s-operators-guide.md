@@ -138,6 +138,7 @@ Application contracts:
 - `castaway-discord-bot-secrets` provides `BOT_STATE_DATABASE_URL`
 - `castaway-web` and `castaway-discord-bot` use separate logical databases and credentials
 - `BOT_STATE_BACKEND=postgres`
+- `DISCORD_TARGET_SEVER_ID` is the target guild env var; source it from whichever 1Password item matches the environment
 
 This repo does **not** create or manage PostgreSQL as a Kubernetes workload.
 

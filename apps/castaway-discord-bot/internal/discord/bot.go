@@ -13,9 +13,9 @@ import (
 )
 
 type Bot struct {
-	appID      string
-	devGuildID string
-	log        *slog.Logger
+	appID          string
+	targetServerID string
+	log            *slog.Logger
 
 	castaway *castaway.Client
 	state    state.Store
@@ -30,12 +30,12 @@ func New(cfg *config.Config, client *castaway.Client, store state.Store, logger 
 	session.Identify.Intents = discordgo.IntentsGuilds
 
 	bot := &Bot{
-		appID:      cfg.DiscordApplicationID,
-		devGuildID: cfg.DiscordDevGuildID,
-		log:        logger,
-		castaway:   client,
-		state:      store,
-		session:    session,
+		appID:          cfg.DiscordApplicationID,
+		targetServerID: cfg.DiscordTargetServerID,
+		log:            logger,
+		castaway:       client,
+		state:          store,
+		session:        session,
 	}
 
 	session.AddHandler(bot.handleInteraction)
@@ -73,13 +73,13 @@ func (b *Bot) Close() error {
 
 func (b *Bot) syncCommands() (string, error) {
 	commands := applicationCommands()
-	if b.devGuildID != "" {
-		if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, b.devGuildID, commands); err == nil {
+	if b.targetServerID != "" {
+		if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, b.targetServerID, commands); err == nil {
 			return "guild", nil
 		} else if !isDiscordMissingAccess(err) {
 			return "", fmt.Errorf("sync guild application commands: %w", err)
 		} else {
-			b.log.Warn("guild command sync failed; falling back to global commands", "guild_id", b.devGuildID, "error", err)
+			b.log.Warn("guild command sync failed; falling back to global commands", "guild_id", b.targetServerID, "error", err)
 		}
 	}
 

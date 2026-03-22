@@ -36,17 +36,17 @@ The Discord bot uses the `castaway-discord-bot` profile. It maps the following 1
 
 - `CASTAWAY_DISCORD_BOT_TOKEN`
 - `CASTAWAY_DISCORD_APPLICATION_ID`
-- `DISCORD_BRAINLAND_SERVER_ID`
+- `DISCORD_TARGET_SEVER_ID`
 - `CASTAWAY_DISCORD_PUBLIC_KEY`
 
-Only the first three are currently consumed by the gateway-based bot. The public key is loaded and documented now for future Discord signature-verification workflows.
+Only the first three are currently consumed by the gateway-based bot. The public key is loaded and documented now for future Discord signature-verification workflows. `DISCORD_TARGET_SEVER_ID` is the app-facing env var; the 1Password source item can vary by environment.
 
 Validate the profile without printing secret values:
 
 ```bash
 fnox check -P castaway-discord-bot
 fnox exec -P castaway-discord-bot -- env \
-  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_BRAINLAND_SERVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
+  | rg '^(CASTAWAY_DISCORD_BOT_TOKEN|CASTAWAY_DISCORD_APPLICATION_ID|DISCORD_TARGET_SEVER_ID|CASTAWAY_DISCORD_PUBLIC_KEY)=' \
   | sed 's/=.*$/=<redacted>/'
 ```
 
