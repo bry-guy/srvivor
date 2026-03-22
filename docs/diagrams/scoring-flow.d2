@@ -1,0 +1,70 @@
+# Castaway Scoring Flow
+# How a leaderboard request is resolved from draft picks + outcomes + bonus ledger.
+
+direction: down
+
+request: GET /leaderboard {
+  shape: oval
+}
+
+load_picks: Load draft picks {
+  shape: rectangle
+}
+
+load_outcomes: Load outcome positions {
+  shape: rectangle
+}
+
+load_bonus: Sum visible bonus ledger entries {
+  shape: rectangle
+}
+
+calc_draft: Calculate draft points {
+  shape: rectangle
+  label: |md
+    **Calculate draft points**
+
+    positionValue = total - finalPos + 1
+
+    distance = abs(draftPos - finalPos)
+
+    score += max(0, positionValue - distance)
+  |
+}
+
+calc_available: Calculate points available {
+  shape: rectangle
+  label: |md
+    **Points available**
+
+    Max additional points still
+    claimable from unresolved picks
+  |
+}
+
+combine: Combine scores {
+  shape: rectangle
+  label: |md
+    **Total = draft_points + bonus_points**
+
+    Sort by total descending
+  |
+}
+
+response: LeaderboardRow response {
+  shape: oval
+}
+
+request -> load_picks
+request -> load_outcomes
+request -> load_bonus
+
+load_picks -> calc_draft
+load_outcomes -> calc_draft
+load_outcomes -> calc_available
+load_picks -> calc_available
+
+calc_draft -> combine
+calc_available -> combine
+load_bonus -> combine
+combine -> response

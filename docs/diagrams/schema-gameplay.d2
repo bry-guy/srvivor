@@ -1,0 +1,144 @@
+# Castaway Gameplay Schema - Activities, Groups & Bonus Points
+# The temporal and ledger-based model that powers bonus scoring mechanics.
+
+direction: right
+
+instances: instances {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  public_id: UUID
+  name: TEXT
+}
+
+participants: participants {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  instance_id: BIGINT {constraint: foreign_key}
+  name: TEXT
+}
+
+instance_episodes: instance_episodes {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  instance_id: BIGINT {constraint: foreign_key}
+  episode_number: INT
+  label: TEXT
+  airs_at: TIMESTAMPTZ
+  metadata: JSONB
+}
+
+participant_groups: participant_groups {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  instance_id: BIGINT {constraint: foreign_key}
+  name: TEXT
+  kind: TEXT
+  metadata: JSONB
+}
+
+membership_periods: membership_periods {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  participant_group_id: BIGINT {constraint: foreign_key}
+  participant_id: BIGINT {constraint: foreign_key}
+  role: TEXT
+  starts_at: TIMESTAMPTZ
+  ends_at: TIMESTAMPTZ
+}
+
+instance_activities: instance_activities {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  instance_id: BIGINT {constraint: foreign_key}
+  activity_type: TEXT
+  name: TEXT
+  status: TEXT
+  starts_at: TIMESTAMPTZ
+  ends_at: TIMESTAMPTZ
+  metadata: JSONB
+}
+
+activity_group_assignments: activity_group_assignments {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  activity_id: BIGINT {constraint: foreign_key}
+  participant_group_id: BIGINT {constraint: foreign_key}
+  role: TEXT
+  configuration: JSONB
+}
+
+activity_participant_assignments: activity_participant_assignments {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  activity_id: BIGINT {constraint: foreign_key}
+  participant_id: BIGINT {constraint: foreign_key}
+  role: TEXT
+  configuration: JSONB
+}
+
+activity_occurrences: activity_occurrences {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  activity_id: BIGINT {constraint: foreign_key}
+  occurrence_type: TEXT
+  name: TEXT
+  effective_at: TIMESTAMPTZ
+  status: TEXT
+  metadata: JSONB
+}
+
+occurrence_groups: occurrence_groups {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  activity_occurrence_id: BIGINT {constraint: foreign_key}
+  participant_group_id: BIGINT {constraint: foreign_key}
+  role: TEXT
+  result: TEXT
+}
+
+occurrence_participants: occurrence_participants {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  activity_occurrence_id: BIGINT {constraint: foreign_key}
+  participant_id: BIGINT {constraint: foreign_key}
+  role: TEXT
+  result: TEXT
+}
+
+bonus_point_ledger_entries: bonus_ledger {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  instance_id: BIGINT {constraint: foreign_key}
+  participant_id: BIGINT {constraint: foreign_key}
+  activity_occurrence_id: BIGINT {constraint: foreign_key}
+  entry_kind: TEXT
+  points: INT
+  visibility: TEXT
+  reason: TEXT
+  effective_at: TIMESTAMPTZ
+  award_key: TEXT
+}
+
+# Relationships
+instances -> instance_episodes: schedules
+instances -> participant_groups: organizes
+instances -> instance_activities: configures
+
+participant_groups -> membership_periods: tracks members via
+participants -> membership_periods: belongs through
+
+instance_activities -> activity_group_assignments: assigns groups
+instance_activities -> activity_participant_assignments: assigns participants
+instance_activities -> activity_occurrences: produces
+
+participant_groups -> activity_group_assignments
+participants -> activity_participant_assignments
+
+activity_occurrences -> occurrence_groups: group results
+activity_occurrences -> occurrence_participants: individual results
+participant_groups -> occurrence_groups
+participants -> occurrence_participants
+
+activity_occurrences -> bonus_point_ledger_entries: awards points via
+participants -> bonus_point_ledger_entries: earns
+instances -> bonus_point_ledger_entries: scoped to

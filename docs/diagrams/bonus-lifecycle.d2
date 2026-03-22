@@ -1,0 +1,77 @@
+# Bonus Points Lifecycle
+# Shows how activities produce occurrences that result in ledger entries.
+
+direction: down
+
+configure: Configure instance activity {
+  shape: rectangle
+}
+
+assign_groups: Assign participant groups {
+  shape: rectangle
+}
+
+assign_participants: Assign individual participants {
+  shape: rectangle
+}
+
+episode: Episode airs {
+  shape: diamond
+}
+
+record: Record activity occurrence {
+  shape: rectangle
+  label: |md
+    **Record occurrence**
+
+    immunity_result, challenge_result,
+    journey_attendance, or manual_correction
+  |
+}
+
+resolve_groups: Resolve group results {
+  shape: rectangle
+}
+
+resolve_individuals: Resolve individual results {
+  shape: rectangle
+}
+
+award: Award bonus points {
+  shape: rectangle
+  label: |md
+    **Create ledger entries**
+
+    entry_kind: award
+
+    visibility: public or secret
+  |
+}
+
+reveal: Reveal secret points {
+  shape: rectangle
+  label: |md
+    **Reveal entries**
+
+    secret becomes revealed
+  |
+}
+
+leaderboard: Updated leaderboard {
+  shape: oval
+}
+
+configure -> assign_groups
+configure -> assign_participants
+
+assign_groups -> episode
+assign_participants -> episode
+
+episode -> record
+record -> resolve_groups
+record -> resolve_individuals
+resolve_groups -> award
+resolve_individuals -> award
+award -> leaderboard
+award -> reveal: later
+reveal -> leaderboard
