@@ -8,6 +8,18 @@ on:
       - 'apps/castaway-discord-bot/**'
       - '.github/workflows/publish-images.yml'
       - 'script/update-home-k3s-digests.py'
+  workflow_dispatch:
+    inputs:
+      castaway_web:
+        description: Build, publish, and deploy castaway-web
+        required: false
+        type: boolean
+        default: false
+      castaway_discord_bot:
+        description: Build, publish, and deploy castaway-discord-bot
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,11 +29,13 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      castaway_web: ${{ steps.filter.outputs.castaway_web }}
-      castaway_discord_bot: ${{ steps.filter.outputs.castaway_discord_bot }}
+      castaway_web: ${{ steps.changes.outputs.castaway_web }}
+      castaway_discord_bot: ${{ steps.changes.outputs.castaway_discord_bot }}
     steps:
       - uses: actions/checkout@v4
+        if: github.event_name == 'push'
       - id: filter
+        if: github.event_name == 'push'
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -29,6 +43,24 @@ jobs:
               - 'apps/castaway-web/**'
             castaway_discord_bot:
               - 'apps/castaway-discord-bot/**'
+      - id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_CASTAWAY_WEB: ${{ steps.filter.outputs.castaway_web }}
+          PUSH_CASTAWAY_DISCORD_BOT: ${{ steps.filter.outputs.castaway_discord_bot }}
+          MANUAL_CASTAWAY_WEB: ${{ inputs.castaway_web }}
+          MANUAL_CASTAWAY_DISCORD_BOT: ${{ inputs.castaway_discord_bot }}
+        run: |
+          castaway_web="${PUSH_CASTAWAY_WEB:-false}"
+          castaway_discord_bot="${PUSH_CASTAWAY_DISCORD_BOT:-false}"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            castaway_web="${MANUAL_CASTAWAY_WEB:-false}"
+            castaway_discord_bot="${MANUAL_CASTAWAY_DISCORD_BOT:-false}"
+          fi
+
+          echo "castaway_web=$castaway_web" >> "$GITHUB_OUTPUT"
+          echo "castaway_discord_bot=$castaway_discord_bot" >> "$GITHUB_OUTPUT"
 
   build-castaway-web:
     needs: changes
@@ -38,6 +70,8 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
+      - id: build-date
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -60,7 +94,7 @@ jobs:
           build-args: |
             VERSION=sha-${{ github.sha }}
             GIT_COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            BUILD_DATE=${{ steps.build-date.outputs.value }}
 
   build-castaway-discord-bot:
     needs: changes
@@ -70,6 +104,8 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
+      - id: build-date
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -92,7 +128,7 @@ jobs:
           build-args: |
             VERSION=sha-${{ github.sha }}
             GIT_COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            BUILD_DATE=${{ steps.build-date.outputs.value }}
 
   update-home-k3s:
     needs:
