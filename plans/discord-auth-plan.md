@@ -26,17 +26,21 @@ CREATE UNIQUE INDEX participants_instance_discord_user_id_idx
 
 This allows at most one participant per Discord user per instance, while keeping the column optional for participants without Discord accounts. Add a corresponding sqlc query to look up a participant by instance + discord_user_id, and a mutation to set/clear the discord_user_id on an existing participant.
 
-### 2. Add API routes for linking and querying secret data
+### 2. Add API routes for linking; enrich existing bonus-ledger route
 
-Add the following routes to `castaway-web`, all under the existing `requireServiceAuth` middleware:
+Add the following new routes to `castaway-web`, all under the existing `requireServiceAuth` middleware:
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `PUT` | `/instances/:instanceID/participants/:participantID/discord-link` | Set `discord_user_id` on a participant |
 | `DELETE` | `/instances/:instanceID/participants/:participantID/discord-link` | Clear the link |
-| `GET` | `/instances/:instanceID/participants/:participantID/secret-bonus` | Return secret bonus total and full secret ledger entries |
 
-The `secret-bonus` route returns the same shape as the existing `bonus-ledger` route but includes `secret` visibility entries instead of `public`/`revealed` ones. It requires the request to include a `X-Discord-User-ID` header, and the server validates that the header value matches the participant's stored `discord_user_id`. If it doesn't match, return `403 Forbidden`. This keeps authorization simple: the bot is trusted to pass the correct Discord user ID, and the API enforces that only the owning user can see their own secrets.
+**No new `secret-bonus` route.** Instead, modify the existing `GET /instances/:instanceID/participants/:participantID/bonus-ledger` handler to conditionally include secret entries:
+
+- If the request includes a `X-Discord-User-ID` header **and** its value matches the participant's stored `discord_user_id`, return **all** ledger entries (visible + secret) using the existing `ListAllBonusPointLedgerEntriesForParticipant` query, and include the full bonus total (visible + secret).
+- Otherwise, return only visible entries (current behavior, unchanged).
+
+The response shape is identical in both cases — entries already carry a `visibility` field, so consumers can distinguish `secret` from `public`/`revealed` entries. This avoids adding a new route and keeps the API surface minimal. The bot simply adds the `X-Discord-User-ID` header to the same bonus-ledger call it would already make.
 
 ### 3. Add sqlc queries
 
@@ -68,7 +72,7 @@ Add a new slash command subgroup or top-level subcommand:
 A new command that:
 1. Resolves the instance (same logic as existing commands).
 2. Looks up the participant linked to the invoking Discord user's ID (via a new API call or by listing participants and checking the discord link).
-3. Calls `GET /instances/:id/participants/:pid/secret-bonus` with the `X-Discord-User-ID` header.
+3. Calls `GET /instances/:id/participants/:pid/bonus-ledger` with the `X-Discord-User-ID` header set to the invoking user's Discord ID. Because the user is authenticated, the response will include secret entries.
 4. Formats and returns an ephemeral message showing the user's secret bonus point total and ledger breakdown alongside their regular score.
 
 This is ephemeral so only the requesting user sees their secret data.
@@ -78,13 +82,13 @@ This is ephemeral so only the requesting user sees their secret data.
 Add methods to the `castaway.Client`:
 - `LinkDiscordUser(ctx, instanceID, participantID, discordUserID)` — `PUT` to the discord-link endpoint.
 - `UnlinkDiscordUser(ctx, instanceID, participantID)` — `DELETE` to the discord-link endpoint.
-- `GetSecretBonus(ctx, instanceID, participantID, discordUserID)` — `GET` to the secret-bonus endpoint, passing the `X-Discord-User-ID` header.
+- `GetBonusLedger(ctx, instanceID, participantID, discordUserID)` — `GET` to the existing bonus-ledger endpoint; when `discordUserID` is non-empty, passes the `X-Discord-User-ID` header to get secret entries included.
 
 ## Implementation order
 
 1. Database migration (`008_participant_discord_user_id.sql`)
 2. sqlc queries + regenerate (`participants.sql`, run `sqlc generate`)
-3. `castaway-web` API routes (discord-link PUT/DELETE, secret-bonus GET)
+3. `castaway-web` API routes (discord-link PUT/DELETE, bonus-ledger auth enrichment)
 4. `castaway-web` tests for new routes
 5. `castaway.Client` methods in the bot
 6. Bot slash commands (`link`, `unlink`, `myscore`) + handler logic
@@ -95,7 +99,7 @@ Add methods to the `castaway.Client`:
 
 - The bot is already authenticated via bearer token; no new service auth mechanism is needed.
 - Discord user ID verification happens server-side: the API checks that the `X-Discord-User-ID` header matches the participant's stored `discord_user_id`. The bot is trusted to pass the real user ID from the interaction.
-- Secret data is only returned via the `secret-bonus` endpoint, never mixed into the existing public `bonus-ledger` or `leaderboard` routes.
+- Secret data is only included in the `bonus-ledger` response when the `X-Discord-User-ID` header is present and matches the participant's stored `discord_user_id`. Without the header (or on mismatch), the response contains only visible entries, preserving existing behavior. Secret data is never mixed into the `leaderboard` routes.
 - The `/castaway myscore` response is ephemeral (only visible to the invoking user).
 - The link operation is idempotent. Re-linking to a different participant in the same instance will fail due to the unique index, requiring an explicit unlink first.
 
