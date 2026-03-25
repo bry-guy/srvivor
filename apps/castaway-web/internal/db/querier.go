@@ -65,6 +65,7 @@ type Querier interface {
 	ListParticipantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantsByInstanceRow, error)
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
+	UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error)
 	UpsertOutcomePosition(ctx context.Context, arg UpsertOutcomePositionParams) (UpsertOutcomePositionRow, error)
 }
 

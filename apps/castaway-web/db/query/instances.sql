@@ -16,3 +16,9 @@ ORDER BY created_at DESC;
 -- name: DeleteInstanceByNameSeason :exec
 DELETE FROM instances
 WHERE name = $1 AND season = $2;
+
+-- name: UpdateInstanceName :one
+UPDATE instances
+SET name = $2
+WHERE public_id = $1
+RETURNING public_id AS id, name, season, created_at;

@@ -118,3 +118,34 @@ func (q *Queries) ListInstances(ctx context.Context) ([]ListInstancesRow, error)
 	}
 	return items, nil
 }
+
+const updateInstanceName = `-- name: UpdateInstanceName :one
+UPDATE instances
+SET name = $2
+WHERE public_id = $1
+RETURNING public_id AS id, name, season, created_at
+`
+
+type UpdateInstanceNameParams struct {
+	PublicID pgtype.UUID `json:"public_id"`
+	Name     string      `json:"name"`
+}
+
+type UpdateInstanceNameRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Season    int32              `json:"season"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error) {
+	row := q.db.QueryRow(ctx, updateInstanceName, arg.PublicID, arg.Name)
+	var i UpdateInstanceNameRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Season,
+		&i.CreatedAt,
+	)
+	return i, err
+}
