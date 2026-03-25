@@ -213,6 +213,9 @@ type fakeQuerier struct {
 	secretTotal                           int32
 	visibleTotalAsOf                      int32
 	availableSecretTotal                  int32
+	activeAdvantagesByGroup               []db.ListActiveAdvantagesByTypeForGroupRow
+	activeAdvantagesByParticipant         []db.ListActiveAdvantagesByTypeForParticipantRow
+	createdAdvantages                     []db.CreateParticipantAdvantageParams
 }
 
 func (f *fakeQuerier) CreateInstanceEpisode(_ context.Context, arg db.CreateInstanceEpisodeParams) (db.CreateInstanceEpisodeRow, error) {
@@ -319,6 +322,29 @@ func (f *fakeQuerier) GetVisibleBonusTotalByParticipantAsOf(context.Context, db.
 
 func (f *fakeQuerier) GetAvailableSecretBalanceByParticipant(context.Context, db.GetAvailableSecretBalanceByParticipantParams) (int32, error) {
 	return f.availableSecretTotal, nil
+}
+
+func (f *fakeQuerier) CreateParticipantAdvantage(_ context.Context, arg db.CreateParticipantAdvantageParams) (db.CreateParticipantAdvantageRow, error) {
+	f.createdAdvantages = append(f.createdAdvantages, arg)
+	return db.CreateParticipantAdvantageRow{
+		InstanceID:    arg.InstanceID,
+		ParticipantID: arg.ParticipantID,
+		AdvantageType: arg.AdvantageType,
+		Name:          arg.Name,
+		Status:        arg.Status,
+	}, nil
+}
+
+func (f *fakeQuerier) ListActiveAdvantagesByTypeForGroup(context.Context, db.ListActiveAdvantagesByTypeForGroupParams) ([]db.ListActiveAdvantagesByTypeForGroupRow, error) {
+	return f.activeAdvantagesByGroup, nil
+}
+
+func (f *fakeQuerier) ListActiveAdvantagesByTypeForParticipant(context.Context, db.ListActiveAdvantagesByTypeForParticipantParams) ([]db.ListActiveAdvantagesByTypeForParticipantRow, error) {
+	return f.activeAdvantagesByParticipant, nil
+}
+
+func (f *fakeQuerier) MarkAdvantageUsed(context.Context, pgtype.UUID) error {
+	return nil
 }
 
 func testUUID() pgtype.UUID {

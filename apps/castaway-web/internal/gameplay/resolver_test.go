@@ -363,6 +363,192 @@ func TestResolveActivityOccurrenceManualAdjustmentCreatesCorrectionRows(t *testi
 	}
 }
 
+func TestResolveActivityOccurrenceLoanSharkWithoutAdvantage(t *testing.T) {
+	instanceID := testUUID()
+	activityID := testUUID()
+	occurrenceID := testUUID()
+	tangerineID := testUUID()
+	aliceID := testUUID()
+	bobID := testUUID()
+	carolID := testUUID()
+	effectiveAt := time.Date(2026, time.March, 25, 20, 0, 0, 0, time.UTC)
+
+	fake := &fakeQuerier{
+		activityOccurrence: db.GetActivityOccurrenceRow{
+			ID:             occurrenceID,
+			ActivityID:     activityID,
+			OccurrenceType: "loan_shark_result",
+			Name:           "Loan Shark Round 1",
+			EffectiveAt:    timestamptz(effectiveAt),
+		},
+		instanceActivity: db.GetInstanceActivityRow{
+			ID:           activityID,
+			InstanceID:   instanceID,
+			ActivityType: "loan_shark",
+			Name:         "Loan Shark",
+		},
+		occurrenceParticipants: []db.ListActivityOccurrenceParticipantsRow{
+			{ParticipantID: aliceID, ParticipantName: "Alice", ParticipantGroupID: tangerineID, ParticipantGroupName: textValue("Tangerine"), Metadata: []byte(`{"contribution":2}`)},
+			{ParticipantID: bobID, ParticipantName: "Bob", ParticipantGroupID: tangerineID, ParticipantGroupName: textValue("Tangerine"), Metadata: []byte(`{"contribution":2}`)},
+		},
+		activeMembershipsByGroup: map[[16]byte][]db.ListActiveParticipantGroupMembershipsAtRow{
+			tangerineID.Bytes: {
+				{ParticipantGroupID: tangerineID, ParticipantID: aliceID, ParticipantName: "Alice"},
+				{ParticipantGroupID: tangerineID, ParticipantID: bobID, ParticipantName: "Bob"},
+				{ParticipantGroupID: tangerineID, ParticipantID: carolID, ParticipantName: "Carol"},
+			},
+		},
+		activeAdvantagesByGroup: nil, // no advantages
+	}
+
+	service := NewService(fake)
+	created, err := service.ResolveActivityOccurrence(context.Background(), occurrenceID)
+	if err != nil {
+		t.Fatalf("resolve activity occurrence: %v", err)
+	}
+
+	// 4 points contributed / 4 cost = 1 point each for 3 tribe members = 3 awards
+	// Plus 2 spend entries for Alice and Bob
+	if got := len(created); got != 5 {
+		t.Fatalf("expected 5 created ledger entries, got %d", got)
+	}
+
+	var spends, awards int
+	for _, entry := range fake.createdBonusLedgerEntries {
+		if entry.EntryKind == "spend" {
+			spends++
+		} else if entry.EntryKind == "award" {
+			awards++
+			if entry.Points != 1 {
+				t.Fatalf("expected award of 1 point, got %d", entry.Points)
+			}
+		}
+	}
+	if spends != 2 {
+		t.Fatalf("expected 2 spend entries, got %d", spends)
+	}
+	if awards != 3 {
+		t.Fatalf("expected 3 award entries, got %d", awards)
+	}
+}
+
+func TestResolveActivityOccurrenceLoanSharkWithAdvantage(t *testing.T) {
+	instanceID := testUUID()
+	activityID := testUUID()
+	occurrenceID := testUUID()
+	leafID := testUUID()
+	aliceID := testUUID()
+	bobID := testUUID()
+	effectiveAt := time.Date(2026, time.March, 25, 20, 0, 0, 0, time.UTC)
+
+	fake := &fakeQuerier{
+		activityOccurrence: db.GetActivityOccurrenceRow{
+			ID:             occurrenceID,
+			ActivityID:     activityID,
+			OccurrenceType: "loan_shark_result",
+			Name:           "Loan Shark Round 1",
+			EffectiveAt:    timestamptz(effectiveAt),
+		},
+		instanceActivity: db.GetInstanceActivityRow{
+			ID:           activityID,
+			InstanceID:   instanceID,
+			ActivityType: "loan_shark",
+			Name:         "Loan Shark",
+		},
+		occurrenceParticipants: []db.ListActivityOccurrenceParticipantsRow{
+			{ParticipantID: aliceID, ParticipantName: "Alice", ParticipantGroupID: leafID, ParticipantGroupName: textValue("Leaf"), Metadata: []byte(`{"contribution":2}`)},
+			{ParticipantID: bobID, ParticipantName: "Bob", ParticipantGroupID: leafID, ParticipantGroupName: textValue("Leaf"), Metadata: []byte(`{"contribution":1}`)},
+		},
+		activeMembershipsByGroup: map[[16]byte][]db.ListActiveParticipantGroupMembershipsAtRow{
+			leafID.Bytes: {
+				{ParticipantGroupID: leafID, ParticipantID: aliceID, ParticipantName: "Alice"},
+				{ParticipantGroupID: leafID, ParticipantID: bobID, ParticipantName: "Bob"},
+			},
+		},
+		activeAdvantagesByGroup: []db.ListActiveAdvantagesByTypeForGroupRow{
+			{ID: testUUID(), InstanceID: instanceID, ParticipantGroupID: leafID, AdvantageType: "loan_shark"},
+		},
+	}
+
+	service := NewService(fake)
+	created, err := service.ResolveActivityOccurrence(context.Background(), occurrenceID)
+	if err != nil {
+		t.Fatalf("resolve activity occurrence: %v", err)
+	}
+
+	// 3 points contributed / 3 cost (advantage!) = 1 point each for 2 tribe members = 2 awards
+	// Plus 2 spend entries for Alice and Bob
+	if got := len(created); got != 4 {
+		t.Fatalf("expected 4 created ledger entries, got %d", got)
+	}
+
+	var spends, awards int
+	for _, entry := range fake.createdBonusLedgerEntries {
+		if entry.EntryKind == "spend" {
+			spends++
+		} else if entry.EntryKind == "award" {
+			awards++
+			if entry.Points != 1 {
+				t.Fatalf("expected award of 1 point, got %d", entry.Points)
+			}
+		}
+	}
+	if spends != 2 {
+		t.Fatalf("expected 2 spend entries, got %d", spends)
+	}
+	if awards != 2 {
+		t.Fatalf("expected 2 award entries, got %d", awards)
+	}
+}
+
+func TestResolveActivityOccurrenceLoanSharkInsufficientContribution(t *testing.T) {
+	instanceID := testUUID()
+	activityID := testUUID()
+	occurrenceID := testUUID()
+	tangerineID := testUUID()
+	aliceID := testUUID()
+	effectiveAt := time.Date(2026, time.March, 25, 20, 0, 0, 0, time.UTC)
+
+	fake := &fakeQuerier{
+		activityOccurrence: db.GetActivityOccurrenceRow{
+			ID:             occurrenceID,
+			ActivityID:     activityID,
+			OccurrenceType: "loan_shark_result",
+			Name:           "Loan Shark Round 1",
+			EffectiveAt:    timestamptz(effectiveAt),
+		},
+		instanceActivity: db.GetInstanceActivityRow{
+			ID:           activityID,
+			InstanceID:   instanceID,
+			ActivityType: "loan_shark",
+			Name:         "Loan Shark",
+		},
+		occurrenceParticipants: []db.ListActivityOccurrenceParticipantsRow{
+			{ParticipantID: aliceID, ParticipantName: "Alice", ParticipantGroupID: tangerineID, ParticipantGroupName: textValue("Tangerine"), Metadata: []byte(`{"contribution":3}`)},
+		},
+		activeMembershipsByGroup: map[[16]byte][]db.ListActiveParticipantGroupMembershipsAtRow{
+			tangerineID.Bytes: {
+				{ParticipantGroupID: tangerineID, ParticipantID: aliceID, ParticipantName: "Alice"},
+			},
+		},
+		activeAdvantagesByGroup: nil,
+	}
+
+	service := NewService(fake)
+	created, err := service.ResolveActivityOccurrence(context.Background(), occurrenceID)
+	if err != nil {
+		t.Fatalf("resolve activity occurrence: %v", err)
+	}
+
+	// 3 points contributed / 4 cost = 0 reward, but 1 spend entry
+	if got := len(created); got != 1 {
+		t.Fatalf("expected 1 created ledger entry (spend only), got %d", got)
+	}
+	if fake.createdBonusLedgerEntries[0].EntryKind != "spend" || fake.createdBonusLedgerEntries[0].Points != -3 {
+		t.Fatalf("expected spend of -3, got %+v", fake.createdBonusLedgerEntries[0])
+	}
+}
+
 func textValue(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: true}
 }

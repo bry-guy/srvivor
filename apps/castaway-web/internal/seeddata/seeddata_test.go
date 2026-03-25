@@ -69,14 +69,20 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	if season50 == nil {
 		t.Fatalf("expected season 50 in seed file")
 	}
-	if got := len(season50.Activities); got != 2 {
-		t.Fatalf("season 50 expected 2 activities, got %d", got)
+	if got := len(season50.Activities); got != 4 {
+		t.Fatalf("season 50 expected 4 activities, got %d", got)
 	}
 	if season50.Activities[0].ActivityType != "manual_adjustment" {
 		t.Fatalf("expected first activity to be manual_adjustment, got %q", season50.Activities[0].ActivityType)
 	}
 	if season50.Activities[1].ActivityType != "journey" {
 		t.Fatalf("expected second activity to be journey, got %q", season50.Activities[1].ActivityType)
+	}
+	if season50.Activities[2].ActivityType != "manual_adjustment" {
+		t.Fatalf("expected third activity to be manual_adjustment (Monty Hall), got %q", season50.Activities[2].ActivityType)
+	}
+	if season50.Activities[3].ActivityType != "loan_shark" {
+		t.Fatalf("expected fourth activity to be loan_shark, got %q", season50.Activities[3].ActivityType)
 	}
 	if got := len(season50.Activities[0].Occurrences); got != 6 {
 		t.Fatalf("manual adjustment activity expected 6 occurrences, got %d", got)
@@ -103,5 +109,41 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	}
 	if adamSecretRisk.GuessCount != 2 {
 		t.Fatalf("expected Adam secret risk guess_count 2, got %d", adamSecretRisk.GuessCount)
+	}
+
+	// Verify participant groups
+	if got := len(season50.ParticipantGroups); got != 3 {
+		t.Fatalf("season 50 expected 3 participant groups, got %d", got)
+	}
+	groupNames := make(map[string]int)
+	for _, g := range season50.ParticipantGroups {
+		groupNames[g.Name] = len(g.Memberships)
+	}
+	if groupNames["Tangerine"] != 5 {
+		t.Fatalf("expected Tangerine to have 5 members, got %d", groupNames["Tangerine"])
+	}
+	if groupNames["Leaf"] != 6 {
+		t.Fatalf("expected Leaf to have 6 members, got %d", groupNames["Leaf"])
+	}
+	if groupNames["Lotus"] != 5 {
+		t.Fatalf("expected Lotus to have 5 members, got %d", groupNames["Lotus"])
+	}
+
+	// Verify advantages
+	if got := len(season50.Advantages); got != 6 {
+		t.Fatalf("season 50 expected 6 advantages, got %d", got)
+	}
+	for _, a := range season50.Advantages {
+		if a.AdvantageType != "loan_shark" {
+			t.Fatalf("expected all advantages to be loan_shark, got %q", a.AdvantageType)
+		}
+		if a.GroupName != "Leaf" {
+			t.Fatalf("expected all advantages to be for Leaf, got %q", a.GroupName)
+		}
+	}
+
+	// Verify Mike at position 20
+	if season50.Outcomes[19].ContestantName != "Mike" {
+		t.Fatalf("expected Mike at position 20, got %q", season50.Outcomes[19].ContestantName)
 	}
 }

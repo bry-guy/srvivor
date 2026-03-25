@@ -13,12 +13,28 @@ import (
 )
 
 type SeasonSeed struct {
-	Season       int               `json:"season"`
-	InstanceName string            `json:"instance_name"`
-	Contestants  []string          `json:"contestants"`
-	Participants []ParticipantSeed `json:"participants"`
-	Outcomes     []OutcomeSeed     `json:"outcomes"`
-	Activities   []ActivitySeed    `json:"activities,omitempty"`
+	Season            int                    `json:"season"`
+	InstanceName      string                 `json:"instance_name"`
+	Contestants       []string               `json:"contestants"`
+	Participants      []ParticipantSeed      `json:"participants"`
+	Outcomes          []OutcomeSeed          `json:"outcomes"`
+	ParticipantGroups []ParticipantGroupSeed `json:"participant_groups,omitempty"`
+	Activities        []ActivitySeed         `json:"activities,omitempty"`
+	Advantages        []AdvantageSeed        `json:"advantages,omitempty"`
+}
+
+type ParticipantGroupSeed struct {
+	Name        string                `json:"name"`
+	Kind        string                `json:"kind"`
+	Metadata    json.RawMessage       `json:"metadata,omitempty"`
+	Memberships []GroupMembershipSeed `json:"memberships,omitempty"`
+}
+
+type GroupMembershipSeed struct {
+	ParticipantName string     `json:"participant_name"`
+	Role            string     `json:"role,omitempty"`
+	StartsAt        time.Time  `json:"starts_at"`
+	EndsAt          *time.Time `json:"ends_at,omitempty"`
 }
 
 type ParticipantSeed struct {
@@ -59,6 +75,18 @@ type OccurrenceParticipantSeed struct {
 	Role     string          `json:"role,omitempty"`
 	Result   string          `json:"result,omitempty"`
 	Metadata json.RawMessage `json:"metadata,omitempty"`
+}
+
+type AdvantageSeed struct {
+	ParticipantName string          `json:"participant_name"`
+	GroupName       string          `json:"group_name,omitempty"`
+	AdvantageType   string          `json:"advantage_type"`
+	Name            string          `json:"name"`
+	Status          string          `json:"status,omitempty"`
+	GrantedAt       time.Time       `json:"granted_at"`
+	EffectiveAt     time.Time       `json:"effective_at"`
+	EffectiveUntil  *time.Time      `json:"effective_until,omitempty"`
+	Metadata        json.RawMessage `json:"metadata,omitempty"`
 }
 
 type parsedDraft struct {

@@ -33,6 +33,10 @@ type serviceQuerier interface {
 	GetSecretBonusTotalByParticipant(ctx context.Context, arg db.GetSecretBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipantAsOf(ctx context.Context, arg db.GetVisibleBonusTotalByParticipantAsOfParams) (int32, error)
 	GetAvailableSecretBalanceByParticipant(ctx context.Context, arg db.GetAvailableSecretBalanceByParticipantParams) (int32, error)
+	CreateParticipantAdvantage(ctx context.Context, arg db.CreateParticipantAdvantageParams) (db.CreateParticipantAdvantageRow, error)
+	ListActiveAdvantagesByTypeForGroup(ctx context.Context, arg db.ListActiveAdvantagesByTypeForGroupParams) ([]db.ListActiveAdvantagesByTypeForGroupRow, error)
+	ListActiveAdvantagesByTypeForParticipant(ctx context.Context, arg db.ListActiveAdvantagesByTypeForParticipantParams) ([]db.ListActiveAdvantagesByTypeForParticipantRow, error)
+	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
 }
 
 type Service struct {

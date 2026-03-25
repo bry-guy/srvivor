@@ -169,11 +169,69 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 		result.Outcomes++
 	}
 
+	if err := seedParticipantGroups(ctx, q, gameplayService, season, instance.ID, participantIDByName); err != nil {
+		return fmt.Errorf("seed participant groups for season %d: %w", season.Season, err)
+	}
+
 	if err := seedActivityHistory(ctx, q, gameplayService, season, instance.ID, participantIDByName); err != nil {
 		return fmt.Errorf("seed activities for season %d: %w", season.Season, err)
 	}
 
+	if err := seedAdvantages(ctx, q, season, instance.ID, participantIDByName); err != nil {
+		return fmt.Errorf("seed advantages for season %d: %w", season.Season, err)
+	}
+
 	result.Seasons++
+	return nil
+}
+
+func seedParticipantGroups(
+	ctx context.Context,
+	q *db.Queries,
+	gameplayService *gameplay.Service,
+	season seeddata.SeasonSeed,
+	instanceID pgtype.UUID,
+	participantIDByName map[string]pgtype.UUID,
+) error {
+	for _, groupSeed := range season.ParticipantGroups {
+		kind := strings.TrimSpace(groupSeed.Kind)
+		if kind == "" {
+			kind = "tribe"
+		}
+
+		group, err := q.CreateParticipantGroup(ctx, db.CreateParticipantGroupParams{
+			InstanceID: instanceID,
+			Name:       strings.TrimSpace(groupSeed.Name),
+			Kind:       kind,
+			Metadata:   jsonBytesOrEmpty(groupSeed.Metadata),
+		})
+		if err != nil {
+			return fmt.Errorf("create participant group %q: %w", groupSeed.Name, err)
+		}
+
+		for _, membershipSeed := range groupSeed.Memberships {
+			participantID, ok := participantIDByName[normalizeSeedName(membershipSeed.ParticipantName)]
+			if !ok {
+				return fmt.Errorf("resolve group membership participant %q for group %q", membershipSeed.ParticipantName, groupSeed.Name)
+			}
+
+			role := strings.TrimSpace(membershipSeed.Role)
+			if role == "" {
+				role = "member"
+			}
+
+			if _, err := gameplayService.CreateMembershipPeriod(ctx, gameplay.CreateMembershipPeriodParams{
+				ParticipantGroupID: group.ID,
+				ParticipantID:      participantID,
+				Role:               role,
+				StartsAt:           membershipSeed.StartsAt,
+				EndsAt:             membershipSeed.EndsAt,
+			}); err != nil {
+				return fmt.Errorf("create membership for %q in group %q: %w", membershipSeed.ParticipantName, groupSeed.Name, err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -261,6 +319,61 @@ func seedActivityHistory(
 					return fmt.Errorf("resolve occurrence %q for activity %q: %w", occurrenceSeed.Name, activitySeed.Name, err)
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+func seedAdvantages(
+	ctx context.Context,
+	q *db.Queries,
+	season seeddata.SeasonSeed,
+	instanceID pgtype.UUID,
+	participantIDByName map[string]pgtype.UUID,
+) error {
+	for _, advantageSeed := range season.Advantages {
+		participantID, ok := participantIDByName[normalizeSeedName(advantageSeed.ParticipantName)]
+		if !ok {
+			return fmt.Errorf("resolve advantage participant %q", advantageSeed.ParticipantName)
+		}
+
+		status := strings.TrimSpace(advantageSeed.Status)
+		if status == "" {
+			status = "active"
+		}
+
+		groupID := pgtype.UUID{}
+		if advantageSeed.GroupName != "" {
+			groups, err := q.ListParticipantGroupsByInstance(ctx, instanceID)
+			if err != nil {
+				return fmt.Errorf("list groups for advantage %q: %w", advantageSeed.Name, err)
+			}
+			for _, g := range groups {
+				if strings.EqualFold(g.Name, strings.TrimSpace(advantageSeed.GroupName)) {
+					groupID = g.ID
+					break
+				}
+			}
+			if !groupID.Valid {
+				return fmt.Errorf("resolve advantage group %q for participant %q", advantageSeed.GroupName, advantageSeed.ParticipantName)
+			}
+		}
+
+		if _, err := q.CreateParticipantAdvantage(ctx, db.CreateParticipantAdvantageParams{
+			InstanceID:                 instanceID,
+			ParticipantID:              participantID,
+			ParticipantGroupID:         groupID,
+			AdvantageType:              strings.TrimSpace(advantageSeed.AdvantageType),
+			Name:                       strings.TrimSpace(advantageSeed.Name),
+			Status:                     status,
+			SourceActivityOccurrenceID: pgtype.UUID{},
+			GrantedAt:                  timestamptz(advantageSeed.GrantedAt),
+			EffectiveAt:                timestamptz(advantageSeed.EffectiveAt),
+			EffectiveUntil:             optionalTimestamptz(advantageSeed.EffectiveUntil),
+			Metadata:                   jsonBytesOrEmpty(advantageSeed.Metadata),
+		}); err != nil {
+			return fmt.Errorf("create advantage %q for participant %q: %w", advantageSeed.Name, advantageSeed.ParticipantName, err)
 		}
 	}
 

@@ -170,6 +170,24 @@ type Participant struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type ParticipantAdvantage struct {
+	ID                         int64              `json:"id"`
+	PublicID                   pgtype.UUID        `json:"public_id"`
+	InstanceID                 int64              `json:"instance_id"`
+	ParticipantID              int64              `json:"participant_id"`
+	ParticipantGroupID         pgtype.Int8        `json:"participant_group_id"`
+	AdvantageType              string             `json:"advantage_type"`
+	Name                       string             `json:"name"`
+	Status                     string             `json:"status"`
+	SourceActivityOccurrenceID pgtype.Int8        `json:"source_activity_occurrence_id"`
+	GrantedAt                  pgtype.Timestamptz `json:"granted_at"`
+	EffectiveAt                pgtype.Timestamptz `json:"effective_at"`
+	EffectiveUntil             pgtype.Timestamptz `json:"effective_until"`
+	Metadata                   []byte             `json:"metadata"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ParticipantGroup struct {
 	ID         int64              `json:"id"`
 	PublicID   pgtype.UUID        `json:"public_id"`

@@ -68,6 +68,10 @@ type manualAdjustmentParticipantMetadata struct {
 	Metadata   []byte `json:"metadata"`
 }
 
+type loanSharkContributionMetadata struct {
+	Contribution int32 `json:"contribution"`
+}
+
 type wordleGroupScore struct {
 	GroupID   pgtype.UUID
 	GroupName string
@@ -112,6 +116,8 @@ func (s *Service) ResolveActivityOccurrence(ctx context.Context, occurrenceID pg
 		entries, err = s.resolveJourney(ctx, resolverCtx)
 	case "manual_adjustment":
 		entries, err = s.resolveManualAdjustment(resolverCtx)
+	case "loan_shark":
+		entries, err = s.resolveLoanShark(ctx, resolverCtx)
 	default:
 		return nil, fmt.Errorf("unsupported activity type %q", activity.ActivityType)
 	}
@@ -534,6 +540,116 @@ func (s *Service) resolveManualAdjustment(resolverCtx resolverContext) ([]resolv
 			entry.HasSourceGroup = true
 		}
 		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
+func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverContext) ([]resolvedLedgerEntry, error) {
+	if len(resolverCtx.occurrenceParticipants) == 0 {
+		return nil, fmt.Errorf("loan_shark occurrence must include participant contributions")
+	}
+
+	// Group contributions by participant group (tribe).
+	type groupContribution struct {
+		groupID   pgtype.UUID
+		groupName string
+		total     int32
+		members   []pgtype.UUID // participant IDs that contributed
+	}
+	contributionsByGroup := make(map[pgtype.UUID]*groupContribution)
+
+	for _, participantRow := range resolverCtx.occurrenceParticipants {
+		if !participantRow.ParticipantGroupID.Valid {
+			return nil, fmt.Errorf("loan_shark participant %q must belong to a tribe", participantRow.ParticipantName)
+		}
+
+		var contribution loanSharkContributionMetadata
+		if err := parseJSON(participantRow.Metadata, &contribution); err != nil {
+			return nil, fmt.Errorf("parse loan_shark contribution for participant %q: %w", participantRow.ParticipantName, err)
+		}
+		if contribution.Contribution < 0 {
+			return nil, fmt.Errorf("loan_shark contribution for participant %q must be non-negative", participantRow.ParticipantName)
+		}
+
+		gc, ok := contributionsByGroup[participantRow.ParticipantGroupID]
+		if !ok {
+			gc = &groupContribution{
+				groupID:   participantRow.ParticipantGroupID,
+				groupName: participantRow.ParticipantGroupName.String,
+			}
+			contributionsByGroup[participantRow.ParticipantGroupID] = gc
+		}
+		gc.total += contribution.Contribution
+		gc.members = append(gc.members, participantRow.ParticipantID)
+	}
+
+	membershipCache := make(map[pgtype.UUID][]db.ListActiveParticipantGroupMembershipsAtRow)
+	entries := make([]resolvedLedgerEntry, 0)
+
+	for _, gc := range contributionsByGroup {
+		// Check if this tribe has the Loan Shark Advantage.
+		costPerPoint := int32(4)
+		advantages, err := s.queries.ListActiveAdvantagesByTypeForGroup(ctx, db.ListActiveAdvantagesByTypeForGroupParams{
+			InstanceID:         resolverCtx.activity.InstanceID,
+			ParticipantGroupID: gc.groupID,
+			AdvantageType:      "loan_shark",
+			At:                 resolverCtx.occurrence.EffectiveAt,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("check loan shark advantages for group %q: %w", gc.groupName, err)
+		}
+		if len(advantages) > 0 {
+			costPerPoint = 3
+		}
+
+		// Calculate reward: integer division of total contributions by cost per point.
+		rewardPerMember := gc.total / costPerPoint
+
+		// Spend entries for each contributor.
+		for _, participantRow := range resolverCtx.occurrenceParticipants {
+			if participantRow.ParticipantGroupID != gc.groupID {
+				continue
+			}
+
+			var contribution loanSharkContributionMetadata
+			if err := parseJSON(participantRow.Metadata, &contribution); err != nil {
+				return nil, fmt.Errorf("re-parse loan_shark contribution for participant spend: %w", err)
+			}
+
+			if contribution.Contribution > 0 {
+				entries = append(entries, resolvedLedgerEntry{
+					ParticipantID:  participantRow.ParticipantID,
+					SourceGroupID:  gc.groupID,
+					HasSourceGroup: true,
+					EntryKind:      bonusEntryKindSpend,
+					Points:         -contribution.Contribution,
+					Visibility:     bonusVisibilityPublic,
+					Reason:         fmt.Sprintf("%s Loan Shark contribution", gc.groupName),
+					AwardKey:       fmt.Sprintf("loan_shark:spend:%s", pgUUIDString(participantRow.ParticipantID)),
+				})
+			}
+		}
+
+		// Award entries for all tribe members (if any reward).
+		if rewardPerMember > 0 {
+			members, err := s.membersForGroupAt(ctx, membershipCache, gc.groupID, resolverCtx.occurrence.EffectiveAt.Time)
+			if err != nil {
+				return nil, fmt.Errorf("list active members for loan shark group %q: %w", gc.groupName, err)
+			}
+			for _, member := range members {
+				entries = append(entries, resolvedLedgerEntry{
+					ParticipantID:  member.ParticipantID,
+					SourceGroupID:  gc.groupID,
+					HasSourceGroup: true,
+					EntryKind:      bonusEntryKindAward,
+					Points:         rewardPerMember,
+					Visibility:     bonusVisibilityPublic,
+					Reason:         fmt.Sprintf("%s Loan Shark reward", gc.groupName),
+					AwardKey:       fmt.Sprintf("loan_shark:reward:%s", pgUUIDString(gc.groupID)),
+				})
+			}
+		}
 	}
 
 	return entries, nil

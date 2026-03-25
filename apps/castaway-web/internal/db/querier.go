@@ -23,6 +23,7 @@ type Querier interface {
 	CreateInstanceActivity(ctx context.Context, arg CreateInstanceActivityParams) (CreateInstanceActivityRow, error)
 	CreateInstanceEpisode(ctx context.Context, arg CreateInstanceEpisodeParams) (CreateInstanceEpisodeRow, error)
 	CreateParticipant(ctx context.Context, arg CreateParticipantParams) (CreateParticipantRow, error)
+	CreateParticipantAdvantage(ctx context.Context, arg CreateParticipantAdvantageParams) (CreateParticipantAdvantageRow, error)
 	CreateParticipantGroup(ctx context.Context, arg CreateParticipantGroupParams) (CreateParticipantGroupRow, error)
 	CreateParticipantGroupMembershipPeriod(ctx context.Context, arg CreateParticipantGroupMembershipPeriodParams) (CreateParticipantGroupMembershipPeriodRow, error)
 	DeleteDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) error
@@ -41,6 +42,8 @@ type Querier interface {
 	InstanceHasContestant(ctx context.Context, arg InstanceHasContestantParams) (bool, error)
 	ListActiveActivityGroupAssignmentsAt(ctx context.Context, arg ListActiveActivityGroupAssignmentsAtParams) ([]ListActiveActivityGroupAssignmentsAtRow, error)
 	ListActiveActivityParticipantAssignmentsAt(ctx context.Context, arg ListActiveActivityParticipantAssignmentsAtParams) ([]ListActiveActivityParticipantAssignmentsAtRow, error)
+	ListActiveAdvantagesByTypeForGroup(ctx context.Context, arg ListActiveAdvantagesByTypeForGroupParams) ([]ListActiveAdvantagesByTypeForGroupRow, error)
+	ListActiveAdvantagesByTypeForParticipant(ctx context.Context, arg ListActiveAdvantagesByTypeForParticipantParams) ([]ListActiveAdvantagesByTypeForParticipantRow, error)
 	ListActiveParticipantGroupMembershipsAt(ctx context.Context, arg ListActiveParticipantGroupMembershipsAtParams) ([]ListActiveParticipantGroupMembershipsAtRow, error)
 	ListActivityGroupAssignments(ctx context.Context, activityID pgtype.UUID) ([]ListActivityGroupAssignmentsRow, error)
 	ListActivityOccurrenceGroups(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListActivityOccurrenceGroupsRow, error)
@@ -61,6 +64,7 @@ type Querier interface {
 	ListParticipantGroupsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantGroupsByInstanceRow, error)
 	ListParticipantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantsByInstanceRow, error)
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
+	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
 	UpsertOutcomePosition(ctx context.Context, arg UpsertOutcomePositionParams) (UpsertOutcomePositionRow, error)
 }
 
