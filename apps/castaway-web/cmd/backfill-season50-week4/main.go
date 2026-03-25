@@ -12,6 +12,7 @@ import (
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/config"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/gameplay"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -57,7 +58,9 @@ func run() error {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() {
-		_ = tx.Rollback(ctx)
+		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && rollbackErr != pgx.ErrTxClosed {
+			log.Printf("backfill-season50-week4: rollback tx: %v", rollbackErr)
+		}
 	}()
 
 	q := db.New(tx)
