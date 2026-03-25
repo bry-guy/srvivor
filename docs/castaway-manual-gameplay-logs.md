@@ -372,3 +372,95 @@ _But you must earn the right to keep them._
 _You must complete [Lost for Wordle](https://www.nytimes.com/games/create/wordle/0TE34KB6UX886zrber39cJdYKve8ZnhZcQzpSahLmKQT6P8EJTXqwqQRzEtSayaGM9J0HxsDPXQhoZg=). For every guess you use, you will lose 1 bonus point. All of your bonus points are at risk. You lose secret bonus points first._
 
 _Good luck._
+
+### Week 3
+
+## Castaway Season 50: Week 3 Scores
+
+Come on in! 
+
+Last week, <@1184907069531377774>, <@198239741265707008>, and <@1330603695594799245> took a journey to Castaway Island. From their journey, the **Lotus Tribe** 🪷 received +1 bonus points! Next, in a DRAMATIC vote , ||        Q         || was yeeted off the island. Take a look at your new leaderboard.
+
+1. 🪷 <@357928922513408004> : 10 (7+3)
+2. 🪷 <@1330603695594799245>: 8 (3+5)
+3. 🍊 <@1184907069531377774>: 7 (5+2)
+4. 🥬 <@198239741265707008>: 7 (3+4)
+5. 🥬 <@705588098129461248>: 6 (3+3)
+6. 🥬 <@235246238382030849>: 6 (3+3)
+7. 🪷 <@191756544147324930>: 6 (3+3)
+8. 🥬 <@693275146047324232>: 6 (3+3)
+9. 🪷 <@1331006071552348341>: 6 (3+3)
+10. 🥬 <@695840219819147264>: 6 (3+3)
+11. 🪷 <@1439733434300891237>: 6 (3+3)
+12. 🥬 <@88437577341755392>: 6 (3+3)
+13. 🍊 <@692053627887681570>: 5 (3+2)
+14. 🍊 <@699047810003107850>: 4 (3+1)
+15. 🍊 Keith: 4 (3+1)
+16. 🍊 <@444556931827499018>: 4 (3+1)
+
+> Scoring format is Jeff: Total (Draft+Bonus).
+
+<@357928922513408004> holds on to his lead, benefiting from the journey, while <@1330603695594799245> rightfully ascends into 2nd! <@1184907069531377774> slips down to 3rd, holding tiebreaker over <@198239741265707008> for 4th. Lot of players hanging out 6, and importantly, 🍊 **Tangerine** continues to bring up the caboose 🚃. Get it together Tangerine!
+
+### The Monty Hall Memorial Castaway Game
+
+🔥 I hope you all came to play. This week, we have a new take on a classic. Welcome to **The Monty Hall Memorial Castaway Game**!
+
+Before you stand 5 doors. **Each tribe** will **open a door**. What's behind the door will be **revealed to that tribe only**!
+
+By random selection, 🥬 will go first, then 🪷 , then 🍊!
+
+🚪 🚪 🚪 🚪 🚪 
+
+> Majority vote of those who participate in each tribes vote. **Votes will be open for 15 minutes for each tribe**!
+
+#### Leaf Door Reveal
+
+Everybody ready? Let's get it on!
+
+🥬 Selected door 4!
+
+🪷 <@357928922513408004> <@1330603695594799245> <@191756544147324930> <@1331006071552348341> <@1439733434300891237> your turn! You have until **9pm EDT** to vote for a door (or one will be randomly picked for you)!
+
+
+#### Lotus Door Reveal
+
+🪷 selected door 3!
+
+🍊 <@444556931827499018> <@699047810003107850> <@1184907069531377774> <@692053627887681570> Keith your turn! You have until **9pm EDT** to vote for a door (or one will be randomly picked for you)!
+
+#### Tangerine Door Reveal
+
+🍊 selected door 2!
+
+#### Door Swaps
+
+Now, in honor of Monty Hall - RIP - first, I will offer 🥬 a **chance to swap** to an **unoccupied door**! (1 or 5)
+🥬 has elected to **stay on door 4**. 🪷 you're up!
+🪷 has elected to **stay on door 3**. 🍊 you're up!
+🍊 has selected to **stay on door 2**.
+
+#### Door Reveals
+
+Let's see what's behind each door!
+
+🚪 🚪 🚪 🚪 🚪 
+
+🪹  2️⃣  1️⃣ 📜 🪹 
+
+**Doors 1 and 5** were empty!
+
+🍊 received +2 bonus points from Door 2!
+🪷 received +1 bonus points from Door 1!
+🥬 received a scroll from Door 3!
+
+Thanks for playing everybody! See you next week!
+
+#### Scroll: Loan Shark Advantage
+
+<@198239741265707008> <@705588098129461248> <@695840219819147264> <@88437577341755392> <@693275146047324232> 
+
+Congratulations players! You have earned the **Loan Shark Advantage**. Each player on your tribe has earned a **secret bonus point**! Secret bonus points count the same as bonus points, except they are only revealed when used or scored in the finale.
+
+In an upcoming tribe challenge, you will be able to risk your bonus points to earn a reward. This advantage reduces the cost of your risk!
+
