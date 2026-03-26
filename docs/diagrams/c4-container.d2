@@ -1,0 +1,97 @@
+# Castaway C4 Container Diagram
+# Shows the applications, data stores, and their interactions.
+
+direction: right
+
+title: {
+  label: Castaway - Container Diagram
+  near: top-center
+  shape: text
+  style.font-size: 28
+  style.bold: true
+}
+
+draft_players: Draft Players {
+  shape: person
+}
+
+commissioner: Commissioner {
+  shape: person
+}
+
+discord_platform: Discord Platform {
+  shape: cloud
+}
+
+system: Castaway System {
+  style.fill: "#E8E8E8"
+
+  web: castaway-web {
+    label: |md
+      **castaway-web**
+      [Go / Gin]
+      Core HTTP API serving
+      draft, scoring, gameplay,
+      and leaderboard data
+    |
+    shape: rectangle
+    style.fill: "#1168BD"
+    style.font-color: white
+  }
+
+  bot: castaway-discord-bot {
+    label: |md
+      **castaway-discord-bot**
+      [Go / discordgo]
+      Slash command interface
+      for draft players
+    |
+    shape: rectangle
+    style.fill: "#1168BD"
+    style.font-color: white
+  }
+
+  cli: srvivor CLI {
+    label: |md
+      **srvivor CLI**
+      [Go / cobra]
+      Legacy local scoring
+      (maintenance mode)
+    |
+    shape: rectangle
+    style.fill: "#999999"
+    style.font-color: white
+  }
+
+  postgres: PostgreSQL 16 {
+    label: |md
+      **PostgreSQL 16**
+      Stores instances, contestants,
+      participants, drafts, outcomes,
+      activities, bonus ledger
+    |
+    shape: cylinder
+    style.fill: "#336791"
+    style.font-color: white
+  }
+
+  boltdb: BoltDB {
+    label: |md
+      **BoltDB**
+      Guild/user instance
+      context (dev fallback)
+    |
+    shape: cylinder
+    style.fill: "#555555"
+    style.font-color: white
+  }
+
+  bot -> web: HTTP + Bearer token\n(service-to-service auth)
+  web -> postgres: sqlc queries
+  bot -> boltdb: State store (dev)
+  bot -> postgres: State store (prod)
+}
+
+draft_players -> discord_platform: /castaway commands
+discord_platform -> system.bot: Gateway events
+commissioner -> system.web: REST API\n(import, outcomes, config)

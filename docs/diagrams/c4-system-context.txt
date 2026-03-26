@@ -1,0 +1,20 @@
+                                                                                  ┌────────────────────────────────┐                                                                                
+                                                                                  │                                │                                                                                
+                                                              ╱‾‾╲                └────────────────────────────────┘                                                                                
+                                                              ╲__╱                                                                                                                                  
+                                                          ╱‾‾‾‾‾‾‾‾‾‾╲                                                                                                                              
+                                                          ‾HTTP API
+(manage instances, import─drafts──record outcomes)                                                                              
+                                                          Commissioner                                   │                                                                                          
+                                                                                                         │                                                                               .-‾‾‾‾‾‾-. 
+                                                                                                         │   ┌────────────────────────────────────────────────────────────────┐         │╲-______-╱│
+    ╱‾‾‾╲                                         ┌☁────────────────────┐                                └──▶│                                                                │         │          │
+    ╲___╱                                         │                     │                                    │**Castaway System**
+Fantasy draft scoring platform
+forRead/write
+draft───scoring data│
+ ╱‾‾‾‾‾Slash commands
+(/castaway─score───castaway▶draft)cord Platform  ──────────Bot relays─commands────────▶│                                                                │         │PostgreSQL│
+ ‾‾‾‾‾‾‾‾‾‾‾                                      │                    ◀───────Formatted responses───────────└────────────────────────────────────────────────────────────────┘         │          │
+Draft Players                                     │                     │                                                                                                                ╲-______-╱ 
+                                                  └─────────────────────┘                                                                                                                           

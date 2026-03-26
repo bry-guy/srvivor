@@ -1,0 +1,78 @@
+# Castaway Core Schema - Draft & Scoring Domain
+# Renders the core tables that power draft picks, outcomes, and leaderboard scoring.
+
+direction: right
+
+instances: instances {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  public_id: UUID {constraint: unique}
+  name: TEXT
+  season: TEXT
+  created_at: TIMESTAMPTZ
+}
+
+contestants: contestants {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  public_id: UUID {constraint: unique}
+  name: TEXT {constraint: unique}
+  created_at: TIMESTAMPTZ
+}
+
+instance_contestants: instance_contestants {
+  shape: sql_table
+  instance_id: BIGINT {constraint: foreign_key}
+  contestant_id: BIGINT {constraint: foreign_key}
+}
+
+participants: participants {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  public_id: UUID {constraint: unique}
+  instance_id: BIGINT {constraint: foreign_key}
+  name: TEXT
+  created_at: TIMESTAMPTZ
+}
+
+draft_picks: draft_picks {
+  shape: sql_table
+  participant_id: BIGINT {constraint: foreign_key}
+  contestant_id: BIGINT {constraint: foreign_key}
+  position: INT
+  created_at: TIMESTAMPTZ
+}
+
+outcome_positions: outcome_positions {
+  shape: sql_table
+  instance_id: BIGINT {constraint: foreign_key}
+  position: INT
+  contestant_id: BIGINT {constraint: foreign_key}
+  updated_at: TIMESTAMPTZ
+}
+
+imports: imports {
+  shape: sql_table
+  id: BIGSERIAL {constraint: primary_key}
+  public_id: UUID {constraint: unique}
+  instance_id: BIGINT {constraint: foreign_key}
+  name: TEXT
+  season: TEXT
+  content_type: TEXT
+  payload: JSONB
+  status: TEXT
+  error: TEXT
+  submissions_count: INT
+  created_at: TIMESTAMPTZ
+  updated_at: TIMESTAMPTZ
+}
+
+# Relationships
+instances <-> instance_contestants: has many
+contestants <-> instance_contestants: has many
+instances -> participants: has many
+participants -> draft_picks: has many
+contestants -> draft_picks: picked as
+instances -> outcome_positions: has many
+contestants -> outcome_positions: placed at
+instances -> imports: imported via

@@ -1,0 +1,53 @@
+# Castaway C4 System Context Diagram
+# Shows the system boundary and external actors.
+
+direction: right
+
+title: {
+  label: Castaway - System Context
+  near: top-center
+  shape: text
+  style.font-size: 28
+  style.bold: true
+}
+
+draft_players: Draft Players {
+  shape: person
+  style.fill: "#08427B"
+  style.font-color: white
+}
+
+commissioner: Commissioner {
+  shape: person
+  style.fill: "#08427B"
+  style.font-color: white
+}
+
+discord: Discord Platform {
+  shape: cloud
+  style.fill: "#5865F2"
+  style.font-color: white
+}
+
+castaway: Castaway System {
+  shape: rectangle
+  style.fill: "#1168BD"
+  style.font-color: white
+  label: |md
+    **Castaway System**
+    Fantasy draft scoring platform
+    for Survivor
+  |
+}
+
+postgres: PostgreSQL {
+  shape: cylinder
+  style.fill: "#336791"
+  style.font-color: white
+}
+
+draft_players -> discord: Slash commands\n(/castaway score, /castaway draft)
+discord -> castaway: Bot relays commands
+castaway -> discord: Formatted responses
+commissioner -> castaway: HTTP API\n(manage instances, import drafts,\nrecord outcomes)
+castaway -> postgres: Read/write\ndraft & scoring data
