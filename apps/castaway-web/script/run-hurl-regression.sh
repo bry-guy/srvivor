@@ -44,6 +44,47 @@ wait_for_postgres() {
   return 1
 }
 
+wait_for_postgres_tcp() {
+  local host="$1"
+  local port="$2"
+  python3 - "$host" "$port" <<'PY'
+import socket, sys, time
+host = sys.argv[1]
+port = int(sys.argv[2])
+last_error = None
+for _ in range(120):
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            sys.exit(0)
+    except OSError as exc:
+        last_error = exc
+        time.sleep(0.25)
+print(f"timed out waiting for postgres tcp {host}:{port}: {last_error}", file=sys.stderr)
+sys.exit(1)
+PY
+}
+
+run_seed_with_retries() {
+  local attempts=5
+  local delay=1
+  local attempt
+
+  for attempt in $(seq 1 "$attempts"); do
+    if (
+      cd "$app_dir"
+      DATABASE_URL="$database_url" AUTO_MIGRATE=false go run ./cmd/seed
+    ) >"$seed_log" 2>&1; then
+      return 0
+    fi
+
+    if (( attempt == attempts )); then
+      return 1
+    fi
+
+    sleep "$delay"
+  done
+}
+
 postgres_port="$(find_free_port)"
 api_port="$(find_free_port)"
 container_name="castaway-web-hurl-${postgres_port}"
@@ -86,11 +127,8 @@ docker run -d --rm \
   postgres:16 >/dev/null
 
 wait_for_postgres "$container_name"
-
-(
-  cd "$app_dir"
-  DATABASE_URL="$database_url" AUTO_MIGRATE=false go run ./cmd/seed
-) >"$seed_log" 2>&1
+wait_for_postgres_tcp "127.0.0.1" "$postgres_port"
+run_seed_with_retries
 
 (
   cd "$app_dir"
