@@ -19,7 +19,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("backfill-season50-week4: %v", err)
+		log.Fatalf("backfill-season50-tribe-correction: %v", err)
 	}
 }
 
@@ -59,7 +59,7 @@ func run() error {
 	}
 	defer func() {
 		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && rollbackErr != pgx.ErrTxClosed {
-			log.Printf("backfill-season50-week4: rollback tx: %v", rollbackErr)
+			log.Printf("backfill-season50-tribe-correction: rollback tx: %v", rollbackErr)
 		}
 	}()
 
@@ -71,36 +71,10 @@ func run() error {
 		return err
 	}
 
-	if instance.Name != "Season 50" {
-		updated, err := q.UpdateInstanceName(ctx, db.UpdateInstanceNameParams{PublicID: instance.ID, Name: "Season 50"})
-		if err != nil {
-			return fmt.Errorf("rename instance: %w", err)
-		}
-		instance = db.ListInstancesRow(updated)
-		fmt.Println("renamed instance to Season 50")
-	}
-
 	participantByName, err := participantMap(ctx, q, instance.ID)
 	if err != nil {
 		return err
 	}
-	contestantByName, err := contestantMap(ctx, q, instance.ID)
-	if err != nil {
-		return err
-	}
-
-	mikeID, ok := contestantByName[normalize("Mike")]
-	if !ok {
-		return fmt.Errorf("resolve contestant Mike")
-	}
-	if _, err := q.UpsertOutcomePosition(ctx, db.UpsertOutcomePositionParams{
-		InstanceID:   instance.ID,
-		Position:     20,
-		ContestantID: mikeID,
-	}); err != nil {
-		return fmt.Errorf("upsert Mike at position 20: %w", err)
-	}
-	fmt.Println("ensured Mike is position 20")
 
 	groups := []groupSpec{
 		{Name: "Tangerine", Members: []string{"Adam", "Grant", "Kyle", "Kate", "Keith"}},
@@ -112,46 +86,54 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if err := correctMemberships(ctx, tx, instance.ID, participantByName, groupByName, groups, preseasonStart, preseasonStart.Add(time.Second)); err != nil {
+		return err
+	}
 
-	montyHallActivity, err := ensureActivity(ctx, q, instance.ID, "manual_adjustment", "Monty Hall Memorial Castaway Game", "completed", mustTime("2026-03-18T20:00:00-04:00"))
+	correctionActivity, err := ensureActivity(ctx, q, instance.ID, "manual_adjustment", "Season 50 Tribe Correction", "completed", mustTime("2026-03-25T20:00:00-04:00"))
 	if err != nil {
 		return err
 	}
 
-	tangerineOccurrence, err := ensureManualAdjustmentOccurrence(ctx, svc, q, montyHallActivity.ID, "Monty Hall — Tangerine Door 2 (+2 bonus)", mustTime("2026-03-19T01:00:00Z"), []adjustmentParticipant{
-		{Name: "Adam", Points: 2}, {Name: "Grant", Points: 2}, {Name: "Kyle", Points: 2}, {Name: "Kate", Points: 2}, {Name: "Keith", Points: 2},
-	}, "public", "Monty Hall Memorial Castaway Game — Tangerine Door 2", "season50:monty-hall", participantByName)
-	if err != nil {
-		return err
-	}
-	_ = tangerineOccurrence
-
-	lotusOccurrence, err := ensureManualAdjustmentOccurrence(ctx, svc, q, montyHallActivity.ID, "Monty Hall — Lotus Door 3 (+1 bonus)", mustTime("2026-03-19T01:01:00Z"), []adjustmentParticipant{
-		{Name: "Katie", Points: 1}, {Name: "Kenny", Points: 1}, {Name: "Marv", Points: 1}, {Name: "Keeling", Points: 1}, {Name: "Sarah", Points: 1},
-	}, "public", "Monty Hall Memorial Castaway Game — Lotus Door 3", "season50:monty-hall", participantByName)
-	if err != nil {
-		return err
-	}
-	_ = lotusOccurrence
-
-	leafScrollOccurrence, err := ensureManualAdjustmentOccurrence(ctx, svc, q, montyHallActivity.ID, "Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)", mustTime("2026-03-19T01:02:00Z"), []adjustmentParticipant{
-		{Name: "Bryan", Points: 1}, {Name: "Lauren", Points: 1}, {Name: "Amanda", Points: 1}, {Name: "Yacob", Points: 1}, {Name: "Riley", Points: 1}, {Name: "Mooney", Points: 1},
-	}, "secret", "Loan Shark Advantage Scroll — secret bonus point", "season50:monty-hall-scroll-secret", participantByName)
-	if err != nil {
+	if _, err := ensureManualAdjustmentOccurrence(ctx, svc, q, correctionActivity.ID, "Season 50 tribe correction — Week 4 public fixes", mustTime("2026-03-25T20:00:00-04:00"), []adjustmentParticipant{
+		{Name: "Kate", Points: 2},
+		{Name: "Mooney", Points: -2},
+		{Name: "Kenny", Points: 1},
+		{Name: "Marv", Points: 1},
+		{Name: "Keeling", Points: 1},
+		{Name: "Sarah", Points: 1},
+		{Name: "Amanda", Points: -1},
+		{Name: "Yacob", Points: -1},
+		{Name: "Lauren", Points: -1},
+		{Name: "Bryan", Points: -1},
+	}, "public", "Season 50 tribe correction — Week 4 public fixes", "season50:tribe-correction-week4-public", participantByName); err != nil {
 		return err
 	}
 
-	_, err = ensureActivity(ctx, q, instance.ID, "loan_shark", "Loan Shark", "planned", mustTime("2026-03-25T20:00:00-04:00"))
-	if err != nil {
+	if _, err := ensureManualAdjustmentOccurrence(ctx, svc, q, correctionActivity.ID, "Season 50 tribe correction — Week 4 secret fixes", mustTime("2026-03-25T20:00:01-04:00"), []adjustmentParticipant{
+		{Name: "Bryan", Points: 1},
+		{Name: "Lauren", Points: 1},
+		{Name: "Amanda", Points: 1},
+		{Name: "Yacob", Points: 1},
+		{Name: "Mooney", Points: 1},
+		{Name: "Keeling", Points: -1},
+		{Name: "Kate", Points: -1},
+		{Name: "Kenny", Points: -1},
+		{Name: "Sarah", Points: -1},
+		{Name: "Marv", Points: -1},
+	}, "secret", "Season 50 tribe correction — Week 4 secret fixes", "season50:tribe-correction-week4-secret", participantByName); err != nil {
 		return err
 	}
 
+	if err := expireWrongLoanSharkAdvantages(ctx, tx, instance.ID, participantByName, []string{"Keeling", "Kate", "Kenny", "Sarah", "Marv"}); err != nil {
+		return err
+	}
 	for _, name := range []string{"Bryan", "Lauren", "Amanda", "Yacob", "Riley", "Mooney"} {
 		participantID, ok := participantByName[normalize(name)]
 		if !ok {
-			return fmt.Errorf("resolve participant %q for advantage", name)
+			return fmt.Errorf("resolve participant %q for corrected advantage", name)
 		}
-		if err := ensureAdvantage(ctx, q, instance.ID, participantID, groupByName["Leaf"].ID, leafScrollOccurrence.ID, name); err != nil {
+		if err := ensureAdvantage(ctx, q, instance.ID, participantID, groupByName["Leaf"].ID, pgtype.UUID{}, name); err != nil {
 			return err
 		}
 	}
@@ -160,7 +142,7 @@ func run() error {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 
-	fmt.Println("season 50 week 4 backfill complete")
+	fmt.Println("season 50 tribe correction backfill complete")
 	return nil
 }
 
@@ -189,18 +171,6 @@ func participantMap(ctx context.Context, q *db.Queries, instanceID pgtype.UUID) 
 	result := make(map[string]pgtype.UUID, len(participants))
 	for _, p := range participants {
 		result[normalize(p.Name)] = p.ID
-	}
-	return result, nil
-}
-
-func contestantMap(ctx context.Context, q *db.Queries, instanceID pgtype.UUID) (map[string]pgtype.UUID, error) {
-	contestants, err := q.ListContestantsByInstance(ctx, instanceID)
-	if err != nil {
-		return nil, fmt.Errorf("list contestants: %w", err)
-	}
-	result := make(map[string]pgtype.UUID, len(contestants))
-	for _, c := range contestants {
-		result[normalize(c.Name)] = c.ID
 	}
 	return result, nil
 }
@@ -263,6 +233,88 @@ func ensureGroups(ctx context.Context, q *db.Queries, svc *gameplay.Service, ins
 	}
 
 	return groupByName, nil
+}
+
+func correctMemberships(ctx context.Context, tx pgx.Tx, instanceID pgtype.UUID, participantByName map[string]pgtype.UUID, groupByName map[string]db.ListParticipantGroupsByInstanceRow, specs []groupSpec, startsAt, endsAt time.Time) error {
+	desiredByGroup := make(map[string]map[string]struct{}, len(specs))
+	for _, spec := range specs {
+		members := make(map[string]struct{}, len(spec.Members))
+		for _, name := range spec.Members {
+			members[normalize(name)] = struct{}{}
+		}
+		desiredByGroup[spec.Name] = members
+	}
+
+	for groupName, group := range groupByName {
+		if group.Kind != "tribe" {
+			continue
+		}
+		desired, ok := desiredByGroup[groupName]
+		if !ok {
+			continue
+		}
+		memberships, err := db.New(tx).ListParticipantGroupMembershipPeriods(ctx, group.ID)
+		if err != nil {
+			return fmt.Errorf("list memberships for correction in group %q: %w", groupName, err)
+		}
+		for _, membership := range memberships {
+			if membership.Role != "member" || !membership.StartsAt.Valid || !membership.StartsAt.Time.Equal(startsAt) {
+				continue
+			}
+			participantName, ok := participantNameByID(participantByName, membership.ParticipantID)
+			if !ok {
+				continue
+			}
+			if _, keep := desired[participantName]; keep {
+				continue
+			}
+			if membership.EndsAt.Valid && !membership.EndsAt.Time.After(endsAt) {
+				continue
+			}
+			if _, err := tx.Exec(ctx, `
+UPDATE participant_group_membership_periods
+SET ends_at = $1
+WHERE participant_group_id = (
+    SELECT pg.id
+    FROM participant_groups pg
+    JOIN instances i ON i.id = pg.instance_id
+    WHERE i.public_id = $2
+      AND pg.public_id = $3
+)
+  AND participant_id = (
+    SELECT p.id
+    FROM participants p
+    JOIN instances i ON i.id = p.instance_id
+    WHERE i.public_id = $2
+      AND p.public_id = $4
+)
+  AND role = 'member'
+  AND starts_at = $5
+  AND (ends_at IS NULL OR ends_at > $1)
+`, endsAt, instanceID, group.ID, membership.ParticipantID, startsAt); err != nil {
+				return fmt.Errorf("end incorrect membership %q in %q: %w", participantName, groupName, err)
+			}
+			fmt.Printf("ended incorrect membership %s -> %s\n", displayName(participantName), groupName)
+		}
+	}
+
+	return nil
+}
+
+func participantNameByID(participantByName map[string]pgtype.UUID, id pgtype.UUID) (string, bool) {
+	for name, candidate := range participantByName {
+		if candidate == id {
+			return name, true
+		}
+	}
+	return "", false
+}
+
+func displayName(normalized string) string {
+	if normalized == "" {
+		return normalized
+	}
+	return strings.ToUpper(normalized[:1]) + normalized[1:]
 }
 
 func ensureActivity(ctx context.Context, q *db.Queries, instanceID pgtype.UUID, activityType, name, status string, startsAt time.Time) (db.ListInstanceActivitiesByInstanceRow, error) {
@@ -342,6 +394,36 @@ func ensureManualAdjustmentOccurrence(ctx context.Context, svc *gameplay.Service
 	}
 	fmt.Printf("created and resolved occurrence %s\n", name)
 	return db.ListActivityOccurrencesByActivityRow(occurrence), nil
+}
+
+func expireWrongLoanSharkAdvantages(ctx context.Context, tx pgx.Tx, instanceID pgtype.UUID, participantByName map[string]pgtype.UUID, names []string) error {
+	for _, name := range names {
+		participantID, ok := participantByName[normalize(name)]
+		if !ok {
+			return fmt.Errorf("resolve participant %q for advantage expiry", name)
+		}
+		commandTag, err := tx.Exec(ctx, `
+UPDATE participant_advantages pa
+SET status = 'expired',
+    updated_at = NOW(),
+    metadata = pa.metadata || jsonb_build_object('expired_by', 'backfill-season50-tribe-correction')
+FROM instances i, participants p
+WHERE pa.instance_id = i.id
+  AND pa.participant_id = p.id
+  AND i.public_id = $1
+  AND p.public_id = $2
+  AND pa.advantage_type = 'loan_shark'
+  AND pa.name = 'Loan Shark Advantage Scroll'
+  AND pa.status = 'active'
+`, instanceID, participantID)
+		if err != nil {
+			return fmt.Errorf("expire wrong advantage for %q: %w", name, err)
+		}
+		if commandTag.RowsAffected() > 0 {
+			fmt.Printf("expired incorrect loan shark advantage for %s\n", name)
+		}
+	}
+	return nil
 }
 
 func ensureAdvantage(ctx context.Context, q *db.Queries, instanceID, participantID, groupID, sourceOccurrenceID pgtype.UUID, participantName string) error {

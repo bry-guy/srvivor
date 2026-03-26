@@ -2352,9 +2352,9 @@
         "kind": "tribe",
         "memberships": [
           { "participant_name": "Adam", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Mooney", "starts_at": "2026-02-25T20:00:00-05:00" },
           { "participant_name": "Grant", "starts_at": "2026-02-25T20:00:00-05:00" },
           { "participant_name": "Kyle", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Kate", "starts_at": "2026-02-25T20:00:00-05:00" },
           { "participant_name": "Keith", "starts_at": "2026-02-25T20:00:00-05:00" }
         ]
       },
@@ -2362,23 +2362,23 @@
         "name": "Leaf",
         "kind": "tribe",
         "memberships": [
-          { "participant_name": "Keeling", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Kate", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Kenny", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Sarah", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Marv", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Riley", "starts_at": "2026-02-25T20:00:00-05:00" }
+          { "participant_name": "Bryan", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Lauren", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Amanda", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Yacob", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Riley", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Mooney", "starts_at": "2026-02-25T20:00:00-05:00" }
         ]
       },
       {
         "name": "Lotus",
         "kind": "tribe",
         "memberships": [
-          { "participant_name": "Amanda", "starts_at": "2026-02-25T20:00:00-05:00" },
           { "participant_name": "Katie", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Yacob", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Lauren", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Bryan", "starts_at": "2026-02-25T20:00:00-05:00" }
+          { "participant_name": "Kenny", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Marv", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Keeling", "starts_at": "2026-02-25T20:00:00-05:00" },
+          { "participant_name": "Sarah", "starts_at": "2026-02-25T20:00:00-05:00" }
         ]
       }
     ],
@@ -2979,16 +2979,6 @@
                 }
               },
               {
-                "name": "Mooney",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 2,
-                  "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Tangerine Door 2",
-                  "award_key": "season50:monty-hall"
-                }
-              },
-              {
                 "name": "Grant",
                 "role": "adjustment",
                 "metadata": {
@@ -3000,6 +2990,16 @@
               },
               {
                 "name": "Kyle",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 2,
+                  "visibility": "public",
+                  "reason": "Monty Hall Memorial Castaway Game — Tangerine Door 2",
+                  "award_key": "season50:monty-hall"
+                }
+              },
+              {
+                "name": "Kate",
                 "role": "adjustment",
                 "metadata": {
                   "points": 2,
@@ -3028,16 +3028,6 @@
             "resolve": true,
             "participants": [
               {
-                "name": "Amanda",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Lotus Door 3",
-                  "award_key": "season50:monty-hall"
-                }
-              },
-              {
                 "name": "Katie",
                 "role": "adjustment",
                 "metadata": {
@@ -3048,7 +3038,7 @@
                 }
               },
               {
-                "name": "Yacob",
+                "name": "Kenny",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3058,7 +3048,7 @@
                 }
               },
               {
-                "name": "Lauren",
+                "name": "Marv",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3068,7 +3058,17 @@
                 }
               },
               {
-                "name": "Bryan",
+                "name": "Keeling",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "public",
+                  "reason": "Monty Hall Memorial Castaway Game — Lotus Door 3",
+                  "award_key": "season50:monty-hall"
+                }
+              },
+              {
+                "name": "Sarah",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3087,7 +3087,7 @@
             "resolve": true,
             "participants": [
               {
-                "name": "Keeling",
+                "name": "Bryan",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3097,7 +3097,7 @@
                 }
               },
               {
-                "name": "Kate",
+                "name": "Lauren",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3107,7 +3107,7 @@
                 }
               },
               {
-                "name": "Kenny",
+                "name": "Amanda",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3117,17 +3117,7 @@
                 }
               },
               {
-                "name": "Sarah",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "secret",
-                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
-                  "award_key": "season50:monty-hall-scroll-secret"
-                }
-              },
-              {
-                "name": "Marv",
+                "name": "Yacob",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3138,6 +3128,16 @@
               },
               {
                 "name": "Riley",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 1,
+                  "visibility": "secret",
+                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
+                  "award_key": "season50:monty-hall-scroll-secret"
+                }
+              },
+              {
+                "name": "Mooney",
                 "role": "adjustment",
                 "metadata": {
                   "points": 1,
@@ -3159,7 +3159,7 @@
     ],
     "advantages": [
       {
-        "participant_name": "Keeling",
+        "participant_name": "Bryan",
         "group_name": "Leaf",
         "advantage_type": "loan_shark",
         "name": "Loan Shark Advantage Scroll",
@@ -3168,7 +3168,7 @@
         "effective_until": "2026-04-08T20:00:00-04:00"
       },
       {
-        "participant_name": "Kate",
+        "participant_name": "Lauren",
         "group_name": "Leaf",
         "advantage_type": "loan_shark",
         "name": "Loan Shark Advantage Scroll",
@@ -3177,7 +3177,7 @@
         "effective_until": "2026-04-08T20:00:00-04:00"
       },
       {
-        "participant_name": "Kenny",
+        "participant_name": "Amanda",
         "group_name": "Leaf",
         "advantage_type": "loan_shark",
         "name": "Loan Shark Advantage Scroll",
@@ -3186,16 +3186,7 @@
         "effective_until": "2026-04-08T20:00:00-04:00"
       },
       {
-        "participant_name": "Sarah",
-        "group_name": "Leaf",
-        "advantage_type": "loan_shark",
-        "name": "Loan Shark Advantage Scroll",
-        "granted_at": "2026-03-19T01:02:00Z",
-        "effective_at": "2026-03-25T20:00:00-04:00",
-        "effective_until": "2026-04-08T20:00:00-04:00"
-      },
-      {
-        "participant_name": "Marv",
+        "participant_name": "Yacob",
         "group_name": "Leaf",
         "advantage_type": "loan_shark",
         "name": "Loan Shark Advantage Scroll",
@@ -3205,6 +3196,15 @@
       },
       {
         "participant_name": "Riley",
+        "group_name": "Leaf",
+        "advantage_type": "loan_shark",
+        "name": "Loan Shark Advantage Scroll",
+        "granted_at": "2026-03-19T01:02:00Z",
+        "effective_at": "2026-03-25T20:00:00-04:00",
+        "effective_until": "2026-04-08T20:00:00-04:00"
+      },
+      {
+        "participant_name": "Mooney",
         "group_name": "Leaf",
         "advantage_type": "loan_shark",
         "name": "Loan Shark Advantage Scroll",
