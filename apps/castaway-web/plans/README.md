@@ -3,7 +3,7 @@
 ## Current plans
 
 - `auth-and-authorization-planning.md` — status: `planning`
-- `service-to-service-authentication-planning.md` — status: `planning`
+- `service-to-service-authentication-planning.md` — status: `done`
 - `bonus-points-planning.md` — status: `planning`
 - `seed-first-class-bonus-activities-planning.md` — status: `planning`
 

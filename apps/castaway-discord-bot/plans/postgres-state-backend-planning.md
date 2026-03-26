@@ -1,6 +1,8 @@
 # PostgreSQL State Backend Plan
 
-Status: `planning`
+Status: `done`
+
+Implementation completed — `PostgresStore` in `internal/state/postgres_store.go` with auto-schema management, `Store` interface with `Open()` factory supporting both `bolt` and `postgres` backends via `BOT_STATE_BACKEND` config.
 
 ## Goal
 
@@ -111,11 +113,14 @@ Once file-backed local state is gone, the bot no longer needs deployment semanti
 
 That does not automatically imply multi-replica safety for every future bot design concern, but it removes the current local-state blocker.
 
+## Resolved questions
+
+- should the bot adopt the same migration helper pattern that `castaway-web` uses, or should it use a lighter dedicated SQL migration path? → **Resolved: lighter `ensureSchema()` approach with inline CREATE TABLE IF NOT EXISTS**
+- do we want timestamps or audit metadata on saved defaults, or should the first relational schema stay minimal? → **Resolved: `updated_at` timestamp included on both tables**
+
 ## Open questions
 
-- should the bot adopt the same migration helper pattern that `castaway-web` uses, or should it use a lighter dedicated SQL migration path?
 - is a one-time import from BoltDB sufficient, or is a temporary dual-read strategy needed?
-- do we want timestamps or audit metadata on saved defaults, or should the first relational schema stay minimal?
 
 ## Implementation phases
 

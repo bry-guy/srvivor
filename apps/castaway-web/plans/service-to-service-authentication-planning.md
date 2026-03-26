@@ -1,6 +1,8 @@
 # Service-to-Service Authentication Plan
 
-Status: `planning`
+Status: `done`
+
+Implementation completed — bearer-token service auth middleware in `internal/httpapi/auth.go`, tests in `auth_test.go`, `/healthz` exemption, multi-token support for rotation, principal context injection.
 
 ## Goal
 
@@ -127,11 +129,14 @@ It does not replace the broader need to decide:
 - document token rotation
 - verify logs do not leak auth headers or token values
 
+## Resolved questions
+
+- should the first implementation accept exactly one token or a small token set for easier rotation? → **Resolved: multi-token set via CSV env var `SERVICE_AUTH_BEARER_TOKENS`**
+- does the API need to distinguish service principals before human auth exists, or is one principal enough initially? → **Resolved: single principal (`castaway-discord-bot`) with context injection for future expansion**
+
 ## Open questions
 
 - should the production API remain bot-only for a while, or should any human-facing read-only access be planned now?
-- should the first implementation accept exactly one token or a small token set for easier rotation?
-- does the API need to distinguish service principals before human auth exists, or is one principal enough initially?
 
 ## Related threads
 

@@ -4,10 +4,10 @@ This checklist records repository-level production requirements across apps.
 Detailed shared guidance also exists in `docs/production-readiness-checklist.md`.
 
 ## Shared readiness
-- [ ] Each app has current functional, non-functional, and production-readiness documentation
-- [ ] Shared secrets and configuration flows are documented
+- [x] Each app has current functional, non-functional, and production-readiness documentation — all apps have standardized docs
+- [x] Shared secrets and configuration flows are documented — `docs/secrets-and-config.md` covers 1Password/fnox workflow
 - [ ] Cross-app runbooks are documented for outages, restarts, and rollback
-- [ ] Release/versioning expectations are documented
+- [x] Release/versioning expectations are documented — `docs/versioning-and-releases.md`
 
 ## App readiness
 - [ ] `apps/castaway-web` production requirements reviewed
@@ -17,6 +17,7 @@ Detailed shared guidance also exists in `docs/production-readiness-checklist.md`
 ## Follow-up threads
 
 - `docs/selfhost-k3s-deployment-blueprint.md`
+- `docs/security-audit-web-discord-identity.md` — new: cross-app identity and authorization gap analysis
 - `plans/selfhost-k3s-implementation-plan.md`
 - `apps/castaway-web/plans/auth-and-authorization-planning.md`
 - `apps/castaway-web/plans/service-to-service-authentication-planning.md`
@@ -27,4 +28,4 @@ Detailed shared guidance also exists in `docs/production-readiness-checklist.md`
 
 ## Current status
 
-Current state: local development readiness is in place; production readiness remains an app-by-app hardening effort.
+Current state: foundational implementation is in place — service auth, deployment manifests, migration job, TypeSpec contract, and PostgreSQL state backend are all implemented. Remaining work is authorization model design, operational runbooks, structured logging, and deployment hardening.

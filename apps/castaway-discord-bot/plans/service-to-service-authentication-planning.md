@@ -1,6 +1,8 @@
 # Service-to-Service Authentication Plan
 
-Status: `planning`
+Status: `done`
+
+Implementation completed — bearer token injected via `castaway.Options{BearerToken}` in API client, `Authorization: Bearer` header sent on every request, config loaded from `CASTAWAY_API_AUTH_TOKEN` env var.
 
 ## Goal
 
@@ -82,11 +84,14 @@ The bot does not need complex multi-token logic if the API handles the overlap w
 - document token rotation procedure
 - ensure production logs and health signals make auth misconfiguration obvious
 
+## Resolved questions
+
+- should the bot have an explicit production-mode flag, or is presence of the token enough to imply auth behavior? → **Resolved: token presence implies auth; empty token means no auth header sent**
+- does the first version need anything beyond one bearer token and one service principal? → **Resolved: one token, one principal is sufficient for v1**
+
 ## Open questions
 
-- should the bot have an explicit production-mode flag, or is presence of the token enough to imply auth behavior?
 - should the bot expose a local health indicator that can surface repeated auth failures distinctly from general API failures?
-- does the first version need anything beyond one bearer token and one service principal?
 
 ## Related threads
 

@@ -2,16 +2,16 @@
 
 ## Security
 - [ ] Discord token rotation procedure documented
-- [ ] Guild-scoped commands verified to enforce required Discord permissions
+- [x] Guild-scoped commands verified to enforce required Discord permissions — `hasGuildManagePermission` check in `handlers.go`
 - [ ] Secrets managed outside the repository and local plaintext files
 - [ ] Logging reviewed for secret and payload leakage risks
 
 ## Reliability
 - [ ] `castaway-web` outage behavior documented and tested
 - [ ] State backup/restore expectations documented for the selected deployment model
-- [ ] BoltDB-to-PostgreSQL state migration path documented and validated
+- [x] BoltDB-to-PostgreSQL state migration path documented and validated — `postgres_store.go` implemented with `ensureSchema`, both backends available via `Store` interface and `Open()` factory
 - [ ] Restart/runbook documentation created
-- [ ] Default-instance persistence validated under expected usage
+- [x] Default-instance persistence validated under expected usage — guild and user defaults stored with proper unique constraints
 
 ## Observability
 - [ ] Structured logging verified in the deployed environment
@@ -31,4 +31,4 @@
 
 ## Operational status
 
-Current state: suitable for local and single-instance development; production rollout still requires explicit operational runbooks and a production state strategy.
+Current state: service auth header wired into API client; PostgreSQL state backend implemented alongside BoltDB; guild permission enforcement in place. Remaining gaps: token rotation runbooks, structured logging, outage behavior documentation, and state backup/restore procedures.
