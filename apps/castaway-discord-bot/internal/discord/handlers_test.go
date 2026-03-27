@@ -22,6 +22,8 @@ type testCastawayAPI struct {
 	participantsByInstance map[string][]castaway.Participant
 	leaderboardByInstance  map[string][]castaway.LeaderboardRow
 	draftsByInstance       map[string]map[string]castaway.Draft
+	activitiesByInstance   map[string][]castaway.Activity
+	occurrencesByActivity  map[string][]castaway.Occurrence
 }
 
 func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
@@ -227,6 +229,119 @@ func TestResolveInstanceRegression_ClearsStaleUserDefaultBeforeGuildFallback(t *
 	}
 }
 
+func TestActivitiesCommandRegression_ListsActivitiesForInstance(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		activitiesByInstance: map[string][]castaway.Activity{
+			"instance-50": {
+				{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"},
+				{ID: "act-2", InstanceID: "instance-50", ActivityType: "journey", Name: "Journey 1", Status: "completed"},
+			},
+		},
+	})
+
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "activities"})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		"**Season 50 — Historical Season 50 — Activities**",
+		"- **Tribal Pony** (tribal_pony) — active",
+		"- **Journey 1** (journey) — completed",
+	}, "\n")
+	if message != expected {
+		t.Fatalf("unexpected activities message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestActivitiesCommandRegression_EmptyActivities(t *testing.T) {
+	bot, _ := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+	})
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
+		name:    "activities",
+		options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("season", 50)},
+	})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+
+	expected := "**Season 50 — Historical Season 50**\nNo activities found."
+	if message != expected {
+		t.Fatalf("unexpected activities message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestOccurrencesCommandRegression_ListsOccurrencesForActivity(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		activitiesByInstance: map[string][]castaway.Activity{
+			"instance-50": {
+				{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"},
+			},
+		},
+		occurrencesByActivity: map[string][]castaway.Occurrence{
+			"act-1": {
+				{ID: "occ-1", ActivityID: "act-1", OccurrenceType: "immunity_result", Name: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z", Status: "resolved"},
+				{ID: "occ-2", ActivityID: "act-1", OccurrenceType: "immunity_result", Name: "Episode 2 Immunity", EffectiveAt: "2026-03-12T00:00:00Z", Status: "resolved"},
+			},
+		},
+	})
+
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
+		name:    "occurrences",
+		options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Tribal Pony")},
+	})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+
+	expected := strings.Join([]string{
+		"**Tribal Pony — Occurrences**",
+		"- **Episode 1 Immunity** (immunity_result) — resolved @ Mar 5 01:00",
+		"- **Episode 2 Immunity** (immunity_result) — resolved @ Mar 12 00:00",
+	}, "\n")
+	if message != expected {
+		t.Fatalf("unexpected occurrences message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestOccurrencesCommandRegression_ActivityNotFound(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		activitiesByInstance: map[string][]castaway.Activity{
+			"instance-50": {
+				{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"},
+			},
+		},
+	})
+
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
+		name:    "occurrences",
+		options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Nonexistent")},
+	})
+	if err == nil {
+		t.Fatal("expected error for nonexistent activity")
+	}
+	if !strings.Contains(err.Error(), "no activities matched") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func newTestBot(t *testing.T, api testCastawayAPI) (*Bot, *state.BoltStore) {
 	t.Helper()
 
@@ -267,6 +382,15 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 		}
 
 		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) == 3 && parts[0] == "activities" && parts[2] == "occurrences" && r.Method == http.MethodGet {
+			activityID := parts[1]
+			occurrences := api.occurrencesByActivity[activityID]
+			if occurrences == nil {
+				occurrences = []castaway.Occurrence{}
+			}
+			writeJSON(http.StatusOK, map[string]any{"occurrences": occurrences})
+			return
+		}
 		if len(parts) == 1 && parts[0] == "instances" {
 			instances := api.instances
 			if seasonRaw := strings.TrimSpace(r.URL.Query().Get("season")); seasonRaw != "" {
@@ -323,6 +447,12 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 				participants = filtered
 			}
 			writeJSON(http.StatusOK, map[string]any{"participants": participants})
+		case len(parts) == 3 && parts[2] == "activities" && r.Method == http.MethodGet:
+			activities := api.activitiesByInstance[instanceID]
+			if activities == nil {
+				activities = []castaway.Activity{}
+			}
+			writeJSON(http.StatusOK, map[string]any{"activities": activities})
 		case len(parts) == 3 && parts[2] == "leaderboard" && r.Method == http.MethodGet:
 			rows := api.leaderboardByInstance[instanceID]
 			if participantID := strings.TrimSpace(r.URL.Query().Get("participant_id")); participantID != "" {

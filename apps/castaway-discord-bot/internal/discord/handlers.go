@@ -81,6 +81,10 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 			return b.handleScores(ctx, interaction, command)
 		case "draft":
 			return b.handleDraft(ctx, interaction, command)
+		case "activities":
+			return b.handleActivities(ctx, interaction, command)
+		case "occurrences":
+			return b.handleOccurrences(ctx, interaction, command)
 		default:
 			return "", fmt.Errorf("unsupported castaway command: %s", command.name)
 		}
@@ -147,6 +151,50 @@ func (b *Bot) handleDraft(ctx context.Context, interaction *discordgo.Interactio
 		return "", err
 	}
 	return format.Draft(instance, draft), nil
+}
+
+func (b *Bot) handleActivities(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		return "", err
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		return "", err
+	}
+	activities, err := b.castaway.ListActivities(ctx, instance.ID)
+	if err != nil {
+		return "", err
+	}
+	return format.ActivitiesList(instance, activities), nil
+}
+
+func (b *Bot) handleOccurrences(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		return "", err
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		return "", err
+	}
+	activityName := optionString(command, "activity")
+	if activityName == "" {
+		return "", fmt.Errorf("activity name is required")
+	}
+	activities, err := b.castaway.ListActivities(ctx, instance.ID)
+	if err != nil {
+		return "", err
+	}
+	activity, err := selectActivityByName(activityName, activities)
+	if err != nil {
+		return "", err
+	}
+	occurrences, err := b.castaway.ListOccurrences(ctx, activity.ID)
+	if err != nil {
+		return "", err
+	}
+	return format.OccurrencesList(activity, occurrences), nil
 }
 
 func (b *Bot) handleInstanceList(ctx context.Context, command commandSpec) (string, error) {
@@ -252,6 +300,8 @@ func (b *Bot) handleAutocomplete(interaction *discordgo.InteractionCreate) {
 		choices = b.instanceChoices(ctx, command, focused.StringValue())
 	case "participant":
 		choices = b.participantChoices(ctx, interaction, command, focused.StringValue())
+	case "activity":
+		choices = b.activityChoices(ctx, interaction, command, focused.StringValue())
 	default:
 		choices = []*discordgo.ApplicationCommandOptionChoice{}
 	}
@@ -305,6 +355,38 @@ func (b *Bot) participantChoices(ctx context.Context, interaction *discordgo.Int
 	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, min(len(participants), 25))
 	for _, participant := range participants {
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: trimChoiceLabel(participant.Name), Value: participant.ID})
+		if len(choices) == 25 {
+			break
+		}
+	}
+	return choices
+}
+
+func (b *Bot) activityChoices(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec, query string) []*discordgo.ApplicationCommandOptionChoice {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		b.log.Debug("resolve season for activity autocomplete", "error", err)
+		return emptyChoices()
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		b.log.Debug("resolve instance for activity autocomplete", "error", err)
+		return emptyChoices()
+	}
+	activities, err := b.castaway.ListActivities(ctx, instance.ID)
+	if err != nil {
+		b.log.Debug("list activities for autocomplete", "error", err)
+		return emptyChoices()
+	}
+
+	lowerQuery := strings.ToLower(strings.TrimSpace(query))
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, min(len(activities), 25))
+	for _, activity := range activities {
+		if lowerQuery != "" && !strings.Contains(strings.ToLower(activity.Name), lowerQuery) {
+			continue
+		}
+		label := trimChoiceLabel(fmt.Sprintf("%s [%s]", activity.Name, activity.ActivityType))
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: label, Value: activity.Name})
 		if len(choices) == 25 {
 			break
 		}
@@ -620,6 +702,54 @@ func selectParticipantByName(query string, participants []castaway.Participant) 
 		}
 	}
 	return castaway.Participant{}, fmt.Errorf("multiple participants matched %q: %s", query, strings.Join(labels, ", "))
+}
+
+func selectActivityByName(query string, activities []castaway.Activity) (castaway.Activity, error) {
+	if len(activities) == 0 {
+		return castaway.Activity{}, fmt.Errorf("no activities found")
+	}
+	var match castaway.Activity
+	count := 0
+	for _, activity := range activities {
+		if strings.EqualFold(activity.Name, query) {
+			match = activity
+			count++
+		}
+	}
+	if count == 1 {
+		return match, nil
+	}
+
+	count = 0
+	lowerQuery := strings.ToLower(strings.TrimSpace(query))
+	for _, activity := range activities {
+		if strings.HasPrefix(strings.ToLower(activity.Name), lowerQuery) {
+			match = activity
+			count++
+		}
+	}
+	if count == 1 {
+		return match, nil
+	}
+
+	count = 0
+	labels := make([]string, 0, min(len(activities), 5))
+	for _, activity := range activities {
+		if strings.Contains(strings.ToLower(activity.Name), lowerQuery) {
+			match = activity
+			count++
+			if len(labels) < 5 {
+				labels = append(labels, activity.Name)
+			}
+		}
+	}
+	if count == 1 {
+		return match, nil
+	}
+	if count > 1 {
+		return castaway.Activity{}, fmt.Errorf("multiple activities matched %q: %s", query, strings.Join(labels, ", "))
+	}
+	return castaway.Activity{}, fmt.Errorf("no activities matched %q", query)
 }
 
 func singleExactParticipant(query string, participants []castaway.Participant) (castaway.Participant, bool) {

@@ -11,6 +11,8 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 				scoreCommand(),
 				scoresCommand(),
 				draftCommand(),
+				activitiesCommand(),
+				occurrencesCommand(),
 				instanceCommandGroup(),
 			},
 		},
@@ -49,6 +51,31 @@ func draftCommand() *discordgo.ApplicationCommandOption {
 		Description: "Show a participant's draft",
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(true),
+			instanceOption(false),
+			seasonOption(),
+		},
+	}
+}
+
+func activitiesCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "activities",
+		Description: "List gameplay activities for an instance",
+		Options: []*discordgo.ApplicationCommandOption{
+			instanceOption(false),
+			seasonOption(),
+		},
+	}
+}
+
+func occurrencesCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "occurrences",
+		Description: "List occurrences for an activity",
+		Options: []*discordgo.ApplicationCommandOption{
+			activityOption(true),
 			instanceOption(false),
 			seasonOption(),
 		},
@@ -101,6 +128,16 @@ func participantOption(required bool) *discordgo.ApplicationCommandOption {
 		Type:         discordgo.ApplicationCommandOptionString,
 		Name:         "participant",
 		Description:  "Participant name",
+		Required:     required,
+		Autocomplete: true,
+	}
+}
+
+func activityOption(required bool) *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:         discordgo.ApplicationCommandOptionString,
+		Name:         "activity",
+		Description:  "Activity name",
 		Required:     required,
 		Autocomplete: true,
 	}
