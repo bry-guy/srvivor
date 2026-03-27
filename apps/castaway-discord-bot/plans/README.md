@@ -2,6 +2,7 @@
 
 ## Current plans
 
+- `activity-details-and-participant-history-planning.md` — status: `planning`
 - `state-backend-and-operations-planning.md` — status: `planning`
 - `service-to-service-authentication-planning.md` — status: `done`
 - `postgres-state-backend-planning.md` — status: `done`
