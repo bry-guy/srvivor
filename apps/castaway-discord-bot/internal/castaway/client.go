@@ -62,6 +62,32 @@ func (r LeaderboardRow) Bonus() int {
 	return r.BonusPoints
 }
 
+type Activity struct {
+	ID           string `json:"id"`
+	InstanceID   string `json:"instance_id"`
+	ActivityType string `json:"activity_type"`
+	Name         string `json:"name"`
+	Status       string `json:"status"`
+	StartsAt     string `json:"starts_at"`
+	EndsAt       string `json:"ends_at,omitempty"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+type Occurrence struct {
+	ID             string `json:"id"`
+	ActivityID     string `json:"activity_id"`
+	OccurrenceType string `json:"occurrence_type"`
+	Name           string `json:"name"`
+	EffectiveAt    string `json:"effective_at"`
+	StartsAt       string `json:"starts_at,omitempty"`
+	EndsAt         string `json:"ends_at,omitempty"`
+	Status         string `json:"status"`
+	SourceRef      string `json:"source_ref,omitempty"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
 type DraftPick struct {
 	Position       int32  `json:"position"`
 	ContestantID   string `json:"contestant_id"`
@@ -171,6 +197,26 @@ func (c *Client) GetLeaderboard(ctx context.Context, instanceID string, particip
 		return nil, err
 	}
 	return response.Leaderboard, nil
+}
+
+func (c *Client) ListActivities(ctx context.Context, instanceID string) ([]Activity, error) {
+	var response struct {
+		Activities []Activity `json:"activities"`
+	}
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "activities")), &response); err != nil {
+		return nil, err
+	}
+	return response.Activities, nil
+}
+
+func (c *Client) ListOccurrences(ctx context.Context, activityID string) ([]Occurrence, error) {
+	var response struct {
+		Occurrences []Occurrence `json:"occurrences"`
+	}
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/activities", activityID, "occurrences")), &response); err != nil {
+		return nil, err
+	}
+	return response.Occurrences, nil
 }
 
 func (c *Client) GetDraft(ctx context.Context, instanceID, participantID string) (Draft, error) {

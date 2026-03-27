@@ -36,6 +36,60 @@ func TestSingleScoreIncludesTotalDraftAndBonus(t *testing.T) {
 	}
 }
 
+func TestActivitiesListFormatsCompactOutput(t *testing.T) {
+	instance := castaway.Instance{Name: "Office Pool", Season: 50}
+	activities := []castaway.Activity{
+		{ID: "a1", Name: "Tribal Pony", ActivityType: "tribal_pony", Status: "active"},
+		{ID: "a2", Name: "Journey 1", ActivityType: "journey", Status: "completed"},
+	}
+
+	message := ActivitiesList(instance, activities)
+	expected := strings.Join([]string{
+		"**Season 50 — Office Pool — Activities**",
+		"- **Tribal Pony** (tribal_pony) — active",
+		"- **Journey 1** (journey) — completed",
+	}, "\n")
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestActivitiesListEmptyState(t *testing.T) {
+	instance := castaway.Instance{Name: "Office Pool", Season: 50}
+	message := ActivitiesList(instance, nil)
+	expected := "**Season 50 — Office Pool**\nNo activities found."
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestOccurrencesListFormatsCompactOutput(t *testing.T) {
+	activity := castaway.Activity{ID: "a1", Name: "Tribal Pony"}
+	occurrences := []castaway.Occurrence{
+		{ID: "o1", Name: "Ep 1 Immunity", OccurrenceType: "immunity_result", Status: "resolved", EffectiveAt: "2026-03-05T01:00:00Z"},
+		{ID: "o2", Name: "Ep 2 Immunity", OccurrenceType: "immunity_result", Status: "recorded", EffectiveAt: "2026-03-12T01:00:00Z"},
+	}
+
+	message := OccurrencesList(activity, occurrences)
+	expected := strings.Join([]string{
+		"**Tribal Pony — Occurrences**",
+		"- **Ep 1 Immunity** (immunity_result) — resolved @ Mar 5 01:00",
+		"- **Ep 2 Immunity** (immunity_result) — recorded @ Mar 12 01:00",
+	}, "\n")
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestOccurrencesListEmptyState(t *testing.T) {
+	activity := castaway.Activity{ID: "a1", Name: "Tribal Pony"}
+	message := OccurrencesList(activity, nil)
+	expected := "**Tribal Pony**\nNo occurrences found."
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
 func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
 	rows := []castaway.LeaderboardRow{

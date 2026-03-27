@@ -3,6 +3,7 @@ package format
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 )
@@ -61,6 +62,43 @@ func InstanceList(instances []castaway.Instance) string {
 		builder.WriteString("\n")
 	}
 	return TrimMessage(strings.TrimSpace(builder.String()))
+}
+
+func ActivitiesList(instance castaway.Instance, activities []castaway.Activity) string {
+	if len(activities) == 0 {
+		return fmt.Sprintf("**%s**\nNo activities found.", InstanceLabel(instance))
+	}
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("**%s — Activities**\n", InstanceLabel(instance)))
+	for _, a := range activities {
+		builder.WriteString(fmt.Sprintf("- **%s** (%s) — %s\n", a.Name, a.ActivityType, a.Status))
+	}
+	return TrimMessage(strings.TrimSpace(builder.String()))
+}
+
+func OccurrencesList(activity castaway.Activity, occurrences []castaway.Occurrence) string {
+	if len(occurrences) == 0 {
+		return fmt.Sprintf("**%s**\nNo occurrences found.", activity.Name)
+	}
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("**%s — Occurrences**\n", activity.Name))
+	for _, o := range occurrences {
+		effective := formatTime(o.EffectiveAt)
+		builder.WriteString(fmt.Sprintf("- **%s** (%s) — %s @ %s\n", o.Name, o.OccurrenceType, o.Status, effective))
+	}
+	return TrimMessage(strings.TrimSpace(builder.String()))
+}
+
+func formatTime(raw string) string {
+	for _, layout := range []string{
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02T15:04:05Z",
+	} {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t.Format("Jan 2 15:04")
+		}
+	}
+	return raw
 }
 
 func TrimMessage(content string) string {

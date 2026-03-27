@@ -117,6 +117,62 @@ func TestClientAddsBearerAuthorizationHeader(t *testing.T) {
 	}
 }
 
+func TestListActivitiesParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/activities" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if _, err := w.Write([]byte(`{"activities":[{"id":"a1","instance_id":"i1","activity_type":"tribal_pony","name":"Tribal Pony","status":"active","starts_at":"2026-03-05T00:00:00Z","created_at":"2026-03-01T00:00:00Z","updated_at":"2026-03-01T00:00:00Z"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	activities, err := client.ListActivities(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("list activities: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("expected 1 activity, got %d", len(activities))
+	}
+	a := activities[0]
+	if a.ID != "a1" || a.ActivityType != "tribal_pony" || a.Name != "Tribal Pony" || a.Status != "active" {
+		t.Fatalf("unexpected activity: %#v", a)
+	}
+}
+
+func TestListOccurrencesParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/activities/a1/occurrences" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if _, err := w.Write([]byte(`{"occurrences":[{"id":"o1","activity_id":"a1","occurrence_type":"immunity_result","name":"Episode 1 Immunity","effective_at":"2026-03-05T01:00:00Z","status":"resolved","created_at":"2026-03-05T02:00:00Z","updated_at":"2026-03-05T02:00:00Z"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	occurrences, err := client.ListOccurrences(context.Background(), "a1")
+	if err != nil {
+		t.Fatalf("list occurrences: %v", err)
+	}
+	if len(occurrences) != 1 {
+		t.Fatalf("expected 1 occurrence, got %d", len(occurrences))
+	}
+	o := occurrences[0]
+	if o.ID != "o1" || o.OccurrenceType != "immunity_result" || o.Name != "Episode 1 Immunity" || o.Status != "resolved" {
+		t.Fatalf("unexpected occurrence: %#v", o)
+	}
+}
+
 func TestGetJSONReturnsTypedAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
