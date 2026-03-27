@@ -13,6 +13,8 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 				draftCommand(),
 				activitiesCommand(),
 				occurrencesCommand(),
+				occurrenceCommand(),
+				historyCommand(),
 				instanceCommandGroup(),
 			},
 		},
@@ -82,6 +84,33 @@ func occurrencesCommand() *discordgo.ApplicationCommandOption {
 	}
 }
 
+func occurrenceCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "occurrence",
+		Description: "Show one occurrence in detail",
+		Options: []*discordgo.ApplicationCommandOption{
+			activityOption(true),
+			occurrenceOption(true),
+			instanceOption(false),
+			seasonOption(),
+		},
+	}
+}
+
+func historyCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "history",
+		Description: "Show a participant's activity history",
+		Options: []*discordgo.ApplicationCommandOption{
+			participantOption(true),
+			instanceOption(false),
+			seasonOption(),
+		},
+	}
+}
+
 func instanceCommandGroup() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
@@ -138,6 +167,16 @@ func activityOption(required bool) *discordgo.ApplicationCommandOption {
 		Type:         discordgo.ApplicationCommandOptionString,
 		Name:         "activity",
 		Description:  "Activity name",
+		Required:     required,
+		Autocomplete: true,
+	}
+}
+
+func occurrenceOption(required bool) *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:         discordgo.ApplicationCommandOptionString,
+		Name:         "occurrence",
+		Description:  "Occurrence name",
 		Required:     required,
 		Autocomplete: true,
 	}

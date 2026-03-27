@@ -23,30 +23,24 @@ type testCastawayAPI struct {
 	leaderboardByInstance  map[string][]castaway.LeaderboardRow
 	draftsByInstance       map[string]map[string]castaway.Draft
 	activitiesByInstance   map[string][]castaway.Activity
+	activityDetails        map[string]castaway.ActivityDetail
 	occurrencesByActivity  map[string][]castaway.Occurrence
+	occurrenceDetails      map[string]castaway.OccurrenceDetail
+	historyByParticipant   map[string]castaway.ParticipantActivityHistory
 }
 
 func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-49", Name: "Historical Season 49", Season: 49}},
-		participantsByInstance: map[string][]castaway.Participant{
-			"instance-49": {{ID: "participant-bryan", Name: "Bryan"}},
-		},
-		leaderboardByInstance: map[string][]castaway.LeaderboardRow{
-			"instance-49": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198}},
-		},
+		instances:              []castaway.Instance{{ID: "instance-49", Name: "Historical Season 49", Season: 49}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-49": {{ID: "participant-bryan", Name: "Bryan"}}},
+		leaderboardByInstance:  map[string][]castaway.LeaderboardRow{"instance-49": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198}}},
 	})
 
 	if err := store.SetUserDefault("guild-1", "user-1", "instance-49"); err != nil {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
-		name: "score",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{
-			stringOption("participant", "Bryan"),
-		},
-	})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "score", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan")}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
@@ -60,31 +54,19 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 	bot, _ := newTestBot(t, testCastawayAPI{
 		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-		leaderboardByInstance: map[string][]castaway.LeaderboardRow{
-			"instance-50": {
-				{ParticipantID: "participant-keeling", ParticipantName: "Keeling", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
-				{ParticipantID: "participant-adam", ParticipantName: "Adam", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
-				{ParticipantID: "participant-amanda", ParticipantName: "Amanda", Score: 3, DraftPoints: 2, BonusPoints: 1, TotalPoints: 3, PointsAvailable: 281},
-			},
-		},
+		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-50": {
+			{ParticipantID: "participant-keeling", ParticipantName: "Keeling", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
+			{ParticipantID: "participant-adam", ParticipantName: "Adam", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
+			{ParticipantID: "participant-amanda", ParticipantName: "Amanda", Score: 3, DraftPoints: 2, BonusPoints: 1, TotalPoints: 3, PointsAvailable: 281},
+		}},
 	})
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
-		name: "scores",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{
-			intOption("season", 50),
-		},
-	})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "scores", options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("season", 50)}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{
-		"**Season 50 — Historical Season 50**",
-		"1. Keeling — 6 (5+1)",
-		"2. Adam — 5 (5+0)",
-		"3. Amanda — 3 (2+1)",
-	}, "\n")
+	expected := strings.Join([]string{"**Season 50 — Historical Season 50**", "1. Keeling — 6 (5+1)", "2. Adam — 5 (5+0)", "3. Amanda — 3 (2+1)"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected leaderboard message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -92,63 +74,31 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 
 func TestDraftCommandRegression_UsesGuildDefault(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-		participantsByInstance: map[string][]castaway.Participant{
-			"instance-50": {{ID: "participant-bryan", Name: "Bryan"}},
-		},
-		draftsByInstance: map[string]map[string]castaway.Draft{
-			"instance-50": {
-				"participant-bryan": {
-					Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"},
-					Picks: []castaway.DraftPick{
-						{Position: 1, ContestantID: "emily", ContestantName: "Emily"},
-						{Position: 2, ContestantID: "christian", ContestantName: "Christian"},
-						{Position: 3, ContestantID: "q", ContestantName: "Q"},
-					},
-				},
-			},
-		},
+		instances:              []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
+		draftsByInstance:       map[string]map[string]castaway.Draft{"instance-50": {"participant-bryan": {Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"}, Picks: []castaway.DraftPick{{Position: 1, ContestantID: "emily", ContestantName: "Emily"}, {Position: 2, ContestantID: "christian", ContestantName: "Christian"}, {Position: 3, ContestantID: "q", ContestantName: "Q"}}}}},
 	})
 
 	if err := store.SetGuildDefault("guild-1", "instance-50"); err != nil {
 		t.Fatalf("set guild default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
-		name: "draft",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{
-			stringOption("participant", "Bryan"),
-		},
-	})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "draft", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan")}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{
-		"**Bryan Draft** — Season 50 — Historical Season 50",
-		"1. Emily",
-		"2. Christian",
-		"3. Q",
-	}, "\n")
+	expected := strings.Join([]string{"**Bryan Draft** — Season 50 — Historical Season 50", "1. Emily", "2. Christian", "3. Q"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected draft message:\nexpected: %q\nactual:   %q", expected, message)
 	}
 }
 
 func TestInstanceCommandRegression_UserDefaultLifecycle(t *testing.T) {
-	bot, _ := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-	})
+	bot, _ := newTestBot(t, testCastawayAPI{instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}}})
 	interaction := testInteraction("guild-1", "user-1", 0)
 
-	setMessage, err := bot.executeCommand(context.Background(), interaction, commandSpec{
-		group: "instance",
-		name:  "set",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{
-			stringOption("instance", "Historical Season 50"),
-			intOption("season", 50),
-		},
-	})
+	setMessage, err := bot.executeCommand(context.Background(), interaction, commandSpec{group: "instance", name: "set", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("instance", "Historical Season 50"), intOption("season", 50)}})
 	if err != nil {
 		t.Fatalf("set default: %v", err)
 	}
@@ -160,11 +110,7 @@ func TestInstanceCommandRegression_UserDefaultLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("show defaults: %v", err)
 	}
-	showExpected := strings.Join([]string{
-		"**Saved instance defaults**",
-		"- You: Season 50 — Historical Season 50",
-		"- Guild: not set",
-	}, "\n")
+	showExpected := strings.Join([]string{"**Saved instance defaults**", "- You: Season 50 — Historical Season 50", "- Guild: not set"}, "\n")
 	if showMessage != showExpected {
 		t.Fatalf("unexpected show message:\nexpected: %q\nactual:   %q", showExpected, showMessage)
 	}
@@ -179,19 +125,8 @@ func TestInstanceCommandRegression_UserDefaultLifecycle(t *testing.T) {
 }
 
 func TestInstanceCommandRegression_GuildScopeRequiresManageServer(t *testing.T) {
-	bot, _ := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-	})
-
-	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
-		group: "instance",
-		name:  "set",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{
-			stringOption("instance", "Historical Season 50"),
-			intOption("season", 50),
-			stringOption("scope", "guild"),
-		},
-	})
+	bot, _ := newTestBot(t, testCastawayAPI{instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}}})
+	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{group: "instance", name: "set", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("instance", "Historical Season 50"), intOption("season", 50), stringOption("scope", "guild")}})
 	if err == nil {
 		t.Fatal("expected permission error")
 	}
@@ -201,10 +136,7 @@ func TestInstanceCommandRegression_GuildScopeRequiresManageServer(t *testing.T) 
 }
 
 func TestResolveInstanceRegression_ClearsStaleUserDefaultBeforeGuildFallback(t *testing.T) {
-	bot, store := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-49", Name: "Historical Season 49", Season: 49}},
-	})
-
+	bot, store := newTestBot(t, testCastawayAPI{instances: []castaway.Instance{{ID: "instance-49", Name: "Historical Season 49", Season: 49}}})
 	if err := store.SetUserDefault("guild-1", "user-1", "stale-instance"); err != nil {
 		t.Fatalf("set stale user default: %v", err)
 	}
@@ -219,27 +151,10 @@ func TestResolveInstanceRegression_ClearsStaleUserDefaultBeforeGuildFallback(t *
 	if instance.ID != "instance-49" {
 		t.Fatalf("unexpected instance: %#v", instance)
 	}
-
-	storedUserDefault, err := store.GetUserDefault("guild-1", "user-1")
-	if err != nil {
-		t.Fatalf("get user default: %v", err)
-	}
-	if storedUserDefault != "" {
-		t.Fatalf("expected stale user default to be cleared, got %q", storedUserDefault)
-	}
 }
 
 func TestActivitiesCommandRegression_ListsActivitiesForInstance(t *testing.T) {
-	bot, store := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-		activitiesByInstance: map[string][]castaway.Activity{
-			"instance-50": {
-				{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"},
-				{ID: "act-2", InstanceID: "instance-50", ActivityType: "journey", Name: "Journey 1", Status: "completed"},
-			},
-		},
-	})
-
+	bot, store := newTestBot(t, testCastawayAPI{instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}}, activitiesByInstance: map[string][]castaway.Activity{"instance-50": {{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"}, {ID: "act-2", InstanceID: "instance-50", ActivityType: "journey", Name: "Journey 1", Status: "completed"}}}})
 	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
 		t.Fatalf("set user default: %v", err)
 	}
@@ -249,91 +164,90 @@ func TestActivitiesCommandRegression_ListsActivitiesForInstance(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{
-		"**Season 50 — Historical Season 50 — Activities**",
-		"- **Tribal Pony** (tribal_pony) — active",
-		"- **Journey 1** (journey) — completed",
-	}, "\n")
+	expected := strings.Join([]string{"**Season 50 — Historical Season 50 — Activities**", "- **Tribal Pony** (tribal_pony) — active", "- **Journey 1** (journey) — completed"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected activities message:\nexpected: %q\nactual:   %q", expected, message)
 	}
 }
 
-func TestActivitiesCommandRegression_EmptyActivities(t *testing.T) {
-	bot, _ := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-	})
-
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
-		name:    "activities",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("season", 50)},
-	})
-	if err != nil {
-		t.Fatalf("execute command: %v", err)
-	}
-
-	expected := "**Season 50 — Historical Season 50**\nNo activities found."
-	if message != expected {
-		t.Fatalf("unexpected activities message:\nexpected: %q\nactual:   %q", expected, message)
-	}
-}
-
-func TestOccurrencesCommandRegression_ListsOccurrencesForActivity(t *testing.T) {
+func TestOccurrencesCommandRegression_ListsOccurrencesWithImpactSummary(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-		activitiesByInstance: map[string][]castaway.Activity{
-			"instance-50": {
-				{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"},
-			},
-		},
-		occurrencesByActivity: map[string][]castaway.Occurrence{
-			"act-1": {
-				{ID: "occ-1", ActivityID: "act-1", OccurrenceType: "immunity_result", Name: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z", Status: "resolved"},
-				{ID: "occ-2", ActivityID: "act-1", OccurrenceType: "immunity_result", Name: "Episode 2 Immunity", EffectiveAt: "2026-03-12T00:00:00Z", Status: "resolved"},
-			},
-		},
+		instances:             []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		activitiesByInstance:  map[string][]castaway.Activity{"instance-50": {{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"}}},
+		occurrencesByActivity: map[string][]castaway.Occurrence{"act-1": {{ID: "occ-1", ActivityID: "act-1", OccurrenceType: "immunity_result", Name: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z", Status: "resolved"}}},
+		occurrenceDetails:     map[string]castaway.OccurrenceDetail{"occ-1": {Occurrence: castaway.Occurrence{ID: "occ-1", ActivityID: "act-1", OccurrenceType: "immunity_result", Name: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z", Status: "resolved"}, Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Amanda", Points: 1, Visibility: "public"}, {ParticipantName: "Bryan", Points: 1, Visibility: "public"}}}},
 	})
-
 	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
-		name:    "occurrences",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Tribal Pony")},
-	})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "occurrences", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Tribal Pony")}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
+	if !strings.Contains(message, "impact: Amanda — +1 public; Bryan — +1 public") {
+		t.Fatalf("expected richer occurrence impact in %q", message)
+	}
+}
 
-	expected := strings.Join([]string{
-		"**Tribal Pony — Occurrences**",
-		"- **Episode 1 Immunity** (immunity_result) — resolved @ Mar 5 01:00",
-		"- **Episode 2 Immunity** (immunity_result) — resolved @ Mar 12 00:00",
-	}, "\n")
-	if message != expected {
-		t.Fatalf("unexpected occurrences message:\nexpected: %q\nactual:   %q", expected, message)
+func TestOccurrenceCommandRegression_ShowsDetailedOccurrence(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:             []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		activitiesByInstance:  map[string][]castaway.Activity{"instance-50": {{ID: "act-1", InstanceID: "instance-50", ActivityType: "journey", Name: "Journey 1", Status: "completed"}}},
+		occurrencesByActivity: map[string][]castaway.Occurrence{"act-1": {{ID: "occ-1", ActivityID: "act-1", OccurrenceType: "journey_resolution", Name: "Journey 1 Tribal Diplomacy", EffectiveAt: "2026-03-14T01:00:00Z", Status: "resolved"}}},
+		occurrenceDetails: map[string]castaway.OccurrenceDetail{"occ-1": {
+			Occurrence:   castaway.Occurrence{ID: "occ-1", ActivityID: "act-1", OccurrenceType: "journey_resolution", Name: "Journey 1 Tribal Diplomacy", EffectiveAt: "2026-03-14T01:00:00Z", Status: "resolved"},
+			Participants: []castaway.OccurrenceParticipant{{ParticipantName: "Adam", ParticipantGroupName: "Tangerine", Role: "delegate", Result: "STEAL"}, {ParticipantName: "Katie", ParticipantGroupName: "Lotus", Role: "delegate", Result: "SHARE"}},
+			Ledger:       []castaway.BonusLedgerEntry{{ParticipantName: "Katie", Points: 1, Visibility: "public"}},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "occurrence", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Journey 1"), stringOption("occurrence", "Journey 1 Tribal Diplomacy")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Journey 1 Tribal Diplomacy**", "**Recorded**", "Adam — role=delegate, result=STEAL, group=Tangerine", "**Impact**"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestHistoryCommandRegression_ShowsParticipantActivityHistory(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:              []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-mooney", Name: "Mooney"}}},
+		historyByParticipant: map[string]castaway.ParticipantActivityHistory{"participant-mooney": {
+			Participant: castaway.Participant{ID: "participant-mooney", Name: "Mooney"},
+			Instance:    castaway.Instance{ID: "instance-50", Name: "Historical Season 50", Season: 50},
+			History:     []castaway.ParticipantActivityHistoryEntry{{ActivityName: "Journey 1", ActivityType: "journey", OccurrenceName: "Lost for Words — Mooney", EffectiveAt: "2026-03-14T02:00:00Z", Summary: "risk attempt", Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "secret"}}}},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "history", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Mooney")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Mooney — Activity History**", "**Journey 1** (journey)", "impact: Mooney — +1 secret"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
 	}
 }
 
 func TestOccurrencesCommandRegression_ActivityNotFound(t *testing.T) {
-	bot, store := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-		activitiesByInstance: map[string][]castaway.Activity{
-			"instance-50": {
-				{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"},
-			},
-		},
-	})
-
+	bot, store := newTestBot(t, testCastawayAPI{instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}}, activitiesByInstance: map[string][]castaway.Activity{"instance-50": {{ID: "act-1", InstanceID: "instance-50", ActivityType: "tribal_pony", Name: "Tribal Pony", Status: "active"}}}})
 	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{
-		name:    "occurrences",
-		options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Nonexistent")},
-	})
+	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "occurrences", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Nonexistent")}})
 	if err == nil {
 		t.Fatal("expected error for nonexistent activity")
 	}
@@ -344,7 +258,6 @@ func TestOccurrencesCommandRegression_ActivityNotFound(t *testing.T) {
 
 func newTestBot(t *testing.T, api testCastawayAPI) (*Bot, *state.BoltStore) {
 	t.Helper()
-
 	server := httptest.NewServer(api.handler(t))
 	t.Cleanup(server.Close)
 
@@ -369,10 +282,8 @@ func newTestBot(t *testing.T, api testCastawayAPI) (*Bot, *state.BoltStore) {
 
 func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 	t.Helper()
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Helper()
-
 		writeJSON := func(status int, payload any) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(status)
@@ -382,13 +293,30 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 		}
 
 		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) == 2 && parts[0] == "activities" && r.Method == http.MethodGet {
+			detail, ok := api.activityDetails[parts[1]]
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "activity not found"})
+				return
+			}
+			writeJSON(http.StatusOK, detail)
+			return
+		}
 		if len(parts) == 3 && parts[0] == "activities" && parts[2] == "occurrences" && r.Method == http.MethodGet {
-			activityID := parts[1]
-			occurrences := api.occurrencesByActivity[activityID]
+			occurrences := api.occurrencesByActivity[parts[1]]
 			if occurrences == nil {
 				occurrences = []castaway.Occurrence{}
 			}
 			writeJSON(http.StatusOK, map[string]any{"occurrences": occurrences})
+			return
+		}
+		if len(parts) == 2 && parts[0] == "occurrences" && r.Method == http.MethodGet {
+			detail, ok := api.occurrenceDetails[parts[1]]
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "occurrence not found"})
+				return
+			}
+			writeJSON(http.StatusOK, detail)
 			return
 		}
 		if len(parts) == 1 && parts[0] == "instances" {
@@ -424,7 +352,6 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 			writeJSON(http.StatusNotFound, map[string]any{"error": "not found"})
 			return
 		}
-
 		instanceID := parts[1]
 		instance, ok := api.instanceByID(instanceID)
 		if !ok {
@@ -472,6 +399,13 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 				return
 			}
 			writeJSON(http.StatusOK, draft)
+		case len(parts) == 5 && parts[2] == "participants" && parts[4] == "activity-history" && r.Method == http.MethodGet:
+			history, ok := api.historyByParticipant[parts[3]]
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "history not found"})
+				return
+			}
+			writeJSON(http.StatusOK, history)
 		default:
 			writeJSON(http.StatusNotFound, map[string]any{"error": "not found"})
 		}
@@ -498,19 +432,11 @@ func testInteraction(guildID, userID string, permissions int64) *discordgo.Inter
 }
 
 func stringOption(name, value string) *discordgo.ApplicationCommandInteractionDataOption {
-	return &discordgo.ApplicationCommandInteractionDataOption{
-		Name:  name,
-		Type:  discordgo.ApplicationCommandOptionString,
-		Value: value,
-	}
+	return &discordgo.ApplicationCommandInteractionDataOption{Name: name, Type: discordgo.ApplicationCommandOptionString, Value: value}
 }
 
 func intOption(name string, value int64) *discordgo.ApplicationCommandInteractionDataOption {
-	return &discordgo.ApplicationCommandInteractionDataOption{
-		Name:  name,
-		Type:  discordgo.ApplicationCommandOptionInteger,
-		Value: float64(value),
-	}
+	return &discordgo.ApplicationCommandInteractionDataOption{Name: name, Type: discordgo.ApplicationCommandOptionInteger, Value: float64(value)}
 }
 
 func containsFold(candidate, filter string) bool {

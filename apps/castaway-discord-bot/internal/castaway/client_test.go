@@ -173,6 +173,78 @@ func TestListOccurrencesParsesResponse(t *testing.T) {
 	}
 }
 
+func TestGetActivityParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/activities/a1" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if _, err := w.Write([]byte(`{"activity":{"id":"a1","instance_id":"i1","activity_type":"journey","name":"Journey 1","status":"completed","starts_at":"2026-03-12T00:00:00Z","created_at":"2026-03-12T00:00:00Z","updated_at":"2026-03-12T00:00:00Z"},"group_assignments":[{"participant_group_id":"g1","participant_group_name":"Leaf","role":"tribe","starts_at":"2026-03-12T00:00:00Z","configuration":{"pony_survivor_tribe":"leaf"}}],"participant_assignments":[{"participant_id":"p1","participant_name":"Mooney","participant_group_id":"g1","participant_group_name":"Leaf","role":"delegate","starts_at":"2026-03-12T00:00:00Z"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	detail, err := client.GetActivity(context.Background(), "a1")
+	if err != nil {
+		t.Fatalf("get activity: %v", err)
+	}
+	if detail.Activity.Name != "Journey 1" || len(detail.GroupAssignments) != 1 || len(detail.ParticipantAssignments) != 1 {
+		t.Fatalf("unexpected detail: %#v", detail)
+	}
+}
+
+func TestGetOccurrenceParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/occurrences/o1" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if _, err := w.Write([]byte(`{"occurrence":{"id":"o1","activity_id":"a1","occurrence_type":"journey_resolution","name":"Journey 1 Tribal Diplomacy","effective_at":"2026-03-14T01:00:00Z","status":"resolved","created_at":"2026-03-14T01:00:00Z","updated_at":"2026-03-14T01:00:00Z"},"participants":[{"participant_id":"p1","participant_name":"Adam","participant_group_id":"g1","participant_group_name":"Tangerine","role":"delegate","result":"STEAL"}],"groups":[],"ledger":[{"id":"l1","participant_id":"p2","participant_name":"Katie","entry_kind":"award","points":1,"visibility":"public","reason":"Lotus award","effective_at":"2026-03-14T01:00:00Z"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	detail, err := client.GetOccurrence(context.Background(), "o1")
+	if err != nil {
+		t.Fatalf("get occurrence: %v", err)
+	}
+	if detail.Occurrence.Name != "Journey 1 Tribal Diplomacy" || len(detail.Participants) != 1 || len(detail.Ledger) != 1 {
+		t.Fatalf("unexpected detail: %#v", detail)
+	}
+}
+
+func TestGetParticipantActivityHistoryParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/participants/p1/activity-history" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Mooney"},"instance":{"id":"i1","name":"Season 50","season":50,"created_at":"2026-03-01T00:00:00Z"},"history":[{"activity_id":"a1","activity_name":"Journey 1","activity_type":"journey","occurrence_id":"o1","occurrence_name":"Lost for Words — Mooney","occurrence_type":"secret_risk_result","effective_at":"2026-03-14T02:00:00Z","summary":"risk attempt","ledger":[{"id":"l1","participant_id":"p1","participant_name":"Mooney","entry_kind":"award","points":1,"visibility":"secret","reason":"secret bonus","effective_at":"2026-03-14T02:00:00Z"}]}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	history, err := client.GetParticipantActivityHistory(context.Background(), "i1", "p1")
+	if err != nil {
+		t.Fatalf("get history: %v", err)
+	}
+	if history.Participant.Name != "Mooney" || len(history.History) != 1 {
+		t.Fatalf("unexpected history: %#v", history)
+	}
+}
+
 func TestGetJSONReturnsTypedAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

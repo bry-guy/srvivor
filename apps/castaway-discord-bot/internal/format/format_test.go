@@ -20,14 +20,7 @@ func TestTrimMessageTruncatesLongResponses(t *testing.T) {
 
 func TestSingleScoreIncludesTotalDraftAndBonus(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
-	row := castaway.LeaderboardRow{
-		ParticipantName: "Bryan",
-		Score:           26,
-		DraftPoints:     21,
-		BonusPoints:     5,
-		TotalPoints:     26,
-		PointsAvailable: 46,
-	}
+	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}
 
 	message := SingleScore(instance, row)
 	expected := "**Season 49 — Office Pool**\nBryan — 26 points (21+5; points available: 46)"
@@ -38,10 +31,7 @@ func TestSingleScoreIncludesTotalDraftAndBonus(t *testing.T) {
 
 func TestActivitiesListFormatsCompactOutput(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 50}
-	activities := []castaway.Activity{
-		{ID: "a1", Name: "Tribal Pony", ActivityType: "tribal_pony", Status: "active"},
-		{ID: "a2", Name: "Journey 1", ActivityType: "journey", Status: "completed"},
-	}
+	activities := []castaway.Activity{{ID: "a1", Name: "Tribal Pony", ActivityType: "tribal_pony", Status: "active"}, {ID: "a2", Name: "Journey 1", ActivityType: "journey", Status: "completed"}}
 
 	message := ActivitiesList(instance, activities)
 	expected := strings.Join([]string{
@@ -63,18 +53,22 @@ func TestActivitiesListEmptyState(t *testing.T) {
 	}
 }
 
-func TestOccurrencesListFormatsCompactOutput(t *testing.T) {
+func TestOccurrencesListFormatsDetailedCompactOutput(t *testing.T) {
 	activity := castaway.Activity{ID: "a1", Name: "Tribal Pony"}
-	occurrences := []castaway.Occurrence{
-		{ID: "o1", Name: "Ep 1 Immunity", OccurrenceType: "immunity_result", Status: "resolved", EffectiveAt: "2026-03-05T01:00:00Z"},
-		{ID: "o2", Name: "Ep 2 Immunity", OccurrenceType: "immunity_result", Status: "recorded", EffectiveAt: "2026-03-12T01:00:00Z"},
+	details := []castaway.OccurrenceDetail{
+		{
+			Occurrence: castaway.Occurrence{ID: "o1", Name: "Ep 1 Immunity", OccurrenceType: "immunity_result", Status: "resolved", EffectiveAt: "2026-03-05T01:00:00Z"},
+			Ledger: []castaway.BonusLedgerEntry{
+				{ParticipantName: "Amanda", Points: 1, Visibility: "public"},
+				{ParticipantName: "Bryan", Points: 1, Visibility: "public"},
+			},
+		},
 	}
 
-	message := OccurrencesList(activity, occurrences)
+	message := OccurrencesList(activity, details)
 	expected := strings.Join([]string{
 		"**Tribal Pony — Occurrences**",
-		"- **Ep 1 Immunity** (immunity_result) — resolved @ Mar 5 01:00",
-		"- **Ep 2 Immunity** (immunity_result) — recorded @ Mar 12 01:00",
+		"- **Ep 1 Immunity** (immunity_result) — resolved @ Mar 5 01:00 · impact: Amanda — +1 public; Bryan — +1 public",
 	}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
@@ -90,12 +84,59 @@ func TestOccurrencesListEmptyState(t *testing.T) {
 	}
 }
 
+func TestOccurrenceDetailFormatsRecordedAndImpactSections(t *testing.T) {
+	activity := castaway.Activity{ID: "a1", Name: "Journey 1"}
+	detail := castaway.OccurrenceDetail{
+		Occurrence: castaway.Occurrence{ID: "o1", Name: "Journey 1 Tribal Diplomacy", OccurrenceType: "journey_resolution", Status: "resolved", EffectiveAt: "2026-03-14T01:00:00Z"},
+		Participants: []castaway.OccurrenceParticipant{
+			{ParticipantName: "Adam", ParticipantGroupName: "Tangerine", Role: "delegate", Result: "STEAL"},
+			{ParticipantName: "Katie", ParticipantGroupName: "Lotus", Role: "delegate", Result: "SHARE"},
+		},
+		Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Katie", Points: 1, Visibility: "public"}},
+	}
+
+	message := OccurrenceDetail(detail, activity)
+	for _, fragment := range []string{
+		"**Journey 1 Tribal Diplomacy**",
+		"Activity: Journey 1",
+		"**Recorded**",
+		"Adam — role=delegate, result=STEAL, group=Tangerine",
+		"**Impact**",
+		"Katie — +1 public",
+	} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
+	history := castaway.ParticipantActivityHistory{
+		Participant: castaway.Participant{ID: "p1", Name: "Mooney"},
+		Instance:    castaway.Instance{ID: "i1", Name: "Season 50", Season: 50},
+		History: []castaway.ParticipantActivityHistoryEntry{
+			{ActivityName: "Journey 1", ActivityType: "journey", OccurrenceName: "Lost for Words — Mooney", EffectiveAt: "2026-03-14T02:00:00Z", Summary: "risk attempt", Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "secret"}}},
+			{ActivityName: "Tribal Pony", ActivityType: "tribal_pony", OccurrenceName: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z", Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "public"}}},
+		},
+	}
+
+	message := ParticipantHistory(history)
+	for _, fragment := range []string{
+		"**Mooney — Activity History**",
+		"**Journey 1** (journey)",
+		"Lost for Words — Mooney @ Mar 14 02:00",
+		"impact: Mooney — +1 secret",
+		"**Tribal Pony** (tribal_pony)",
+	} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
 func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
-	rows := []castaway.LeaderboardRow{
-		{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46},
-		{ParticipantName: "Riley", Score: 19, DraftPoints: 19, BonusPoints: 0, TotalPoints: 19, PointsAvailable: 41},
-	}
+	rows := []castaway.LeaderboardRow{{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}, {ParticipantName: "Riley", Score: 19, DraftPoints: 19, BonusPoints: 0, TotalPoints: 19, PointsAvailable: 41}}
 
 	message := Leaderboard(instance, rows)
 	expected := strings.Join([]string{

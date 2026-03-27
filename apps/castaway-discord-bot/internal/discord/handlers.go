@@ -85,6 +85,10 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 			return b.handleActivities(ctx, interaction, command)
 		case "occurrences":
 			return b.handleOccurrences(ctx, interaction, command)
+		case "occurrence":
+			return b.handleOccurrence(ctx, interaction, command)
+		case "history":
+			return b.handleHistory(ctx, interaction, command)
 		default:
 			return "", fmt.Errorf("unsupported castaway command: %s", command.name)
 		}
@@ -194,7 +198,81 @@ func (b *Bot) handleOccurrences(ctx context.Context, interaction *discordgo.Inte
 	if err != nil {
 		return "", err
 	}
-	return format.OccurrencesList(activity, occurrences), nil
+	details := make([]castaway.OccurrenceDetail, 0, len(occurrences))
+	for _, occurrence := range occurrences {
+		detail, detailErr := b.castaway.GetOccurrence(ctx, occurrence.ID)
+		if detailErr != nil {
+			detail = castaway.OccurrenceDetail{Occurrence: occurrence}
+		}
+		details = append(details, detail)
+	}
+	return format.OccurrencesList(activity, details), nil
+}
+
+func (b *Bot) handleOccurrence(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		return "", err
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		return "", err
+	}
+	activityName := optionString(command, "activity")
+	if activityName == "" {
+		return "", fmt.Errorf("activity name is required")
+	}
+	occurrenceName := optionString(command, "occurrence")
+	if occurrenceName == "" {
+		return "", fmt.Errorf("occurrence name is required")
+	}
+	activities, err := b.castaway.ListActivities(ctx, instance.ID)
+	if err != nil {
+		return "", err
+	}
+	activity, err := selectActivityByName(activityName, activities)
+	if err != nil {
+		return "", err
+	}
+	occurrences, err := b.castaway.ListOccurrences(ctx, activity.ID)
+	if err != nil {
+		return "", err
+	}
+	occurrence, err := selectOccurrenceByName(occurrenceName, occurrences)
+	if err != nil {
+		return "", err
+	}
+	detail, err := b.castaway.GetOccurrence(ctx, occurrence.ID)
+	if err != nil {
+		return "", err
+	}
+	return format.OccurrenceDetail(detail, activity), nil
+}
+
+func (b *Bot) handleHistory(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		return "", err
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		return "", err
+	}
+	participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
+	if err != nil {
+		return "", err
+	}
+	history, err := b.castaway.GetParticipantActivityHistory(ctx, instance.ID, participant.ID)
+	if err != nil {
+		return "", err
+	}
+	if history.Participant.ID == "" {
+		history.Participant = participant
+	}
+	if history.Instance.ID == "" {
+		history.Instance = instance
+	}
+	return format.ParticipantHistory(history), nil
 }
 
 func (b *Bot) handleInstanceList(ctx context.Context, command commandSpec) (string, error) {
@@ -302,6 +380,8 @@ func (b *Bot) handleAutocomplete(interaction *discordgo.InteractionCreate) {
 		choices = b.participantChoices(ctx, interaction, command, focused.StringValue())
 	case "activity":
 		choices = b.activityChoices(ctx, interaction, command, focused.StringValue())
+	case "occurrence":
+		choices = b.occurrenceChoices(ctx, interaction, command, focused.StringValue())
 	default:
 		choices = []*discordgo.ApplicationCommandOptionChoice{}
 	}
@@ -387,6 +467,48 @@ func (b *Bot) activityChoices(ctx context.Context, interaction *discordgo.Intera
 		}
 		label := trimChoiceLabel(fmt.Sprintf("%s [%s]", activity.Name, activity.ActivityType))
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: label, Value: activity.Name})
+		if len(choices) == 25 {
+			break
+		}
+	}
+	return choices
+}
+
+func (b *Bot) occurrenceChoices(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec, query string) []*discordgo.ApplicationCommandOptionChoice {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		b.log.Debug("resolve season for occurrence autocomplete", "error", err)
+		return emptyChoices()
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		b.log.Debug("resolve instance for occurrence autocomplete", "error", err)
+		return emptyChoices()
+	}
+	activities, err := b.castaway.ListActivities(ctx, instance.ID)
+	if err != nil {
+		b.log.Debug("list activities for occurrence autocomplete", "error", err)
+		return emptyChoices()
+	}
+	activity, err := selectActivityByName(optionString(command, "activity"), activities)
+	if err != nil {
+		b.log.Debug("resolve activity for occurrence autocomplete", "error", err)
+		return emptyChoices()
+	}
+	occurrences, err := b.castaway.ListOccurrences(ctx, activity.ID)
+	if err != nil {
+		b.log.Debug("list occurrences for autocomplete", "error", err)
+		return emptyChoices()
+	}
+
+	lowerQuery := strings.ToLower(strings.TrimSpace(query))
+	choices := make([]*discordgo.ApplicationCommandOptionChoice, 0, min(len(occurrences), 25))
+	for _, occurrence := range occurrences {
+		if lowerQuery != "" && !strings.Contains(strings.ToLower(occurrence.Name), lowerQuery) {
+			continue
+		}
+		label := trimChoiceLabel(fmt.Sprintf("%s [%s]", occurrence.Name, occurrence.OccurrenceType))
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{Name: label, Value: occurrence.Name})
 		if len(choices) == 25 {
 			break
 		}
@@ -750,6 +872,54 @@ func selectActivityByName(query string, activities []castaway.Activity) (castawa
 		return castaway.Activity{}, fmt.Errorf("multiple activities matched %q: %s", query, strings.Join(labels, ", "))
 	}
 	return castaway.Activity{}, fmt.Errorf("no activities matched %q", query)
+}
+
+func selectOccurrenceByName(query string, occurrences []castaway.Occurrence) (castaway.Occurrence, error) {
+	if len(occurrences) == 0 {
+		return castaway.Occurrence{}, fmt.Errorf("no occurrences found")
+	}
+	var match castaway.Occurrence
+	count := 0
+	for _, occurrence := range occurrences {
+		if strings.EqualFold(occurrence.Name, query) {
+			match = occurrence
+			count++
+		}
+	}
+	if count == 1 {
+		return match, nil
+	}
+
+	count = 0
+	lowerQuery := strings.ToLower(strings.TrimSpace(query))
+	for _, occurrence := range occurrences {
+		if strings.HasPrefix(strings.ToLower(occurrence.Name), lowerQuery) {
+			match = occurrence
+			count++
+		}
+	}
+	if count == 1 {
+		return match, nil
+	}
+
+	count = 0
+	labels := make([]string, 0, min(len(occurrences), 5))
+	for _, occurrence := range occurrences {
+		if strings.Contains(strings.ToLower(occurrence.Name), lowerQuery) {
+			match = occurrence
+			count++
+			if len(labels) < 5 {
+				labels = append(labels, occurrence.Name)
+			}
+		}
+	}
+	if count == 1 {
+		return match, nil
+	}
+	if count > 1 {
+		return castaway.Occurrence{}, fmt.Errorf("multiple occurrences matched %q: %s", query, strings.Join(labels, ", "))
+	}
+	return castaway.Occurrence{}, fmt.Errorf("no occurrences matched %q", query)
 }
 
 func singleExactParticipant(query string, participants []castaway.Participant) (castaway.Participant, bool) {

@@ -74,6 +74,32 @@ type Activity struct {
 	UpdatedAt    string `json:"updated_at"`
 }
 
+type ActivityGroupAssignment struct {
+	ParticipantGroupID   string          `json:"participant_group_id"`
+	ParticipantGroupName string          `json:"participant_group_name"`
+	Role                 string          `json:"role"`
+	StartsAt             string          `json:"starts_at"`
+	EndsAt               string          `json:"ends_at,omitempty"`
+	Configuration        json.RawMessage `json:"configuration,omitempty"`
+}
+
+type ActivityParticipantAssignment struct {
+	ParticipantID        string          `json:"participant_id"`
+	ParticipantName      string          `json:"participant_name"`
+	ParticipantGroupID   string          `json:"participant_group_id,omitempty"`
+	ParticipantGroupName string          `json:"participant_group_name,omitempty"`
+	Role                 string          `json:"role"`
+	StartsAt             string          `json:"starts_at"`
+	EndsAt               string          `json:"ends_at,omitempty"`
+	Configuration        json.RawMessage `json:"configuration,omitempty"`
+}
+
+type ActivityDetail struct {
+	Activity               Activity                        `json:"activity"`
+	GroupAssignments       []ActivityGroupAssignment       `json:"group_assignments"`
+	ParticipantAssignments []ActivityParticipantAssignment `json:"participant_assignments"`
+}
+
 type Occurrence struct {
 	ID             string `json:"id"`
 	ActivityID     string `json:"activity_id"`
@@ -86,6 +112,78 @@ type Occurrence struct {
 	SourceRef      string `json:"source_ref,omitempty"`
 	CreatedAt      string `json:"created_at"`
 	UpdatedAt      string `json:"updated_at"`
+}
+
+type OccurrenceParticipant struct {
+	ParticipantID        string          `json:"participant_id"`
+	ParticipantName      string          `json:"participant_name"`
+	ParticipantGroupID   string          `json:"participant_group_id,omitempty"`
+	ParticipantGroupName string          `json:"participant_group_name,omitempty"`
+	Role                 string          `json:"role"`
+	Result               string          `json:"result,omitempty"`
+	Metadata             json.RawMessage `json:"metadata,omitempty"`
+}
+
+type OccurrenceGroup struct {
+	ParticipantGroupID   string          `json:"participant_group_id"`
+	ParticipantGroupName string          `json:"participant_group_name"`
+	Role                 string          `json:"role"`
+	Result               string          `json:"result,omitempty"`
+	Metadata             json.RawMessage `json:"metadata,omitempty"`
+}
+
+type BonusLedgerEntry struct {
+	ID              string          `json:"id"`
+	ActivityID      string          `json:"activity_id,omitempty"`
+	ActivityName    string          `json:"activity_name,omitempty"`
+	ActivityType    string          `json:"activity_type,omitempty"`
+	OccurrenceID    string          `json:"activity_occurrence_id,omitempty"`
+	OccurrenceName  string          `json:"occurrence_name,omitempty"`
+	OccurrenceType  string          `json:"occurrence_type,omitempty"`
+	ParticipantID   string          `json:"participant_id,omitempty"`
+	ParticipantName string          `json:"participant_name,omitempty"`
+	SourceGroupID   string          `json:"source_group_id,omitempty"`
+	SourceGroupName string          `json:"source_group_name,omitempty"`
+	EntryKind       string          `json:"entry_kind"`
+	Points          int             `json:"points"`
+	Visibility      string          `json:"visibility"`
+	Reason          string          `json:"reason"`
+	EffectiveAt     string          `json:"effective_at"`
+	AwardKey        string          `json:"award_key,omitempty"`
+	CreatedAt       string          `json:"created_at,omitempty"`
+	Metadata        json.RawMessage `json:"metadata,omitempty"`
+}
+
+type OccurrenceDetail struct {
+	Occurrence   Occurrence              `json:"occurrence"`
+	Participants []OccurrenceParticipant `json:"participants"`
+	Groups       []OccurrenceGroup       `json:"groups"`
+	Ledger       []BonusLedgerEntry      `json:"ledger"`
+}
+
+type ParticipantActivityHistoryEntry struct {
+	ActivityID           string                  `json:"activity_id,omitempty"`
+	ActivityName         string                  `json:"activity_name"`
+	ActivityType         string                  `json:"activity_type,omitempty"`
+	OccurrenceID         string                  `json:"occurrence_id,omitempty"`
+	OccurrenceName       string                  `json:"occurrence_name,omitempty"`
+	OccurrenceType       string                  `json:"occurrence_type,omitempty"`
+	Status               string                  `json:"status,omitempty"`
+	EffectiveAt          string                  `json:"effective_at,omitempty"`
+	Role                 string                  `json:"role,omitempty"`
+	Result               string                  `json:"result,omitempty"`
+	ParticipantGroupID   string                  `json:"participant_group_id,omitempty"`
+	ParticipantGroupName string                  `json:"participant_group_name,omitempty"`
+	Summary              string                  `json:"summary,omitempty"`
+	Participants         []OccurrenceParticipant `json:"participants,omitempty"`
+	Groups               []OccurrenceGroup       `json:"groups,omitempty"`
+	Ledger               []BonusLedgerEntry      `json:"ledger,omitempty"`
+}
+
+type ParticipantActivityHistory struct {
+	Participant Participant                       `json:"participant"`
+	Instance    Instance                          `json:"instance"`
+	History     []ParticipantActivityHistoryEntry `json:"history"`
 }
 
 type DraftPick struct {
@@ -209,6 +307,14 @@ func (c *Client) ListActivities(ctx context.Context, instanceID string) ([]Activ
 	return response.Activities, nil
 }
 
+func (c *Client) GetActivity(ctx context.Context, activityID string) (ActivityDetail, error) {
+	var detail ActivityDetail
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/activities", activityID)), &detail); err != nil {
+		return ActivityDetail{}, err
+	}
+	return detail, nil
+}
+
 func (c *Client) ListOccurrences(ctx context.Context, activityID string) ([]Occurrence, error) {
 	var response struct {
 		Occurrences []Occurrence `json:"occurrences"`
@@ -217,6 +323,22 @@ func (c *Client) ListOccurrences(ctx context.Context, activityID string) ([]Occu
 		return nil, err
 	}
 	return response.Occurrences, nil
+}
+
+func (c *Client) GetOccurrence(ctx context.Context, occurrenceID string) (OccurrenceDetail, error) {
+	var detail OccurrenceDetail
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/occurrences", occurrenceID)), &detail); err != nil {
+		return OccurrenceDetail{}, err
+	}
+	return detail, nil
+}
+
+func (c *Client) GetParticipantActivityHistory(ctx context.Context, instanceID, participantID string) (ParticipantActivityHistory, error) {
+	var detail ParticipantActivityHistory
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "activity-history")), &detail); err != nil {
+		return ParticipantActivityHistory{}, err
+	}
+	return detail, nil
 }
 
 func (c *Client) GetDraft(ctx context.Context, instanceID, participantID string) (Draft, error) {
