@@ -73,10 +73,79 @@ model BonusLedgerEntry {
   created_at: utcDateTime;
 }
 
+alias JsonObject = Record<unknown>;
+
 model ParticipantBonusLedgerResponse {
   participant: Participant;
   bonus_points: int32;
   ledger: BonusLedgerEntry[];
+}
+
+// --- Activities & Occurrences ---
+
+model Activity {
+  id: string;
+  instance_id: string;
+  activity_type: string;
+  name: string;
+  status: string;
+  starts_at: utcDateTime;
+  ends_at?: utcDateTime;
+  metadata: JsonObject;
+  created_at: utcDateTime;
+  updated_at: utcDateTime;
+}
+
+model Occurrence {
+  id: string;
+  activity_id: string;
+  occurrence_type: string;
+  name: string;
+  effective_at: utcDateTime;
+  starts_at?: utcDateTime;
+  ends_at?: utcDateTime;
+  status: string;
+  source_ref?: string;
+  metadata: JsonObject;
+  created_at: utcDateTime;
+  updated_at: utcDateTime;
+}
+
+model OccurrenceParticipantResult {
+  id: int64;
+  activity_occurrence_id: string;
+  participant_id: string;
+  participant_group_id?: string;
+  role: string;
+  result: string;
+  metadata: JsonObject;
+  created_at: utcDateTime;
+}
+
+model OccurrenceGroupResult {
+  id: int64;
+  activity_occurrence_id: string;
+  participant_group_id: string;
+  role: string;
+  result: string;
+  metadata: JsonObject;
+  created_at: utcDateTime;
+}
+
+model ResolveLedgerEntry {
+  id: string;
+  instance_id: string;
+  participant_id: string;
+  activity_occurrence_id: string;
+  source_group_id?: string;
+  entry_kind: string;
+  points: int32;
+  visibility: string;
+  reason: string;
+  effective_at: utcDateTime;
+  award_key?: string;
+  metadata: JsonObject;
+  created_at: utcDateTime;
 }
 
 model ListInstancesResponse {
@@ -164,6 +233,72 @@ model ImportInstanceRequest {
   season: int32;
   name?: string;
   submissions: ImportSubmission[];
+}
+
+// --- Activities & Occurrences request/response models ---
+
+model ListActivitiesResponse {
+  activities: Activity[];
+}
+
+model CreateActivityRequest {
+  activity_type: string;
+  name: string;
+  status: string;
+  starts_at: utcDateTime;
+  ends_at?: utcDateTime;
+  metadata?: JsonObject;
+}
+
+model CreateActivityResponse {
+  activity: Activity;
+}
+
+model ListOccurrencesResponse {
+  occurrences: Occurrence[];
+}
+
+model CreateOccurrenceRequest {
+  occurrence_type: string;
+  name: string;
+  effective_at: utcDateTime;
+  starts_at?: utcDateTime;
+  ends_at?: utcDateTime;
+  status: string;
+  source_ref?: string;
+  metadata?: JsonObject;
+}
+
+model CreateOccurrenceResponse {
+  occurrence: Occurrence;
+}
+
+model CreateOccurrenceParticipantRequest {
+  participant_id: string;
+  participant_group_id?: string;
+  role: string;
+  result?: string;
+  metadata?: JsonObject;
+}
+
+model CreateOccurrenceParticipantResponse {
+  participant_result: OccurrenceParticipantResult;
+}
+
+model CreateOccurrenceGroupRequest {
+  participant_group_id: string;
+  role: string;
+  result?: string;
+  metadata?: JsonObject;
+}
+
+model CreateOccurrenceGroupResponse {
+  group_result: OccurrenceGroupResult;
+}
+
+model ResolveOccurrenceResponse {
+  created_entries: ResolveLedgerEntry[];
+  created_count: int32;
 }
 
 @route("/healthz")
@@ -260,3 +395,63 @@ op leaderboard(
   @path instanceID: string,
   @query participant_id?: string,
 ): LeaderboardResponse | ErrorResponse;
+
+// --- Activities ---
+
+@route("/instances/{instanceID}/activities")
+@get
+op listActivities(@path instanceID: string): ListActivitiesResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/activities")
+@post
+op createActivity(
+  @path instanceID: string,
+  @body body: CreateActivityRequest,
+): {
+  @statusCode statusCode: 201;
+  ...CreateActivityResponse;
+} | ErrorResponse;
+
+// --- Occurrences ---
+
+@route("/activities/{activityID}/occurrences")
+@get
+op listOccurrences(@path activityID: string): ListOccurrencesResponse | ErrorResponse;
+
+@route("/activities/{activityID}/occurrences")
+@post
+op createOccurrence(
+  @path activityID: string,
+  @body body: CreateOccurrenceRequest,
+): {
+  @statusCode statusCode: 201;
+  ...CreateOccurrenceResponse;
+} | ErrorResponse;
+
+// --- Occurrence results ---
+
+@route("/occurrences/{occurrenceID}/participants")
+@post
+op createOccurrenceParticipant(
+  @path occurrenceID: string,
+  @body body: CreateOccurrenceParticipantRequest,
+): {
+  @statusCode statusCode: 201;
+  ...CreateOccurrenceParticipantResponse;
+} | ErrorResponse;
+
+@route("/occurrences/{occurrenceID}/groups")
+@post
+op createOccurrenceGroup(
+  @path occurrenceID: string,
+  @body body: CreateOccurrenceGroupRequest,
+): {
+  @statusCode statusCode: 201;
+  ...CreateOccurrenceGroupResponse;
+} | ErrorResponse;
+
+// --- Resolve ---
+
+@route("/occurrences/{occurrenceID}/resolve")
+@post
+op resolveOccurrence(@path occurrenceID: string): ResolveOccurrenceResponse | ErrorResponse;

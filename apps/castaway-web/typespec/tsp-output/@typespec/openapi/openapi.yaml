@@ -4,6 +4,51 @@ info:
   version: 0.0.0
 tags: []
 paths:
+  /activities/{activityID}/occurrences:
+    get:
+      operationId: listOccurrences
+      parameters:
+        - name: activityID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListOccurrencesResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createOccurrence
+      parameters:
+        - name: activityID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOccurrenceResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOccurrenceRequest'
   /healthz:
     get:
       operationId: healthz
@@ -96,6 +141,51 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/GetInstanceResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/activities:
+    get:
+      operationId: listActivities
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListActivitiesResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createActivity
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateActivityResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityRequest'
   /instances/{instanceID}/contestants:
     post:
       operationId: createContestant
@@ -338,8 +428,120 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/ParticipantBonusLedgerResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /occurrences/{occurrenceID}/groups:
+    post:
+      operationId: createOccurrenceGroup
+      parameters:
+        - name: occurrenceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOccurrenceGroupResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOccurrenceGroupRequest'
+  /occurrences/{occurrenceID}/participants:
+    post:
+      operationId: createOccurrenceParticipant
+      parameters:
+        - name: occurrenceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOccurrenceParticipantResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOccurrenceParticipantRequest'
+  /occurrences/{occurrenceID}/resolve:
+    post:
+      operationId: resolveOccurrence
+      parameters:
+        - name: occurrenceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ResolveOccurrenceResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
+    Activity:
+      type: object
+      required:
+        - id
+        - instance_id
+        - activity_type
+        - name
+        - status
+        - starts_at
+        - metadata
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        instance_id:
+          type: string
+        activity_type:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     BonusLedgerEntry:
       type: object
       required:
@@ -402,6 +604,36 @@ components:
           type: string
         name:
           type: string
+    CreateActivityRequest:
+      type: object
+      required:
+        - activity_type
+        - name
+        - status
+        - starts_at
+      properties:
+        activity_type:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: {}
+    CreateActivityResponse:
+      type: object
+      required:
+        - activity
+      properties:
+        activity:
+          $ref: '#/components/schemas/Activity'
     CreateContestantRequest:
       type: object
       required:
@@ -438,6 +670,87 @@ components:
       properties:
         instance:
           $ref: '#/components/schemas/Instance'
+    CreateOccurrenceGroupRequest:
+      type: object
+      required:
+        - participant_group_id
+        - role
+      properties:
+        participant_group_id:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+    CreateOccurrenceGroupResponse:
+      type: object
+      required:
+        - group_result
+      properties:
+        group_result:
+          $ref: '#/components/schemas/OccurrenceGroupResult'
+    CreateOccurrenceParticipantRequest:
+      type: object
+      required:
+        - participant_id
+        - role
+      properties:
+        participant_id:
+          type: string
+        participant_group_id:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+    CreateOccurrenceParticipantResponse:
+      type: object
+      required:
+        - participant_result
+      properties:
+        participant_result:
+          $ref: '#/components/schemas/OccurrenceParticipantResult'
+    CreateOccurrenceRequest:
+      type: object
+      required:
+        - occurrence_type
+        - name
+        - effective_at
+        - status
+      properties:
+        occurrence_type:
+          type: string
+        name:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        source_ref:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+    CreateOccurrenceResponse:
+      type: object
+      required:
+        - occurrence
+      properties:
+        occurrence:
+          $ref: '#/components/schemas/Occurrence'
     CreateParticipantRequest:
       type: object
       required:
@@ -593,6 +906,15 @@ components:
         points_available:
           type: integer
           format: int32
+    ListActivitiesResponse:
+      type: object
+      required:
+        - activities
+      properties:
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Activity'
     ListContestantsResponse:
       type: object
       required:
@@ -611,6 +933,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Instance'
+    ListOccurrencesResponse:
+      type: object
+      required:
+        - occurrences
+      properties:
+        occurrences:
+          type: array
+          items:
+            $ref: '#/components/schemas/Occurrence'
     ListOutcomesResponse:
       type: object
       required:
@@ -629,6 +960,107 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Participant'
+    Occurrence:
+      type: object
+      required:
+        - id
+        - activity_id
+        - occurrence_type
+        - name
+        - effective_at
+        - status
+        - metadata
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        activity_id:
+          type: string
+        occurrence_type:
+          type: string
+        name:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        source_ref:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    OccurrenceGroupResult:
+      type: object
+      required:
+        - id
+        - activity_occurrence_id
+        - participant_group_id
+        - role
+        - result
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        activity_occurrence_id:
+          type: string
+        participant_group_id:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+    OccurrenceParticipantResult:
+      type: object
+      required:
+        - id
+        - activity_occurrence_id
+        - participant_id
+        - role
+        - result
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        activity_occurrence_id:
+          type: string
+        participant_id:
+          type: string
+        participant_group_id:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
     Outcome:
       type: object
       required:
@@ -683,6 +1115,64 @@ components:
       properties:
         status:
           type: string
+    ResolveLedgerEntry:
+      type: object
+      required:
+        - id
+        - instance_id
+        - participant_id
+        - activity_occurrence_id
+        - entry_kind
+        - points
+        - visibility
+        - reason
+        - effective_at
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: string
+        instance_id:
+          type: string
+        participant_id:
+          type: string
+        activity_occurrence_id:
+          type: string
+        source_group_id:
+          type: string
+        entry_kind:
+          type: string
+        points:
+          type: integer
+          format: int32
+        visibility:
+          type: string
+        reason:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        award_key:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+    ResolveOccurrenceResponse:
+      type: object
+      required:
+        - created_entries
+        - created_count
+      properties:
+        created_entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolveLedgerEntry'
+        created_count:
+          type: integer
+          format: int32
     UpsertOutcomeRequest:
       type: object
       properties:
