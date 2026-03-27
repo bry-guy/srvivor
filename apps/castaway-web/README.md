@@ -140,6 +140,13 @@ The task starts a disposable PostgreSQL container, seeds historical data, runs `
 - `PUT /instances/:instanceID/outcomes/:position`
 - `GET /instances/:instanceID/outcomes`
 - `GET /instances/:instanceID/leaderboard` (`participant_id` filter supported)
+- `GET /instances/:instanceID/activities`
+- `POST /instances/:instanceID/activities`
+- `GET /activities/:activityID/occurrences`
+- `POST /activities/:activityID/occurrences`
+- `POST /occurrences/:occurrenceID/participants`
+- `POST /occurrences/:occurrenceID/groups`
+- `POST /occurrences/:occurrenceID/resolve`
 
 ## Seed data
 

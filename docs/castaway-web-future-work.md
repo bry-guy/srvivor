@@ -12,7 +12,5 @@ Implemented today:
 - Discord bot display updates for draft vs bonus vs total
 
 Remaining follow-on work:
-- activity/occurrence write APIs for operators and clients
-- Discord bot read workflows for activities and occurrences
 - richer participant-facing auth for viewing secret bonus data
 - continued cleanup of historical seed provenance where manual corrections still stand in for first-class gameplay events

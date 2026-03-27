@@ -19,6 +19,8 @@ Top-level command: `/castaway`
 - `/castaway score participant:<name> [instance] [season]`
 - `/castaway scores [instance] [season]`
 - `/castaway draft participant:<name> [instance] [season]`
+- `/castaway activities [instance] [season]`
+- `/castaway occurrences activity:<name> [instance] [season]`
 
 ### Context commands
 - `/castaway instance list [season]`
