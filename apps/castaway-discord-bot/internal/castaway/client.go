@@ -162,7 +162,7 @@ type OccurrenceDetail struct {
 }
 
 type ParticipantOccurrenceInvolvement struct {
-	ID                   string          `json:"id,omitempty"`
+	ID                   int64           `json:"id,omitempty"`
 	OccurrenceID         string          `json:"activity_occurrence_id,omitempty"`
 	ParticipantID        string          `json:"participant_id,omitempty"`
 	ParticipantGroupID   string          `json:"participant_group_id,omitempty"`
