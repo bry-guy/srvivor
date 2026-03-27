@@ -18,4 +18,4 @@ CASTAWAY_DISCORD_APPLICATION_ID = { provider = "op", value = "CASTAWAY_DISCORD_A
 DISCORD_PODRACING_SERVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERVER_ID/password", description = "Development guild/server ID for castaway-discord-bot" }
 DISCORD_BRAINLAND_SERVER_ID = { provider = "op", value = "DISCORD_BRAINLAND_SERVER_ID/password", description = "Development guild/server ID for castaway-discord-bot" }
 CASTAWAY_DISCORD_PUBLIC_KEY = { provider = "op", value = "CASTAWAY_DISCORD_PUBLIC_KEY/password", description = "Reserved for future Discord signature verification workflows" }
-DISCORD_TARGET_SEVER_ID = { provider = "op", value = "DISCORD_BRAINLAND_SERVER_ID/password", description = "Target guild/server ID for castaway-discord-bot" }
+DISCORD_TARGET_SEVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERVER_ID/password", description = "Target guild/server ID for castaway-discord-bot" }
