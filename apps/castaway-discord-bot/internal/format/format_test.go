@@ -149,9 +149,16 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 				}},
 			},
 			{
-				Activity: castaway.Activity{ID: "a2", Name: "Tribal Pony", ActivityType: "tribal_pony"},
+				Activity: castaway.Activity{ID: "a2", Name: "Monty Hall Memorial Castaway Game", ActivityType: "manual_adjustment"},
 				Occurrences: []castaway.ParticipantActivityHistoryOccurrence{{
-					Occurrence: castaway.Occurrence{ID: "o2", Name: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z"},
+					Occurrence:  castaway.Occurrence{ID: "o2", Name: "Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)", EffectiveAt: "2026-03-19T01:02:00Z"},
+					Involvement: &castaway.ParticipantOccurrenceInvolvement{Role: "adjustment", Metadata: []byte(`{"award_key":"season50:monty-hall:leaf:loan-shark-secret","points":1,"reason":"Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)"}`)},
+				}},
+			},
+			{
+				Activity: castaway.Activity{ID: "a3", Name: "Tribal Pony", ActivityType: "tribal_pony"},
+				Occurrences: []castaway.ParticipantActivityHistoryOccurrence{{
+					Occurrence: castaway.Occurrence{ID: "o3", Name: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z"},
 					Ledger:     []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "public"}},
 				}},
 			},
@@ -165,11 +172,16 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 		"Lost for Words — Mooney @ Mar 14 02:00",
 		"role=delegate, result=risked, group=Leaf",
 		"impact: Mooney — +1 secret",
+		"**Monty Hall Memorial Castaway Game** (manual_adjustment)",
+		"adjustment: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
 		"**Tribal Pony** (tribal_pony)",
 	} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
+	}
+	if strings.Contains(message, "award_key=") {
+		t.Fatalf("expected manual adjustment metadata to be humanized, got %q", message)
 	}
 }
 

@@ -271,14 +271,33 @@ func historyOccurrenceSubLines(item castaway.ParticipantActivityHistoryOccurrenc
 		if result := formatResultLine(item.Involvement.Role, item.Involvement.Result, item.Involvement.ParticipantGroupName); result != "" {
 			lines = append(lines, result)
 		}
-		if metadata := formatMetadataSummary(item.Involvement.Metadata); metadata != "" {
-			lines = append(lines, "metadata: "+metadata)
+		if metadata := formatHistoryInvolvementMetadata(item.Involvement); metadata != "" {
+			lines = append(lines, metadata)
 		}
 	}
 	for _, line := range ledgerLines(item.Ledger) {
 		lines = append(lines, "impact: "+line)
 	}
 	return lines
+}
+
+func formatHistoryInvolvementMetadata(involvement *castaway.ParticipantOccurrenceInvolvement) string {
+	if involvement == nil || len(involvement.Metadata) == 0 {
+		return ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(involvement.Metadata, &payload); err != nil || len(payload) == 0 {
+		return ""
+	}
+	if strings.TrimSpace(involvement.Role) == "adjustment" {
+		if reason, ok := payload["reason"].(string); ok && strings.TrimSpace(reason) != "" {
+			return "adjustment: " + strings.TrimSpace(reason)
+		}
+	}
+	if summary := formatMetadataSummary(involvement.Metadata); summary != "" {
+		return "metadata: " + summary
+	}
+	return ""
 }
 
 func compactOccurrenceImpact(detail castaway.OccurrenceDetail) string {
