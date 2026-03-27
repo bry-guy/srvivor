@@ -12,6 +12,7 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 				scoresCommand(),
 				draftCommand(),
 				activitiesCommand(),
+				activityCommand(),
 				occurrencesCommand(),
 				occurrenceCommand(),
 				historyCommand(),
@@ -65,6 +66,19 @@ func activitiesCommand() *discordgo.ApplicationCommandOption {
 		Name:        "activities",
 		Description: "List gameplay activities for an instance",
 		Options: []*discordgo.ApplicationCommandOption{
+			instanceOption(false),
+			seasonOption(),
+		},
+	}
+}
+
+func activityCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "activity",
+		Description: "Show one activity in detail",
+		Options: []*discordgo.ApplicationCommandOption{
+			activityOption(true),
 			instanceOption(false),
 			seasonOption(),
 		},

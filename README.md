@@ -64,7 +64,6 @@ See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord
 - Functional requirements: `functional-requirements.md`
 - Non-functional requirements: `non-functional-requirements.md`
 - Production readiness: `production-readiness-checklist.md`
-- Plans: `plans/`
 - Shared guides: `docs/guides/`
 - Agent/operator prompt packs: `prompts/`
 - Shared docs index: `docs/README.md`

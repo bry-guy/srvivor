@@ -78,6 +78,88 @@ func ActivitiesList(instance castaway.Instance, activities []castaway.Activity) 
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
+func ActivityDetail(detail castaway.ActivityDetail, occurrences []castaway.Occurrence, instance castaway.Instance) string {
+	activity := detail.Activity
+	var builder strings.Builder
+	builder.WriteString("**")
+	builder.WriteString(activity.Name)
+	builder.WriteString("**\n")
+	builder.WriteString("Instance: ")
+	builder.WriteString(InstanceLabel(instance))
+	builder.WriteString("\nType: ")
+	builder.WriteString(activity.ActivityType)
+	builder.WriteString("\nStatus: ")
+	builder.WriteString(activity.Status)
+	if when := strings.TrimSpace(activity.StartsAt); when != "" {
+		builder.WriteString("\nStarts: ")
+		builder.WriteString(formatTimeLong(when))
+	}
+	if when := strings.TrimSpace(activity.EndsAt); when != "" {
+		builder.WriteString("\nEnds: ")
+		builder.WriteString(formatTimeLong(when))
+	}
+
+	if lines := activityAssignmentLines(detail); len(lines) > 0 {
+		builder.WriteString("\n\n**Assignments**\n")
+		for _, line := range lines {
+			builder.WriteString("- ")
+			builder.WriteString(line)
+			builder.WriteString("\n")
+		}
+	}
+
+	if len(occurrences) > 0 {
+		builder.WriteString("\n**Occurrences**\n")
+		for _, occurrence := range occurrences {
+			builder.WriteString("- **")
+			builder.WriteString(occurrence.Name)
+			builder.WriteString("** (")
+			builder.WriteString(occurrence.OccurrenceType)
+			builder.WriteString(") — ")
+			builder.WriteString(occurrence.Status)
+			if when := strings.TrimSpace(occurrence.EffectiveAt); when != "" {
+				builder.WriteString(" @ ")
+				builder.WriteString(formatTime(when))
+			}
+			builder.WriteString("\n")
+		}
+	}
+
+	return TrimMessage(strings.TrimSpace(builder.String()))
+}
+
+func activityAssignmentLines(detail castaway.ActivityDetail) []string {
+	lines := make([]string, 0, len(detail.GroupAssignments)+len(detail.ParticipantAssignments))
+	for _, assignment := range detail.GroupAssignments {
+		line := assignment.ParticipantGroupName
+		if strings.TrimSpace(assignment.Role) != "" {
+			line += " — role=" + strings.TrimSpace(assignment.Role)
+		}
+		if metadata := formatMetadataSummary(assignment.Configuration); metadata != "" {
+			line += " [" + metadata + "]"
+		}
+		lines = append(lines, line)
+	}
+	for _, assignment := range detail.ParticipantAssignments {
+		line := assignment.ParticipantName
+		parts := make([]string, 0, 2)
+		if strings.TrimSpace(assignment.Role) != "" {
+			parts = append(parts, "role="+strings.TrimSpace(assignment.Role))
+		}
+		if strings.TrimSpace(assignment.ParticipantGroupName) != "" {
+			parts = append(parts, "group="+strings.TrimSpace(assignment.ParticipantGroupName))
+		}
+		if len(parts) > 0 {
+			line += " — " + strings.Join(parts, ", ")
+		}
+		if metadata := formatMetadataSummary(assignment.Configuration); metadata != "" {
+			line += " [" + metadata + "]"
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
 func OccurrencesList(activity castaway.Activity, details []castaway.OccurrenceDetail) string {
 	if len(details) == 0 {
 		return fmt.Sprintf("**%s**\nNo occurrences found.", activity.Name)

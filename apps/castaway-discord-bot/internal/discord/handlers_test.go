@@ -170,6 +170,32 @@ func TestActivitiesCommandRegression_ListsActivitiesForInstance(t *testing.T) {
 	}
 }
 
+func TestActivityCommandRegression_ShowsDetailedActivity(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:            []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		activitiesByInstance: map[string][]castaway.Activity{"instance-50": {{ID: "act-1", InstanceID: "instance-50", ActivityType: "journey", Name: "Journey 1", Status: "completed"}}},
+		activityDetails: map[string]castaway.ActivityDetail{"act-1": {
+			Activity:               castaway.Activity{ID: "act-1", InstanceID: "instance-50", ActivityType: "journey", Name: "Journey 1", Status: "completed", StartsAt: "2026-03-12T00:00:00Z"},
+			GroupAssignments:       []castaway.ActivityGroupAssignment{{ParticipantGroupName: "Leaf", Role: "tribe"}},
+			ParticipantAssignments: []castaway.ActivityParticipantAssignment{{ParticipantName: "Mooney", ParticipantGroupName: "Leaf", Role: "delegate"}},
+		}},
+		occurrencesByActivity: map[string][]castaway.Occurrence{"act-1": {{ID: "occ-1", ActivityID: "act-1", OccurrenceType: "attendance", Name: "Journey 1 Attendance", EffectiveAt: "2026-03-12T00:00:00Z", Status: "resolved"}}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "activity", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("activity", "Journey 1")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Journey 1**", "**Assignments**", "Mooney — role=delegate, group=Leaf", "**Occurrences**", "Journey 1 Attendance"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
 func TestOccurrencesCommandRegression_ListsOccurrencesWithImpactSummary(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
 		instances:             []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},

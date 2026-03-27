@@ -53,6 +53,31 @@ func TestActivitiesListEmptyState(t *testing.T) {
 	}
 }
 
+func TestActivityDetailFormatsAssignmentsAndOccurrences(t *testing.T) {
+	instance := castaway.Instance{ID: "i1", Name: "Season 50", Season: 50}
+	detail := castaway.ActivityDetail{
+		Activity:               castaway.Activity{ID: "a1", Name: "Journey 1", ActivityType: "journey", Status: "completed", StartsAt: "2026-03-12T00:00:00Z"},
+		GroupAssignments:       []castaway.ActivityGroupAssignment{{ParticipantGroupName: "Leaf", Role: "tribe"}},
+		ParticipantAssignments: []castaway.ActivityParticipantAssignment{{ParticipantName: "Mooney", ParticipantGroupName: "Leaf", Role: "delegate"}},
+	}
+	occurrences := []castaway.Occurrence{{ID: "o1", Name: "Journey 1 Attendance", OccurrenceType: "attendance", Status: "resolved", EffectiveAt: "2026-03-12T00:00:00Z"}}
+
+	message := ActivityDetail(detail, occurrences, instance)
+	for _, fragment := range []string{
+		"**Journey 1**",
+		"Instance: Season 50 — Season 50",
+		"**Assignments**",
+		"Leaf — role=tribe",
+		"Mooney — role=delegate, group=Leaf",
+		"**Occurrences**",
+		"Journey 1 Attendance",
+	} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
 func TestOccurrencesListFormatsDetailedCompactOutput(t *testing.T) {
 	activity := castaway.Activity{ID: "a1", Name: "Tribal Pony"}
 	details := []castaway.OccurrenceDetail{

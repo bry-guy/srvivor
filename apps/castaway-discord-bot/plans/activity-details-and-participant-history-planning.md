@@ -1,6 +1,6 @@
 # Activity Details and Participant History Plan
 
-Status: `planning`
+Status: `in-progress`
 Owner: `castaway-discord-bot`
 Last updated: 2026-03-27
 

@@ -8,7 +8,6 @@
 - Functional requirements: `functional-requirements.md`
 - Non-functional requirements: `non-functional-requirements.md`
 - Production readiness: `production-readiness-checklist.md`
-- Plans: `plans/`
 - Shared future-work notes: `../../docs/castaway-web-future-work.md`
 
 ## Stack

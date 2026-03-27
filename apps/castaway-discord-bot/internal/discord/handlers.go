@@ -83,6 +83,8 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 			return b.handleDraft(ctx, interaction, command)
 		case "activities":
 			return b.handleActivities(ctx, interaction, command)
+		case "activity":
+			return b.handleActivity(ctx, interaction, command)
 		case "occurrences":
 			return b.handleOccurrences(ctx, interaction, command)
 		case "occurrence":
@@ -171,6 +173,38 @@ func (b *Bot) handleActivities(ctx context.Context, interaction *discordgo.Inter
 		return "", err
 	}
 	return format.ActivitiesList(instance, activities), nil
+}
+
+func (b *Bot) handleActivity(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		return "", err
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		return "", err
+	}
+	activityName := optionString(command, "activity")
+	if activityName == "" {
+		return "", fmt.Errorf("activity name is required")
+	}
+	activities, err := b.castaway.ListActivities(ctx, instance.ID)
+	if err != nil {
+		return "", err
+	}
+	activity, err := selectActivityByName(activityName, activities)
+	if err != nil {
+		return "", err
+	}
+	detail, err := b.castaway.GetActivity(ctx, activity.ID)
+	if err != nil {
+		return "", err
+	}
+	occurrences, err := b.castaway.ListOccurrences(ctx, activity.ID)
+	if err != nil {
+		return "", err
+	}
+	return format.ActivityDetail(detail, occurrences, instance), nil
 }
 
 func (b *Bot) handleOccurrences(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {

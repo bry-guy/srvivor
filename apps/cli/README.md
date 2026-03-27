@@ -10,7 +10,6 @@ This CLI is a completed legacy app and is expected to remain in maintenance/arch
 - Functional requirements: `functional-requirements.md`
 - Non-functional requirements: `non-functional-requirements.md`
 - Production readiness: `production-readiness-checklist.md`
-- Plans: `plans/`
 - Historical context: `../../docs/archive-wiki/`
 
 ## Commands

@@ -8,7 +8,6 @@
 - Functional requirements: `functional-requirements.md`
 - Non-functional requirements: `non-functional-requirements.md`
 - Production readiness: `production-readiness-checklist.md`
-- Plans: `plans/`
 - Shared app blueprint: `../../docs/castaway-discord-bot-blueprint.md`
 
 ## Commands
@@ -20,6 +19,7 @@ Top-level command: `/castaway`
 - `/castaway scores [instance] [season]`
 - `/castaway draft participant:<name> [instance] [season]`
 - `/castaway activities [instance] [season]`
+- `/castaway activity activity:<name> [instance] [season]`
 - `/castaway occurrences activity:<name> [instance] [season]`
 - `/castaway occurrence activity:<name> occurrence:<name> [instance] [season]`
 - `/castaway history participant:<name> [instance] [season]`
