@@ -59,6 +59,34 @@ type bonusLedgerResponse struct {
 	} `json:"ledger"`
 }
 
+type activitiesResponse struct {
+	Activities []struct {
+		ID           string          `json:"id"`
+		InstanceID   string          `json:"instance_id"`
+		ActivityType string          `json:"activity_type"`
+		Name         string          `json:"name"`
+		Status       string          `json:"status"`
+		StartsAt     string          `json:"starts_at"`
+		EndsAt       *string         `json:"ends_at"`
+		Metadata     json.RawMessage `json:"metadata"`
+	} `json:"activities"`
+}
+
+type occurrencesResponse struct {
+	Occurrences []struct {
+		ID             string          `json:"id"`
+		ActivityID     string          `json:"activity_id"`
+		OccurrenceType string          `json:"occurrence_type"`
+		Name           string          `json:"name"`
+		EffectiveAt    string          `json:"effective_at"`
+		StartsAt       *string         `json:"starts_at"`
+		EndsAt         *string         `json:"ends_at"`
+		Status         string          `json:"status"`
+		SourceRef      *string         `json:"source_ref"`
+		Metadata       json.RawMessage `json:"metadata"`
+	} `json:"occurrences"`
+}
+
 func TestServiceAuthProtectsNonHealthRoutes(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	defer pool.Close()
@@ -104,6 +132,169 @@ func TestServiceAuthProtectsNonHealthRoutes(t *testing.T) {
 	}
 	if !strings.Contains(validRecorder.Body.String(), uuid.UUID(instance.ID.Bytes).String()) {
 		t.Fatalf("expected instances response to include created instance, body = %s", validRecorder.Body.String())
+	}
+}
+
+func TestActivitiesOccurrencesHandlersAndResolve(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	queries := db.New(pool)
+	instance := createInstanceForTest(t, ctx, queries, "Activities API", 50)
+	participant := createParticipantForTest(t, ctx, queries, instance.ID, "Alice")
+	group := createParticipantGroupForTest(t, ctx, queries, instance.ID, "Team Orange", "tribe")
+
+	server := httpapi.New(pool)
+	router := server.Router()
+
+	createActivityReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/instances/%s/activities", uuid.UUID(instance.ID.Bytes).String()), strings.NewReader(`{"activity_type":"manual_adjustment","name":"Manual Adjustments","status":"active","starts_at":"2026-03-21T12:00:00Z","metadata":{"scope":"test"}}`))
+	createActivityReq.Header.Set("Content-Type", "application/json")
+	createActivityRecorder := httptest.NewRecorder()
+	router.ServeHTTP(createActivityRecorder, createActivityReq)
+	if createActivityRecorder.Code != http.StatusCreated {
+		t.Fatalf("create activity status = %d, body = %s", createActivityRecorder.Code, createActivityRecorder.Body.String())
+	}
+	var createdActivity struct {
+		Activity struct {
+			ID string `json:"id"`
+		} `json:"activity"`
+	}
+	if err := json.Unmarshal(createActivityRecorder.Body.Bytes(), &createdActivity); err != nil {
+		t.Fatalf("unmarshal create activity: %v", err)
+	}
+
+	listActivitiesReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/instances/%s/activities", uuid.UUID(instance.ID.Bytes).String()), nil)
+	listActivitiesRecorder := httptest.NewRecorder()
+	router.ServeHTTP(listActivitiesRecorder, listActivitiesReq)
+	if listActivitiesRecorder.Code != http.StatusOK {
+		t.Fatalf("list activities status = %d, body = %s", listActivitiesRecorder.Code, listActivitiesRecorder.Body.String())
+	}
+	var activities activitiesResponse
+	if err := json.Unmarshal(listActivitiesRecorder.Body.Bytes(), &activities); err != nil {
+		t.Fatalf("unmarshal activities response: %v", err)
+	}
+	if len(activities.Activities) != 1 || activities.Activities[0].Name != "Manual Adjustments" {
+		t.Fatalf("unexpected activities response: %+v", activities)
+	}
+
+	createOccurrenceReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/activities/%s/occurrences", createdActivity.Activity.ID), strings.NewReader(`{"occurrence_type":"manual_correction","name":"Episode 1 Correction","effective_at":"2026-03-22T09:00:00Z","status":"pending","metadata":{"note":"adjustment"}}`))
+	createOccurrenceReq.Header.Set("Content-Type", "application/json")
+	createOccurrenceRecorder := httptest.NewRecorder()
+	router.ServeHTTP(createOccurrenceRecorder, createOccurrenceReq)
+	if createOccurrenceRecorder.Code != http.StatusCreated {
+		t.Fatalf("create occurrence status = %d, body = %s", createOccurrenceRecorder.Code, createOccurrenceRecorder.Body.String())
+	}
+	var createdOccurrence struct {
+		Occurrence struct {
+			ID string `json:"id"`
+		} `json:"occurrence"`
+	}
+	if err := json.Unmarshal(createOccurrenceRecorder.Body.Bytes(), &createdOccurrence); err != nil {
+		t.Fatalf("unmarshal create occurrence: %v", err)
+	}
+
+	listOccurrencesReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/activities/%s/occurrences", createdActivity.Activity.ID), nil)
+	listOccurrencesRecorder := httptest.NewRecorder()
+	router.ServeHTTP(listOccurrencesRecorder, listOccurrencesReq)
+	if listOccurrencesRecorder.Code != http.StatusOK {
+		t.Fatalf("list occurrences status = %d, body = %s", listOccurrencesRecorder.Code, listOccurrencesRecorder.Body.String())
+	}
+	var occurrences occurrencesResponse
+	if err := json.Unmarshal(listOccurrencesRecorder.Body.Bytes(), &occurrences); err != nil {
+		t.Fatalf("unmarshal occurrences response: %v", err)
+	}
+	if len(occurrences.Occurrences) != 1 || occurrences.Occurrences[0].Name != "Episode 1 Correction" {
+		t.Fatalf("unexpected occurrences response: %+v", occurrences)
+	}
+
+	participantBody := fmt.Sprintf(`{"participant_id":%q,"role":"target","metadata":{"points":3,"visibility":"public","reason":"manual correction","entry_kind":"correction","award_key":"manual-adjustment"}}`, uuid.UUID(participant.ID.Bytes).String())
+	participantReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/occurrences/%s/participants", createdOccurrence.Occurrence.ID), strings.NewReader(participantBody))
+	participantReq.Header.Set("Content-Type", "application/json")
+	participantRecorder := httptest.NewRecorder()
+	router.ServeHTTP(participantRecorder, participantReq)
+	if participantRecorder.Code != http.StatusCreated {
+		t.Fatalf("create occurrence participant status = %d, body = %s", participantRecorder.Code, participantRecorder.Body.String())
+	}
+
+	groupBody := fmt.Sprintf(`{"participant_group_id":%q,"role":"tribe","result":"winner","metadata":{"label":"winner"}}`, uuid.UUID(group.ID.Bytes).String())
+	groupReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/occurrences/%s/groups", createdOccurrence.Occurrence.ID), strings.NewReader(groupBody))
+	groupReq.Header.Set("Content-Type", "application/json")
+	groupRecorder := httptest.NewRecorder()
+	router.ServeHTTP(groupRecorder, groupReq)
+	if groupRecorder.Code != http.StatusCreated {
+		t.Fatalf("create occurrence group status = %d, body = %s", groupRecorder.Code, groupRecorder.Body.String())
+	}
+
+	resolveReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/occurrences/%s/resolve", createdOccurrence.Occurrence.ID), nil)
+	resolveRecorder := httptest.NewRecorder()
+	router.ServeHTTP(resolveRecorder, resolveReq)
+	if resolveRecorder.Code != http.StatusOK {
+		t.Fatalf("resolve occurrence status = %d, body = %s", resolveRecorder.Code, resolveRecorder.Body.String())
+	}
+	var resolveResponse struct {
+		CreatedCount   int `json:"created_count"`
+		CreatedEntries []struct {
+			ParticipantID string `json:"participant_id"`
+			EntryKind     string `json:"entry_kind"`
+			Points        int    `json:"points"`
+		} `json:"created_entries"`
+	}
+	if err := json.Unmarshal(resolveRecorder.Body.Bytes(), &resolveResponse); err != nil {
+		t.Fatalf("unmarshal resolve response: %v", err)
+	}
+	if resolveResponse.CreatedCount != 1 || len(resolveResponse.CreatedEntries) != 1 {
+		t.Fatalf("unexpected resolve response: %+v", resolveResponse)
+	}
+	if resolveResponse.CreatedEntries[0].ParticipantID != uuid.UUID(participant.ID.Bytes).String() || resolveResponse.CreatedEntries[0].EntryKind != "correction" || resolveResponse.CreatedEntries[0].Points != 3 {
+		t.Fatalf("unexpected resolved entry: %+v", resolveResponse.CreatedEntries[0])
+	}
+
+	ledgerReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(participant.ID.Bytes).String()), nil)
+	ledgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(ledgerRecorder, ledgerReq)
+	if ledgerRecorder.Code != http.StatusOK {
+		t.Fatalf("ledger status = %d, body = %s", ledgerRecorder.Code, ledgerRecorder.Body.String())
+	}
+	var ledger bonusLedgerResponse
+	if err := json.Unmarshal(ledgerRecorder.Body.Bytes(), &ledger); err != nil {
+		t.Fatalf("unmarshal bonus ledger response: %v", err)
+	}
+	if ledger.BonusPoints != 3 || len(ledger.Ledger) != 1 {
+		t.Fatalf("unexpected ledger response: %+v", ledger)
+	}
+}
+
+func TestActivitiesOccurrencesHandlers_BadInputAndNotFound(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	queries := db.New(pool)
+	instance := createInstanceForTest(t, ctx, queries, "Activities API Errors", 50)
+	server := httpapi.New(pool)
+	router := server.Router()
+
+	badActivityReq := httptest.NewRequest(http.MethodPost, "/instances/not-a-uuid/activities", nil)
+	badActivityRecorder := httptest.NewRecorder()
+	router.ServeHTTP(badActivityRecorder, badActivityReq)
+	if badActivityRecorder.Code != http.StatusBadRequest {
+		t.Fatalf("bad instance id status = %d, body = %s", badActivityRecorder.Code, badActivityRecorder.Body.String())
+	}
+
+	badBodyReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/instances/%s/activities", uuid.UUID(instance.ID.Bytes).String()), strings.NewReader(`{"name":"missing required fields"}`))
+	badBodyReq.Header.Set("Content-Type", "application/json")
+	badBodyRecorder := httptest.NewRecorder()
+	router.ServeHTTP(badBodyRecorder, badBodyReq)
+	if badBodyRecorder.Code != http.StatusBadRequest {
+		t.Fatalf("bad body status = %d, body = %s", badBodyRecorder.Code, badBodyRecorder.Body.String())
+	}
+
+	notFoundResolveReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/occurrences/%s/resolve", uuid.NewString()), nil)
+	notFoundResolveRecorder := httptest.NewRecorder()
+	router.ServeHTTP(notFoundResolveRecorder, notFoundResolveReq)
+	if notFoundResolveRecorder.Code != http.StatusNotFound {
+		t.Fatalf("resolve missing occurrence status = %d, body = %s", notFoundResolveRecorder.Code, notFoundResolveRecorder.Body.String())
 	}
 }
 
@@ -268,6 +459,20 @@ func createContestantForTest(t *testing.T, ctx context.Context, queries *db.Quer
 		t.Fatalf("create contestant %q: %v", name, err)
 	}
 	return contestant
+}
+
+func createParticipantGroupForTest(t *testing.T, ctx context.Context, queries *db.Queries, instanceID pgtype.UUID, name, kind string) db.CreateParticipantGroupRow {
+	t.Helper()
+	group, err := queries.CreateParticipantGroup(ctx, db.CreateParticipantGroupParams{
+		InstanceID: instanceID,
+		Name:       name,
+		Kind:       kind,
+		Metadata:   testEmptyJSONB,
+	})
+	if err != nil {
+		t.Fatalf("create participant group %q: %v", name, err)
+	}
+	return group
 }
 
 func createDraftPickForTest(t *testing.T, ctx context.Context, queries *db.Queries, instanceID, participantID, contestantID pgtype.UUID, position int32) {

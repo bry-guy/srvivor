@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
@@ -78,6 +80,13 @@ func (s *Server) Router() *gin.Engine {
 	protected.GET("/instances/:instanceID/outcomes", s.listOutcomes)
 
 	protected.GET("/instances/:instanceID/leaderboard", s.leaderboard)
+	protected.GET("/instances/:instanceID/activities", s.listActivities)
+	protected.POST("/instances/:instanceID/activities", s.createActivity)
+	protected.GET("/activities/:activityID/occurrences", s.listOccurrences)
+	protected.POST("/activities/:activityID/occurrences", s.createOccurrence)
+	protected.POST("/occurrences/:occurrenceID/participants", s.createOccurrenceParticipant)
+	protected.POST("/occurrences/:occurrenceID/groups", s.createOccurrenceGroup)
+	protected.POST("/occurrences/:occurrenceID/resolve", s.resolveOccurrence)
 
 	return r
 }
@@ -815,6 +824,336 @@ func (s *Server) bonusLedger(c *gin.Context) {
 	})
 }
 
+type createActivityRequest struct {
+	ActivityType string           `json:"activity_type" binding:"required"`
+	Name         string           `json:"name" binding:"required"`
+	Status       string           `json:"status" binding:"required"`
+	StartsAt     time.Time        `json:"starts_at" binding:"required"`
+	EndsAt       *time.Time       `json:"ends_at"`
+	Metadata     *json.RawMessage `json:"metadata"`
+}
+
+func (s *Server) listActivities(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+
+	activities, err := s.queries.ListInstanceActivitiesByInstance(c.Request.Context(), toPGUUID(instanceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	response := make([]gin.H, 0, len(activities))
+	for _, activity := range activities {
+		response = append(response, activityToJSON(activity.ID, activity.InstanceID, activity.ActivityType, activity.Name, activity.Status, activity.StartsAt, activity.EndsAt, activity.Metadata, activity.CreatedAt, activity.UpdatedAt))
+	}
+	c.JSON(http.StatusOK, gin.H{"activities": response})
+}
+
+func (s *Server) createActivity(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+
+	var req createActivityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	activity, err := s.queries.CreateInstanceActivity(c.Request.Context(), db.CreateInstanceActivityParams{
+		InstanceID:   toPGUUID(instanceID),
+		ActivityType: req.ActivityType,
+		Name:         req.Name,
+		Status:       req.Status,
+		StartsAt:     optionalTime(req.StartsAt),
+		EndsAt:       optionalTimePtr(req.EndsAt),
+		Metadata:     defaultJSONB(req.Metadata),
+	})
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"activity": activityToJSON(activity.ID, activity.InstanceID, activity.ActivityType, activity.Name, activity.Status, activity.StartsAt, activity.EndsAt, activity.Metadata, activity.CreatedAt, activity.UpdatedAt)})
+}
+
+type createOccurrenceRequest struct {
+	OccurrenceType string           `json:"occurrence_type" binding:"required"`
+	Name           string           `json:"name" binding:"required"`
+	EffectiveAt    time.Time        `json:"effective_at" binding:"required"`
+	StartsAt       *time.Time       `json:"starts_at"`
+	EndsAt         *time.Time       `json:"ends_at"`
+	Status         string           `json:"status" binding:"required"`
+	SourceRef      *string          `json:"source_ref"`
+	Metadata       *json.RawMessage `json:"metadata"`
+}
+
+func (s *Server) listOccurrences(c *gin.Context) {
+	activityID, ok := parseUUIDPath(c, "activityID")
+	if !ok {
+		return
+	}
+
+	occurrences, err := s.queries.ListActivityOccurrencesByActivity(c.Request.Context(), toPGUUID(activityID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	response := make([]gin.H, 0, len(occurrences))
+	for _, occurrence := range occurrences {
+		response = append(response, occurrenceToJSON(occurrence.ID, occurrence.ActivityID, occurrence.OccurrenceType, occurrence.Name, occurrence.EffectiveAt, occurrence.StartsAt, occurrence.EndsAt, occurrence.Status, occurrence.SourceRef, occurrence.Metadata, occurrence.CreatedAt, occurrence.UpdatedAt))
+	}
+	c.JSON(http.StatusOK, gin.H{"occurrences": response})
+}
+
+func (s *Server) createOccurrence(c *gin.Context) {
+	activityID, ok := parseUUIDPath(c, "activityID")
+	if !ok {
+		return
+	}
+
+	var req createOccurrenceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	occurrence, err := s.queries.CreateActivityOccurrence(c.Request.Context(), db.CreateActivityOccurrenceParams{
+		ActivityID:     toPGUUID(activityID),
+		OccurrenceType: req.OccurrenceType,
+		Name:           req.Name,
+		EffectiveAt:    optionalTime(req.EffectiveAt),
+		StartsAt:       optionalTimePtr(req.StartsAt),
+		EndsAt:         optionalTimePtr(req.EndsAt),
+		Status:         req.Status,
+		SourceRef:      optionalText(req.SourceRef),
+		Metadata:       defaultJSONB(req.Metadata),
+	})
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"occurrence": occurrenceToJSON(occurrence.ID, occurrence.ActivityID, occurrence.OccurrenceType, occurrence.Name, occurrence.EffectiveAt, occurrence.StartsAt, occurrence.EndsAt, occurrence.Status, occurrence.SourceRef, occurrence.Metadata, occurrence.CreatedAt, occurrence.UpdatedAt)})
+}
+
+type createOccurrenceParticipantRequest struct {
+	ParticipantID      string           `json:"participant_id" binding:"required"`
+	ParticipantGroupID *string          `json:"participant_group_id"`
+	Role               string           `json:"role" binding:"required"`
+	Result             *string          `json:"result"`
+	Metadata           *json.RawMessage `json:"metadata"`
+}
+
+func (s *Server) createOccurrenceParticipant(c *gin.Context) {
+	occurrenceID, ok := parseUUIDPath(c, "occurrenceID")
+	if !ok {
+		return
+	}
+
+	var req createOccurrenceParticipantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	participantID, err := uuid.Parse(req.ParticipantID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid participant_id"})
+		return
+	}
+
+	participantGroupID := pgtype.UUID{}
+	if req.ParticipantGroupID != nil {
+		parsed, err := uuid.Parse(*req.ParticipantGroupID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid participant_group_id"})
+			return
+		}
+		participantGroupID = toPGUUID(parsed)
+	}
+
+	result := ""
+	if req.Result != nil {
+		result = *req.Result
+	}
+
+	created, err := s.queries.CreateActivityOccurrenceParticipant(c.Request.Context(), db.CreateActivityOccurrenceParticipantParams{
+		ActivityOccurrenceID: toPGUUID(occurrenceID),
+		ParticipantID:        toPGUUID(participantID),
+		ParticipantGroupID:   participantGroupID,
+		Role:                 req.Role,
+		Result:               result,
+		Metadata:             defaultJSONB(req.Metadata),
+	})
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"participant_result": gin.H{
+		"id":                     created.ID,
+		"activity_occurrence_id": pgUUIDString(created.ActivityOccurrenceID),
+		"participant_id":         pgUUIDString(created.ParticipantID),
+		"participant_group_id":   pgUUIDPointer(created.ParticipantGroupID),
+		"role":                   created.Role,
+		"result":                 created.Result,
+		"metadata":               json.RawMessage(created.Metadata),
+		"created_at":             formatTimestamp(created.CreatedAt),
+	}})
+}
+
+type createOccurrenceGroupRequest struct {
+	ParticipantGroupID string           `json:"participant_group_id" binding:"required"`
+	Role               string           `json:"role" binding:"required"`
+	Result             *string          `json:"result"`
+	Metadata           *json.RawMessage `json:"metadata"`
+}
+
+func (s *Server) createOccurrenceGroup(c *gin.Context) {
+	occurrenceID, ok := parseUUIDPath(c, "occurrenceID")
+	if !ok {
+		return
+	}
+
+	var req createOccurrenceGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
+	participantGroupID, err := uuid.Parse(req.ParticipantGroupID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid participant_group_id"})
+		return
+	}
+
+	result := ""
+	if req.Result != nil {
+		result = *req.Result
+	}
+
+	created, err := s.queries.CreateActivityOccurrenceGroup(c.Request.Context(), db.CreateActivityOccurrenceGroupParams{
+		ActivityOccurrenceID: toPGUUID(occurrenceID),
+		ParticipantGroupID:   toPGUUID(participantGroupID),
+		Role:                 req.Role,
+		Result:               result,
+		Metadata:             defaultJSONB(req.Metadata),
+	})
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"group_result": gin.H{
+		"id":                     created.ID,
+		"activity_occurrence_id": pgUUIDString(created.ActivityOccurrenceID),
+		"participant_group_id":   pgUUIDString(created.ParticipantGroupID),
+		"role":                   created.Role,
+		"result":                 created.Result,
+		"metadata":               json.RawMessage(created.Metadata),
+		"created_at":             formatTimestamp(created.CreatedAt),
+	}})
+}
+
+func (s *Server) resolveOccurrence(c *gin.Context) {
+	occurrenceID, ok := parseUUIDPath(c, "occurrenceID")
+	if !ok {
+		return
+	}
+
+	tx, err := s.pool.Begin(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	defer func() {
+		rollbackErr := tx.Rollback(c.Request.Context())
+		if rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			if ginErr := c.Error(rollbackErr); ginErr != nil {
+				ginErr.Type = gin.ErrorTypePrivate
+			}
+		}
+	}()
+
+	createdEntries, err := gameplay.NewService(s.queries.WithTx(tx)).ResolveActivityOccurrence(c.Request.Context(), toPGUUID(occurrenceID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "occurrence not found"})
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, errorResponse{Error: err.Error()})
+			return
+		}
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	response := make([]gin.H, 0, len(createdEntries))
+	for _, entry := range createdEntries {
+		response = append(response, gin.H{
+			"id":                     pgUUIDString(entry.ID),
+			"instance_id":            pgUUIDString(entry.InstanceID),
+			"participant_id":         pgUUIDString(entry.ParticipantID),
+			"activity_occurrence_id": pgUUIDString(entry.ActivityOccurrenceID),
+			"source_group_id":        pgUUIDPointer(entry.SourceGroupID),
+			"entry_kind":             entry.EntryKind,
+			"points":                 entry.Points,
+			"visibility":             entry.Visibility,
+			"reason":                 entry.Reason,
+			"effective_at":           formatTimestamp(entry.EffectiveAt),
+			"award_key":              pgTextPointer(entry.AwardKey),
+			"metadata":               json.RawMessage(entry.Metadata),
+			"created_at":             formatTimestamp(entry.CreatedAt),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"created_entries": response, "created_count": len(response)})
+}
+
+func activityToJSON(id, instanceID pgtype.UUID, activityType, name, status string, startsAt, endsAt pgtype.Timestamptz, metadata []byte, createdAt, updatedAt pgtype.Timestamptz) gin.H {
+	return gin.H{
+		"id":            pgUUIDString(id),
+		"instance_id":   pgUUIDString(instanceID),
+		"activity_type": activityType,
+		"name":          name,
+		"status":        status,
+		"starts_at":     formatTimestamp(startsAt),
+		"ends_at":       formatNullableTimestamp(endsAt),
+		"metadata":      json.RawMessage(metadata),
+		"created_at":    formatTimestamp(createdAt),
+		"updated_at":    formatTimestamp(updatedAt),
+	}
+}
+
+func occurrenceToJSON(id, activityID pgtype.UUID, occurrenceType, name string, effectiveAt, startsAt, endsAt pgtype.Timestamptz, status string, sourceRef pgtype.Text, metadata []byte, createdAt, updatedAt pgtype.Timestamptz) gin.H {
+	return gin.H{
+		"id":              pgUUIDString(id),
+		"activity_id":     pgUUIDString(activityID),
+		"occurrence_type": occurrenceType,
+		"name":            name,
+		"effective_at":    formatTimestamp(effectiveAt),
+		"starts_at":       formatNullableTimestamp(startsAt),
+		"ends_at":         formatNullableTimestamp(endsAt),
+		"status":          status,
+		"source_ref":      pgTextPointer(sourceRef),
+		"metadata":        json.RawMessage(metadata),
+		"created_at":      formatTimestamp(createdAt),
+		"updated_at":      formatTimestamp(updatedAt),
+	}
+}
+
 func parseOptionalSeasonQuery(c *gin.Context) (*int32, bool) {
 	raw := strings.TrimSpace(c.Query("season"))
 	if raw == "" {
@@ -861,6 +1200,31 @@ func formatTimestamp(value pgtype.Timestamptz) string {
 	return value.Time.UTC().Format("2006-01-02T15:04:05Z07:00")
 }
 
+func formatNullableTimestamp(value pgtype.Timestamptz) any {
+	if !value.Valid {
+		return nil
+	}
+	return formatTimestamp(value)
+}
+
+func defaultJSONB(raw *json.RawMessage) []byte {
+	if raw == nil {
+		return []byte("{}")
+	}
+	return []byte(*raw)
+}
+
+func optionalTime(value time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: value, Valid: true}
+}
+
+func optionalTimePtr(value *time.Time) pgtype.Timestamptz {
+	if value == nil {
+		return pgtype.Timestamptz{}
+	}
+	return optionalTime(*value)
+}
+
 func pgUUIDString(value pgtype.UUID) string {
 	return uuid.UUID(value.Bytes).String()
 }
@@ -879,6 +1243,13 @@ func pgTextPointer(value pgtype.Text) *string {
 	}
 	formatted := value.String
 	return &formatted
+}
+
+func optionalText(value *string) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: *value, Valid: true}
 }
 
 func parseUUIDPath(c *gin.Context, key string) (uuid.UUID, bool) {
