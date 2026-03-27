@@ -1,8 +1,8 @@
 # Seed First-Class Bonus Activities
 
-Status: planning
+Status: done
 Owner: castaway-web
-Last updated: 2026-03-18
+Last updated: 2026-03-27
 
 ## Goal
 

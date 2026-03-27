@@ -154,6 +154,8 @@ Historical seasons are captured in:
 
 - `seeds/historical-seasons.json`
 
+Season 50 now seeds first-class bonus gameplay structures, including participant groups, `tribal_pony`, `tribe_wordle`, and journey occurrences, while preserving the historical leaderboard end-state.
+
 Regenerate from legacy CLI data (`../cli/drafts`, `../cli/rosters`):
 
 ```bash

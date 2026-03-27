@@ -48,13 +48,32 @@ type OutcomeSeed struct {
 }
 
 type ActivitySeed struct {
-	ActivityType string           `json:"activity_type"`
-	Name         string           `json:"name"`
-	Status       string           `json:"status,omitempty"`
-	StartsAt     time.Time        `json:"starts_at"`
-	EndsAt       *time.Time       `json:"ends_at,omitempty"`
-	Metadata     json.RawMessage  `json:"metadata,omitempty"`
-	Occurrences  []OccurrenceSeed `json:"occurrences,omitempty"`
+	ActivityType           string                              `json:"activity_type"`
+	Name                   string                              `json:"name"`
+	Status                 string                              `json:"status,omitempty"`
+	StartsAt               time.Time                           `json:"starts_at"`
+	EndsAt                 *time.Time                          `json:"ends_at,omitempty"`
+	Metadata               json.RawMessage                     `json:"metadata,omitempty"`
+	GroupAssignments       []ActivityGroupAssignmentSeed       `json:"activity_group_assignments,omitempty"`
+	ParticipantAssignments []ActivityParticipantAssignmentSeed `json:"activity_participant_assignments,omitempty"`
+	Occurrences            []OccurrenceSeed                    `json:"occurrences,omitempty"`
+}
+
+type ActivityGroupAssignmentSeed struct {
+	ParticipantGroupName string          `json:"participant_group_name"`
+	Role                 string          `json:"role,omitempty"`
+	StartsAt             time.Time       `json:"starts_at"`
+	EndsAt               *time.Time      `json:"ends_at,omitempty"`
+	Configuration        json.RawMessage `json:"configuration,omitempty"`
+}
+
+type ActivityParticipantAssignmentSeed struct {
+	ParticipantName      string          `json:"participant_name"`
+	ParticipantGroupName string          `json:"participant_group_name,omitempty"`
+	Role                 string          `json:"role,omitempty"`
+	StartsAt             time.Time       `json:"starts_at"`
+	EndsAt               *time.Time      `json:"ends_at,omitempty"`
+	Configuration        json.RawMessage `json:"configuration,omitempty"`
 }
 
 type OccurrenceSeed struct {
@@ -71,10 +90,11 @@ type OccurrenceSeed struct {
 }
 
 type OccurrenceParticipantSeed struct {
-	Name     string          `json:"name"`
-	Role     string          `json:"role,omitempty"`
-	Result   string          `json:"result,omitempty"`
-	Metadata json.RawMessage `json:"metadata,omitempty"`
+	Name                 string          `json:"name"`
+	ParticipantGroupName string          `json:"participant_group_name,omitempty"`
+	Role                 string          `json:"role,omitempty"`
+	Result               string          `json:"result,omitempty"`
+	Metadata             json.RawMessage `json:"metadata,omitempty"`
 }
 
 type AdvantageSeed struct {

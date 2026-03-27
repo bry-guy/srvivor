@@ -69,32 +69,44 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	if season50 == nil {
 		t.Fatalf("expected season 50 in seed file")
 	}
-	if got := len(season50.Activities); got != 4 {
-		t.Fatalf("season 50 expected 4 activities, got %d", got)
+	if got := len(season50.Activities); got != 5 {
+		t.Fatalf("season 50 expected 5 activities, got %d", got)
 	}
-	if season50.Activities[0].ActivityType != "manual_adjustment" {
-		t.Fatalf("expected first activity to be manual_adjustment, got %q", season50.Activities[0].ActivityType)
+	if season50.Activities[0].ActivityType != "tribal_pony" {
+		t.Fatalf("expected first activity to be tribal_pony, got %q", season50.Activities[0].ActivityType)
 	}
-	if season50.Activities[1].ActivityType != "journey" {
-		t.Fatalf("expected second activity to be journey, got %q", season50.Activities[1].ActivityType)
+	if season50.Activities[1].ActivityType != "tribe_wordle" {
+		t.Fatalf("expected second activity to be tribe_wordle, got %q", season50.Activities[1].ActivityType)
 	}
-	if season50.Activities[2].ActivityType != "manual_adjustment" {
-		t.Fatalf("expected third activity to be manual_adjustment (Monty Hall), got %q", season50.Activities[2].ActivityType)
+	if season50.Activities[2].ActivityType != "journey" {
+		t.Fatalf("expected third activity to be journey, got %q", season50.Activities[2].ActivityType)
 	}
-	if season50.Activities[3].ActivityType != "loan_shark" {
-		t.Fatalf("expected fourth activity to be loan_shark, got %q", season50.Activities[3].ActivityType)
+	if season50.Activities[3].ActivityType != "manual_adjustment" {
+		t.Fatalf("expected fourth activity to be manual_adjustment (Monty Hall), got %q", season50.Activities[3].ActivityType)
 	}
-	if got := len(season50.Activities[0].Occurrences); got != 6 {
-		t.Fatalf("manual adjustment activity expected 6 occurrences, got %d", got)
+	if season50.Activities[4].ActivityType != "loan_shark" {
+		t.Fatalf("expected fifth activity to be loan_shark, got %q", season50.Activities[4].ActivityType)
 	}
-	if got := len(season50.Activities[1].Occurrences); got != 2 {
-		t.Fatalf("journey activity expected 2 occurrences, got %d", got)
+	if got := len(season50.Activities[0].GroupAssignments); got != 3 {
+		t.Fatalf("tribal pony activity expected 3 group assignments, got %d", got)
+	}
+	if got := len(season50.Activities[0].Occurrences); got != 3 {
+		t.Fatalf("tribal pony activity expected 3 occurrences, got %d", got)
+	}
+	if got := len(season50.Activities[1].Occurrences); got != 1 {
+		t.Fatalf("tribe wordle activity expected 1 occurrence, got %d", got)
+	}
+	if got := len(season50.Activities[2].ParticipantAssignments); got != 3 {
+		t.Fatalf("journey activity expected 3 participant assignments, got %d", got)
+	}
+	if got := len(season50.Activities[2].Occurrences); got != 4 {
+		t.Fatalf("journey activity expected 4 occurrences, got %d", got)
 	}
 
 	var mooneySecretRisk struct {
 		GuessCount int `json:"guess_count"`
 	}
-	if err := json.Unmarshal(season50.Activities[1].Occurrences[0].Participants[0].Metadata, &mooneySecretRisk); err != nil {
+	if err := json.Unmarshal(season50.Activities[2].Occurrences[2].Participants[0].Metadata, &mooneySecretRisk); err != nil {
 		t.Fatalf("unmarshal Mooney secret risk metadata: %v", err)
 	}
 	if mooneySecretRisk.GuessCount != 3 {
@@ -104,7 +116,7 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	var adamSecretRisk struct {
 		GuessCount int `json:"guess_count"`
 	}
-	if err := json.Unmarshal(season50.Activities[1].Occurrences[1].Participants[0].Metadata, &adamSecretRisk); err != nil {
+	if err := json.Unmarshal(season50.Activities[2].Occurrences[3].Participants[0].Metadata, &adamSecretRisk); err != nil {
 		t.Fatalf("unmarshal Adam secret risk metadata: %v", err)
 	}
 	if adamSecretRisk.GuessCount != 2 {

@@ -169,11 +169,12 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 		result.Outcomes++
 	}
 
-	if err := seedParticipantGroups(ctx, q, gameplayService, season, instance.ID, participantIDByName); err != nil {
+	participantGroupIDByName, err := seedParticipantGroups(ctx, q, gameplayService, season, instance.ID, participantIDByName)
+	if err != nil {
 		return fmt.Errorf("seed participant groups for season %d: %w", season.Season, err)
 	}
 
-	if err := seedActivityHistory(ctx, q, gameplayService, season, instance.ID, participantIDByName); err != nil {
+	if err := seedActivityHistory(ctx, q, gameplayService, season, instance.ID, participantIDByName, participantGroupIDByName); err != nil {
 		return fmt.Errorf("seed activities for season %d: %w", season.Season, err)
 	}
 
@@ -192,27 +193,30 @@ func seedParticipantGroups(
 	season seeddata.SeasonSeed,
 	instanceID pgtype.UUID,
 	participantIDByName map[string]pgtype.UUID,
-) error {
+) (map[string]pgtype.UUID, error) {
+	participantGroupIDByName := make(map[string]pgtype.UUID, len(season.ParticipantGroups))
 	for _, groupSeed := range season.ParticipantGroups {
 		kind := strings.TrimSpace(groupSeed.Kind)
 		if kind == "" {
 			kind = "tribe"
 		}
 
+		groupName := strings.TrimSpace(groupSeed.Name)
 		group, err := q.CreateParticipantGroup(ctx, db.CreateParticipantGroupParams{
 			InstanceID: instanceID,
-			Name:       strings.TrimSpace(groupSeed.Name),
+			Name:       groupName,
 			Kind:       kind,
 			Metadata:   jsonBytesOrEmpty(groupSeed.Metadata),
 		})
 		if err != nil {
-			return fmt.Errorf("create participant group %q: %w", groupSeed.Name, err)
+			return nil, fmt.Errorf("create participant group %q: %w", groupSeed.Name, err)
 		}
+		participantGroupIDByName[normalizeSeedName(groupName)] = group.ID
 
 		for _, membershipSeed := range groupSeed.Memberships {
 			participantID, ok := participantIDByName[normalizeSeedName(membershipSeed.ParticipantName)]
 			if !ok {
-				return fmt.Errorf("resolve group membership participant %q for group %q", membershipSeed.ParticipantName, groupSeed.Name)
+				return nil, fmt.Errorf("resolve group membership participant %q for group %q", membershipSeed.ParticipantName, groupSeed.Name)
 			}
 
 			role := strings.TrimSpace(membershipSeed.Role)
@@ -227,12 +231,12 @@ func seedParticipantGroups(
 				StartsAt:           membershipSeed.StartsAt,
 				EndsAt:             membershipSeed.EndsAt,
 			}); err != nil {
-				return fmt.Errorf("create membership for %q in group %q: %w", membershipSeed.ParticipantName, groupSeed.Name, err)
+				return nil, fmt.Errorf("create membership for %q in group %q: %w", membershipSeed.ParticipantName, groupSeed.Name, err)
 			}
 		}
 	}
 
-	return nil
+	return participantGroupIDByName, nil
 }
 
 func seedActivityHistory(
@@ -242,6 +246,7 @@ func seedActivityHistory(
 	season seeddata.SeasonSeed,
 	instanceID pgtype.UUID,
 	participantIDByName map[string]pgtype.UUID,
+	participantGroupIDByName map[string]pgtype.UUID,
 ) error {
 	for _, activitySeed := range season.Activities {
 		if activitySeed.StartsAt.IsZero() {
@@ -264,6 +269,65 @@ func seedActivityHistory(
 		})
 		if err != nil {
 			return fmt.Errorf("create activity %q: %w", activitySeed.Name, err)
+		}
+
+		for _, assignmentSeed := range activitySeed.GroupAssignments {
+			groupID, ok := participantGroupIDByName[normalizeSeedName(assignmentSeed.ParticipantGroupName)]
+			if !ok {
+				return fmt.Errorf("resolve activity group assignment group %q for activity %q", assignmentSeed.ParticipantGroupName, activitySeed.Name)
+			}
+
+			role := strings.TrimSpace(assignmentSeed.Role)
+			if role == "" {
+				role = "group"
+			}
+
+			if _, err := gameplayService.CreateActivityGroupAssignment(ctx, gameplay.CreateActivityGroupAssignmentParams{
+				ActivityID:         activity.ID,
+				ParticipantGroupID: groupID,
+				Role:               role,
+				StartsAt:           assignmentSeed.StartsAt,
+				EndsAt:             assignmentSeed.EndsAt,
+				Configuration:      jsonBytesOrEmpty(assignmentSeed.Configuration),
+			}); err != nil {
+				return fmt.Errorf("create activity group assignment %q for activity %q: %w", assignmentSeed.ParticipantGroupName, activitySeed.Name, err)
+			}
+		}
+
+		for _, assignmentSeed := range activitySeed.ParticipantAssignments {
+			participantID, ok := participantIDByName[normalizeSeedName(assignmentSeed.ParticipantName)]
+			if !ok {
+				return fmt.Errorf("resolve activity participant assignment participant %q for activity %q", assignmentSeed.ParticipantName, activitySeed.Name)
+			}
+
+			participantGroupID := pgtype.UUID{}
+			participantGroupSet := false
+			if strings.TrimSpace(assignmentSeed.ParticipantGroupName) != "" {
+				resolvedGroupID, ok := participantGroupIDByName[normalizeSeedName(assignmentSeed.ParticipantGroupName)]
+				if !ok {
+					return fmt.Errorf("resolve activity participant assignment group %q for activity %q", assignmentSeed.ParticipantGroupName, activitySeed.Name)
+				}
+				participantGroupID = resolvedGroupID
+				participantGroupSet = true
+			}
+
+			role := strings.TrimSpace(assignmentSeed.Role)
+			if role == "" {
+				role = "participant"
+			}
+
+			if _, err := gameplayService.CreateParticipantAssignment(ctx, gameplay.CreateActivityParticipantAssignmentParams{
+				ActivityID:          activity.ID,
+				ParticipantID:       participantID,
+				ParticipantGroupID:  participantGroupID,
+				ParticipantGroupSet: participantGroupSet,
+				Role:                role,
+				StartsAt:            assignmentSeed.StartsAt,
+				EndsAt:              assignmentSeed.EndsAt,
+				Configuration:       jsonBytesOrEmpty(assignmentSeed.Configuration),
+			}); err != nil {
+				return fmt.Errorf("create activity participant assignment %q for activity %q: %w", assignmentSeed.ParticipantName, activitySeed.Name, err)
+			}
 		}
 
 		for _, occurrenceSeed := range activitySeed.Occurrences {
@@ -297,6 +361,15 @@ func seedActivityHistory(
 					return fmt.Errorf("resolve participant %q for occurrence %q", participantSeed.Name, occurrenceSeed.Name)
 				}
 
+				participantGroupID := pgtype.UUID{}
+				if strings.TrimSpace(participantSeed.ParticipantGroupName) != "" {
+					resolvedGroupID, ok := participantGroupIDByName[normalizeSeedName(participantSeed.ParticipantGroupName)]
+					if !ok {
+						return fmt.Errorf("resolve participant group %q for occurrence participant %q", participantSeed.ParticipantGroupName, participantSeed.Name)
+					}
+					participantGroupID = resolvedGroupID
+				}
+
 				role := strings.TrimSpace(participantSeed.Role)
 				if role == "" {
 					role = "participant"
@@ -305,7 +378,7 @@ func seedActivityHistory(
 				if _, err := q.CreateActivityOccurrenceParticipant(ctx, db.CreateActivityOccurrenceParticipantParams{
 					ActivityOccurrenceID: occurrence.ID,
 					ParticipantID:        participantID,
-					ParticipantGroupID:   pgtype.UUID{},
+					ParticipantGroupID:   participantGroupID,
 					Role:                 role,
 					Result:               strings.TrimSpace(participantSeed.Result),
 					Metadata:             jsonBytesOrEmpty(participantSeed.Metadata),

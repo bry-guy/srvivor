@@ -2351,564 +2351,233 @@
         "name": "Tangerine",
         "kind": "tribe",
         "memberships": [
-          { "participant_name": "Adam", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Grant", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Kyle", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Kate", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Keith", "starts_at": "2026-02-25T20:00:00-05:00" }
+          {
+            "participant_name": "Adam",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Grant",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Kyle",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Kate",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Keith",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          }
         ]
       },
       {
         "name": "Leaf",
         "kind": "tribe",
         "memberships": [
-          { "participant_name": "Bryan", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Lauren", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Amanda", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Yacob", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Riley", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Mooney", "starts_at": "2026-02-25T20:00:00-05:00" }
+          {
+            "participant_name": "Bryan",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Lauren",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Amanda",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Yacob",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Riley",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Mooney",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          }
         ]
       },
       {
         "name": "Lotus",
         "kind": "tribe",
         "memberships": [
-          { "participant_name": "Katie", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Kenny", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Marv", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Keeling", "starts_at": "2026-02-25T20:00:00-05:00" },
-          { "participant_name": "Sarah", "starts_at": "2026-02-25T20:00:00-05:00" }
+          {
+            "participant_name": "Katie",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Kenny",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Marv",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Keeling",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Sarah",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          }
         ]
       }
     ],
     "activities": [
       {
-        "activity_type": "manual_adjustment",
-        "name": "Historical bonus backfill",
+        "activity_type": "tribal_pony",
+        "name": "Tribal Pony",
         "status": "completed",
         "starts_at": "2026-03-05T01:00:00Z",
+        "activity_group_assignments": [
+          {
+            "participant_group_name": "Tangerine",
+            "role": "tribe",
+            "starts_at": "2026-02-25T20:00:00-05:00",
+            "configuration": {
+              "pony_survivor_tribe": "tangerine"
+            }
+          },
+          {
+            "participant_group_name": "Leaf",
+            "role": "tribe",
+            "starts_at": "2026-02-25T20:00:00-05:00",
+            "configuration": {
+              "pony_survivor_tribe": "leaf"
+            }
+          },
+          {
+            "participant_group_name": "Lotus",
+            "role": "tribe",
+            "starts_at": "2026-02-25T20:00:00-05:00",
+            "configuration": {
+              "pony_survivor_tribe": "lotus"
+            }
+          }
+        ],
         "occurrences": [
           {
-            "occurrence_type": "manual_correction",
-            "name": "Episode 1 pony immunity backfill",
+            "occurrence_type": "immunity_result",
+            "name": "Episode 1 Immunity",
             "effective_at": "2026-03-05T01:00:00Z",
             "status": "resolved",
             "resolve": true,
-            "participants": [
-              {
-                "name": "Bryan",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Riley",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Lauren",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Mooney",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Amanda",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Yacob",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Kenny",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Marv",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Keeling",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Sarah",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              },
-              {
-                "name": "Katie",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 1 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep1"
-                }
-              }
-            ]
+            "metadata": {
+              "winning_survivor_tribes": [
+                "leaf",
+                "lotus"
+              ]
+            }
           },
           {
-            "occurrence_type": "manual_correction",
-            "name": "Episode 2 pony immunity backfill",
+            "occurrence_type": "immunity_result",
+            "name": "Episode 2 Immunity",
             "effective_at": "2026-03-12T00:00:00Z",
             "status": "resolved",
             "resolve": true,
-            "participants": [
-              {
-                "name": "Bryan",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Riley",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Lauren",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Mooney",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Amanda",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Yacob",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Kenny",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Marv",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Keeling",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Sarah",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              },
-              {
-                "name": "Katie",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 2 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep2"
-                }
-              }
-            ]
+            "metadata": {
+              "winning_survivor_tribes": [
+                "leaf",
+                "lotus"
+              ]
+            }
           },
           {
-            "occurrence_type": "manual_correction",
-            "name": "Week 2 tribe wordle winner backfill",
+            "occurrence_type": "immunity_result",
+            "name": "Episode 3 Immunity",
+            "effective_at": "2026-03-19T00:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "metadata": {
+              "winning_survivor_tribes": [
+                "leaf",
+                "tangerine"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "activity_type": "tribe_wordle",
+        "name": "Tribe Wordle",
+        "status": "completed",
+        "starts_at": "2026-03-12T01:00:00Z",
+        "occurrences": [
+          {
+            "occurrence_type": "challenge_result",
+            "name": "Week 2 Tribe Wordle",
             "effective_at": "2026-03-12T01:00:00Z",
             "status": "resolved",
             "resolve": true,
             "participants": [
               {
-                "name": "Bryan",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Week 2 tribe wordle winner backfill",
-                  "award_key": "season50:tribe-wordle-week2"
-                }
-              },
-              {
-                "name": "Riley",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Week 2 tribe wordle winner backfill",
-                  "award_key": "season50:tribe-wordle-week2"
-                }
-              },
-              {
-                "name": "Lauren",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Week 2 tribe wordle winner backfill",
-                  "award_key": "season50:tribe-wordle-week2"
-                }
-              },
-              {
-                "name": "Mooney",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Week 2 tribe wordle winner backfill",
-                  "award_key": "season50:tribe-wordle-week2"
-                }
-              },
-              {
-                "name": "Amanda",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Week 2 tribe wordle winner backfill",
-                  "award_key": "season50:tribe-wordle-week2"
-                }
-              },
-              {
-                "name": "Yacob",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Week 2 tribe wordle winner backfill",
-                  "award_key": "season50:tribe-wordle-week2"
-                }
-              }
-            ]
-          },
-          {
-            "occurrence_type": "manual_correction",
-            "name": "Journey attendance public backfill",
-            "effective_at": "2026-03-13T01:00:00Z",
-            "status": "resolved",
-            "resolve": true,
-            "participants": [
-              {
-                "name": "Adam",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey attendance public backfill",
-                  "award_key": "season50:journey-attendance-public"
-                }
-              },
-              {
-                "name": "Mooney",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey attendance public backfill",
-                  "award_key": "season50:journey-attendance-public"
-                }
-              },
-              {
                 "name": "Katie",
-                "role": "adjustment",
+                "participant_group_name": "Lotus",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey attendance public backfill",
-                  "award_key": "season50:journey-attendance-public"
-                }
-              }
-            ]
-          },
-          {
-            "occurrence_type": "manual_correction",
-            "name": "Journey diplomacy public backfill",
-            "effective_at": "2026-03-14T01:00:00Z",
-            "status": "resolved",
-            "resolve": true,
-            "participants": [
-              {
-                "name": "Keeling",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey diplomacy public backfill",
-                  "award_key": "season50:journey-diplomacy-public"
-                }
-              },
-              {
-                "name": "Katie",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey diplomacy public backfill",
-                  "award_key": "season50:journey-diplomacy-public"
+                  "guess_count": 2
                 }
               },
               {
                 "name": "Kenny",
-                "role": "adjustment",
+                "participant_group_name": "Lotus",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey diplomacy public backfill",
-                  "award_key": "season50:journey-diplomacy-public"
+                  "guess_count": 3
                 }
               },
               {
                 "name": "Marv",
-                "role": "adjustment",
+                "participant_group_name": "Lotus",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey diplomacy public backfill",
-                  "award_key": "season50:journey-diplomacy-public"
+                  "guess_count": 4
                 }
               },
-              {
-                "name": "Sarah",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Journey diplomacy public backfill",
-                  "award_key": "season50:journey-diplomacy-public"
-                }
-              }
-            ]
-          },
-          {
-            "occurrence_type": "manual_correction",
-            "name": "Episode 3 pony immunity backfill",
-            "effective_at": "2026-03-19T00:00:00Z",
-            "status": "resolved",
-            "resolve": true,
-            "participants": [
               {
                 "name": "Bryan",
-                "role": "adjustment",
+                "participant_group_name": "Leaf",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
-                }
-              },
-              {
-                "name": "Riley",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
+                  "guess_count": 1
                 }
               },
               {
                 "name": "Lauren",
-                "role": "adjustment",
+                "participant_group_name": "Leaf",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
-                }
-              },
-              {
-                "name": "Mooney",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
+                  "guess_count": 2
                 }
               },
               {
                 "name": "Amanda",
-                "role": "adjustment",
+                "participant_group_name": "Leaf",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
-                }
-              },
-              {
-                "name": "Yacob",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
-                }
-              },
-              {
-                "name": "Kyle",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
+                  "guess_count": 3
                 }
               },
               {
                 "name": "Adam",
-                "role": "adjustment",
+                "participant_group_name": "Tangerine",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
+                  "guess_count": 5
                 }
               },
               {
                 "name": "Grant",
-                "role": "adjustment",
+                "participant_group_name": "Tangerine",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
+                  "guess_count": 5
                 }
               },
               {
-                "name": "Kate",
-                "role": "adjustment",
+                "name": "Kyle",
+                "participant_group_name": "Tangerine",
                 "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
-                }
-              },
-              {
-                "name": "Keith",
-                "role": "adjustment",
-                "metadata": {
-                  "points": 1,
-                  "visibility": "public",
-                  "reason": "Episode 3 pony immunity backfill",
-                  "award_key": "season50:pony-immunity-ep3"
+                  "guess_count": 5
                 }
               }
             ]
@@ -2919,18 +2588,69 @@
         "activity_type": "journey",
         "name": "Journey 1",
         "status": "completed",
-        "starts_at": "2026-03-13T00:00:00Z",
+        "starts_at": "2026-03-12T00:00:00Z",
+        "activity_participant_assignments": [
+          {
+            "participant_name": "Adam",
+            "participant_group_name": "Tangerine",
+            "role": "delegate",
+            "starts_at": "2026-03-12T00:00:00Z"
+          },
+          {
+            "participant_name": "Mooney",
+            "participant_group_name": "Leaf",
+            "role": "delegate",
+            "starts_at": "2026-03-12T00:00:00Z"
+          },
+          {
+            "participant_name": "Katie",
+            "participant_group_name": "Lotus",
+            "role": "delegate",
+            "starts_at": "2026-03-12T00:00:00Z"
+          }
+        ],
         "occurrences": [
           {
+            "occurrence_type": "journey_attendance",
+            "name": "Journey 1 Attendance",
+            "effective_at": "2026-03-13T01:00:00Z",
+            "status": "resolved",
+            "resolve": true
+          },
+          {
+            "occurrence_type": "journey_resolution",
+            "name": "Journey 1 Tribal Diplomacy",
+            "effective_at": "2026-03-14T01:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Adam",
+                "participant_group_name": "Tangerine",
+                "result": "STEAL"
+              },
+              {
+                "name": "Mooney",
+                "participant_group_name": "Leaf",
+                "result": "STEAL"
+              },
+              {
+                "name": "Katie",
+                "participant_group_name": "Lotus",
+                "result": "SHARE"
+              }
+            ]
+          },
+          {
             "occurrence_type": "secret_risk_result",
-            "name": "Lost for Words — Mooney",
+            "name": "Lost for Words \u2014 Mooney",
             "effective_at": "2026-03-14T02:00:00Z",
             "status": "resolved",
             "resolve": true,
             "participants": [
               {
                 "name": "Mooney",
-                "role": "participant",
+                "role": "risker",
                 "metadata": {
                   "guess_count": 3
                 }
@@ -2939,14 +2659,14 @@
           },
           {
             "occurrence_type": "secret_risk_result",
-            "name": "Lost for Words — Adam",
+            "name": "Lost for Words \u2014 Adam",
             "effective_at": "2026-03-14T02:05:00Z",
             "status": "resolved",
             "resolve": true,
             "participants": [
               {
                 "name": "Adam",
-                "role": "participant",
+                "role": "risker",
                 "metadata": {
                   "guess_count": 2
                 }
@@ -2963,7 +2683,7 @@
         "occurrences": [
           {
             "occurrence_type": "manual_correction",
-            "name": "Monty Hall — Tangerine Door 2 (+2 bonus)",
+            "name": "Monty Hall \u2014 Tangerine Door 2 (+2 bonus)",
             "effective_at": "2026-03-19T01:00:00Z",
             "status": "resolved",
             "resolve": true,
@@ -2974,8 +2694,8 @@
                 "metadata": {
                   "points": 2,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Tangerine Door 2",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Tangerine Door 2 (+2 bonus)",
+                  "award_key": "season50:monty-hall:tangerine:door2"
                 }
               },
               {
@@ -2984,8 +2704,8 @@
                 "metadata": {
                   "points": 2,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Tangerine Door 2",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Tangerine Door 2 (+2 bonus)",
+                  "award_key": "season50:monty-hall:tangerine:door2"
                 }
               },
               {
@@ -2994,8 +2714,8 @@
                 "metadata": {
                   "points": 2,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Tangerine Door 2",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Tangerine Door 2 (+2 bonus)",
+                  "award_key": "season50:monty-hall:tangerine:door2"
                 }
               },
               {
@@ -3004,8 +2724,8 @@
                 "metadata": {
                   "points": 2,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Tangerine Door 2",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Tangerine Door 2 (+2 bonus)",
+                  "award_key": "season50:monty-hall:tangerine:door2"
                 }
               },
               {
@@ -3014,15 +2734,15 @@
                 "metadata": {
                   "points": 2,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Tangerine Door 2",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Tangerine Door 2 (+2 bonus)",
+                  "award_key": "season50:monty-hall:tangerine:door2"
                 }
               }
             ]
           },
           {
             "occurrence_type": "manual_correction",
-            "name": "Monty Hall — Lotus Door 3 (+1 bonus)",
+            "name": "Monty Hall \u2014 Lotus Door 3 (+1 bonus)",
             "effective_at": "2026-03-19T01:01:00Z",
             "status": "resolved",
             "resolve": true,
@@ -3033,8 +2753,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Lotus Door 3",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Lotus Door 3 (+1 bonus)",
+                  "award_key": "season50:monty-hall:lotus:door3"
                 }
               },
               {
@@ -3043,8 +2763,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Lotus Door 3",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Lotus Door 3 (+1 bonus)",
+                  "award_key": "season50:monty-hall:lotus:door3"
                 }
               },
               {
@@ -3053,8 +2773,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Lotus Door 3",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Lotus Door 3 (+1 bonus)",
+                  "award_key": "season50:monty-hall:lotus:door3"
                 }
               },
               {
@@ -3063,8 +2783,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Lotus Door 3",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Lotus Door 3 (+1 bonus)",
+                  "award_key": "season50:monty-hall:lotus:door3"
                 }
               },
               {
@@ -3073,15 +2793,15 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "public",
-                  "reason": "Monty Hall Memorial Castaway Game — Lotus Door 3",
-                  "award_key": "season50:monty-hall"
+                  "reason": "Monty Hall \u2014 Lotus Door 3 (+1 bonus)",
+                  "award_key": "season50:monty-hall:lotus:door3"
                 }
               }
             ]
           },
           {
             "occurrence_type": "manual_correction",
-            "name": "Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+            "name": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
             "effective_at": "2026-03-19T01:02:00Z",
             "status": "resolved",
             "resolve": true,
@@ -3092,8 +2812,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
-                  "award_key": "season50:monty-hall-scroll-secret"
+                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
                 }
               },
               {
@@ -3102,8 +2822,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
-                  "award_key": "season50:monty-hall-scroll-secret"
+                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
                 }
               },
               {
@@ -3112,8 +2832,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
-                  "award_key": "season50:monty-hall-scroll-secret"
+                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
                 }
               },
               {
@@ -3122,8 +2842,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
-                  "award_key": "season50:monty-hall-scroll-secret"
+                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
                 }
               },
               {
@@ -3132,8 +2852,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
-                  "award_key": "season50:monty-hall-scroll-secret"
+                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
                 }
               },
               {
@@ -3142,8 +2862,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Loan Shark Advantage Scroll — secret bonus point",
-                  "award_key": "season50:monty-hall-scroll-secret"
+                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
                 }
               }
             ]
