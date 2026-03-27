@@ -139,9 +139,22 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 	history := castaway.ParticipantActivityHistory{
 		Participant: castaway.Participant{ID: "p1", Name: "Mooney"},
 		Instance:    castaway.Instance{ID: "i1", Name: "Season 50", Season: 50},
-		History: []castaway.ParticipantActivityHistoryEntry{
-			{ActivityName: "Journey 1", ActivityType: "journey", OccurrenceName: "Lost for Words — Mooney", EffectiveAt: "2026-03-14T02:00:00Z", Summary: "risk attempt", Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "secret"}}},
-			{ActivityName: "Tribal Pony", ActivityType: "tribal_pony", OccurrenceName: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z", Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "public"}}},
+		Activities: []castaway.ParticipantActivityHistoryActivity{
+			{
+				Activity: castaway.Activity{ID: "a1", Name: "Journey 1", ActivityType: "journey"},
+				Occurrences: []castaway.ParticipantActivityHistoryOccurrence{{
+					Occurrence:  castaway.Occurrence{ID: "o1", Name: "Lost for Words — Mooney", EffectiveAt: "2026-03-14T02:00:00Z"},
+					Involvement: &castaway.ParticipantOccurrenceInvolvement{Role: "delegate", Result: "risked", ParticipantGroupName: "Leaf"},
+					Ledger:      []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "secret"}},
+				}},
+			},
+			{
+				Activity: castaway.Activity{ID: "a2", Name: "Tribal Pony", ActivityType: "tribal_pony"},
+				Occurrences: []castaway.ParticipantActivityHistoryOccurrence{{
+					Occurrence: castaway.Occurrence{ID: "o2", Name: "Episode 1 Immunity", EffectiveAt: "2026-03-05T01:00:00Z"},
+					Ledger:     []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "public"}},
+				}},
+			},
 		},
 	}
 
@@ -150,6 +163,7 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 		"**Mooney — Activity History**",
 		"**Journey 1** (journey)",
 		"Lost for Words — Mooney @ Mar 14 02:00",
+		"role=delegate, result=risked, group=Leaf",
 		"impact: Mooney — +1 secret",
 		"**Tribal Pony** (tribal_pony)",
 	} {

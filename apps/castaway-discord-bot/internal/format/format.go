@@ -225,63 +225,57 @@ func ParticipantHistory(history castaway.ParticipantActivityHistory) string {
 	builder.WriteString(history.Participant.Name)
 	builder.WriteString(" — Activity History**\n")
 	builder.WriteString(InstanceLabel(history.Instance))
-	if len(history.History) == 0 {
+	if len(history.Activities) == 0 {
 		builder.WriteString("\n\nNo activity history found.")
 		return TrimMessage(builder.String())
 	}
 
-	lastActivity := ""
-	for _, entry := range history.History {
-		if entry.ActivityName != lastActivity {
-			if lastActivity != "" {
-				builder.WriteString("\n")
-			}
-			builder.WriteString("\n**")
-			builder.WriteString(entry.ActivityName)
-			builder.WriteString("**")
-			if entry.ActivityType != "" {
-				builder.WriteString(" (")
-				builder.WriteString(entry.ActivityType)
-				builder.WriteString(")")
-			}
-			builder.WriteString("\n")
-			lastActivity = entry.ActivityName
-		}
-
-		label := strings.TrimSpace(entry.OccurrenceName)
-		if label == "" {
-			label = strings.TrimSpace(entry.Summary)
-		}
-		if label == "" {
-			label = "Recorded event"
-		}
-		builder.WriteString("- ")
-		builder.WriteString(label)
-		if when := strings.TrimSpace(entry.EffectiveAt); when != "" {
-			builder.WriteString(" @ ")
-			builder.WriteString(formatTime(when))
+	for _, activity := range history.Activities {
+		builder.WriteString("\n\n**")
+		builder.WriteString(activity.Activity.Name)
+		builder.WriteString("**")
+		if activity.Activity.ActivityType != "" {
+			builder.WriteString(" (")
+			builder.WriteString(activity.Activity.ActivityType)
+			builder.WriteString(")")
 		}
 		builder.WriteString("\n")
 
-		for _, line := range historyEntrySubLines(entry) {
-			builder.WriteString("  - ")
-			builder.WriteString(line)
+		for _, item := range activity.Occurrences {
+			label := strings.TrimSpace(item.Occurrence.Name)
+			if label == "" {
+				label = "Recorded event"
+			}
+			builder.WriteString("- ")
+			builder.WriteString(label)
+			if when := strings.TrimSpace(item.Occurrence.EffectiveAt); when != "" {
+				builder.WriteString(" @ ")
+				builder.WriteString(formatTime(when))
+			}
 			builder.WriteString("\n")
+
+			for _, line := range historyOccurrenceSubLines(item) {
+				builder.WriteString("  - ")
+				builder.WriteString(line)
+				builder.WriteString("\n")
+			}
 		}
 	}
 
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func historyEntrySubLines(entry castaway.ParticipantActivityHistoryEntry) []string {
+func historyOccurrenceSubLines(item castaway.ParticipantActivityHistoryOccurrence) []string {
 	lines := make([]string, 0, 4)
-	if summary := strings.TrimSpace(entry.Summary); summary != "" {
-		lines = append(lines, summary)
+	if item.Involvement != nil {
+		if result := formatResultLine(item.Involvement.Role, item.Involvement.Result, item.Involvement.ParticipantGroupName); result != "" {
+			lines = append(lines, result)
+		}
+		if metadata := formatMetadataSummary(item.Involvement.Metadata); metadata != "" {
+			lines = append(lines, "metadata: "+metadata)
+		}
 	}
-	if result := formatResultLine(entry.Role, entry.Result, entry.ParticipantGroupName); result != "" {
-		lines = append(lines, result)
-	}
-	for _, line := range ledgerLines(entry.Ledger) {
+	for _, line := range ledgerLines(item.Ledger) {
 		lines = append(lines, "impact: "+line)
 	}
 	return lines

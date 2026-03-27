@@ -226,7 +226,7 @@ func TestGetParticipantActivityHistoryParsesResponse(t *testing.T) {
 		if r.URL.Path != "/instances/i1/participants/p1/activity-history" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Mooney"},"instance":{"id":"i1","name":"Season 50","season":50,"created_at":"2026-03-01T00:00:00Z"},"history":[{"activity_id":"a1","activity_name":"Journey 1","activity_type":"journey","occurrence_id":"o1","occurrence_name":"Lost for Words — Mooney","occurrence_type":"secret_risk_result","effective_at":"2026-03-14T02:00:00Z","summary":"risk attempt","ledger":[{"id":"l1","participant_id":"p1","participant_name":"Mooney","entry_kind":"award","points":1,"visibility":"secret","reason":"secret bonus","effective_at":"2026-03-14T02:00:00Z"}]}]}`)); err != nil {
+		if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Mooney"},"instance":{"id":"i1","name":"Season 50","season":50,"created_at":"2026-03-01T00:00:00Z"},"activities":[{"activity":{"id":"a1","instance_id":"i1","activity_type":"journey","name":"Journey 1","status":"completed","starts_at":"2026-03-12T00:00:00Z","created_at":"2026-03-12T00:00:00Z","updated_at":"2026-03-12T00:00:00Z"},"occurrences":[{"occurrence":{"id":"o1","activity_id":"a1","occurrence_type":"secret_risk_result","name":"Lost for Words — Mooney","effective_at":"2026-03-14T02:00:00Z","status":"resolved","created_at":"2026-03-14T02:00:00Z","updated_at":"2026-03-14T02:00:00Z"},"involvement":{"participant_id":"p1","participant_group_name":"Leaf","role":"delegate","result":"risked"},"ledger":[{"id":"l1","participant_id":"p1","participant_name":"Mooney","entry_kind":"award","points":1,"visibility":"secret","reason":"secret bonus","effective_at":"2026-03-14T02:00:00Z"}]}]}]}`)); err != nil {
 			t.Fatalf("write response: %v", err)
 		}
 	}))
@@ -240,7 +240,7 @@ func TestGetParticipantActivityHistoryParsesResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get history: %v", err)
 	}
-	if history.Participant.Name != "Mooney" || len(history.History) != 1 {
+	if history.Participant.Name != "Mooney" || len(history.Activities) != 1 || len(history.Activities[0].Occurrences) != 1 {
 		t.Fatalf("unexpected history: %#v", history)
 	}
 }

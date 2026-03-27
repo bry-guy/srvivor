@@ -161,29 +161,33 @@ type OccurrenceDetail struct {
 	Ledger       []BonusLedgerEntry      `json:"ledger"`
 }
 
-type ParticipantActivityHistoryEntry struct {
-	ActivityID           string                  `json:"activity_id,omitempty"`
-	ActivityName         string                  `json:"activity_name"`
-	ActivityType         string                  `json:"activity_type,omitempty"`
-	OccurrenceID         string                  `json:"occurrence_id,omitempty"`
-	OccurrenceName       string                  `json:"occurrence_name,omitempty"`
-	OccurrenceType       string                  `json:"occurrence_type,omitempty"`
-	Status               string                  `json:"status,omitempty"`
-	EffectiveAt          string                  `json:"effective_at,omitempty"`
-	Role                 string                  `json:"role,omitempty"`
-	Result               string                  `json:"result,omitempty"`
-	ParticipantGroupID   string                  `json:"participant_group_id,omitempty"`
-	ParticipantGroupName string                  `json:"participant_group_name,omitempty"`
-	Summary              string                  `json:"summary,omitempty"`
-	Participants         []OccurrenceParticipant `json:"participants,omitempty"`
-	Groups               []OccurrenceGroup       `json:"groups,omitempty"`
-	Ledger               []BonusLedgerEntry      `json:"ledger,omitempty"`
+type ParticipantOccurrenceInvolvement struct {
+	ID                   string          `json:"id,omitempty"`
+	OccurrenceID         string          `json:"activity_occurrence_id,omitempty"`
+	ParticipantID        string          `json:"participant_id,omitempty"`
+	ParticipantGroupID   string          `json:"participant_group_id,omitempty"`
+	ParticipantGroupName string          `json:"participant_group_name,omitempty"`
+	Role                 string          `json:"role,omitempty"`
+	Result               string          `json:"result,omitempty"`
+	Metadata             json.RawMessage `json:"metadata,omitempty"`
+	CreatedAt            string          `json:"created_at,omitempty"`
+}
+
+type ParticipantActivityHistoryOccurrence struct {
+	Occurrence  Occurrence                        `json:"occurrence"`
+	Involvement *ParticipantOccurrenceInvolvement `json:"involvement,omitempty"`
+	Ledger      []BonusLedgerEntry                `json:"ledger"`
+}
+
+type ParticipantActivityHistoryActivity struct {
+	Activity    Activity                               `json:"activity"`
+	Occurrences []ParticipantActivityHistoryOccurrence `json:"occurrences"`
 }
 
 type ParticipantActivityHistory struct {
-	Participant Participant                       `json:"participant"`
-	Instance    Instance                          `json:"instance"`
-	History     []ParticipantActivityHistoryEntry `json:"history"`
+	Participant Participant                          `json:"participant"`
+	Instance    Instance                             `json:"instance"`
+	Activities  []ParticipantActivityHistoryActivity `json:"activities"`
 }
 
 type DraftPick struct {

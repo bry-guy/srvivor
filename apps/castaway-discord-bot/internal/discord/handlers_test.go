@@ -249,7 +249,14 @@ func TestHistoryCommandRegression_ShowsParticipantActivityHistory(t *testing.T) 
 		historyByParticipant: map[string]castaway.ParticipantActivityHistory{"participant-mooney": {
 			Participant: castaway.Participant{ID: "participant-mooney", Name: "Mooney"},
 			Instance:    castaway.Instance{ID: "instance-50", Name: "Historical Season 50", Season: 50},
-			History:     []castaway.ParticipantActivityHistoryEntry{{ActivityName: "Journey 1", ActivityType: "journey", OccurrenceName: "Lost for Words — Mooney", EffectiveAt: "2026-03-14T02:00:00Z", Summary: "risk attempt", Ledger: []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "secret"}}}},
+			Activities: []castaway.ParticipantActivityHistoryActivity{{
+				Activity: castaway.Activity{ID: "act-1", Name: "Journey 1", ActivityType: "journey"},
+				Occurrences: []castaway.ParticipantActivityHistoryOccurrence{{
+					Occurrence:  castaway.Occurrence{ID: "occ-1", Name: "Lost for Words — Mooney", EffectiveAt: "2026-03-14T02:00:00Z"},
+					Involvement: &castaway.ParticipantOccurrenceInvolvement{Role: "delegate", Result: "risked", ParticipantGroupName: "Leaf"},
+					Ledger:      []castaway.BonusLedgerEntry{{ParticipantName: "Mooney", Points: 1, Visibility: "secret"}},
+				}},
+			}},
 		}},
 	})
 	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
