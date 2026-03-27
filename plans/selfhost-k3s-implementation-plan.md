@@ -1,6 +1,10 @@
 # Self-Hosted k3s Implementation Plan
 
-Status: `planning`
+Status: `done`
+
+## Completion summary
+
+The `home-k3s` self-hosted deployment target is now implemented in this repo: manifests render, image publishing updates pinned digests, `castaway-web` runs with a dedicated migration Job, bot-to-API service auth is enforced, and the Discord bot uses PostgreSQL-backed state for the production path.
 
 ## Goal
 

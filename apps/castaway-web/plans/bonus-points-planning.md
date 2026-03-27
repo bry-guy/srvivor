@@ -1,6 +1,10 @@
 # Bonus Points Expansion Plan
 
-Status: `planning`
+Status: `done`
+
+## Completion summary
+
+The core bonus-points system is now implemented in `castaway-web`: schema support, resolver-driven bonus ledger writes, leaderboard and bonus-ledger read APIs, seed support, and Discord bot score display updates are all in place. Remaining work has shifted to follow-on slices such as richer activity write APIs, first-class historical seeding provenance, and participant-facing auth for secret bonus visibility.
 
 ## Goal
 

@@ -153,7 +153,7 @@ Regenerate from legacy CLI data (`../cli/drafts`, `../cli/rosters`):
 mise run generate-seeds
 ```
 
-## Deferred work
+## Follow-on work
 
-Bonus points (`ponies`, immunity, journeys, etc.) are intentionally deferred.
-See `../../docs/castaway-web-future-work.md`.
+Core bonus points (`ponies`, immunity, journeys, etc.) are implemented.
+See `../../docs/castaway-web-future-work.md` for remaining operator/API/auth follow-up work.

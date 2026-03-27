@@ -18,7 +18,7 @@ Allow operators/clients to create gameplay activities, record occurrence results
 
 - No underlying data model redesign.
 - No generic rule engine redesign.
-- No Discord bot UX redesign in this plan.
+- No Discord-driven write workflows in this plan; bot scope is read-only fetch/display for activities and occurrences.
 
 ## Current capabilities (already implemented in code)
 
@@ -36,6 +36,10 @@ Allow operators/clients to create gameplay activities, record occurrence results
   - optionally resolves to ledger entries
 
 ## Proposed API surface (minimal, sufficient)
+
+These routes serve two consumers:
+- operators/admin tooling that create and resolve activities
+- the Discord bot, which needs read access to list activities and occurrences for an instance
 
 ### Activities
 
@@ -101,25 +105,44 @@ Allow operators/clients to create gameplay activities, record occurrence results
      - assert bonus ledger + leaderboard effects
      - duplicate resolve behavior
 
-7. **Docs and examples**
+7. **Discord bot read support**
+   - Add `castaway-discord-bot` client methods for:
+     - list activities for an instance
+     - list occurrences for an activity
+   - Add Discord handlers/commands for read-only fetches, reusing existing instance-resolution behavior.
+   - Keep the first slice intentionally narrow:
+     - one command to list activities for the active/selected instance
+     - one command to list occurrences for a selected activity
+   - Format output for Discord message limits and include key fields only:
+     - activity/occurrence name
+     - type
+     - status
+     - effective time
+
+8. **Docs and examples**
    - Update `apps/castaway-web/README.md` API list with new endpoints.
    - Add curl examples for:
      - manual adjustment occurrence
      - secret risk result occurrence
      - resolve call
+   - Document bot read commands in `apps/castaway-discord-bot/README.md` once implemented.
 
-8. **Verification gates**
+9. **Verification gates**
    - Run:
      - `mise run //apps/castaway-web:lint`
      - `mise run //apps/castaway-web:test`
      - `mise run //apps/castaway-web:build`
      - `mise run //apps/castaway-web:openapi-check`
+     - `mise run //apps/castaway-discord-bot:lint`
+     - `mise run //apps/castaway-discord-bot:test`
+     - `mise run //apps/castaway-discord-bot:build`
 
 ## Rollout sequence
 
 - Phase 1: Create/list activities and occurrences, record participant/group results.
 - Phase 2: Add resolve endpoint for controlled automated ledger entry creation.
-- Phase 3: Optional admin tooling/UX improvements (outside this plan).
+- Phase 3: Add Discord bot read support for listing activities and occurrences.
+- Phase 4: Optional admin tooling/UX improvements beyond the bot read slice.
 
 ## Risks
 

@@ -2,7 +2,7 @@
 
 ## Current plans
 
-- `selfhost-k3s-implementation-plan.md` — status: `planning`
+- `selfhost-k3s-implementation-plan.md` — status: `done`
 - `production-follow-ups-planning.md` — status: `planning`
 - `docs-standardization-done.md` — status: `done`
 - `monorepo-restructure-done.md` — status: `done`
