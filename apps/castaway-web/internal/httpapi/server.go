@@ -82,11 +82,14 @@ func (s *Server) Router() *gin.Engine {
 	protected.GET("/instances/:instanceID/leaderboard", s.leaderboard)
 	protected.GET("/instances/:instanceID/activities", s.listActivities)
 	protected.POST("/instances/:instanceID/activities", s.createActivity)
+	protected.GET("/activities/:activityID", s.getActivity)
 	protected.GET("/activities/:activityID/occurrences", s.listOccurrences)
 	protected.POST("/activities/:activityID/occurrences", s.createOccurrence)
+	protected.GET("/occurrences/:occurrenceID", s.getOccurrence)
 	protected.POST("/occurrences/:occurrenceID/participants", s.createOccurrenceParticipant)
 	protected.POST("/occurrences/:occurrenceID/groups", s.createOccurrenceGroup)
 	protected.POST("/occurrences/:occurrenceID/resolve", s.resolveOccurrence)
+	protected.GET("/instances/:instanceID/participants/:participantID/activity-history", s.participantActivityHistory)
 
 	return r
 }
@@ -824,6 +827,164 @@ func (s *Server) bonusLedger(c *gin.Context) {
 	})
 }
 
+func (s *Server) participantActivityHistory(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	participantID, ok := parseUUIDPath(c, "participantID")
+	if !ok {
+		return
+	}
+
+	instance, err := s.queries.GetInstance(c.Request.Context(), toPGUUID(instanceID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "instance not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	participant, err := s.queries.GetParticipant(c.Request.Context(), toPGUUID(participantID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if participant.InstanceID != toPGUUID(instanceID) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+		return
+	}
+
+	involvementRows, err := s.queries.ListParticipantOccurrenceInvolvementByInstance(c.Request.Context(), db.ListParticipantOccurrenceInvolvementByInstanceParams{
+		InstanceID:    toPGUUID(instanceID),
+		ParticipantID: toPGUUID(participantID),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	ledgerRows, err := s.queries.ListVisibleBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListVisibleBonusPointLedgerEntriesForParticipantParams{
+		InstanceID:    toPGUUID(instanceID),
+		ParticipantID: toPGUUID(participantID),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	type historyOccurrence struct {
+		Occurrence  gin.H   `json:"occurrence"`
+		Involvement any     `json:"involvement,omitempty"`
+		Ledger      []gin.H `json:"ledger"`
+	}
+	type historyActivity struct {
+		Activity    gin.H               `json:"activity"`
+		Occurrences []historyOccurrence `json:"occurrences"`
+	}
+
+	activities := make([]historyActivity, 0)
+	activityIndexes := map[string]int{}
+	occurrenceIndexes := map[string]struct{ activityIndex, occurrenceIndex int }{}
+	activityJSONCache := map[string]gin.H{}
+
+	ensureActivity := func(activityID string, activity gin.H) int {
+		if index, exists := activityIndexes[activityID]; exists {
+			return index
+		}
+		activityJSONCache[activityID] = activity
+		activities = append(activities, historyActivity{Activity: activity, Occurrences: []historyOccurrence{}})
+		index := len(activities) - 1
+		activityIndexes[activityID] = index
+		return index
+	}
+
+	for _, row := range involvementRows {
+		activityID := pgUUIDString(row.ActivityID)
+		activityIndex := ensureActivity(activityID, activityToJSON(row.ActivityID, instance.ID, row.ActivityType, row.ActivityName, row.ActivityStatus, row.ActivityStartsAt, row.ActivityEndsAt, row.ActivityMetadata, row.ActivityCreatedAt, row.ActivityUpdatedAt))
+		occurrenceID := pgUUIDString(row.OccurrenceID)
+		if _, exists := occurrenceIndexes[occurrenceID]; exists {
+			continue
+		}
+		activities[activityIndex].Occurrences = append(activities[activityIndex].Occurrences, historyOccurrence{
+			Occurrence:  occurrenceToJSON(row.OccurrenceID, row.ActivityID, row.OccurrenceType, row.OccurrenceName, row.EffectiveAt, row.StartsAt, row.EndsAt, row.OccurrenceStatus, row.SourceRef, row.OccurrenceMetadata, row.OccurrenceCreatedAt, row.OccurrenceUpdatedAt),
+			Involvement: occurrenceHistoryInvolvementToJSON(row),
+			Ledger:      []gin.H{},
+		})
+		occurrenceIndexes[occurrenceID] = struct{ activityIndex, occurrenceIndex int }{activityIndex: activityIndex, occurrenceIndex: len(activities[activityIndex].Occurrences) - 1}
+	}
+
+	for _, row := range ledgerRows {
+		activityID := pgUUIDString(row.ActivityID)
+		activityJSON, exists := activityJSONCache[activityID]
+		if !exists {
+			activityRow, getErr := s.queries.GetInstanceActivity(c.Request.Context(), row.ActivityID)
+			if getErr != nil {
+				c.JSON(http.StatusInternalServerError, errorResponse{Error: getErr.Error()})
+				return
+			}
+			activityJSON = activityToJSON(activityRow.ID, activityRow.InstanceID, activityRow.ActivityType, activityRow.Name, activityRow.Status, activityRow.StartsAt, activityRow.EndsAt, activityRow.Metadata, activityRow.CreatedAt, activityRow.UpdatedAt)
+		}
+		activityIndex := ensureActivity(activityID, activityJSON)
+		occurrenceID := pgUUIDString(row.ActivityOccurrenceID)
+		indexPair, exists := occurrenceIndexes[occurrenceID]
+		if !exists {
+			activities[activityIndex].Occurrences = append(activities[activityIndex].Occurrences, historyOccurrence{
+				Occurrence: gin.H{
+					"id":              occurrenceID,
+					"activity_id":     activityID,
+					"occurrence_type": row.OccurrenceType,
+					"name":            row.OccurrenceName,
+					"effective_at":    formatTimestamp(row.EffectiveAt),
+				},
+				Ledger: []gin.H{},
+			})
+			indexPair = struct{ activityIndex, occurrenceIndex int }{activityIndex: activityIndex, occurrenceIndex: len(activities[activityIndex].Occurrences) - 1}
+			occurrenceIndexes[occurrenceID] = indexPair
+		}
+		activities[indexPair.activityIndex].Occurrences[indexPair.occurrenceIndex].Ledger = append(
+			activities[indexPair.activityIndex].Occurrences[indexPair.occurrenceIndex].Ledger,
+			gin.H{
+				"id":                     pgUUIDString(row.ID),
+				"instance_id":            pgUUIDString(row.InstanceID),
+				"participant_id":         pgUUIDString(row.ParticipantID),
+				"participant_name":       participant.Name,
+				"activity_id":            pgUUIDString(row.ActivityID),
+				"activity_type":          row.ActivityType,
+				"activity_name":          row.ActivityName,
+				"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
+				"occurrence_type":        row.OccurrenceType,
+				"occurrence_name":        row.OccurrenceName,
+				"source_group_id":        pgUUIDPointer(row.SourceGroupID),
+				"source_group_name":      pgTextPointer(row.SourceGroupName),
+				"entry_kind":             row.EntryKind,
+				"points":                 row.Points,
+				"visibility":             row.Visibility,
+				"reason":                 row.Reason,
+				"effective_at":           formatTimestamp(row.EffectiveAt),
+				"award_key":              pgTextPointer(row.AwardKey),
+				"created_at":             formatTimestamp(row.CreatedAt),
+				"metadata":               json.RawMessage(row.Metadata),
+			},
+		)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"participant": gin.H{
+			"id":   pgUUIDString(participant.ID),
+			"name": participant.Name,
+		},
+		"instance":   toInstanceResponse(instance.ID, instance.Name, instance.Season, instance.CreatedAt),
+		"activities": activities,
+	})
+}
+
 type createActivityRequest struct {
 	ActivityType string           `json:"activity_type" binding:"required"`
 	Name         string           `json:"name" binding:"required"`
@@ -850,6 +1011,51 @@ func (s *Server) listActivities(c *gin.Context) {
 		response = append(response, activityToJSON(activity.ID, activity.InstanceID, activity.ActivityType, activity.Name, activity.Status, activity.StartsAt, activity.EndsAt, activity.Metadata, activity.CreatedAt, activity.UpdatedAt))
 	}
 	c.JSON(http.StatusOK, gin.H{"activities": response})
+}
+
+func (s *Server) getActivity(c *gin.Context) {
+	activityID, ok := parseUUIDPath(c, "activityID")
+	if !ok {
+		return
+	}
+
+	activity, err := s.queries.GetInstanceActivity(c.Request.Context(), toPGUUID(activityID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "activity not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	groupAssignments, err := s.queries.ListActivityGroupAssignments(c.Request.Context(), toPGUUID(activityID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	participantAssignments, err := s.queries.ListActivityParticipantAssignments(c.Request.Context(), toPGUUID(activityID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	groupResponse := make([]gin.H, 0, len(groupAssignments))
+	for _, assignment := range groupAssignments {
+		groupResponse = append(groupResponse, activityGroupAssignmentToJSON(assignment))
+	}
+
+	participantResponse := make([]gin.H, 0, len(participantAssignments))
+	for _, assignment := range participantAssignments {
+		participantResponse = append(participantResponse, activityParticipantAssignmentToJSON(assignment))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"activity":                activityToJSON(activity.ID, activity.InstanceID, activity.ActivityType, activity.Name, activity.Status, activity.StartsAt, activity.EndsAt, activity.Metadata, activity.CreatedAt, activity.UpdatedAt),
+		"group_assignments":       groupResponse,
+		"participant_assignments": participantResponse,
+	})
 }
 
 func (s *Server) createActivity(c *gin.Context) {
@@ -909,6 +1115,70 @@ func (s *Server) listOccurrences(c *gin.Context) {
 		response = append(response, occurrenceToJSON(occurrence.ID, occurrence.ActivityID, occurrence.OccurrenceType, occurrence.Name, occurrence.EffectiveAt, occurrence.StartsAt, occurrence.EndsAt, occurrence.Status, occurrence.SourceRef, occurrence.Metadata, occurrence.CreatedAt, occurrence.UpdatedAt))
 	}
 	c.JSON(http.StatusOK, gin.H{"occurrences": response})
+}
+
+func (s *Server) getOccurrence(c *gin.Context) {
+	occurrenceID, ok := parseUUIDPath(c, "occurrenceID")
+	if !ok {
+		return
+	}
+
+	occurrence, err := s.queries.GetActivityOccurrence(c.Request.Context(), toPGUUID(occurrenceID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "occurrence not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	activity, err := s.queries.GetInstanceActivity(c.Request.Context(), occurrence.ActivityID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	participants, err := s.queries.ListActivityOccurrenceParticipants(c.Request.Context(), toPGUUID(occurrenceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	groups, err := s.queries.ListActivityOccurrenceGroups(c.Request.Context(), toPGUUID(occurrenceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	ledgerRows, err := s.queries.ListVisibleBonusPointLedgerEntriesByOccurrence(c.Request.Context(), toPGUUID(occurrenceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	participantResponse := make([]gin.H, 0, len(participants))
+	for _, row := range participants {
+		participantResponse = append(participantResponse, occurrenceParticipantToJSON(row))
+	}
+
+	groupResponse := make([]gin.H, 0, len(groups))
+	for _, row := range groups {
+		groupResponse = append(groupResponse, occurrenceGroupToJSON(row))
+	}
+
+	ledgerResponse := make([]gin.H, 0, len(ledgerRows))
+	for _, row := range ledgerRows {
+		ledgerResponse = append(ledgerResponse, visibleOccurrenceLedgerToJSON(row))
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"activity":     activityToJSON(activity.ID, activity.InstanceID, activity.ActivityType, activity.Name, activity.Status, activity.StartsAt, activity.EndsAt, activity.Metadata, activity.CreatedAt, activity.UpdatedAt),
+		"occurrence":   occurrenceToJSON(occurrence.ID, occurrence.ActivityID, occurrence.OccurrenceType, occurrence.Name, occurrence.EffectiveAt, occurrence.StartsAt, occurrence.EndsAt, occurrence.Status, occurrence.SourceRef, occurrence.Metadata, occurrence.CreatedAt, occurrence.UpdatedAt),
+		"participants": participantResponse,
+		"groups":       groupResponse,
+		"ledger":       ledgerResponse,
+	})
 }
 
 func (s *Server) createOccurrence(c *gin.Context) {
@@ -1137,6 +1407,36 @@ func activityToJSON(id, instanceID pgtype.UUID, activityType, name, status strin
 	}
 }
 
+func activityGroupAssignmentToJSON(row db.ListActivityGroupAssignmentsRow) gin.H {
+	return gin.H{
+		"id":                     row.ID,
+		"activity_id":            pgUUIDString(row.ActivityID),
+		"participant_group_id":   pgUUIDString(row.ParticipantGroupID),
+		"participant_group_name": row.ParticipantGroupName,
+		"role":                   row.Role,
+		"starts_at":              formatTimestamp(row.StartsAt),
+		"ends_at":                formatNullableTimestamp(row.EndsAt),
+		"configuration":          json.RawMessage(row.Configuration),
+		"created_at":             formatTimestamp(row.CreatedAt),
+	}
+}
+
+func activityParticipantAssignmentToJSON(row db.ListActivityParticipantAssignmentsRow) gin.H {
+	return gin.H{
+		"id":                     row.ID,
+		"activity_id":            pgUUIDString(row.ActivityID),
+		"participant_id":         pgUUIDString(row.ParticipantID),
+		"participant_name":       row.ParticipantName,
+		"participant_group_id":   pgUUIDPointer(row.ParticipantGroupID),
+		"participant_group_name": pgTextPointer(row.ParticipantGroupName),
+		"role":                   row.Role,
+		"starts_at":              formatTimestamp(row.StartsAt),
+		"ends_at":                formatNullableTimestamp(row.EndsAt),
+		"configuration":          json.RawMessage(row.Configuration),
+		"created_at":             formatTimestamp(row.CreatedAt),
+	}
+}
+
 func occurrenceToJSON(id, activityID pgtype.UUID, occurrenceType, name string, effectiveAt, startsAt, endsAt pgtype.Timestamptz, status string, sourceRef pgtype.Text, metadata []byte, createdAt, updatedAt pgtype.Timestamptz) gin.H {
 	return gin.H{
 		"id":              pgUUIDString(id),
@@ -1151,6 +1451,73 @@ func occurrenceToJSON(id, activityID pgtype.UUID, occurrenceType, name string, e
 		"metadata":        json.RawMessage(metadata),
 		"created_at":      formatTimestamp(createdAt),
 		"updated_at":      formatTimestamp(updatedAt),
+	}
+}
+
+func occurrenceParticipantToJSON(row db.ListActivityOccurrenceParticipantsRow) gin.H {
+	return gin.H{
+		"id":                     row.ID,
+		"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
+		"participant_id":         pgUUIDString(row.ParticipantID),
+		"participant_name":       row.ParticipantName,
+		"participant_group_id":   pgUUIDPointer(row.ParticipantGroupID),
+		"participant_group_name": pgTextPointer(row.ParticipantGroupName),
+		"role":                   row.Role,
+		"result":                 row.Result,
+		"metadata":               json.RawMessage(row.Metadata),
+		"created_at":             formatTimestamp(row.CreatedAt),
+	}
+}
+
+func occurrenceGroupToJSON(row db.ListActivityOccurrenceGroupsRow) gin.H {
+	return gin.H{
+		"id":                     row.ID,
+		"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
+		"participant_group_id":   pgUUIDString(row.ParticipantGroupID),
+		"participant_group_name": row.ParticipantGroupName,
+		"role":                   row.Role,
+		"result":                 row.Result,
+		"metadata":               json.RawMessage(row.Metadata),
+		"created_at":             formatTimestamp(row.CreatedAt),
+	}
+}
+
+func visibleOccurrenceLedgerToJSON(row db.ListVisibleBonusPointLedgerEntriesByOccurrenceRow) gin.H {
+	return gin.H{
+		"id":                     pgUUIDString(row.ID),
+		"instance_id":            pgUUIDString(row.InstanceID),
+		"participant_id":         pgUUIDString(row.ParticipantID),
+		"participant_name":       row.ParticipantName,
+		"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
+		"occurrence_type":        row.OccurrenceType,
+		"occurrence_name":        row.OccurrenceName,
+		"activity_id":            pgUUIDString(row.ActivityID),
+		"activity_type":          row.ActivityType,
+		"activity_name":          row.ActivityName,
+		"source_group_id":        pgUUIDPointer(row.SourceGroupID),
+		"source_group_name":      pgTextPointer(row.SourceGroupName),
+		"entry_kind":             row.EntryKind,
+		"points":                 row.Points,
+		"visibility":             row.Visibility,
+		"reason":                 row.Reason,
+		"effective_at":           formatTimestamp(row.EffectiveAt),
+		"award_key":              pgTextPointer(row.AwardKey),
+		"metadata":               json.RawMessage(row.Metadata),
+		"created_at":             formatTimestamp(row.CreatedAt),
+	}
+}
+
+func occurrenceHistoryInvolvementToJSON(row db.ListParticipantOccurrenceInvolvementByInstanceRow) gin.H {
+	return gin.H{
+		"id":                     row.OccurrenceParticipantResultID,
+		"activity_occurrence_id": pgUUIDString(row.OccurrenceID),
+		"participant_id":         pgUUIDString(row.ParticipantID),
+		"participant_group_id":   pgUUIDPointer(row.ParticipantGroupID),
+		"participant_group_name": pgTextPointer(row.ParticipantGroupName),
+		"role":                   row.Role,
+		"result":                 row.Result,
+		"metadata":               json.RawMessage(row.ParticipantMetadata),
+		"created_at":             formatTimestamp(row.ParticipantCreatedAt),
 	}
 }
 

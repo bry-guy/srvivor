@@ -62,7 +62,9 @@ type Querier interface {
 	ListOutcomePositionsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListOutcomePositionsByInstanceRow, error)
 	ListParticipantGroupMembershipPeriods(ctx context.Context, participantGroupID pgtype.UUID) ([]ListParticipantGroupMembershipPeriodsRow, error)
 	ListParticipantGroupsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantGroupsByInstanceRow, error)
+	ListParticipantOccurrenceInvolvementByInstance(ctx context.Context, arg ListParticipantOccurrenceInvolvementByInstanceParams) ([]ListParticipantOccurrenceInvolvementByInstanceRow, error)
 	ListParticipantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantsByInstanceRow, error)
+	ListVisibleBonusPointLedgerEntriesByOccurrence(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListVisibleBonusPointLedgerEntriesByOccurrenceRow, error)
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
 	UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error)

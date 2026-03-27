@@ -330,6 +330,103 @@ func (q *Queries) ListAllBonusPointLedgerEntriesForParticipant(ctx context.Conte
 	return items, nil
 }
 
+const listVisibleBonusPointLedgerEntriesByOccurrence = `-- name: ListVisibleBonusPointLedgerEntriesByOccurrence :many
+SELECT
+    bple.public_id AS id,
+    i.public_id AS instance_id,
+    p.public_id AS participant_id,
+    p.name AS participant_name,
+    ao.public_id AS activity_occurrence_id,
+    ao.occurrence_type,
+    ao.name AS occurrence_name,
+    ia.public_id AS activity_id,
+    ia.activity_type,
+    ia.name AS activity_name,
+    sg.public_id AS source_group_id,
+    sg.name AS source_group_name,
+    bple.entry_kind,
+    bple.points,
+    bple.visibility,
+    bple.reason,
+    bple.effective_at,
+    bple.award_key,
+    bple.metadata,
+    bple.created_at
+FROM bonus_point_ledger_entries bple
+JOIN instances i ON i.id = bple.instance_id
+JOIN participants p ON p.id = bple.participant_id
+JOIN activity_occurrences ao ON ao.id = bple.activity_occurrence_id
+JOIN instance_activities ia ON ia.id = ao.activity_id
+LEFT JOIN participant_groups sg ON sg.id = bple.source_group_id
+WHERE ao.public_id = $1
+  AND bple.visibility IN ('public', 'revealed')
+ORDER BY p.name ASC, bple.effective_at ASC, bple.created_at ASC, bple.id ASC
+`
+
+type ListVisibleBonusPointLedgerEntriesByOccurrenceRow struct {
+	ID                   pgtype.UUID        `json:"id"`
+	InstanceID           pgtype.UUID        `json:"instance_id"`
+	ParticipantID        pgtype.UUID        `json:"participant_id"`
+	ParticipantName      string             `json:"participant_name"`
+	ActivityOccurrenceID pgtype.UUID        `json:"activity_occurrence_id"`
+	OccurrenceType       string             `json:"occurrence_type"`
+	OccurrenceName       string             `json:"occurrence_name"`
+	ActivityID           pgtype.UUID        `json:"activity_id"`
+	ActivityType         string             `json:"activity_type"`
+	ActivityName         string             `json:"activity_name"`
+	SourceGroupID        pgtype.UUID        `json:"source_group_id"`
+	SourceGroupName      pgtype.Text        `json:"source_group_name"`
+	EntryKind            string             `json:"entry_kind"`
+	Points               int32              `json:"points"`
+	Visibility           string             `json:"visibility"`
+	Reason               string             `json:"reason"`
+	EffectiveAt          pgtype.Timestamptz `json:"effective_at"`
+	AwardKey             pgtype.Text        `json:"award_key"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListVisibleBonusPointLedgerEntriesByOccurrence(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListVisibleBonusPointLedgerEntriesByOccurrenceRow, error) {
+	rows, err := q.db.Query(ctx, listVisibleBonusPointLedgerEntriesByOccurrence, activityOccurrenceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVisibleBonusPointLedgerEntriesByOccurrenceRow{}
+	for rows.Next() {
+		var i ListVisibleBonusPointLedgerEntriesByOccurrenceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InstanceID,
+			&i.ParticipantID,
+			&i.ParticipantName,
+			&i.ActivityOccurrenceID,
+			&i.OccurrenceType,
+			&i.OccurrenceName,
+			&i.ActivityID,
+			&i.ActivityType,
+			&i.ActivityName,
+			&i.SourceGroupID,
+			&i.SourceGroupName,
+			&i.EntryKind,
+			&i.Points,
+			&i.Visibility,
+			&i.Reason,
+			&i.EffectiveAt,
+			&i.AwardKey,
+			&i.Metadata,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVisibleBonusPointLedgerEntriesForParticipant = `-- name: ListVisibleBonusPointLedgerEntriesForParticipant :many
 SELECT
     bple.public_id AS id,

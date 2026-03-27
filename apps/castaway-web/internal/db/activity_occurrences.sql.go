@@ -532,3 +532,129 @@ func (q *Queries) ListActivityOccurrencesByActivity(ctx context.Context, activit
 	}
 	return items, nil
 }
+
+const listParticipantOccurrenceInvolvementByInstance = `-- name: ListParticipantOccurrenceInvolvementByInstance :many
+SELECT
+    ia.public_id AS activity_id,
+    ia.activity_type,
+    ia.name AS activity_name,
+    ia.status AS activity_status,
+    ia.starts_at AS activity_starts_at,
+    ia.ends_at AS activity_ends_at,
+    ia.metadata AS activity_metadata,
+    ia.created_at AS activity_created_at,
+    ia.updated_at AS activity_updated_at,
+    ao.public_id AS occurrence_id,
+    ao.occurrence_type,
+    ao.name AS occurrence_name,
+    ao.effective_at,
+    ao.starts_at,
+    ao.ends_at,
+    ao.status AS occurrence_status,
+    ao.source_ref,
+    ao.metadata AS occurrence_metadata,
+    ao.created_at AS occurrence_created_at,
+    ao.updated_at AS occurrence_updated_at,
+    aop.id AS occurrence_participant_result_id,
+    p.public_id AS participant_id,
+    aop.role,
+    aop.result,
+    aop.metadata AS participant_metadata,
+    aop.created_at AS participant_created_at,
+    pg.public_id AS participant_group_id,
+    pg.name AS participant_group_name
+FROM activity_occurrence_participants aop
+JOIN activity_occurrences ao ON ao.id = aop.activity_occurrence_id
+JOIN instance_activities ia ON ia.id = ao.activity_id
+JOIN instances i ON i.id = ia.instance_id
+JOIN participants p ON p.id = aop.participant_id
+LEFT JOIN participant_groups pg ON pg.id = aop.participant_group_id
+WHERE i.public_id = $1
+  AND p.public_id = $2
+ORDER BY ia.starts_at ASC, ao.effective_at ASC, aop.id ASC
+`
+
+type ListParticipantOccurrenceInvolvementByInstanceParams struct {
+	InstanceID    pgtype.UUID `json:"instance_id"`
+	ParticipantID pgtype.UUID `json:"participant_id"`
+}
+
+type ListParticipantOccurrenceInvolvementByInstanceRow struct {
+	ActivityID                    pgtype.UUID        `json:"activity_id"`
+	ActivityType                  string             `json:"activity_type"`
+	ActivityName                  string             `json:"activity_name"`
+	ActivityStatus                string             `json:"activity_status"`
+	ActivityStartsAt              pgtype.Timestamptz `json:"activity_starts_at"`
+	ActivityEndsAt                pgtype.Timestamptz `json:"activity_ends_at"`
+	ActivityMetadata              []byte             `json:"activity_metadata"`
+	ActivityCreatedAt             pgtype.Timestamptz `json:"activity_created_at"`
+	ActivityUpdatedAt             pgtype.Timestamptz `json:"activity_updated_at"`
+	OccurrenceID                  pgtype.UUID        `json:"occurrence_id"`
+	OccurrenceType                string             `json:"occurrence_type"`
+	OccurrenceName                string             `json:"occurrence_name"`
+	EffectiveAt                   pgtype.Timestamptz `json:"effective_at"`
+	StartsAt                      pgtype.Timestamptz `json:"starts_at"`
+	EndsAt                        pgtype.Timestamptz `json:"ends_at"`
+	OccurrenceStatus              string             `json:"occurrence_status"`
+	SourceRef                     pgtype.Text        `json:"source_ref"`
+	OccurrenceMetadata            []byte             `json:"occurrence_metadata"`
+	OccurrenceCreatedAt           pgtype.Timestamptz `json:"occurrence_created_at"`
+	OccurrenceUpdatedAt           pgtype.Timestamptz `json:"occurrence_updated_at"`
+	OccurrenceParticipantResultID int64              `json:"occurrence_participant_result_id"`
+	ParticipantID                 pgtype.UUID        `json:"participant_id"`
+	Role                          string             `json:"role"`
+	Result                        string             `json:"result"`
+	ParticipantMetadata           []byte             `json:"participant_metadata"`
+	ParticipantCreatedAt          pgtype.Timestamptz `json:"participant_created_at"`
+	ParticipantGroupID            pgtype.UUID        `json:"participant_group_id"`
+	ParticipantGroupName          pgtype.Text        `json:"participant_group_name"`
+}
+
+func (q *Queries) ListParticipantOccurrenceInvolvementByInstance(ctx context.Context, arg ListParticipantOccurrenceInvolvementByInstanceParams) ([]ListParticipantOccurrenceInvolvementByInstanceRow, error) {
+	rows, err := q.db.Query(ctx, listParticipantOccurrenceInvolvementByInstance, arg.InstanceID, arg.ParticipantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListParticipantOccurrenceInvolvementByInstanceRow{}
+	for rows.Next() {
+		var i ListParticipantOccurrenceInvolvementByInstanceRow
+		if err := rows.Scan(
+			&i.ActivityID,
+			&i.ActivityType,
+			&i.ActivityName,
+			&i.ActivityStatus,
+			&i.ActivityStartsAt,
+			&i.ActivityEndsAt,
+			&i.ActivityMetadata,
+			&i.ActivityCreatedAt,
+			&i.ActivityUpdatedAt,
+			&i.OccurrenceID,
+			&i.OccurrenceType,
+			&i.OccurrenceName,
+			&i.EffectiveAt,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.OccurrenceStatus,
+			&i.SourceRef,
+			&i.OccurrenceMetadata,
+			&i.OccurrenceCreatedAt,
+			&i.OccurrenceUpdatedAt,
+			&i.OccurrenceParticipantResultID,
+			&i.ParticipantID,
+			&i.Role,
+			&i.Result,
+			&i.ParticipantMetadata,
+			&i.ParticipantCreatedAt,
+			&i.ParticipantGroupID,
+			&i.ParticipantGroupName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

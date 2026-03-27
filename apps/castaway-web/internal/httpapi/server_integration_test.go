@@ -87,6 +87,84 @@ type occurrencesResponse struct {
 	} `json:"occurrences"`
 }
 
+type activityDetailResponse struct {
+	Activity struct {
+		ID string `json:"id"`
+	} `json:"activity"`
+	GroupAssignments []struct {
+		ParticipantGroupID   string          `json:"participant_group_id"`
+		ParticipantGroupName string          `json:"participant_group_name"`
+		Role                 string          `json:"role"`
+		Configuration        json.RawMessage `json:"configuration"`
+	} `json:"group_assignments"`
+	ParticipantAssignments []struct {
+		ParticipantID        string  `json:"participant_id"`
+		ParticipantName      string  `json:"participant_name"`
+		ParticipantGroupID   *string `json:"participant_group_id"`
+		ParticipantGroupName *string `json:"participant_group_name"`
+		Role                 string  `json:"role"`
+	} `json:"participant_assignments"`
+}
+
+type occurrenceDetailResponse struct {
+	Activity struct {
+		ID string `json:"id"`
+	} `json:"activity"`
+	Occurrence struct {
+		ID string `json:"id"`
+	} `json:"occurrence"`
+	Participants []struct {
+		ParticipantID        string  `json:"participant_id"`
+		ParticipantName      string  `json:"participant_name"`
+		ParticipantGroupID   *string `json:"participant_group_id"`
+		ParticipantGroupName *string `json:"participant_group_name"`
+		Role                 string  `json:"role"`
+		Result               string  `json:"result"`
+	} `json:"participants"`
+	Groups []struct {
+		ParticipantGroupID   string `json:"participant_group_id"`
+		ParticipantGroupName string `json:"participant_group_name"`
+		Role                 string `json:"role"`
+		Result               string `json:"result"`
+	} `json:"groups"`
+	Ledger []struct {
+		ParticipantID   string `json:"participant_id"`
+		ParticipantName string `json:"participant_name"`
+		EntryKind       string `json:"entry_kind"`
+		Points          int    `json:"points"`
+		Visibility      string `json:"visibility"`
+	} `json:"ledger"`
+}
+
+type participantActivityHistoryResponse struct {
+	Participant struct {
+		ID string `json:"id"`
+	} `json:"participant"`
+	Instance struct {
+		ID string `json:"id"`
+	} `json:"instance"`
+	Activities []struct {
+		Activity struct {
+			ID string `json:"id"`
+		} `json:"activity"`
+		Occurrences []struct {
+			Occurrence struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"occurrence"`
+			Involvement *struct {
+				ParticipantID string `json:"participant_id"`
+				Role          string `json:"role"`
+				Result        string `json:"result"`
+			} `json:"involvement"`
+			Ledger []struct {
+				ParticipantID string `json:"participant_id"`
+				Points        int    `json:"points"`
+			} `json:"ledger"`
+		} `json:"occurrences"`
+	} `json:"activities"`
+}
+
 func TestServiceAuthProtectsNonHealthRoutes(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	defer pool.Close()
@@ -262,6 +340,139 @@ func TestActivitiesOccurrencesHandlersAndResolve(t *testing.T) {
 	}
 	if ledger.BonusPoints != 3 || len(ledger.Ledger) != 1 {
 		t.Fatalf("unexpected ledger response: %+v", ledger)
+	}
+}
+
+func TestActivityOccurrenceDetailAndParticipantHistoryReadApis(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	queries := db.New(pool)
+	instance := createInstanceForTest(t, ctx, queries, "Detail APIs", 50)
+	participant := createParticipantForTest(t, ctx, queries, instance.ID, "Alice")
+	otherParticipant := createParticipantForTest(t, ctx, queries, instance.ID, "Bob")
+	group := createParticipantGroupForTest(t, ctx, queries, instance.ID, "Team Orange", "tribe")
+	activity := createActivityForTest(t, ctx, queries, instance.ID, time.Date(2026, time.March, 21, 12, 0, 0, 0, time.UTC), nil, "journey", "Journey 2")
+	occurrence := createOccurrenceForTest(t, ctx, queries, activity.ID, "journey_resolution", "Journey 2 Resolution", time.Date(2026, time.March, 21, 13, 0, 0, 0, time.UTC))
+	groupAwardOccurrence := createOccurrenceForTest(t, ctx, queries, activity.ID, "journey_attendance", "Journey 2 Attendance", time.Date(2026, time.March, 21, 12, 30, 0, 0, time.UTC))
+
+	if _, err := queries.CreateActivityGroupAssignment(ctx, db.CreateActivityGroupAssignmentParams{
+		ActivityID:         activity.ID,
+		ParticipantGroupID: group.ID,
+		Role:               "tribe",
+		StartsAt:           timestamptz(time.Date(2026, time.March, 21, 12, 0, 0, 0, time.UTC)),
+		EndsAt:             pgtype.Timestamptz{},
+		Configuration:      []byte(`{"pony_survivor_tribe":"orange"}`),
+	}); err != nil {
+		t.Fatalf("create activity group assignment: %v", err)
+	}
+	if _, err := queries.CreateActivityParticipantAssignment(ctx, db.CreateActivityParticipantAssignmentParams{
+		ActivityID:         activity.ID,
+		ParticipantID:      participant.ID,
+		ParticipantGroupID: group.ID,
+		Role:               "delegate",
+		StartsAt:           timestamptz(time.Date(2026, time.March, 21, 12, 0, 0, 0, time.UTC)),
+		EndsAt:             pgtype.Timestamptz{},
+		Configuration:      testEmptyJSONB,
+	}); err != nil {
+		t.Fatalf("create activity participant assignment: %v", err)
+	}
+	if _, err := queries.CreateActivityOccurrenceParticipant(ctx, db.CreateActivityOccurrenceParticipantParams{
+		ActivityOccurrenceID: occurrence.ID,
+		ParticipantID:        participant.ID,
+		ParticipantGroupID:   group.ID,
+		Role:                 "delegate",
+		Result:               "SHARE",
+		Metadata:             []byte(`{"choice":"share"}`),
+	}); err != nil {
+		t.Fatalf("create occurrence participant: %v", err)
+	}
+	if _, err := queries.CreateActivityOccurrenceParticipant(ctx, db.CreateActivityOccurrenceParticipantParams{
+		ActivityOccurrenceID: occurrence.ID,
+		ParticipantID:        otherParticipant.ID,
+		ParticipantGroupID:   group.ID,
+		Role:                 "delegate",
+		Result:               "STEAL",
+		Metadata:             []byte(`{"choice":"steal"}`),
+	}); err != nil {
+		t.Fatalf("create second occurrence participant: %v", err)
+	}
+	if _, err := queries.CreateActivityOccurrenceGroup(ctx, db.CreateActivityOccurrenceGroupParams{
+		ActivityOccurrenceID: occurrence.ID,
+		ParticipantGroupID:   group.ID,
+		Role:                 "tribe",
+		Result:               "winner",
+		Metadata:             []byte(`{"label":"winner"}`),
+	}); err != nil {
+		t.Fatalf("create occurrence group: %v", err)
+	}
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participant.ID, occurrence.ID, group.ID, "award", 2, "public", "shared reward", "alice-share")
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participant.ID, occurrence.ID, group.ID, "award", 4, "secret", "hidden reward", "alice-secret")
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participant.ID, groupAwardOccurrence.ID, group.ID, "award", 1, "public", "attendance reward", "alice-attendance")
+
+	server := httpapi.New(pool)
+	router := server.Router()
+
+	activityReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/activities/%s", uuid.UUID(activity.ID.Bytes).String()), nil)
+	activityRecorder := httptest.NewRecorder()
+	router.ServeHTTP(activityRecorder, activityReq)
+	if activityRecorder.Code != http.StatusOK {
+		t.Fatalf("activity detail status = %d, body = %s", activityRecorder.Code, activityRecorder.Body.String())
+	}
+	var activityDetail activityDetailResponse
+	if err := json.Unmarshal(activityRecorder.Body.Bytes(), &activityDetail); err != nil {
+		t.Fatalf("unmarshal activity detail: %v", err)
+	}
+	if activityDetail.Activity.ID != uuid.UUID(activity.ID.Bytes).String() || len(activityDetail.GroupAssignments) != 1 || len(activityDetail.ParticipantAssignments) != 1 {
+		t.Fatalf("unexpected activity detail response: %+v", activityDetail)
+	}
+
+	occurrenceReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/occurrences/%s", uuid.UUID(occurrence.ID.Bytes).String()), nil)
+	occurrenceRecorder := httptest.NewRecorder()
+	router.ServeHTTP(occurrenceRecorder, occurrenceReq)
+	if occurrenceRecorder.Code != http.StatusOK {
+		t.Fatalf("occurrence detail status = %d, body = %s", occurrenceRecorder.Code, occurrenceRecorder.Body.String())
+	}
+	var occurrenceDetail occurrenceDetailResponse
+	if err := json.Unmarshal(occurrenceRecorder.Body.Bytes(), &occurrenceDetail); err != nil {
+		t.Fatalf("unmarshal occurrence detail: %v", err)
+	}
+	if occurrenceDetail.Occurrence.ID != uuid.UUID(occurrence.ID.Bytes).String() || len(occurrenceDetail.Participants) != 2 || len(occurrenceDetail.Groups) != 1 {
+		t.Fatalf("unexpected occurrence detail response: %+v", occurrenceDetail)
+	}
+	if len(occurrenceDetail.Ledger) != 1 || occurrenceDetail.Ledger[0].Visibility != "public" || occurrenceDetail.Ledger[0].Points != 2 {
+		t.Fatalf("unexpected occurrence ledger visibility/points: %+v", occurrenceDetail.Ledger)
+	}
+
+	historyReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/activity-history", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(participant.ID.Bytes).String()), nil)
+	historyRecorder := httptest.NewRecorder()
+	router.ServeHTTP(historyRecorder, historyReq)
+	if historyRecorder.Code != http.StatusOK {
+		t.Fatalf("participant activity history status = %d, body = %s", historyRecorder.Code, historyRecorder.Body.String())
+	}
+	var history participantActivityHistoryResponse
+	if err := json.Unmarshal(historyRecorder.Body.Bytes(), &history); err != nil {
+		t.Fatalf("unmarshal participant activity history: %v", err)
+	}
+	if history.Participant.ID != uuid.UUID(participant.ID.Bytes).String() || history.Instance.ID != uuid.UUID(instance.ID.Bytes).String() || len(history.Activities) != 1 {
+		t.Fatalf("unexpected participant activity history header: %+v", history)
+	}
+	if len(history.Activities[0].Occurrences) != 2 {
+		t.Fatalf("expected 2 participant history occurrences, got %+v", history.Activities[0].Occurrences)
+	}
+	foundDirect := false
+	foundLedgerOnly := false
+	for _, item := range history.Activities[0].Occurrences {
+		switch item.Occurrence.ID {
+		case uuid.UUID(occurrence.ID.Bytes).String():
+			foundDirect = item.Involvement != nil && item.Involvement.ParticipantID == uuid.UUID(participant.ID.Bytes).String() && len(item.Ledger) == 1 && item.Ledger[0].Points == 2
+		case uuid.UUID(groupAwardOccurrence.ID.Bytes).String():
+			foundLedgerOnly = item.Involvement == nil && len(item.Ledger) == 1 && item.Ledger[0].Points == 1
+		}
+	}
+	if !foundDirect || !foundLedgerOnly {
+		t.Fatalf("unexpected participant history occurrence breakdown: %+v", history.Activities[0].Occurrences)
 	}
 }
 

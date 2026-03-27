@@ -127,6 +127,38 @@ WHERE i.public_id = sqlc.arg(instance_id)
   AND bple.visibility IN ('public', 'revealed')
 ORDER BY bple.effective_at ASC, bple.created_at ASC, bple.id ASC;
 
+-- name: ListVisibleBonusPointLedgerEntriesByOccurrence :many
+SELECT
+    bple.public_id AS id,
+    i.public_id AS instance_id,
+    p.public_id AS participant_id,
+    p.name AS participant_name,
+    ao.public_id AS activity_occurrence_id,
+    ao.occurrence_type,
+    ao.name AS occurrence_name,
+    ia.public_id AS activity_id,
+    ia.activity_type,
+    ia.name AS activity_name,
+    sg.public_id AS source_group_id,
+    sg.name AS source_group_name,
+    bple.entry_kind,
+    bple.points,
+    bple.visibility,
+    bple.reason,
+    bple.effective_at,
+    bple.award_key,
+    bple.metadata,
+    bple.created_at
+FROM bonus_point_ledger_entries bple
+JOIN instances i ON i.id = bple.instance_id
+JOIN participants p ON p.id = bple.participant_id
+JOIN activity_occurrences ao ON ao.id = bple.activity_occurrence_id
+JOIN instance_activities ia ON ia.id = ao.activity_id
+LEFT JOIN participant_groups sg ON sg.id = bple.source_group_id
+WHERE ao.public_id = sqlc.arg(activity_occurrence_id)
+  AND bple.visibility IN ('public', 'revealed')
+ORDER BY p.name ASC, bple.effective_at ASC, bple.created_at ASC, bple.id ASC;
+
 -- name: GetVisibleBonusTotalByParticipant :one
 SELECT COALESCE(SUM(bple.points), 0)::INTEGER AS total_points
 FROM bonus_point_ledger_entries bple

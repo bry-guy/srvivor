@@ -4,6 +4,24 @@ info:
   version: 0.0.0
 tags: []
 paths:
+  /activities/{activityID}:
+    get:
+      operationId: getActivity
+      parameters:
+        - name: activityID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetActivityResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
   /activities/{activityID}/occurrences:
     get:
       operationId: listOccurrences
@@ -405,6 +423,29 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/ListParticipantsResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/participants/{participantID}/activity-history:
+    get:
+      operationId: getParticipantActivityHistory
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ParticipantActivityHistoryResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/participants/{participantID}/bonus-ledger:
     get:
       operationId: getParticipantBonusLedger
@@ -427,6 +468,24 @@ paths:
               schema:
                 anyOf:
                   - $ref: '#/components/schemas/ParticipantBonusLedgerResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /occurrences/{occurrenceID}:
+    get:
+      operationId: getOccurrence
+      parameters:
+        - name: occurrenceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetOccurrenceResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
   /occurrences/{occurrenceID}/groups:
     post:
@@ -540,6 +599,80 @@ components:
           type: string
           format: date-time
         updated_at:
+          type: string
+          format: date-time
+    ActivityGroupAssignment:
+      type: object
+      required:
+        - id
+        - activity_id
+        - participant_group_id
+        - participant_group_name
+        - role
+        - starts_at
+        - configuration
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        activity_id:
+          type: string
+        participant_group_id:
+          type: string
+        participant_group_name:
+          type: string
+        role:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        configuration:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+    ActivityParticipantAssignment:
+      type: object
+      required:
+        - id
+        - activity_id
+        - participant_id
+        - participant_name
+        - role
+        - starts_at
+        - configuration
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        activity_id:
+          type: string
+        participant_id:
+          type: string
+        participant_name:
+          type: string
+        participant_group_id:
+          type: string
+        participant_group_name:
+          type: string
+        role:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        configuration:
+          type: object
+          additionalProperties: {}
+        created_at:
           type: string
           format: date-time
     BonusLedgerEntry:
@@ -786,6 +919,23 @@ components:
       properties:
         error:
           type: string
+    GetActivityResponse:
+      type: object
+      required:
+        - activity
+        - group_assignments
+        - participant_assignments
+      properties:
+        activity:
+          $ref: '#/components/schemas/Activity'
+        group_assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityGroupAssignment'
+        participant_assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityParticipantAssignment'
     GetDraftResponse:
       type: object
       required:
@@ -815,6 +965,31 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Participant'
+    GetOccurrenceResponse:
+      type: object
+      required:
+        - activity
+        - occurrence
+        - participants
+        - groups
+        - ledger
+      properties:
+        activity:
+          $ref: '#/components/schemas/Activity'
+        occurrence:
+          $ref: '#/components/schemas/Occurrence'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccurrenceParticipantDetail'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccurrenceGroupDetail'
+        ledger:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccurrenceLedgerEntry'
     HealthResponse:
       type: object
       required:
@@ -1003,6 +1178,37 @@ components:
         updated_at:
           type: string
           format: date-time
+    OccurrenceGroupDetail:
+      type: object
+      required:
+        - id
+        - activity_occurrence_id
+        - participant_group_id
+        - participant_group_name
+        - role
+        - result
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        activity_occurrence_id:
+          type: string
+        participant_group_id:
+          type: string
+        participant_group_name:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
     OccurrenceGroupResult:
       type: object
       required:
@@ -1020,6 +1226,106 @@ components:
         activity_occurrence_id:
           type: string
         participant_group_id:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+    OccurrenceLedgerEntry:
+      type: object
+      required:
+        - id
+        - instance_id
+        - participant_id
+        - participant_name
+        - activity_occurrence_id
+        - occurrence_type
+        - occurrence_name
+        - activity_id
+        - activity_type
+        - activity_name
+        - entry_kind
+        - points
+        - visibility
+        - reason
+        - effective_at
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: string
+        instance_id:
+          type: string
+        participant_id:
+          type: string
+        participant_name:
+          type: string
+        activity_occurrence_id:
+          type: string
+        occurrence_type:
+          type: string
+        occurrence_name:
+          type: string
+        activity_id:
+          type: string
+        activity_type:
+          type: string
+        activity_name:
+          type: string
+        source_group_id:
+          type: string
+        source_group_name:
+          type: string
+        entry_kind:
+          type: string
+        points:
+          type: integer
+          format: int32
+        visibility:
+          type: string
+        reason:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        award_key:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+    OccurrenceParticipantDetail:
+      type: object
+      required:
+        - id
+        - activity_occurrence_id
+        - participant_id
+        - participant_name
+        - role
+        - result
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        activity_occurrence_id:
+          type: string
+        participant_id:
+          type: string
+        participant_name:
+          type: string
+        participant_group_id:
+          type: string
+        participant_group_name:
           type: string
         role:
           type: string
@@ -1083,6 +1389,47 @@ components:
           type: string
         name:
           type: string
+    ParticipantActivityHistoryActivity:
+      type: object
+      required:
+        - activity
+        - occurrences
+      properties:
+        activity:
+          $ref: '#/components/schemas/Activity'
+        occurrences:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantActivityHistoryOccurrence'
+    ParticipantActivityHistoryOccurrence:
+      type: object
+      required:
+        - occurrence
+        - ledger
+      properties:
+        occurrence:
+          $ref: '#/components/schemas/Occurrence'
+        involvement:
+          $ref: '#/components/schemas/ParticipantOccurrenceInvolvement'
+        ledger:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccurrenceLedgerEntry'
+    ParticipantActivityHistoryResponse:
+      type: object
+      required:
+        - participant
+        - instance
+        - activities
+      properties:
+        participant:
+          $ref: '#/components/schemas/Participant'
+        instance:
+          $ref: '#/components/schemas/Instance'
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantActivityHistoryActivity'
     ParticipantBonusLedgerResponse:
       type: object
       required:
@@ -1099,6 +1446,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BonusLedgerEntry'
+    ParticipantOccurrenceInvolvement:
+      type: object
+      required:
+        - id
+        - activity_occurrence_id
+        - participant_id
+        - role
+        - result
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        activity_occurrence_id:
+          type: string
+        participant_id:
+          type: string
+        participant_group_id:
+          type: string
+        participant_group_name:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
     ReplaceDraftRequest:
       type: object
       required:

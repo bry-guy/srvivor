@@ -206,3 +206,43 @@ JOIN participants p ON p.id = aop.participant_id
 LEFT JOIN participant_groups pg ON pg.id = aop.participant_group_id
 WHERE ao.public_id = sqlc.arg(activity_occurrence_id)
 ORDER BY p.name ASC, aop.id ASC;
+
+-- name: ListParticipantOccurrenceInvolvementByInstance :many
+SELECT
+    ia.public_id AS activity_id,
+    ia.activity_type,
+    ia.name AS activity_name,
+    ia.status AS activity_status,
+    ia.starts_at AS activity_starts_at,
+    ia.ends_at AS activity_ends_at,
+    ia.metadata AS activity_metadata,
+    ia.created_at AS activity_created_at,
+    ia.updated_at AS activity_updated_at,
+    ao.public_id AS occurrence_id,
+    ao.occurrence_type,
+    ao.name AS occurrence_name,
+    ao.effective_at,
+    ao.starts_at,
+    ao.ends_at,
+    ao.status AS occurrence_status,
+    ao.source_ref,
+    ao.metadata AS occurrence_metadata,
+    ao.created_at AS occurrence_created_at,
+    ao.updated_at AS occurrence_updated_at,
+    aop.id AS occurrence_participant_result_id,
+    p.public_id AS participant_id,
+    aop.role,
+    aop.result,
+    aop.metadata AS participant_metadata,
+    aop.created_at AS participant_created_at,
+    pg.public_id AS participant_group_id,
+    pg.name AS participant_group_name
+FROM activity_occurrence_participants aop
+JOIN activity_occurrences ao ON ao.id = aop.activity_occurrence_id
+JOIN instance_activities ia ON ia.id = ao.activity_id
+JOIN instances i ON i.id = ia.instance_id
+JOIN participants p ON p.id = aop.participant_id
+LEFT JOIN participant_groups pg ON pg.id = aop.participant_group_id
+WHERE i.public_id = sqlc.arg(instance_id)
+  AND p.public_id = sqlc.arg(participant_id)
+ORDER BY ia.starts_at ASC, ao.effective_at ASC, aop.id ASC;
