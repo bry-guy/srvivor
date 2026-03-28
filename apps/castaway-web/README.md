@@ -64,6 +64,7 @@ curl http://localhost:8080/instances | jq
 cd apps/castaway-web
 mise run lint
 mise run test
+mise run integration
 mise run build
 mise run run
 mise run migrate
@@ -73,6 +74,21 @@ mise run seed
 mise run openapi
 ./bin/castaway-web --version
 ```
+
+## Integration tests
+
+Integration tests create temporary databases and run migrations themselves.
+
+Preferred local path:
+
+```bash
+cd apps/castaway-web
+mise run integration
+```
+
+That task starts an ephemeral local PostgreSQL 16 container, sets `CASTAWAY_TEST_DATABASE_URL`, runs the integration suites, and tears the container down.
+
+You can still point the tests at another non-prod Postgres instance by setting `CASTAWAY_TEST_DATABASE_URL` manually.
 
 ## Production deployment note
 

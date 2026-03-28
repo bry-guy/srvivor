@@ -125,6 +125,43 @@ func TestDraftCommandRegression_UsesGuildDefault(t *testing.T) {
 	}
 }
 
+func TestDraftCommandRegression_DefaultsToLinkedParticipant(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance:      map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
+		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-bryan", Name: "Bryan"}}},
+		draftsByInstance:            map[string]map[string]castaway.Draft{"instance-50": {"participant-bryan": {Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"}, Picks: []castaway.DraftPick{{Position: 1, ContestantID: "emily", ContestantName: "Emily"}}}}},
+	})
+
+	if err := store.SetGuildDefault("guild-1", "instance-50"); err != nil {
+		t.Fatalf("set guild default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "draft"})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+
+	expected := strings.Join([]string{"**Bryan Draft** — Season 50 — Historical Season 50", "1. Emily"}, "\n")
+	if message != expected {
+		t.Fatalf("unexpected draft message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestInstancesCommandRegression_ListsInstances(t *testing.T) {
+	bot, _ := newTestBot(t, testCastawayAPI{instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}, {ID: "instance-49", Name: "Historical Season 49", Season: 49}}})
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "instances"})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Instances**", "Season 50 — Historical Season 50", "Season 49 — Historical Season 49"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
 func TestInstanceCommandRegression_UserDefaultLifecycle(t *testing.T) {
 	bot, _ := newTestBot(t, testCastawayAPI{instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}}})
 	interaction := testInteraction("guild-1", "user-1", 0)

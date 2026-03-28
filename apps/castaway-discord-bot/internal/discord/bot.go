@@ -75,6 +75,10 @@ func (b *Bot) syncCommands() (string, error) {
 	commands := applicationCommands()
 	if b.targetServerID != "" {
 		if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, b.targetServerID, commands); err == nil {
+			// Guild sync succeeded — clear any stale global registrations.
+			if _, clearErr := b.session.ApplicationCommandBulkOverwrite(b.appID, "", nil); clearErr != nil {
+				b.log.Warn("clear stale global commands after guild sync", "error", clearErr)
+			}
 			return "guild", nil
 		} else if !isDiscordMissingAccess(err) {
 			return "", fmt.Errorf("sync guild application commands: %w", err)

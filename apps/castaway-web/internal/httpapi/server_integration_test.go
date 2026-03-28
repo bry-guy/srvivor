@@ -257,7 +257,7 @@ func TestActivitiesOccurrencesHandlersAndResolve(t *testing.T) {
 		t.Fatalf("unexpected activities response: %+v", activities)
 	}
 
-	createOccurrenceReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/activities/%s/occurrences", createdActivity.Activity.ID), strings.NewReader(`{"occurrence_type":"manual_correction","name":"Episode 1 Correction","effective_at":"2026-03-22T09:00:00Z","status":"pending","metadata":{"note":"adjustment"}}`))
+	createOccurrenceReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/activities/%s/occurrences", createdActivity.Activity.ID), strings.NewReader(`{"occurrence_type":"manual_correction","name":"Episode 1 Correction","effective_at":"2026-03-22T09:00:00Z","status":"recorded","metadata":{"note":"adjustment"}}`))
 	createOccurrenceReq.Header.Set("Content-Type", "application/json")
 	createOccurrenceRecorder := httptest.NewRecorder()
 	router.ServeHTTP(createOccurrenceRecorder, createOccurrenceReq)
@@ -499,6 +499,14 @@ func TestParticipantDiscordLinkAndPrivateViews(t *testing.T) {
 	}
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, alice.ID, occurrence.ID, pgtype.UUID{}, "award", 2, "public", "public award", "alice-public")
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, alice.ID, occurrence.ID, pgtype.UUID{}, "award", 5, "secret", "secret award", "alice-secret")
+	for _, discordUserID := range []string{"user-1", "admin-1"} {
+		if _, err := queries.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{
+			InstanceID:    instance.ID,
+			DiscordUserID: discordUserID,
+		}); err != nil {
+			t.Fatalf("create instance admin %s: %v", discordUserID, err)
+		}
+	}
 
 	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{}))
 	router := server.Router()
@@ -736,7 +744,7 @@ func integrationPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
 	databaseURL := os.Getenv("CASTAWAY_TEST_DATABASE_URL")
 	if databaseURL == "" {
-		t.Skip("set CASTAWAY_TEST_DATABASE_URL to run integration tests")
+		t.Skip("set CASTAWAY_TEST_DATABASE_URL or run `mise run integration` to execute integration tests")
 	}
 
 	ctx := context.Background()

@@ -18,6 +18,7 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 				historyCommand(),
 				linkCommand(),
 				unlinkCommand(),
+				instancesCommand(),
 				instanceCommandGroup(),
 			},
 		},
@@ -53,9 +54,9 @@ func draftCommand() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "draft",
-		Description: "Show a participant's draft",
+		Description: "Show a participant's draft (defaults to your linked participant)",
 		Options: []*discordgo.ApplicationCommandOption{
-			participantOption(true),
+			participantOption(false),
 			instanceOption(false),
 			seasonOption(),
 		},
@@ -154,20 +155,23 @@ func unlinkCommand() *discordgo.ApplicationCommandOption {
 	}
 }
 
+func instancesCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "instances",
+		Description: "List available instances",
+		Options: []*discordgo.ApplicationCommandOption{
+			seasonOption(),
+		},
+	}
+}
+
 func instanceCommandGroup() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
 		Name:        "instance",
 		Description: "Manage instance context",
 		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "list",
-				Description: "List available instances",
-				Options: []*discordgo.ApplicationCommandOption{
-					seasonOption(),
-				},
-			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "set",

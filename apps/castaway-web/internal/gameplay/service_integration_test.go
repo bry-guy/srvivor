@@ -297,7 +297,7 @@ func integrationPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
 	databaseURL := os.Getenv("CASTAWAY_TEST_DATABASE_URL")
 	if databaseURL == "" {
-		t.Skip("set CASTAWAY_TEST_DATABASE_URL to run integration tests")
+		t.Skip("set CASTAWAY_TEST_DATABASE_URL or run `mise run integration` to execute integration tests")
 	}
 
 	ctx := context.Background()

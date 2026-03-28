@@ -69,8 +69,6 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 	switch command.group {
 	case "instance":
 		switch command.name {
-		case "list":
-			return b.handleInstanceList(ctx, command)
 		case "set":
 			return b.handleInstanceSet(ctx, interaction, command)
 		case "show":
@@ -102,6 +100,8 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 			return b.handleLink(ctx, interaction, command)
 		case "unlink":
 			return b.handleUnlink(ctx, interaction, command)
+		case "instances":
+			return b.handleInstanceList(ctx, command)
 		default:
 			return "", fmt.Errorf("unsupported castaway command: %s", command.name)
 		}
@@ -205,7 +205,7 @@ func (b *Bot) handleDraft(ctx context.Context, interaction *discordgo.Interactio
 	if err != nil {
 		return "", err
 	}
-	participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
+	participant, err := b.resolveRequestedOrLinkedParticipant(ctx, interaction, instance.ID, optionString(command, "participant"))
 	if err != nil {
 		return "", err
 	}

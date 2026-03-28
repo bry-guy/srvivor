@@ -13,7 +13,7 @@ import (
 func TestSeedHistoricalIntegration(t *testing.T) {
 	databaseURL := os.Getenv("CASTAWAY_TEST_DATABASE_URL")
 	if databaseURL == "" {
-		t.Skip("set CASTAWAY_TEST_DATABASE_URL to run integration seed test")
+		t.Skip("set CASTAWAY_TEST_DATABASE_URL or run `mise run integration` to execute integration seed tests")
 	}
 
 	ctx := context.Background()
