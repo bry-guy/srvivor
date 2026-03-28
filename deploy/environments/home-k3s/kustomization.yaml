@@ -21,4 +21,4 @@ images:
     digest: sha256:e7fc3b21405f04dac2311640ca589436d0cc673d38164538e17d2f2ef198179f
   - name: ghcr.io/bry-guy/castaway-discord-bot
     newName: ghcr.io/bry-guy/castaway-discord-bot
-    digest: sha256:851f6474325ea82b00bd14c5e87436c9925e6f790611cabd75e06f8af5b1348a
+    digest: sha256:e2394c1c71931c8af875407b770499e5c14e7a8b505885582aaae71511186286
