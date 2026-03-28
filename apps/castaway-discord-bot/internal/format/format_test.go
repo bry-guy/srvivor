@@ -65,7 +65,7 @@ func TestActivityDetailFormatsAssignmentsAndOccurrences(t *testing.T) {
 	message := ActivityDetail(detail, occurrences, instance)
 	for _, fragment := range []string{
 		"**Journey 1**",
-		"Instance: Season 50 — Season 50",
+		"Instance: Season 50",
 		"**Assignments**",
 		"Leaf — role=tribe",
 		"Mooney — role=delegate, group=Leaf",
@@ -168,13 +168,12 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 	message := ParticipantHistory(history)
 	for _, fragment := range []string{
 		"**Mooney — Activity History**",
-		"**Journey 1** (journey)",
-		"Lost for Words — Mooney @ Mar 14 02:00",
-		"role=delegate, result=risked, group=Leaf",
-		"impact: Mooney — +1 secret",
-		"**Monty Hall Memorial Castaway Game** (manual_adjustment)",
-		"adjustment: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-		"**Tribal Pony** (tribal_pony)",
+		"**Journey 1**",
+		"Lost for Words — Mooney · Mar 14 02:00 · action: delegate, group=Leaf · result: risked · impact: +1 secret",
+		"**Monty Hall Memorial Castaway Game**",
+		"Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus) · Mar 19 01:02 · action: adjustment · result: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+		"**Tribal Pony**",
+		"Episode 1 Immunity · Mar 5 01:00 · impact: +1 public",
 	} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)

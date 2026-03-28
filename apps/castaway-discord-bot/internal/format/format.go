@@ -13,7 +13,12 @@ import (
 const DiscordMessageLimit = 2000
 
 func InstanceLabel(instance castaway.Instance) string {
-	return fmt.Sprintf("Season %d — %s", instance.Season, instance.Name)
+	seasonLabel := fmt.Sprintf("Season %d", instance.Season)
+	name := strings.TrimSpace(instance.Name)
+	if name == "" || strings.EqualFold(name, seasonLabel) {
+		return seasonLabel
+	}
+	return fmt.Sprintf("%s — %s", seasonLabel, name)
 }
 
 func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow) string {
@@ -234,55 +239,61 @@ func ParticipantHistory(history castaway.ParticipantActivityHistory) string {
 		builder.WriteString("\n\n**")
 		builder.WriteString(activity.Activity.Name)
 		builder.WriteString("**")
-		if activity.Activity.ActivityType != "" {
-			builder.WriteString(" (")
-			builder.WriteString(activity.Activity.ActivityType)
-			builder.WriteString(")")
-		}
 		builder.WriteString("\n")
 
 		for _, item := range activity.Occurrences {
-			label := strings.TrimSpace(item.Occurrence.Name)
-			if label == "" {
-				label = "Recorded event"
-			}
 			builder.WriteString("- ")
-			builder.WriteString(label)
-			if when := strings.TrimSpace(item.Occurrence.EffectiveAt); when != "" {
-				builder.WriteString(" @ ")
-				builder.WriteString(formatTime(when))
-			}
+			builder.WriteString(historyOccurrenceLine(item))
 			builder.WriteString("\n")
-
-			for _, line := range historyOccurrenceSubLines(item) {
-				builder.WriteString("  - ")
-				builder.WriteString(line)
-				builder.WriteString("\n")
-			}
 		}
 	}
 
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func historyOccurrenceSubLines(item castaway.ParticipantActivityHistoryOccurrence) []string {
-	lines := make([]string, 0, 4)
-	if item.Involvement != nil {
-		if result := formatResultLine(item.Involvement.Role, item.Involvement.Result, item.Involvement.ParticipantGroupName); result != "" {
-			lines = append(lines, result)
-		}
-		if metadata := formatHistoryInvolvementMetadata(item.Involvement); metadata != "" {
-			lines = append(lines, metadata)
-		}
+func historyOccurrenceLine(item castaway.ParticipantActivityHistoryOccurrence) string {
+	label := strings.TrimSpace(item.Occurrence.Name)
+	if label == "" {
+		label = "Recorded event"
 	}
-	for _, line := range ledgerLines(item.Ledger) {
-		lines = append(lines, "impact: "+line)
+	parts := []string{label}
+	if when := strings.TrimSpace(item.Occurrence.EffectiveAt); when != "" {
+		parts = append(parts, formatTime(when))
 	}
-	return lines
+	if action := historyActionSummary(item.Involvement); action != "" {
+		parts = append(parts, "action: "+action)
+	}
+	if result := historyResultSummary(item.Involvement); result != "" {
+		parts = append(parts, "result: "+result)
+	}
+	if impact := historyImpactSummary(item.Ledger); impact != "" {
+		parts = append(parts, "impact: "+impact)
+	}
+	return strings.Join(parts, " · ")
 }
 
-func formatHistoryInvolvementMetadata(involvement *castaway.ParticipantOccurrenceInvolvement) string {
-	if involvement == nil || len(involvement.Metadata) == 0 {
+func historyActionSummary(involvement *castaway.ParticipantOccurrenceInvolvement) string {
+	if involvement == nil {
+		return ""
+	}
+	parts := make([]string, 0, 2)
+	if role := strings.TrimSpace(involvement.Role); role != "" {
+		parts = append(parts, role)
+	}
+	if groupName := strings.TrimSpace(involvement.ParticipantGroupName); groupName != "" {
+		parts = append(parts, "group="+groupName)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func historyResultSummary(involvement *castaway.ParticipantOccurrenceInvolvement) string {
+	if involvement == nil {
+		return ""
+	}
+	if result := strings.TrimSpace(involvement.Result); result != "" {
+		return result
+	}
+	if len(involvement.Metadata) == 0 {
 		return ""
 	}
 	var payload map[string]any
@@ -291,13 +302,37 @@ func formatHistoryInvolvementMetadata(involvement *castaway.ParticipantOccurrenc
 	}
 	if strings.TrimSpace(involvement.Role) == "adjustment" {
 		if reason, ok := payload["reason"].(string); ok && strings.TrimSpace(reason) != "" {
-			return "adjustment: " + strings.TrimSpace(reason)
+			return strings.TrimSpace(reason)
 		}
 	}
-	if summary := formatMetadataSummary(involvement.Metadata); summary != "" {
-		return "metadata: " + summary
+	filtered := make(map[string]any, len(payload))
+	for key, value := range payload {
+		switch key {
+		case "award_key", "reason":
+			continue
+		default:
+			filtered[key] = value
+		}
 	}
-	return ""
+	if len(filtered) == 0 {
+		return ""
+	}
+	encoded, err := json.Marshal(filtered)
+	if err != nil {
+		return ""
+	}
+	return formatMetadataSummary(encoded)
+}
+
+func historyImpactSummary(entries []castaway.BonusLedgerEntry) string {
+	if len(entries) == 0 {
+		return ""
+	}
+	items := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		items = append(items, fmt.Sprintf("%+d %s", entry.Points, visibilityLabel(entry.Visibility)))
+	}
+	return strings.Join(items, ", ")
 }
 
 func compactOccurrenceImpact(detail castaway.OccurrenceDetail) string {

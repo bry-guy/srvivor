@@ -33,7 +33,6 @@ func scoreCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(false),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -45,7 +44,6 @@ func scoresCommand() *discordgo.ApplicationCommandOption {
 		Description: "Show the leaderboard for an instance",
 		Options: []*discordgo.ApplicationCommandOption{
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -58,7 +56,6 @@ func draftCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(false),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -70,7 +67,6 @@ func activitiesCommand() *discordgo.ApplicationCommandOption {
 		Description: "List gameplay activities for an instance",
 		Options: []*discordgo.ApplicationCommandOption{
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -83,7 +79,6 @@ func activityCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			activityOption(true),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -96,7 +91,6 @@ func occurrencesCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			activityOption(true),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -110,7 +104,6 @@ func occurrenceCommand() *discordgo.ApplicationCommandOption {
 			activityOption(true),
 			occurrenceOption(true),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -123,7 +116,6 @@ func historyCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(false),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -137,7 +129,6 @@ func linkCommand() *discordgo.ApplicationCommandOption {
 			participantOption(true),
 			userOption("user", "Discord user to link", true),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -150,7 +141,6 @@ func unlinkCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(true),
 			instanceOption(false),
-			seasonOption(),
 		},
 	}
 }
@@ -160,9 +150,6 @@ func instancesCommand() *discordgo.ApplicationCommandOption {
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "instances",
 		Description: "List available instances",
-		Options: []*discordgo.ApplicationCommandOption{
-			seasonOption(),
-		},
 	}
 }
 
@@ -178,7 +165,6 @@ func instanceCommandGroup() *discordgo.ApplicationCommandOption {
 				Description: "Save a default instance for yourself or this guild",
 				Options: []*discordgo.ApplicationCommandOption{
 					instanceOption(true),
-					seasonOption(),
 					scopeOption(),
 				},
 			},

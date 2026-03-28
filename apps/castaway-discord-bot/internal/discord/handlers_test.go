@@ -336,7 +336,7 @@ func TestHistoryCommandRegression_ShowsParticipantActivityHistory(t *testing.T) 
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	for _, fragment := range []string{"**Mooney — Activity History**", "**Journey 1** (journey)", "impact: Mooney — +1 secret"} {
+	for _, fragment := range []string{"**Mooney — Activity History**", "**Journey 1**", "impact: +1 secret"} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
