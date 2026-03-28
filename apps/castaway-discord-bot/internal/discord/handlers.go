@@ -167,6 +167,7 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 		return "", fmt.Errorf("no score found for %s in %s", participant.Name, format.InstanceLabel(instance))
 	}
 	row := rows[0]
+	publicBonusPoints := row.BonusPoints
 	ledger, err := b.castaway.GetBonusLedger(ctx, instance.ID, participant.ID, interactionUserID(interaction))
 	if err != nil {
 		return "", err
@@ -174,7 +175,11 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 	row.BonusPoints = ledger.BonusPoints
 	row.TotalPoints = row.Draft() + row.BonusPoints
 	row.Score = row.TotalPoints
-	return format.SingleScore(instance, row), nil
+	secretBonusPoints := row.BonusPoints - publicBonusPoints
+	if secretBonusPoints < 0 {
+		secretBonusPoints = 0
+	}
+	return format.SingleScore(instance, row, publicBonusPoints, secretBonusPoints), nil
 }
 
 func (b *Bot) handleScores(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -828,7 +833,11 @@ func (b *Bot) describeStoredInstance(ctx context.Context, instanceID string) str
 	if !ok {
 		return fmt.Sprintf("missing instance (%s)", instanceID)
 	}
-	return format.InstanceLabel(instance)
+	label := format.InstanceLabel(instance)
+	if instance.CurrentEpisode != nil {
+		label += fmt.Sprintf(" (current: %s)", strings.TrimSpace(instance.CurrentEpisode.Label))
+	}
+	return label
 }
 
 func (b *Bot) deferResponse(interaction *discordgo.InteractionCreate, ephemeral bool) error {

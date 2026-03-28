@@ -22,8 +22,19 @@ func TestSingleScoreIncludesTotalDraftAndBonus(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
 	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}
 
-	message := SingleScore(instance, row)
-	expected := "**Season 49 — Office Pool**\nBryan — 26 points (21+5; points available: 46)"
+	message := SingleScore(instance, row, 5, 0)
+	expected := "**Season 49 — Office Pool**\nBryan — 26 points (draft 21 + bonus 5 public; points available: 46)"
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestSingleScoreIncludesSecretBonusBreakdown(t *testing.T) {
+	instance := castaway.Instance{Name: "Office Pool", Season: 50}
+	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 8, DraftPoints: 3, BonusPoints: 5, TotalPoints: 8, PointsAvailable: 246}
+
+	message := SingleScore(instance, row, 4, 1)
+	expected := "**Season 50 — Office Pool**\nBryan — 8 points (draft 3 + bonus 4 public + 1 secret; points available: 246)"
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -169,11 +180,17 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 	for _, fragment := range []string{
 		"**Mooney — Activity History**",
 		"**Journey 1**",
-		"Lost for Words — Mooney · Mar 14 02:00 · action: delegate, group=Leaf · result: risked · impact: +1 secret",
+		"- Lost for Words — Mooney @ Mar 14 02:00",
+		"  - action: delegate, group=Leaf",
+		"  - result: risked",
+		"  - impact: +1 secret",
 		"**Monty Hall Memorial Castaway Game**",
-		"Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus) · Mar 19 01:02 · action: adjustment · result: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+		"- Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus) @ Mar 19 01:02",
+		"  - action: adjustment",
+		"  - result: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
 		"**Tribal Pony**",
-		"Episode 1 Immunity · Mar 5 01:00 · impact: +1 public",
+		"- Episode 1 Immunity @ Mar 5 01:00",
+		"  - impact: +1 public",
 	} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)

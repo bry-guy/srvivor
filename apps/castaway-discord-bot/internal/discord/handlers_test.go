@@ -51,7 +51,7 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := "**Season 49 — Historical Season 49**\nBryan — 81 points (76+5; points available: -198)"
+	expected := "**Season 49 — Historical Season 49**\nBryan — 81 points (draft 76 + bonus 5 public; points available: -198)"
 	if message != expected {
 		t.Fatalf("unexpected score message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -77,7 +77,7 @@ func TestScoreCommandRegression_IncludesPrivateBonusForLinkedSelf(t *testing.T) 
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if message != "**Season 50 — Historical Season 50**\nBryan — 81 points (76+5; points available: -198)" {
+	if message != "**Season 50 — Historical Season 50**\nBryan — 81 points (draft 76 + bonus 2 public + 3 secret; points available: -198)" {
 		t.Fatalf("unexpected private score message: %q", message)
 	}
 }

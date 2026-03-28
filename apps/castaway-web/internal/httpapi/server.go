@@ -106,10 +106,18 @@ func (s *Server) health(c *gin.Context) {
 }
 
 type instanceResponse struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Season    int32  `json:"season"`
-	CreatedAt string `json:"created_at"`
+	ID             string                `json:"id"`
+	Name           string                `json:"name"`
+	Season         int32                 `json:"season"`
+	CreatedAt      string                `json:"created_at"`
+	CurrentEpisode *instanceEpisodeBrief `json:"current_episode,omitempty"`
+}
+
+type instanceEpisodeBrief struct {
+	ID            string `json:"id"`
+	EpisodeNumber int32  `json:"episode_number"`
+	Label         string `json:"label"`
+	AirsAt        string `json:"airs_at"`
 }
 
 func toInstanceResponse(id pgtype.UUID, name string, season int32, createdAt pgtype.Timestamptz) instanceResponse {
@@ -118,6 +126,15 @@ func toInstanceResponse(id pgtype.UUID, name string, season int32, createdAt pgt
 		Name:      name,
 		Season:    season,
 		CreatedAt: createdAt.Time.UTC().Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+func toInstanceEpisodeBrief(row db.GetCurrentEpisodeAtRow) *instanceEpisodeBrief {
+	return &instanceEpisodeBrief{
+		ID:            pgUUIDString(row.ID),
+		EpisodeNumber: row.EpisodeNumber,
+		Label:         row.Label,
+		AirsAt:        formatTimestamp(row.AirsAt),
 	}
 }
 
@@ -256,8 +273,20 @@ func (s *Server) getInstance(c *gin.Context) {
 		})
 	}
 
+	instanceJSON := toInstanceResponse(instance.ID, instance.Name, instance.Season, instance.CreatedAt)
+	currentEpisode, err := s.queries.GetCurrentEpisodeAt(c.Request.Context(), db.GetCurrentEpisodeAtParams{
+		InstanceID: instance.ID,
+		At:         pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+	})
+	if err == nil {
+		instanceJSON.CurrentEpisode = toInstanceEpisodeBrief(currentEpisode)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"instance":     toInstanceResponse(instance.ID, instance.Name, instance.Season, instance.CreatedAt),
+		"instance":     instanceJSON,
 		"contestants":  contestantResponse,
 		"participants": participantResponse,
 	})

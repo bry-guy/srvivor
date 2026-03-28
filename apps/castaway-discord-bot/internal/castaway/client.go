@@ -23,10 +23,18 @@ type Options struct {
 }
 
 type Instance struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Season    int32  `json:"season"`
-	CreatedAt string `json:"created_at"`
+	ID             string           `json:"id"`
+	Name           string           `json:"name"`
+	Season         int32            `json:"season"`
+	CreatedAt      string           `json:"created_at"`
+	CurrentEpisode *InstanceEpisode `json:"current_episode,omitempty"`
+}
+
+type InstanceEpisode struct {
+	ID            string `json:"id"`
+	EpisodeNumber int32  `json:"episode_number"`
+	Label         string `json:"label"`
+	AirsAt        string `json:"airs_at"`
 }
 
 type Participant struct {

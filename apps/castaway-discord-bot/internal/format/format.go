@@ -21,8 +21,8 @@ func InstanceLabel(instance castaway.Instance) string {
 	return fmt.Sprintf("%s — %s", seasonLabel, name)
 }
 
-func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow) string {
-	content := fmt.Sprintf("**%s**\n%s — %s", InstanceLabel(instance), row.ParticipantName, scoreSummary(row, true, true))
+func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow, publicBonusPoints, secretBonusPoints int) string {
+	content := fmt.Sprintf("**%s**\n%s — %s", InstanceLabel(instance), row.ParticipantName, singleScoreSummary(row, publicBonusPoints, secretBonusPoints))
 	return TrimMessage(content)
 }
 
@@ -46,6 +46,20 @@ func scoreSummary(row castaway.LeaderboardRow, includePointsLabel bool, includeP
 		return fmt.Sprintf("%d%s (%d%+d)", row.Total(), label, row.Draft(), row.Bonus())
 	}
 	return fmt.Sprintf("%d%s (%d%+d; points available: %d)", row.Total(), label, row.Draft(), row.Bonus(), row.PointsAvailable)
+}
+
+func singleScoreSummary(row castaway.LeaderboardRow, publicBonusPoints, secretBonusPoints int) string {
+	parts := []string{fmt.Sprintf("draft %d", row.Draft())}
+	if publicBonusPoints != 0 {
+		parts = append(parts, fmt.Sprintf("bonus %d public", publicBonusPoints))
+	}
+	if secretBonusPoints != 0 {
+		parts = append(parts, fmt.Sprintf("%d secret", secretBonusPoints))
+	}
+	if publicBonusPoints == 0 && secretBonusPoints == 0 {
+		parts = append(parts, "bonus 0")
+	}
+	return fmt.Sprintf("%d points (%s; points available: %d)", row.Total(), strings.Join(parts, " + "), row.PointsAvailable)
 }
 
 func Draft(instance castaway.Instance, draft castaway.Draft) string {
@@ -235,41 +249,49 @@ func ParticipantHistory(history castaway.ParticipantActivityHistory) string {
 		return TrimMessage(builder.String())
 	}
 
-	for _, activity := range history.Activities {
-		builder.WriteString("\n\n**")
+	for activityIndex, activity := range history.Activities {
+		if activityIndex > 0 {
+			builder.WriteString("\n")
+		}
+		builder.WriteString("\n**")
 		builder.WriteString(activity.Activity.Name)
-		builder.WriteString("**")
-		builder.WriteString("\n")
+		builder.WriteString("**\n")
 
 		for _, item := range activity.Occurrences {
+			label := strings.TrimSpace(item.Occurrence.Name)
+			if label == "" {
+				label = "Recorded event"
+			}
 			builder.WriteString("- ")
-			builder.WriteString(historyOccurrenceLine(item))
+			builder.WriteString(label)
+			if when := strings.TrimSpace(item.Occurrence.EffectiveAt); when != "" {
+				builder.WriteString(" @ ")
+				builder.WriteString(formatTime(when))
+			}
 			builder.WriteString("\n")
+			for _, detail := range historyOccurrenceDetails(item) {
+				builder.WriteString("  - ")
+				builder.WriteString(detail)
+				builder.WriteString("\n")
+			}
 		}
 	}
 
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func historyOccurrenceLine(item castaway.ParticipantActivityHistoryOccurrence) string {
-	label := strings.TrimSpace(item.Occurrence.Name)
-	if label == "" {
-		label = "Recorded event"
-	}
-	parts := []string{label}
-	if when := strings.TrimSpace(item.Occurrence.EffectiveAt); when != "" {
-		parts = append(parts, formatTime(when))
-	}
+func historyOccurrenceDetails(item castaway.ParticipantActivityHistoryOccurrence) []string {
+	lines := make([]string, 0, 3)
 	if action := historyActionSummary(item.Involvement); action != "" {
-		parts = append(parts, "action: "+action)
+		lines = append(lines, "action: "+action)
 	}
 	if result := historyResultSummary(item.Involvement); result != "" {
-		parts = append(parts, "result: "+result)
+		lines = append(lines, "result: "+result)
 	}
 	if impact := historyImpactSummary(item.Ledger); impact != "" {
-		parts = append(parts, "impact: "+impact)
+		lines = append(lines, "impact: "+impact)
 	}
-	return strings.Join(parts, " · ")
+	return lines
 }
 
 func historyActionSummary(involvement *castaway.ParticipantOccurrenceInvolvement) string {
