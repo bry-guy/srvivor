@@ -22,10 +22,11 @@ import (
 )
 
 type Server struct {
-	pool                    *pgxpool.Pool
-	queries                 *db.Queries
-	serviceAuth             ServiceAuthConfig
-	serviceAuthBearerTokens map[string]struct{}
+	pool                           *pgxpool.Pool
+	queries                        *db.Queries
+	serviceAuth                    ServiceAuthConfig
+	serviceAuthBearerTokens        map[string]struct{}
+	serviceAuthDiscordAdminUserIDs map[string]struct{}
 }
 
 type Option func(*Server)
@@ -39,15 +40,21 @@ func WithServiceAuth(cfg ServiceAuthConfig) Option {
 			tokens[token] = struct{}{}
 		}
 		s.serviceAuthBearerTokens = tokens
+		adminUserIDs := make(map[string]struct{}, len(normalized.DiscordAdminUserIDs))
+		for _, userID := range normalized.DiscordAdminUserIDs {
+			adminUserIDs[userID] = struct{}{}
+		}
+		s.serviceAuthDiscordAdminUserIDs = adminUserIDs
 	}
 }
 
 func New(pool *pgxpool.Pool, options ...Option) *Server {
 	server := &Server{
-		pool:                    pool,
-		queries:                 db.New(pool),
-		serviceAuth:             normalizeServiceAuthConfig(ServiceAuthConfig{}),
-		serviceAuthBearerTokens: make(map[string]struct{}),
+		pool:                           pool,
+		queries:                        db.New(pool),
+		serviceAuth:                    normalizeServiceAuthConfig(ServiceAuthConfig{}),
+		serviceAuthBearerTokens:        make(map[string]struct{}),
+		serviceAuthDiscordAdminUserIDs: make(map[string]struct{}),
 	}
 	for _, option := range options {
 		option(server)
@@ -71,6 +78,9 @@ func (s *Server) Router() *gin.Engine {
 
 	protected.POST("/instances/:instanceID/participants", s.createParticipant)
 	protected.GET("/instances/:instanceID/participants", s.listParticipants)
+	protected.GET("/instances/:instanceID/participants/me", s.getLinkedParticipant)
+	protected.PUT("/instances/:instanceID/participants/:participantID/discord-link", s.linkParticipantDiscordUser)
+	protected.DELETE("/instances/:instanceID/participants/:participantID/discord-link", s.unlinkParticipantDiscordUser)
 	protected.GET("/instances/:instanceID/participants/:participantID/bonus-ledger", s.bonusLedger)
 
 	protected.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
@@ -363,13 +373,127 @@ func (s *Server) listParticipants(c *gin.Context) {
 		if !matchesContainsFold(participant.Name, nameFilter) {
 			continue
 		}
-		participants = append(participants, gin.H{
-			"id":   uuid.UUID(participant.ID.Bytes).String(),
-			"name": participant.Name,
-		})
+		participants = append(participants, participantSummaryToJSON(participant.ID, participant.Name))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"participants": participants})
+}
+
+func (s *Server) getLinkedParticipant(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	discordUserID := discordUserIDFromRequest(c.Request)
+	if discordUserID == "" {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not linked"})
+		return
+	}
+
+	participant, err := s.queries.GetParticipantByDiscordUserID(c.Request.Context(), db.GetParticipantByDiscordUserIDParams{
+		InstanceID:    toPGUUID(instanceID),
+		DiscordUserID: pgtype.Text{String: discordUserID, Valid: true},
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not linked"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name)})
+}
+
+func (s *Server) linkParticipantDiscordUser(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	participantID, ok := parseUUIDPath(c, "participantID")
+	if !ok {
+		return
+	}
+	discordUserID := discordUserIDFromRequest(c.Request)
+	if discordUserID == "" {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "missing discord user id"})
+		return
+	}
+
+	participant, err := s.queries.GetParticipant(c.Request.Context(), toPGUUID(participantID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if participant.InstanceID != toPGUUID(instanceID) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+		return
+	}
+
+	updated, err := s.queries.SetParticipantDiscordUserID(c.Request.Context(), db.SetParticipantDiscordUserIDParams{
+		ID:            toPGUUID(participantID),
+		DiscordUserID: pgtype.Text{String: discordUserID, Valid: true},
+	})
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(updated.ID, updated.Name)})
+}
+
+func (s *Server) unlinkParticipantDiscordUser(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	participantID, ok := parseUUIDPath(c, "participantID")
+	if !ok {
+		return
+	}
+	discordUserID := discordUserIDFromRequest(c.Request)
+	if discordUserID == "" {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "missing discord user id"})
+		return
+	}
+
+	participant, err := s.queries.GetParticipant(c.Request.Context(), toPGUUID(participantID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if participant.InstanceID != toPGUUID(instanceID) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+		return
+	}
+	if !s.canViewSecretParticipantData(discordUserID, participant) {
+		c.JSON(http.StatusForbidden, errorResponse{Error: "forbidden"})
+		return
+	}
+
+	updated, err := s.queries.ClearParticipantDiscordUserID(c.Request.Context(), toPGUUID(participantID))
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(updated.ID, updated.Name)})
+}
+
+func participantSummaryToJSON(id pgtype.UUID, name string) gin.H {
+	return gin.H{
+		"id":   pgUUIDString(id),
+		"name": name,
+	}
 }
 
 type replaceDraftRequest struct {
@@ -777,44 +901,97 @@ func (s *Server) bonusLedger(c *gin.Context) {
 		return
 	}
 
-	bonusPoints, err := s.queries.GetVisibleBonusTotalByParticipant(c.Request.Context(), db.GetVisibleBonusTotalByParticipantParams{
-		InstanceID:    toPGUUID(instanceID),
-		ParticipantID: toPGUUID(participantID),
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
+	canViewSecret := s.canViewSecretParticipantData(discordUserIDFromRequest(c.Request), participant)
 
-	ledgerRows, err := s.queries.ListVisibleBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListVisibleBonusPointLedgerEntriesForParticipantParams{
-		InstanceID:    toPGUUID(instanceID),
-		ParticipantID: toPGUUID(participantID),
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
-
-	ledger := make([]gin.H, 0, len(ledgerRows))
-	for _, row := range ledgerRows {
-		ledger = append(ledger, gin.H{
-			"id":                     pgUUIDString(row.ID),
-			"activity_id":            pgUUIDString(row.ActivityID),
-			"activity_type":          row.ActivityType,
-			"activity_name":          row.ActivityName,
-			"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
-			"occurrence_type":        row.OccurrenceType,
-			"occurrence_name":        row.OccurrenceName,
-			"source_group_id":        pgUUIDPointer(row.SourceGroupID),
-			"source_group_name":      pgTextPointer(row.SourceGroupName),
-			"entry_kind":             row.EntryKind,
-			"points":                 row.Points,
-			"visibility":             row.Visibility,
-			"reason":                 row.Reason,
-			"effective_at":           formatTimestamp(row.EffectiveAt),
-			"award_key":              pgTextPointer(row.AwardKey),
-			"created_at":             formatTimestamp(row.CreatedAt),
+	bonusPoints := int32(0)
+	var ledger []gin.H
+	if canViewSecret {
+		visibleBonusPoints, visibleErr := s.queries.GetVisibleBonusTotalByParticipant(c.Request.Context(), db.GetVisibleBonusTotalByParticipantParams{
+			InstanceID:    toPGUUID(instanceID),
+			ParticipantID: toPGUUID(participantID),
 		})
+		if visibleErr != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: visibleErr.Error()})
+			return
+		}
+		secretBonusPoints, secretErr := s.queries.GetSecretBonusTotalByParticipant(c.Request.Context(), db.GetSecretBonusTotalByParticipantParams{
+			InstanceID:    toPGUUID(instanceID),
+			ParticipantID: toPGUUID(participantID),
+		})
+		if secretErr != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: secretErr.Error()})
+			return
+		}
+		bonusPoints = visibleBonusPoints + secretBonusPoints
+
+		ledgerRows, listErr := s.queries.ListAllBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListAllBonusPointLedgerEntriesForParticipantParams{
+			InstanceID:    toPGUUID(instanceID),
+			ParticipantID: toPGUUID(participantID),
+		})
+		if listErr != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: listErr.Error()})
+			return
+		}
+		ledger = make([]gin.H, 0, len(ledgerRows))
+		for _, row := range ledgerRows {
+			ledger = append(ledger, gin.H{
+				"id":                     pgUUIDString(row.ID),
+				"activity_id":            pgUUIDString(row.ActivityID),
+				"activity_type":          row.ActivityType,
+				"activity_name":          row.ActivityName,
+				"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
+				"occurrence_type":        row.OccurrenceType,
+				"occurrence_name":        row.OccurrenceName,
+				"source_group_id":        pgUUIDPointer(row.SourceGroupID),
+				"source_group_name":      pgTextPointer(row.SourceGroupName),
+				"entry_kind":             row.EntryKind,
+				"points":                 row.Points,
+				"visibility":             row.Visibility,
+				"reason":                 row.Reason,
+				"effective_at":           formatTimestamp(row.EffectiveAt),
+				"award_key":              pgTextPointer(row.AwardKey),
+				"created_at":             formatTimestamp(row.CreatedAt),
+			})
+		}
+	} else {
+		bonusPoints, err = s.queries.GetVisibleBonusTotalByParticipant(c.Request.Context(), db.GetVisibleBonusTotalByParticipantParams{
+			InstanceID:    toPGUUID(instanceID),
+			ParticipantID: toPGUUID(participantID),
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+
+		ledgerRows, listErr := s.queries.ListVisibleBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListVisibleBonusPointLedgerEntriesForParticipantParams{
+			InstanceID:    toPGUUID(instanceID),
+			ParticipantID: toPGUUID(participantID),
+		})
+		if listErr != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: listErr.Error()})
+			return
+		}
+		ledger = make([]gin.H, 0, len(ledgerRows))
+		for _, row := range ledgerRows {
+			ledger = append(ledger, gin.H{
+				"id":                     pgUUIDString(row.ID),
+				"activity_id":            pgUUIDString(row.ActivityID),
+				"activity_type":          row.ActivityType,
+				"activity_name":          row.ActivityName,
+				"activity_occurrence_id": pgUUIDString(row.ActivityOccurrenceID),
+				"occurrence_type":        row.OccurrenceType,
+				"occurrence_name":        row.OccurrenceName,
+				"source_group_id":        pgUUIDPointer(row.SourceGroupID),
+				"source_group_name":      pgTextPointer(row.SourceGroupName),
+				"entry_kind":             row.EntryKind,
+				"points":                 row.Points,
+				"visibility":             row.Visibility,
+				"reason":                 row.Reason,
+				"effective_at":           formatTimestamp(row.EffectiveAt),
+				"award_key":              pgTextPointer(row.AwardKey),
+				"created_at":             formatTimestamp(row.CreatedAt),
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -870,13 +1047,51 @@ func (s *Server) participantActivityHistory(c *gin.Context) {
 		return
 	}
 
-	ledgerRows, err := s.queries.ListVisibleBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListVisibleBonusPointLedgerEntriesForParticipantParams{
-		InstanceID:    toPGUUID(instanceID),
-		ParticipantID: toPGUUID(participantID),
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
+	canViewSecret := s.canViewSecretParticipantData(discordUserIDFromRequest(c.Request), participant)
+
+	var ledgerRows []db.ListAllBonusPointLedgerEntriesForParticipantRow
+	if canViewSecret {
+		allLedgerRows, listErr := s.queries.ListAllBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListAllBonusPointLedgerEntriesForParticipantParams{
+			InstanceID:    toPGUUID(instanceID),
+			ParticipantID: toPGUUID(participantID),
+		})
+		if listErr != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: listErr.Error()})
+			return
+		}
+		ledgerRows = allLedgerRows
+	} else {
+		visibleLedgerRows, listErr := s.queries.ListVisibleBonusPointLedgerEntriesForParticipant(c.Request.Context(), db.ListVisibleBonusPointLedgerEntriesForParticipantParams{
+			InstanceID:    toPGUUID(instanceID),
+			ParticipantID: toPGUUID(participantID),
+		})
+		if listErr != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: listErr.Error()})
+			return
+		}
+		ledgerRows = make([]db.ListAllBonusPointLedgerEntriesForParticipantRow, 0, len(visibleLedgerRows))
+		for _, row := range visibleLedgerRows {
+			ledgerRows = append(ledgerRows, db.ListAllBonusPointLedgerEntriesForParticipantRow{
+				ID:                   row.ID,
+				InstanceID:           row.InstanceID,
+				ParticipantID:        row.ParticipantID,
+				ActivityOccurrenceID: row.ActivityOccurrenceID,
+				OccurrenceType:       row.OccurrenceType,
+				OccurrenceName:       row.OccurrenceName,
+				ActivityID:           row.ActivityID,
+				ActivityType:         row.ActivityType,
+				ActivityName:         row.ActivityName,
+				SourceGroupID:        row.SourceGroupID,
+				SourceGroupName:      row.SourceGroupName,
+				EntryKind:            row.EntryKind,
+				Points:               row.Points,
+				Visibility:           row.Visibility,
+				Reason:               row.Reason,
+				EffectiveAt:          row.EffectiveAt,
+				AwardKey:             row.AwardKey,
+				CreatedAt:            row.CreatedAt,
+			})
+		}
 	}
 
 	type historyOccurrence struct {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"strings"
 	"time"
 
@@ -38,7 +39,13 @@ func (b *Bot) handleInteraction(_ *discordgo.Session, interaction *discordgo.Int
 
 func (b *Bot) handleCommand(interaction *discordgo.InteractionCreate) {
 	command := parseCommandSpec(interaction.ApplicationCommandData())
-	ephemeral := command.group == "instance"
+	preflightCtx, preflightCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ephemeral, err := b.commandShouldBeEphemeral(preflightCtx, interaction, command)
+	preflightCancel()
+	if err != nil {
+		b.log.Warn("command preflight failed; defaulting to ephemeral response", "command", command.name, "group", command.group, "error", err)
+		ephemeral = true
+	}
 	if err := b.deferResponse(interaction, ephemeral); err != nil {
 		b.log.Error("defer interaction response", "error", err)
 		return
@@ -91,10 +98,56 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 			return b.handleOccurrence(ctx, interaction, command)
 		case "history":
 			return b.handleHistory(ctx, interaction, command)
+		case "link":
+			return b.handleLink(ctx, interaction, command)
+		case "unlink":
+			return b.handleUnlink(ctx, interaction, command)
 		default:
 			return "", fmt.Errorf("unsupported castaway command: %s", command.name)
 		}
 	}
+}
+
+func (b *Bot) commandShouldBeEphemeral(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (bool, error) {
+	if command.group == "instance" {
+		return true, nil
+	}
+	switch command.name {
+	case "link", "unlink":
+		return true, nil
+	case "score", "history":
+		if b.isDiscordAdmin(interactionUserID(interaction)) {
+			return true, nil
+		}
+		season, err := seasonOptionValue(command)
+		if err != nil {
+			return true, err
+		}
+		instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+		if err != nil {
+			return true, err
+		}
+		participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
+		if err != nil {
+			return true, err
+		}
+		linkedParticipant, err := b.castaway.GetLinkedParticipant(ctx, instance.ID, interactionUserID(interaction))
+		if err != nil {
+			var apiErr *castaway.APIError
+			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+				return false, nil
+			}
+			return true, err
+		}
+		return linkedParticipant.ID == participant.ID, nil
+	default:
+		return false, nil
+	}
+}
+
+func (b *Bot) isDiscordAdmin(userID string) bool {
+	_, ok := b.discordAdminUserIDs[strings.TrimSpace(userID)]
+	return ok
 }
 
 func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -117,7 +170,15 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 	if len(rows) == 0 {
 		return "", fmt.Errorf("no score found for %s in %s", participant.Name, format.InstanceLabel(instance))
 	}
-	return format.SingleScore(instance, rows[0]), nil
+	row := rows[0]
+	ledger, err := b.castaway.GetBonusLedger(ctx, instance.ID, participant.ID, interactionUserID(interaction))
+	if err != nil {
+		return "", err
+	}
+	row.BonusPoints = ledger.BonusPoints
+	row.TotalPoints = row.Draft() + row.BonusPoints
+	row.Score = row.TotalPoints
+	return format.SingleScore(instance, row), nil
 }
 
 func (b *Bot) handleScores(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -296,7 +357,7 @@ func (b *Bot) handleHistory(ctx context.Context, interaction *discordgo.Interact
 	if err != nil {
 		return "", err
 	}
-	history, err := b.castaway.GetParticipantActivityHistory(ctx, instance.ID, participant.ID)
+	history, err := b.castaway.GetParticipantActivityHistory(ctx, instance.ID, participant.ID, interactionUserID(interaction))
 	if err != nil {
 		return "", err
 	}
@@ -307,6 +368,50 @@ func (b *Bot) handleHistory(ctx context.Context, interaction *discordgo.Interact
 		history.Instance = instance
 	}
 	return format.ParticipantHistory(history), nil
+}
+
+func (b *Bot) handleLink(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		return "", err
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		return "", err
+	}
+	participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
+	if err != nil {
+		return "", err
+	}
+	linked, err := b.castaway.LinkDiscordUser(ctx, instance.ID, participant.ID, interactionUserID(interaction))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Linked your Discord account to %s in %s.", linked.Name, format.InstanceLabel(instance)), nil
+}
+
+func (b *Bot) handleUnlink(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	season, err := seasonOptionValue(command)
+	if err != nil {
+		return "", err
+	}
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), season)
+	if err != nil {
+		return "", err
+	}
+	participant, err := b.castaway.GetLinkedParticipant(ctx, instance.ID, interactionUserID(interaction))
+	if err != nil {
+		var apiErr *castaway.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+			return "", fmt.Errorf("you are not linked to a participant in %s", format.InstanceLabel(instance))
+		}
+		return "", err
+	}
+	unlinked, err := b.castaway.UnlinkDiscordUser(ctx, instance.ID, participant.ID, interactionUserID(interaction))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Unlinked your Discord account from %s in %s.", unlinked.Name, format.InstanceLabel(instance)), nil
 }
 
 func (b *Bot) handleInstanceList(ctx context.Context, command commandSpec) (string, error) {

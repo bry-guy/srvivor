@@ -236,12 +236,87 @@ func TestGetParticipantActivityHistoryParsesResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
-	history, err := client.GetParticipantActivityHistory(context.Background(), "i1", "p1")
+	history, err := client.GetParticipantActivityHistory(context.Background(), "i1", "p1", "")
 	if err != nil {
 		t.Fatalf("get history: %v", err)
 	}
 	if history.Participant.Name != "Mooney" || len(history.Activities) != 1 || len(history.Activities[0].Occurrences) != 1 {
 		t.Fatalf("unexpected history: %#v", history)
+	}
+}
+
+func TestGetBonusLedgerSendsDiscordUserHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/participants/p1/bonus-ledger" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if got := r.Header.Get("X-Discord-User-ID"); got != "user-1" {
+			t.Fatalf("unexpected discord user header: %q", got)
+		}
+		if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Bryan"},"bonus_points":5,"ledger":[{"id":"l1","participant_id":"p1","participant_name":"Bryan","entry_kind":"award","points":5,"visibility":"secret","reason":"secret award","effective_at":"2026-03-14T02:00:00Z"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	ledger, err := client.GetBonusLedger(context.Background(), "i1", "p1", "user-1")
+	if err != nil {
+		t.Fatalf("get bonus ledger: %v", err)
+	}
+	if ledger.Participant.Name != "Bryan" || ledger.BonusPoints != 5 || len(ledger.Ledger) != 1 || ledger.Ledger[0].Visibility != "secret" {
+		t.Fatalf("unexpected ledger: %#v", ledger)
+	}
+}
+
+func TestLinkAndLookupDiscordUser(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/instances/i1/participants/me":
+			if got := r.Header.Get("X-Discord-User-ID"); got != "user-1" {
+				t.Fatalf("unexpected discord user header: %q", got)
+			}
+			if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Bryan"}}`)); err != nil {
+				t.Fatalf("write response: %v", err)
+			}
+		case r.Method == http.MethodPut && r.URL.Path == "/instances/i1/participants/p1/discord-link":
+			if got := r.Header.Get("X-Discord-User-ID"); got != "user-1" {
+				t.Fatalf("unexpected discord user header: %q", got)
+			}
+			if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Bryan"}}`)); err != nil {
+				t.Fatalf("write response: %v", err)
+			}
+		case r.Method == http.MethodDelete && r.URL.Path == "/instances/i1/participants/p1/discord-link":
+			if got := r.Header.Get("X-Discord-User-ID"); got != "user-1" {
+				t.Fatalf("unexpected discord user header: %q", got)
+			}
+			if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Bryan"}}`)); err != nil {
+				t.Fatalf("write response: %v", err)
+			}
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	participant, err := client.GetLinkedParticipant(context.Background(), "i1", "user-1")
+	if err != nil || participant.ID != "p1" {
+		t.Fatalf("get linked participant: participant=%#v err=%v", participant, err)
+	}
+	participant, err = client.LinkDiscordUser(context.Background(), "i1", "p1", "user-1")
+	if err != nil || participant.ID != "p1" {
+		t.Fatalf("link discord user: participant=%#v err=%v", participant, err)
+	}
+	participant, err = client.UnlinkDiscordUser(context.Background(), "i1", "p1", "user-1")
+	if err != nil || participant.ID != "p1" {
+		t.Fatalf("unlink discord user: participant=%#v err=%v", participant, err)
 	}
 }
 

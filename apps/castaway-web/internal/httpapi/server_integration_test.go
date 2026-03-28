@@ -160,6 +160,7 @@ type participantActivityHistoryResponse struct {
 			Ledger []struct {
 				ParticipantID string `json:"participant_id"`
 				Points        int    `json:"points"`
+				Visibility    string `json:"visibility"`
 			} `json:"ledger"`
 		} `json:"occurrences"`
 	} `json:"activities"`
@@ -473,6 +474,148 @@ func TestActivityOccurrenceDetailAndParticipantHistoryReadApis(t *testing.T) {
 	}
 	if !foundDirect || !foundLedgerOnly {
 		t.Fatalf("unexpected participant history occurrence breakdown: %+v", history.Activities[0].Occurrences)
+	}
+}
+
+func TestParticipantDiscordLinkAndPrivateViews(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	queries := db.New(pool)
+	instance := createInstanceForTest(t, ctx, queries, "Discord Auth", 50)
+	alice := createParticipantForTest(t, ctx, queries, instance.ID, "Alice")
+	activity := createActivityForTest(t, ctx, queries, instance.ID, time.Date(2026, time.March, 22, 12, 0, 0, 0, time.UTC), nil, "journey", "Journey 3")
+	occurrence := createOccurrenceForTest(t, ctx, queries, activity.ID, "journey_resolution", "Journey 3 Resolution", time.Date(2026, time.March, 22, 13, 0, 0, 0, time.UTC))
+
+	if _, err := queries.CreateActivityOccurrenceParticipant(ctx, db.CreateActivityOccurrenceParticipantParams{
+		ActivityOccurrenceID: occurrence.ID,
+		ParticipantID:        alice.ID,
+		Role:                 "delegate",
+		Result:               "SHARE",
+		Metadata:             testEmptyJSONB,
+	}); err != nil {
+		t.Fatalf("create occurrence participant: %v", err)
+	}
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, alice.ID, occurrence.ID, pgtype.UUID{}, "award", 2, "public", "public award", "alice-public")
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, alice.ID, occurrence.ID, pgtype.UUID{}, "award", 5, "secret", "secret award", "alice-secret")
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{DiscordAdminUserIDs: []string{"admin-1"}}))
+	router := server.Router()
+
+	linkReq := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/instances/%s/participants/%s/discord-link", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(alice.ID.Bytes).String()), nil)
+	linkReq.Header.Set("X-Discord-User-ID", "user-1")
+	linkRecorder := httptest.NewRecorder()
+	router.ServeHTTP(linkRecorder, linkReq)
+	if linkRecorder.Code != http.StatusOK {
+		t.Fatalf("link status = %d, body = %s", linkRecorder.Code, linkRecorder.Body.String())
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/me", uuid.UUID(instance.ID.Bytes).String()), nil)
+	meReq.Header.Set("X-Discord-User-ID", "user-1")
+	meRecorder := httptest.NewRecorder()
+	router.ServeHTTP(meRecorder, meReq)
+	if meRecorder.Code != http.StatusOK {
+		t.Fatalf("linked participant status = %d, body = %s", meRecorder.Code, meRecorder.Body.String())
+	}
+
+	ledgerPath := fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(alice.ID.Bytes).String())
+	publicLedgerReq := httptest.NewRequest(http.MethodGet, ledgerPath, nil)
+	publicLedgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(publicLedgerRecorder, publicLedgerReq)
+	if publicLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("public bonus ledger status = %d, body = %s", publicLedgerRecorder.Code, publicLedgerRecorder.Body.String())
+	}
+	var publicLedger bonusLedgerResponse
+	if err := json.Unmarshal(publicLedgerRecorder.Body.Bytes(), &publicLedger); err != nil {
+		t.Fatalf("unmarshal public ledger: %v", err)
+	}
+	if publicLedger.BonusPoints != 2 || len(publicLedger.Ledger) != 1 || publicLedger.Ledger[0].Visibility != "public" {
+		t.Fatalf("unexpected public ledger: %+v", publicLedger)
+	}
+
+	privateLedgerReq := httptest.NewRequest(http.MethodGet, ledgerPath, nil)
+	privateLedgerReq.Header.Set("X-Discord-User-ID", "user-1")
+	privateLedgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(privateLedgerRecorder, privateLedgerReq)
+	if privateLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("private bonus ledger status = %d, body = %s", privateLedgerRecorder.Code, privateLedgerRecorder.Body.String())
+	}
+	var privateLedger bonusLedgerResponse
+	if err := json.Unmarshal(privateLedgerRecorder.Body.Bytes(), &privateLedger); err != nil {
+		t.Fatalf("unmarshal private ledger: %v", err)
+	}
+	if privateLedger.BonusPoints != 7 || len(privateLedger.Ledger) != 2 {
+		t.Fatalf("unexpected private ledger: %+v", privateLedger)
+	}
+
+	historyPath := fmt.Sprintf("/instances/%s/participants/%s/activity-history", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(alice.ID.Bytes).String())
+	publicHistoryReq := httptest.NewRequest(http.MethodGet, historyPath, nil)
+	publicHistoryRecorder := httptest.NewRecorder()
+	router.ServeHTTP(publicHistoryRecorder, publicHistoryReq)
+	if publicHistoryRecorder.Code != http.StatusOK {
+		t.Fatalf("public history status = %d, body = %s", publicHistoryRecorder.Code, publicHistoryRecorder.Body.String())
+	}
+	var publicHistory participantActivityHistoryResponse
+	if err := json.Unmarshal(publicHistoryRecorder.Body.Bytes(), &publicHistory); err != nil {
+		t.Fatalf("unmarshal public history: %v", err)
+	}
+	if len(publicHistory.Activities) != 1 || len(publicHistory.Activities[0].Occurrences) != 1 || len(publicHistory.Activities[0].Occurrences[0].Ledger) != 1 || publicHistory.Activities[0].Occurrences[0].Ledger[0].Visibility != "public" {
+		t.Fatalf("unexpected public history: %+v", publicHistory)
+	}
+
+	privateHistoryReq := httptest.NewRequest(http.MethodGet, historyPath, nil)
+	privateHistoryReq.Header.Set("X-Discord-User-ID", "user-1")
+	privateHistoryRecorder := httptest.NewRecorder()
+	router.ServeHTTP(privateHistoryRecorder, privateHistoryReq)
+	if privateHistoryRecorder.Code != http.StatusOK {
+		t.Fatalf("private history status = %d, body = %s", privateHistoryRecorder.Code, privateHistoryRecorder.Body.String())
+	}
+	var privateHistory participantActivityHistoryResponse
+	if err := json.Unmarshal(privateHistoryRecorder.Body.Bytes(), &privateHistory); err != nil {
+		t.Fatalf("unmarshal private history: %v", err)
+	}
+	if len(privateHistory.Activities[0].Occurrences[0].Ledger) != 2 {
+		t.Fatalf("expected private history to include secret ledger entries, got %+v", privateHistory.Activities[0].Occurrences[0].Ledger)
+	}
+
+	adminLedgerReq := httptest.NewRequest(http.MethodGet, ledgerPath, nil)
+	adminLedgerReq.Header.Set("X-Discord-User-ID", "admin-1")
+	adminLedgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(adminLedgerRecorder, adminLedgerReq)
+	if adminLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("admin bonus ledger status = %d, body = %s", adminLedgerRecorder.Code, adminLedgerRecorder.Body.String())
+	}
+	var adminLedger bonusLedgerResponse
+	if err := json.Unmarshal(adminLedgerRecorder.Body.Bytes(), &adminLedger); err != nil {
+		t.Fatalf("unmarshal admin ledger: %v", err)
+	}
+	if adminLedger.BonusPoints != 7 || len(adminLedger.Ledger) != 2 {
+		t.Fatalf("unexpected admin ledger: %+v", adminLedger)
+	}
+
+	forbiddenUnlinkReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/instances/%s/participants/%s/discord-link", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(alice.ID.Bytes).String()), nil)
+	forbiddenUnlinkReq.Header.Set("X-Discord-User-ID", "user-2")
+	forbiddenUnlinkRecorder := httptest.NewRecorder()
+	router.ServeHTTP(forbiddenUnlinkRecorder, forbiddenUnlinkReq)
+	if forbiddenUnlinkRecorder.Code != http.StatusForbidden {
+		t.Fatalf("forbidden unlink status = %d, body = %s", forbiddenUnlinkRecorder.Code, forbiddenUnlinkRecorder.Body.String())
+	}
+
+	unlinkReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/instances/%s/participants/%s/discord-link", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(alice.ID.Bytes).String()), nil)
+	unlinkReq.Header.Set("X-Discord-User-ID", "user-1")
+	unlinkRecorder := httptest.NewRecorder()
+	router.ServeHTTP(unlinkRecorder, unlinkReq)
+	if unlinkRecorder.Code != http.StatusOK {
+		t.Fatalf("unlink status = %d, body = %s", unlinkRecorder.Code, unlinkRecorder.Body.String())
+	}
+
+	missingMeReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/me", uuid.UUID(instance.ID.Bytes).String()), nil)
+	missingMeReq.Header.Set("X-Discord-User-ID", "user-1")
+	missingMeRecorder := httptest.NewRecorder()
+	router.ServeHTTP(missingMeRecorder, missingMeReq)
+	if missingMeRecorder.Code != http.StatusNotFound {
+		t.Fatalf("expected missing linked participant after unlink, got %d body=%s", missingMeRecorder.Code, missingMeRecorder.Body.String())
 	}
 }
 

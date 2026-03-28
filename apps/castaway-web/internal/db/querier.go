@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	ClearParticipantDiscordUserID(ctx context.Context, id pgtype.UUID) (ClearParticipantDiscordUserIDRow, error)
 	CreateActivityGroupAssignment(ctx context.Context, arg CreateActivityGroupAssignmentParams) (CreateActivityGroupAssignmentRow, error)
 	CreateActivityOccurrence(ctx context.Context, arg CreateActivityOccurrenceParams) (CreateActivityOccurrenceRow, error)
 	CreateActivityOccurrenceGroup(ctx context.Context, arg CreateActivityOccurrenceGroupParams) (CreateActivityOccurrenceGroupRow, error)
@@ -35,6 +36,7 @@ type Querier interface {
 	GetInstance(ctx context.Context, id pgtype.UUID) (GetInstanceRow, error)
 	GetInstanceActivity(ctx context.Context, id pgtype.UUID) (GetInstanceActivityRow, error)
 	GetParticipant(ctx context.Context, id pgtype.UUID) (GetParticipantRow, error)
+	GetParticipantByDiscordUserID(ctx context.Context, arg GetParticipantByDiscordUserIDParams) (GetParticipantByDiscordUserIDRow, error)
 	GetParticipantGroup(ctx context.Context, id pgtype.UUID) (GetParticipantGroupRow, error)
 	GetSecretBonusTotalByParticipant(ctx context.Context, arg GetSecretBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipant(ctx context.Context, arg GetVisibleBonusTotalByParticipantParams) (int32, error)
@@ -67,6 +69,7 @@ type Querier interface {
 	ListVisibleBonusPointLedgerEntriesByOccurrence(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListVisibleBonusPointLedgerEntriesByOccurrenceRow, error)
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
+	SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error)
 	UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error)
 	UpsertOutcomePosition(ctx context.Context, arg UpsertOutcomePositionParams) (UpsertOutcomePositionRow, error)
 }

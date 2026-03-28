@@ -423,6 +423,24 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/ListParticipantsResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/participants/me:
+    get:
+      operationId: getLinkedParticipant
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CreateParticipantResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/participants/{participantID}/activity-history:
     get:
       operationId: getParticipantActivityHistory
@@ -468,6 +486,51 @@ paths:
               schema:
                 anyOf:
                   - $ref: '#/components/schemas/ParticipantBonusLedgerResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/participants/{participantID}/discord-link:
+    put:
+      operationId: linkParticipantDiscordUser
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CreateParticipantResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: unlinkParticipantDiscordUser
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CreateParticipantResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
   /occurrences/{occurrenceID}:
     get:

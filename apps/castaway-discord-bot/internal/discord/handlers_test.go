@@ -18,15 +18,17 @@ import (
 )
 
 type testCastawayAPI struct {
-	instances              []castaway.Instance
-	participantsByInstance map[string][]castaway.Participant
-	leaderboardByInstance  map[string][]castaway.LeaderboardRow
-	draftsByInstance       map[string]map[string]castaway.Draft
-	activitiesByInstance   map[string][]castaway.Activity
-	activityDetails        map[string]castaway.ActivityDetail
-	occurrencesByActivity  map[string][]castaway.Occurrence
-	occurrenceDetails      map[string]castaway.OccurrenceDetail
-	historyByParticipant   map[string]castaway.ParticipantActivityHistory
+	instances                   []castaway.Instance
+	participantsByInstance      map[string][]castaway.Participant
+	linkedParticipantByInstance map[string]map[string]castaway.Participant
+	leaderboardByInstance       map[string][]castaway.LeaderboardRow
+	bonusLedgerByParticipant    map[string]castaway.ParticipantBonusLedger
+	draftsByInstance            map[string]map[string]castaway.Draft
+	activitiesByInstance        map[string][]castaway.Activity
+	activityDetails             map[string]castaway.ActivityDetail
+	occurrencesByActivity       map[string][]castaway.Occurrence
+	occurrenceDetails           map[string]castaway.OccurrenceDetail
+	historyByParticipant        map[string]castaway.ParticipantActivityHistory
 }
 
 func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
@@ -34,6 +36,10 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 		instances:              []castaway.Instance{{ID: "instance-49", Name: "Historical Season 49", Season: 49}},
 		participantsByInstance: map[string][]castaway.Participant{"instance-49": {{ID: "participant-bryan", Name: "Bryan"}}},
 		leaderboardByInstance:  map[string][]castaway.LeaderboardRow{"instance-49": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198}}},
+		bonusLedgerByParticipant: map[string]castaway.ParticipantBonusLedger{"participant-bryan": {
+			Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"},
+			BonusPoints: 5,
+		}},
 	})
 
 	if err := store.SetUserDefault("guild-1", "user-1", "instance-49"); err != nil {
@@ -48,6 +54,31 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 	expected := "**Season 49 — Historical Season 49**\nBryan — 81 points (76+5; points available: -198)"
 	if message != expected {
 		t.Fatalf("unexpected score message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestScoreCommandRegression_IncludesPrivateBonusForLinkedSelf(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance:      map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
+		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-bryan", Name: "Bryan"}}},
+		leaderboardByInstance:       map[string][]castaway.LeaderboardRow{"instance-50": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 78, DraftPoints: 76, BonusPoints: 2, TotalPoints: 78, PointsAvailable: -198}}},
+		bonusLedgerByParticipant: map[string]castaway.ParticipantBonusLedger{"participant-bryan": {
+			Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"},
+			BonusPoints: 5,
+			Ledger:      []castaway.BonusLedgerEntry{{ParticipantName: "Bryan", Points: 2, Visibility: "public"}, {ParticipantName: "Bryan", Points: 3, Visibility: "secret"}},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "score", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if message != "**Season 50 — Historical Season 50**\nBryan — 81 points (76+5; points available: -198)" {
+		t.Fatalf("unexpected private score message: %q", message)
 	}
 }
 
@@ -244,8 +275,9 @@ func TestOccurrenceCommandRegression_ShowsDetailedOccurrence(t *testing.T) {
 
 func TestHistoryCommandRegression_ShowsParticipantActivityHistory(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
-		instances:              []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
-		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-mooney", Name: "Mooney"}}},
+		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance:      map[string][]castaway.Participant{"instance-50": {{ID: "participant-mooney", Name: "Mooney"}}},
+		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-mooney", Name: "Mooney"}}},
 		historyByParticipant: map[string]castaway.ParticipantActivityHistory{"participant-mooney": {
 			Participant: castaway.Participant{ID: "participant-mooney", Name: "Mooney"},
 			Instance:    castaway.Instance{ID: "instance-50", Name: "Historical Season 50", Season: 50},
@@ -271,6 +303,67 @@ func TestHistoryCommandRegression_ShowsParticipantActivityHistory(t *testing.T) 
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
+	}
+}
+
+func TestHistoryCommandRegression_HidesSecretImpactForPublicCaller(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:              []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-mooney", Name: "Mooney"}}},
+		historyByParticipant: map[string]castaway.ParticipantActivityHistory{"participant-mooney": {
+			Participant: castaway.Participant{ID: "participant-mooney", Name: "Mooney"},
+			Instance:    castaway.Instance{ID: "instance-50", Name: "Historical Season 50", Season: 50},
+			Activities: []castaway.ParticipantActivityHistoryActivity{{
+				Activity: castaway.Activity{ID: "act-1", Name: "Journey 1", ActivityType: "journey"},
+				Occurrences: []castaway.ParticipantActivityHistoryOccurrence{{
+					Occurrence: castaway.Occurrence{ID: "occ-1", Name: "Lost for Words — Mooney", EffectiveAt: "2026-03-14T02:00:00Z"},
+					Ledger: []castaway.BonusLedgerEntry{
+						{ParticipantName: "Mooney", Points: 1, Visibility: "public"},
+						{ParticipantName: "Mooney", Points: 2, Visibility: "secret"},
+					},
+				}},
+			}},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-2", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-2", 0), commandSpec{name: "history", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Mooney")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if strings.Contains(message, "+2 secret") {
+		t.Fatalf("expected public history to hide secret impact, got %q", message)
+	}
+	if !strings.Contains(message, "+1 public") {
+		t.Fatalf("expected public history to retain visible impact, got %q", message)
+	}
+}
+
+func TestLinkAndUnlinkCommandsRegression(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:              []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "link", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan")}})
+	if err != nil {
+		t.Fatalf("link command: %v", err)
+	}
+	if message != "Linked your Discord account to Bryan in Season 50 — Historical Season 50." {
+		t.Fatalf("unexpected link message: %q", message)
+	}
+
+	message, err = bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "unlink"})
+	if err != nil {
+		t.Fatalf("unlink command: %v", err)
+	}
+	if message != "Unlinked your Discord account from Bryan in Season 50 — Historical Season 50." {
+		t.Fatalf("unexpected unlink message: %q", message)
 	}
 }
 
@@ -310,7 +403,7 @@ func newTestBot(t *testing.T, api testCastawayAPI) (*Bot, *state.BoltStore) {
 	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return &Bot{castaway: client, state: store, log: logger}, store
+	return &Bot{castaway: client, state: store, log: logger, discordAdminUserIDs: map[string]struct{}{}}, store
 }
 
 func (api testCastawayAPI) handler(t *testing.T) http.Handler {
@@ -407,6 +500,39 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 				participants = filtered
 			}
 			writeJSON(http.StatusOK, map[string]any{"participants": participants})
+		case len(parts) == 4 && parts[2] == "participants" && parts[3] == "me" && r.Method == http.MethodGet:
+			participant, ok := api.linkedParticipantByInstance[instanceID][r.Header.Get("X-Discord-User-ID")]
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "participant not linked"})
+				return
+			}
+			writeJSON(http.StatusOK, map[string]any{"participant": participant})
+		case len(parts) == 5 && parts[2] == "participants" && parts[4] == "discord-link" && r.Method == http.MethodPut:
+			participantID := parts[3]
+			participant, ok := api.participantByID(instanceID, participantID)
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "participant not found"})
+				return
+			}
+			if api.linkedParticipantByInstance == nil {
+				api.linkedParticipantByInstance = map[string]map[string]castaway.Participant{}
+			}
+			if api.linkedParticipantByInstance[instanceID] == nil {
+				api.linkedParticipantByInstance[instanceID] = map[string]castaway.Participant{}
+			}
+			api.linkedParticipantByInstance[instanceID][r.Header.Get("X-Discord-User-ID")] = participant
+			writeJSON(http.StatusOK, map[string]any{"participant": participant})
+		case len(parts) == 5 && parts[2] == "participants" && parts[4] == "discord-link" && r.Method == http.MethodDelete:
+			participantID := parts[3]
+			participant, ok := api.participantByID(instanceID, participantID)
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "participant not found"})
+				return
+			}
+			if links := api.linkedParticipantByInstance[instanceID]; links != nil {
+				delete(links, r.Header.Get("X-Discord-User-ID"))
+			}
+			writeJSON(http.StatusOK, map[string]any{"participant": participant})
 		case len(parts) == 3 && parts[2] == "activities" && r.Method == http.MethodGet:
 			activities := api.activitiesByInstance[instanceID]
 			if activities == nil {
@@ -432,11 +558,34 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 				return
 			}
 			writeJSON(http.StatusOK, draft)
+		case len(parts) == 5 && parts[2] == "participants" && parts[4] == "bonus-ledger" && r.Method == http.MethodGet:
+			ledger, ok := api.bonusLedgerByParticipant[parts[3]]
+			if !ok {
+				rows := api.leaderboardByInstance[instanceID]
+				for _, row := range rows {
+					if row.ParticipantID == parts[3] {
+						ledger = castaway.ParticipantBonusLedger{Participant: castaway.Participant{ID: row.ParticipantID, Name: row.ParticipantName}, BonusPoints: row.BonusPoints}
+						ok = true
+						break
+					}
+				}
+			}
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "bonus ledger not found"})
+				return
+			}
+			if !api.canViewSecretParticipantData(instanceID, parts[3], r.Header.Get("X-Discord-User-ID")) {
+				ledger = api.publicBonusLedger(ledger)
+			}
+			writeJSON(http.StatusOK, ledger)
 		case len(parts) == 5 && parts[2] == "participants" && parts[4] == "activity-history" && r.Method == http.MethodGet:
 			history, ok := api.historyByParticipant[parts[3]]
 			if !ok {
 				writeJSON(http.StatusNotFound, map[string]any{"error": "history not found"})
 				return
+			}
+			if !api.canViewSecretParticipantData(instanceID, parts[3], r.Header.Get("X-Discord-User-ID")) {
+				history = api.publicHistory(history)
 			}
 			writeJSON(http.StatusOK, history)
 		default:
@@ -452,6 +601,63 @@ func (api testCastawayAPI) instanceByID(id string) (castaway.Instance, bool) {
 		}
 	}
 	return castaway.Instance{}, false
+}
+
+func (api testCastawayAPI) participantByID(instanceID, participantID string) (castaway.Participant, bool) {
+	for _, participant := range api.participantsByInstance[instanceID] {
+		if participant.ID == participantID {
+			return participant, true
+		}
+	}
+	return castaway.Participant{}, false
+}
+
+func (api testCastawayAPI) canViewSecretParticipantData(instanceID, participantID, discordUserID string) bool {
+	if strings.TrimSpace(discordUserID) == "admin-1" {
+		return true
+	}
+	linkedParticipant, ok := api.linkedParticipantByInstance[instanceID][discordUserID]
+	return ok && linkedParticipant.ID == participantID
+}
+
+func (api testCastawayAPI) publicBonusLedger(ledger castaway.ParticipantBonusLedger) castaway.ParticipantBonusLedger {
+	if len(ledger.Ledger) == 0 {
+		return ledger
+	}
+	filtered := make([]castaway.BonusLedgerEntry, 0, len(ledger.Ledger))
+	bonusPoints := 0
+	for _, entry := range ledger.Ledger {
+		if entry.Visibility == "secret" {
+			continue
+		}
+		filtered = append(filtered, entry)
+		bonusPoints += entry.Points
+	}
+	ledger.Ledger = filtered
+	ledger.BonusPoints = bonusPoints
+	return ledger
+}
+
+func (api testCastawayAPI) publicHistory(history castaway.ParticipantActivityHistory) castaway.ParticipantActivityHistory {
+	filteredActivities := make([]castaway.ParticipantActivityHistoryActivity, 0, len(history.Activities))
+	for _, activity := range history.Activities {
+		filteredOccurrences := make([]castaway.ParticipantActivityHistoryOccurrence, 0, len(activity.Occurrences))
+		for _, occurrence := range activity.Occurrences {
+			visibleLedger := make([]castaway.BonusLedgerEntry, 0, len(occurrence.Ledger))
+			for _, entry := range occurrence.Ledger {
+				if entry.Visibility == "secret" {
+					continue
+				}
+				visibleLedger = append(visibleLedger, entry)
+			}
+			occurrence.Ledger = visibleLedger
+			filteredOccurrences = append(filteredOccurrences, occurrence)
+		}
+		activity.Occurrences = filteredOccurrences
+		filteredActivities = append(filteredActivities, activity)
+	}
+	history.Activities = filteredActivities
+	return history
 }
 
 func testInteraction(guildID, userID string, permissions int64) *discordgo.InteractionCreate {

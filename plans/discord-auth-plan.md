@@ -1,110 +1,71 @@
 # Discord User Authentication Plan
 
-Status: `planning`
+Status: `in-progress`
 
 ## Goal
 
-Allow Discord users to authenticate through the bot and view privileged information (secret bonus points) that belongs to their linked participant account.
+Allow Discord users to see their own private Castaway data through the existing bot commands, while keeping most read flows publicly runnable.
 
-## Context
+## Current decisions
 
-Today, all `castaway-web` API routes are protected by service-to-service bearer token auth (`requireServiceAuth`). The Discord bot authenticates to the API as a service principal (`castaway-discord-bot`), but there is no concept of an end-user identity flowing through the system. Bonus point ledger entries have a `visibility` field (`public`, `secret`, `revealed`), and secret entries are already queryable (`GetSecretBonusTotalByParticipant`, `GetAvailableSecretBalanceByParticipant`, `ListAllBonusPointLedgerEntriesForParticipant`) but are not exposed through any API route or bot command today. Participants currently have no link to a Discord user ID.
+- Keep existing bot-to-API bearer auth (`requireServiceAuth`).
+- Flow Discord user identity through `castaway-web` via `X-Discord-User-ID`.
+- Do **not** add duplicate `my*` or `admin*` commands.
+- Existing commands return data based on caller privilege:
+  - public caller → public/revealed data only
+  - linked self → self-private data included
+  - admin → full target participant data
+- Leaderboards stay public-safe; private bonus visibility is handled through participant-targeted routes.
 
-## Design
+## Implemented slice
 
-### 1. Link participants to Discord users (database)
+### Database / queries
 
-Add a nullable `discord_user_id TEXT` column to the `participants` table via a new migration.
+- Added `participants.discord_user_id`
+- Added unique per-instance Discord link index
+- Added sqlc queries for:
+  - get linked participant by instance + Discord user ID
+  - set participant Discord user ID
+  - clear participant Discord user ID
 
-```sql
--- 008_participant_discord_user_id.sql
-ALTER TABLE participants ADD COLUMN discord_user_id TEXT;
-CREATE UNIQUE INDEX participants_instance_discord_user_id_idx
-    ON participants(instance_id, discord_user_id)
-    WHERE discord_user_id IS NOT NULL;
-```
+### API routes
 
-This allows at most one participant per Discord user per instance, while keeping the column optional for participants without Discord accounts. Add a corresponding sqlc query to look up a participant by instance + discord_user_id, and a mutation to set/clear the discord_user_id on an existing participant.
+Added:
 
-### 2. Add API routes for linking; enrich existing bonus-ledger route
+- `GET /instances/:instanceID/participants/me`
+- `PUT /instances/:instanceID/participants/:participantID/discord-link`
+- `DELETE /instances/:instanceID/participants/:participantID/discord-link`
 
-Add the following new routes to `castaway-web`, all under the existing `requireServiceAuth` middleware:
+Updated existing routes to be auth-aware:
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `PUT` | `/instances/:instanceID/participants/:participantID/discord-link` | Set `discord_user_id` on a participant |
-| `DELETE` | `/instances/:instanceID/participants/:participantID/discord-link` | Clear the link |
+- `GET /instances/:instanceID/participants/:participantID/bonus-ledger`
+  - public → visible entries only
+  - linked self / admin → visible + secret entries
+- `GET /instances/:instanceID/participants/:participantID/activity-history`
+  - public → secret history impact excluded
+  - linked self / admin → secret history impact included
 
-**No new `secret-bonus` route.** Instead, modify the existing `GET /instances/:instanceID/participants/:participantID/bonus-ledger` handler to conditionally include secret entries:
+### Bot behavior
 
-- If the request includes a `X-Discord-User-ID` header **and** its value matches the participant's stored `discord_user_id`, return **all** ledger entries (visible + secret) using the existing `ListAllBonusPointLedgerEntriesForParticipant` query, and include the full bonus total (visible + secret).
-- Otherwise, return only visible entries (current behavior, unchanged).
+Added:
 
-The response shape is identical in both cases — entries already carry a `visibility` field, so consumers can distinguish `secret` from `public`/`revealed` entries. This avoids adding a new route and keeps the API surface minimal. The bot simply adds the `X-Discord-User-ID` header to the same bonus-ledger call it would already make.
+- `/castaway link participant:<name> [instance] [season]`
+- `/castaway unlink [instance] [season]`
 
-### 3. Add sqlc queries
+Updated existing commands:
 
-```sql
--- query/participants.sql additions
--- name: GetParticipantByDiscordUserID :one
-SELECT ... FROM participants
-WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)
-  AND discord_user_id = $2;
+- `/castaway score participant:<name> [instance] [season]`
+  - public callers see public-safe totals
+  - linked self / admins see private totals for the target participant
+- `/castaway history participant:<name> [instance] [season]`
+  - public callers do not see secret bonus history
+  - linked self / admins do
 
--- name: SetParticipantDiscordUserID :exec
-UPDATE participants SET discord_user_id = $2
-WHERE public_id = $1;
+Private responses are sent ephemerally when the bot can determine the caller is linked self or admin.
 
--- name: ClearParticipantDiscordUserID :exec
-UPDATE participants SET discord_user_id = NULL
-WHERE public_id = $1;
-```
+## Remaining follow-ups
 
-### 4. Discord bot: `/castaway link` command
-
-Add a new slash command subgroup or top-level subcommand:
-
-- `/castaway link` — Links the invoking Discord user to a participant in the current instance. The bot sends `PUT /instances/:id/participants/:pid/discord-link` with the interaction user's Discord ID. Requires the user to specify (or autocomplete) which participant they are. Responds with confirmation (ephemeral).
-- `/castaway unlink` — Clears the link. Responds with confirmation (ephemeral).
-
-### 5. Discord bot: `/castaway myscore` command
-
-A new command that:
-1. Resolves the instance (same logic as existing commands).
-2. Looks up the participant linked to the invoking Discord user's ID (via a new API call or by listing participants and checking the discord link).
-3. Calls `GET /instances/:id/participants/:pid/bonus-ledger` with the `X-Discord-User-ID` header set to the invoking user's Discord ID. Because the user is authenticated, the response will include secret entries.
-4. Formats and returns an ephemeral message showing the user's secret bonus point total and ledger breakdown alongside their regular score.
-
-This is ephemeral so only the requesting user sees their secret data.
-
-### 6. Update the bot's castaway client
-
-Add methods to the `castaway.Client`:
-- `LinkDiscordUser(ctx, instanceID, participantID, discordUserID)` — `PUT` to the discord-link endpoint.
-- `UnlinkDiscordUser(ctx, instanceID, participantID)` — `DELETE` to the discord-link endpoint.
-- `GetBonusLedger(ctx, instanceID, participantID, discordUserID)` — `GET` to the existing bonus-ledger endpoint; when `discordUserID` is non-empty, passes the `X-Discord-User-ID` header to get secret entries included.
-
-## Implementation order
-
-1. Database migration (`008_participant_discord_user_id.sql`)
-2. sqlc queries + regenerate (`participants.sql`, run `sqlc generate`)
-3. `castaway-web` API routes (discord-link PUT/DELETE, bonus-ledger auth enrichment)
-4. `castaway-web` tests for new routes
-5. `castaway.Client` methods in the bot
-6. Bot slash commands (`link`, `unlink`, `myscore`) + handler logic
-7. Bot command registration (update `commands.go`)
-8. Bot handler tests
-
-## Security considerations
-
-- The bot is already authenticated via bearer token; no new service auth mechanism is needed.
-- Discord user ID verification happens server-side: the API checks that the `X-Discord-User-ID` header matches the participant's stored `discord_user_id`. The bot is trusted to pass the real user ID from the interaction.
-- Secret data is only included in the `bonus-ledger` response when the `X-Discord-User-ID` header is present and matches the participant's stored `discord_user_id`. Without the header (or on mismatch), the response contains only visible entries, preserving existing behavior. Secret data is never mixed into the `leaderboard` routes.
-- The `/castaway myscore` response is ephemeral (only visible to the invoking user).
-- The link operation is idempotent. Re-linking to a different participant in the same instance will fail due to the unique index, requiring an explicit unlink first.
-
-## Out of scope
-
-- OAuth2 browser-based Discord login (not needed; Discord interactions already carry verified user identity).
-- Admin workflows to link users on someone else's behalf.
-- Showing secret bonus data in the leaderboard aggregate.
+- define the production admin allowlist source and deployment config
+- verify live Discord behavior end-to-end after deploy
+- decide whether future participant-private routes should reuse the same `self/admin/public` pattern
+- fold this slice into the broader `apps/castaway-web/plans/auth-and-authorization-planning.md`

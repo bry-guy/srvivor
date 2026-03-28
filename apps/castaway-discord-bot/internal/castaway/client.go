@@ -34,6 +34,12 @@ type Participant struct {
 	Name string `json:"name"`
 }
 
+type ParticipantBonusLedger struct {
+	Participant Participant        `json:"participant"`
+	BonusPoints int                `json:"bonus_points"`
+	Ledger      []BonusLedgerEntry `json:"ledger"`
+}
+
 type LeaderboardRow struct {
 	ParticipantID   string `json:"participant_id"`
 	ParticipantName string `json:"participant_name"`
@@ -251,7 +257,7 @@ func (c *Client) ListInstances(ctx context.Context, opts ListInstancesOptions) (
 	var response struct {
 		Instances []Instance `json:"instances"`
 	}
-	if err := c.getJSON(ctx, requestURL, &response); err != nil {
+	if err := c.getJSON(ctx, requestURL, nil, &response); err != nil {
 		return nil, err
 	}
 	return response.Instances, nil
@@ -261,7 +267,7 @@ func (c *Client) GetInstance(ctx context.Context, instanceID string) (Instance, 
 	var response struct {
 		Instance Instance `json:"instance"`
 	}
-	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID)), &response); err != nil {
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID)), nil, &response); err != nil {
 		return Instance{}, err
 	}
 	return response.Instance, nil
@@ -278,7 +284,7 @@ func (c *Client) ListParticipants(ctx context.Context, instanceID string, opts L
 	var response struct {
 		Participants []Participant `json:"participants"`
 	}
-	if err := c.getJSON(ctx, requestURL, &response); err != nil {
+	if err := c.getJSON(ctx, requestURL, nil, &response); err != nil {
 		return nil, err
 	}
 	return response.Participants, nil
@@ -295,7 +301,7 @@ func (c *Client) GetLeaderboard(ctx context.Context, instanceID string, particip
 	var response struct {
 		Leaderboard []LeaderboardRow `json:"leaderboard"`
 	}
-	if err := c.getJSON(ctx, requestURL, &response); err != nil {
+	if err := c.getJSON(ctx, requestURL, nil, &response); err != nil {
 		return nil, err
 	}
 	return response.Leaderboard, nil
@@ -305,7 +311,7 @@ func (c *Client) ListActivities(ctx context.Context, instanceID string) ([]Activ
 	var response struct {
 		Activities []Activity `json:"activities"`
 	}
-	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "activities")), &response); err != nil {
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "activities")), nil, &response); err != nil {
 		return nil, err
 	}
 	return response.Activities, nil
@@ -313,7 +319,7 @@ func (c *Client) ListActivities(ctx context.Context, instanceID string) ([]Activ
 
 func (c *Client) GetActivity(ctx context.Context, activityID string) (ActivityDetail, error) {
 	var detail ActivityDetail
-	if err := c.getJSON(ctx, c.endpoint(path.Join("/activities", activityID)), &detail); err != nil {
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/activities", activityID)), nil, &detail); err != nil {
 		return ActivityDetail{}, err
 	}
 	return detail, nil
@@ -323,7 +329,7 @@ func (c *Client) ListOccurrences(ctx context.Context, activityID string) ([]Occu
 	var response struct {
 		Occurrences []Occurrence `json:"occurrences"`
 	}
-	if err := c.getJSON(ctx, c.endpoint(path.Join("/activities", activityID, "occurrences")), &response); err != nil {
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/activities", activityID, "occurrences")), nil, &response); err != nil {
 		return nil, err
 	}
 	return response.Occurrences, nil
@@ -331,23 +337,66 @@ func (c *Client) ListOccurrences(ctx context.Context, activityID string) ([]Occu
 
 func (c *Client) GetOccurrence(ctx context.Context, occurrenceID string) (OccurrenceDetail, error) {
 	var detail OccurrenceDetail
-	if err := c.getJSON(ctx, c.endpoint(path.Join("/occurrences", occurrenceID)), &detail); err != nil {
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/occurrences", occurrenceID)), nil, &detail); err != nil {
 		return OccurrenceDetail{}, err
 	}
 	return detail, nil
 }
 
-func (c *Client) GetParticipantActivityHistory(ctx context.Context, instanceID, participantID string) (ParticipantActivityHistory, error) {
+func (c *Client) GetParticipantActivityHistory(ctx context.Context, instanceID, participantID, discordUserID string) (ParticipantActivityHistory, error) {
 	var detail ParticipantActivityHistory
-	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "activity-history")), &detail); err != nil {
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "activity-history")), headers, &detail); err != nil {
 		return ParticipantActivityHistory{}, err
 	}
 	return detail, nil
 }
 
+func (c *Client) GetBonusLedger(ctx context.Context, instanceID, participantID, discordUserID string) (ParticipantBonusLedger, error) {
+	var detail ParticipantBonusLedger
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "bonus-ledger")), headers, &detail); err != nil {
+		return ParticipantBonusLedger{}, err
+	}
+	return detail, nil
+}
+
+func (c *Client) GetLinkedParticipant(ctx context.Context, instanceID, discordUserID string) (Participant, error) {
+	var response struct {
+		Participant Participant `json:"participant"`
+	}
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "participants", "me")), headers, &response); err != nil {
+		return Participant{}, err
+	}
+	return response.Participant, nil
+}
+
+func (c *Client) LinkDiscordUser(ctx context.Context, instanceID, participantID, discordUserID string) (Participant, error) {
+	var response struct {
+		Participant Participant `json:"participant"`
+	}
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.doJSON(ctx, http.MethodPut, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "discord-link")), headers, &response); err != nil {
+		return Participant{}, err
+	}
+	return response.Participant, nil
+}
+
+func (c *Client) UnlinkDiscordUser(ctx context.Context, instanceID, participantID, discordUserID string) (Participant, error) {
+	var response struct {
+		Participant Participant `json:"participant"`
+	}
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.doJSON(ctx, http.MethodDelete, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "discord-link")), headers, &response); err != nil {
+		return Participant{}, err
+	}
+	return response.Participant, nil
+}
+
 func (c *Client) GetDraft(ctx context.Context, instanceID, participantID string) (Draft, error) {
 	var draft Draft
-	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "drafts", participantID)), &draft); err != nil {
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "drafts", participantID)), nil, &draft); err != nil {
 		return Draft{}, err
 	}
 	return draft, nil
@@ -360,13 +409,24 @@ func (c *Client) endpoint(relativePath string) *url.URL {
 	return &resolved
 }
 
-func (c *Client) getJSON(ctx context.Context, requestURL *url.URL, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
+func (c *Client) getJSON(ctx context.Context, requestURL *url.URL, headers map[string]string, out any) error {
+	return c.doJSON(ctx, http.MethodGet, requestURL, headers, out)
+}
+
+func (c *Client) doJSON(ctx context.Context, method string, requestURL *url.URL, headers map[string]string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, method, requestURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
 	if c.bearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.bearerToken)
+	}
+	for key, value := range headers {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		req.Header.Set(key, trimmed)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -387,4 +447,11 @@ func (c *Client) getJSON(ctx context.Context, requestURL *url.URL, out any) erro
 		return fmt.Errorf("decode response: %w", err)
 	}
 	return nil
+}
+
+func requestHeadersForDiscordUser(discordUserID string) map[string]string {
+	if strings.TrimSpace(discordUserID) == "" {
+		return nil
+	}
+	return map[string]string{"X-Discord-User-ID": strings.TrimSpace(discordUserID)}
 }

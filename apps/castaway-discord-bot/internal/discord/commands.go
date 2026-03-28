@@ -16,6 +16,8 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 				occurrencesCommand(),
 				occurrenceCommand(),
 				historyCommand(),
+				linkCommand(),
+				unlinkCommand(),
 				instanceCommandGroup(),
 			},
 		},
@@ -119,6 +121,31 @@ func historyCommand() *discordgo.ApplicationCommandOption {
 		Description: "Show a participant's activity history",
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(true),
+			instanceOption(false),
+			seasonOption(),
+		},
+	}
+}
+
+func linkCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "link",
+		Description: "Link your Discord user to a participant",
+		Options: []*discordgo.ApplicationCommandOption{
+			participantOption(true),
+			instanceOption(false),
+			seasonOption(),
+		},
+	}
+}
+
+func unlinkCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "unlink",
+		Description: "Unlink your Discord user from the current instance participant",
+		Options: []*discordgo.ApplicationCommandOption{
 			instanceOption(false),
 			seasonOption(),
 		},

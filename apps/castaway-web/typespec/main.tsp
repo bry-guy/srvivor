@@ -474,6 +474,24 @@ op listParticipants(
   @query name?: string,
 ): ListParticipantsResponse | ErrorResponse;
 
+@route("/instances/{instanceID}/participants/me")
+@get
+op getLinkedParticipant(@path instanceID: string): CreateParticipantResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/participants/{participantID}/discord-link")
+@put
+op linkParticipantDiscordUser(
+  @path instanceID: string,
+  @path participantID: string,
+): CreateParticipantResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/participants/{participantID}/discord-link")
+@delete
+op unlinkParticipantDiscordUser(
+  @path instanceID: string,
+  @path participantID: string,
+): CreateParticipantResponse | ErrorResponse;
+
 @route("/instances/{instanceID}/participants/{participantID}/bonus-ledger")
 @get
 op getParticipantBonusLedger(

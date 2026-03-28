@@ -11,6 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearParticipantDiscordUserID = `-- name: ClearParticipantDiscordUserID :one
+UPDATE participants p
+SET discord_user_id = NULL
+WHERE p.public_id = $1
+RETURNING
+    p.public_id AS id,
+    (SELECT public_id FROM instances WHERE id = p.instance_id) AS instance_id,
+    p.name,
+    p.discord_user_id,
+    p.created_at
+`
+
+type ClearParticipantDiscordUserIDRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	InstanceID    pgtype.UUID        `json:"instance_id"`
+	Name          string             `json:"name"`
+	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ClearParticipantDiscordUserID(ctx context.Context, id pgtype.UUID) (ClearParticipantDiscordUserIDRow, error) {
+	row := q.db.QueryRow(ctx, clearParticipantDiscordUserID, id)
+	var i ClearParticipantDiscordUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.InstanceID,
+		&i.Name,
+		&i.DiscordUserID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createParticipant = `-- name: CreateParticipant :one
 INSERT INTO participants (instance_id, name)
 SELECT i.id, $1
@@ -20,6 +53,7 @@ RETURNING
     public_id AS id,
     (SELECT public_id FROM instances WHERE id = participants.instance_id) AS instance_id,
     name,
+    discord_user_id,
     created_at
 `
 
@@ -29,10 +63,11 @@ type CreateParticipantParams struct {
 }
 
 type CreateParticipantRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	InstanceID pgtype.UUID        `json:"instance_id"`
-	Name       string             `json:"name"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID            pgtype.UUID        `json:"id"`
+	InstanceID    pgtype.UUID        `json:"instance_id"`
+	Name          string             `json:"name"`
+	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) CreateParticipant(ctx context.Context, arg CreateParticipantParams) (CreateParticipantRow, error) {
@@ -42,6 +77,7 @@ func (q *Queries) CreateParticipant(ctx context.Context, arg CreateParticipantPa
 		&i.ID,
 		&i.InstanceID,
 		&i.Name,
+		&i.DiscordUserID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -52,6 +88,7 @@ SELECT
     p.public_id AS id,
     i.public_id AS instance_id,
     p.name,
+    p.discord_user_id,
     p.created_at
 FROM participants p
 JOIN instances i ON i.id = p.instance_id
@@ -59,10 +96,11 @@ WHERE p.public_id = $1
 `
 
 type GetParticipantRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	InstanceID pgtype.UUID        `json:"instance_id"`
-	Name       string             `json:"name"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID            pgtype.UUID        `json:"id"`
+	InstanceID    pgtype.UUID        `json:"instance_id"`
+	Name          string             `json:"name"`
+	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) GetParticipant(ctx context.Context, id pgtype.UUID) (GetParticipantRow, error) {
@@ -72,6 +110,46 @@ func (q *Queries) GetParticipant(ctx context.Context, id pgtype.UUID) (GetPartic
 		&i.ID,
 		&i.InstanceID,
 		&i.Name,
+		&i.DiscordUserID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getParticipantByDiscordUserID = `-- name: GetParticipantByDiscordUserID :one
+SELECT
+    p.public_id AS id,
+    i.public_id AS instance_id,
+    p.name,
+    p.discord_user_id,
+    p.created_at
+FROM participants p
+JOIN instances i ON i.id = p.instance_id
+WHERE i.public_id = $1
+  AND p.discord_user_id = $2
+`
+
+type GetParticipantByDiscordUserIDParams struct {
+	InstanceID    pgtype.UUID `json:"instance_id"`
+	DiscordUserID pgtype.Text `json:"discord_user_id"`
+}
+
+type GetParticipantByDiscordUserIDRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	InstanceID    pgtype.UUID        `json:"instance_id"`
+	Name          string             `json:"name"`
+	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetParticipantByDiscordUserID(ctx context.Context, arg GetParticipantByDiscordUserIDParams) (GetParticipantByDiscordUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getParticipantByDiscordUserID, arg.InstanceID, arg.DiscordUserID)
+	var i GetParticipantByDiscordUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.InstanceID,
+		&i.Name,
+		&i.DiscordUserID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -82,6 +160,7 @@ SELECT
     p.public_id AS id,
     i.public_id AS instance_id,
     p.name,
+    p.discord_user_id,
     p.created_at
 FROM participants p
 JOIN instances i ON i.id = p.instance_id
@@ -90,10 +169,11 @@ ORDER BY p.created_at ASC
 `
 
 type ListParticipantsByInstanceRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	InstanceID pgtype.UUID        `json:"instance_id"`
-	Name       string             `json:"name"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID            pgtype.UUID        `json:"id"`
+	InstanceID    pgtype.UUID        `json:"instance_id"`
+	Name          string             `json:"name"`
+	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) ListParticipantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantsByInstanceRow, error) {
@@ -109,6 +189,7 @@ func (q *Queries) ListParticipantsByInstance(ctx context.Context, instanceID pgt
 			&i.ID,
 			&i.InstanceID,
 			&i.Name,
+			&i.DiscordUserID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -119,4 +200,42 @@ func (q *Queries) ListParticipantsByInstance(ctx context.Context, instanceID pgt
 		return nil, err
 	}
 	return items, nil
+}
+
+const setParticipantDiscordUserID = `-- name: SetParticipantDiscordUserID :one
+UPDATE participants p
+SET discord_user_id = $1
+WHERE p.public_id = $2
+RETURNING
+    p.public_id AS id,
+    (SELECT public_id FROM instances WHERE id = p.instance_id) AS instance_id,
+    p.name,
+    p.discord_user_id,
+    p.created_at
+`
+
+type SetParticipantDiscordUserIDParams struct {
+	DiscordUserID pgtype.Text `json:"discord_user_id"`
+	ID            pgtype.UUID `json:"id"`
+}
+
+type SetParticipantDiscordUserIDRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	InstanceID    pgtype.UUID        `json:"instance_id"`
+	Name          string             `json:"name"`
+	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error) {
+	row := q.db.QueryRow(ctx, setParticipantDiscordUserID, arg.DiscordUserID, arg.ID)
+	var i SetParticipantDiscordUserIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.InstanceID,
+		&i.Name,
+		&i.DiscordUserID,
+		&i.CreatedAt,
+	)
+	return i, err
 }

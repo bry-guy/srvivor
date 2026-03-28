@@ -23,6 +23,10 @@ Top-level command: `/castaway`
 - `/castaway occurrences activity:<name> [instance] [season]`
 - `/castaway occurrence activity:<name> occurrence:<name> [instance] [season]`
 - `/castaway history participant:<name> [instance] [season]`
+- `/castaway link participant:<name> [instance] [season]`
+- `/castaway unlink [instance] [season]`
+
+`score` and `history` stay single commands: public callers see public-safe data, while linked users viewing themselves and configured admins can receive private data ephemerally.
 
 ### Context commands
 - `/castaway instance list [season]`
@@ -84,6 +88,7 @@ Optional production-oriented config:
 
 - `CASTAWAY_API_AUTH_TOKEN` for bot-to-API bearer authentication
 - `BOT_STATE_DATABASE_URL` when `BOT_STATE_BACKEND=postgres`
+- `DISCORD_ADMIN_USER_IDS` for users who may view participant-private data for others
 
 Override them in your shell only when you need a non-default local setup.
 

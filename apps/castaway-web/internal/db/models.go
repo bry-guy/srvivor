@@ -163,11 +163,12 @@ type OutcomePosition struct {
 }
 
 type Participant struct {
-	ID         int64              `json:"id"`
-	PublicID   pgtype.UUID        `json:"public_id"`
-	InstanceID int64              `json:"instance_id"`
-	Name       string             `json:"name"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID            int64              `json:"id"`
+	PublicID      pgtype.UUID        `json:"public_id"`
+	InstanceID    int64              `json:"instance_id"`
+	Name          string             `json:"name"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	DiscordUserID pgtype.Text        `json:"discord_user_id"`
 }
 
 type ParticipantAdvantage struct {

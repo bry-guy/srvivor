@@ -18,8 +18,9 @@ type Config struct {
 	DiscordApplicationID  string `envconfig:"CASTAWAY_DISCORD_APPLICATION_ID" required:"true"`
 	DiscordTargetServerID string `envconfig:"DISCORD_TARGET_SEVER_ID"`
 
-	CastawayAPIBaseURL   string `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
-	CastawayAPIAuthToken string `envconfig:"CASTAWAY_API_AUTH_TOKEN"`
+	CastawayAPIBaseURL   string   `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
+	CastawayAPIAuthToken string   `envconfig:"CASTAWAY_API_AUTH_TOKEN"`
+	DiscordAdminUserIDs  []string `envconfig:"DISCORD_ADMIN_USER_IDS"`
 
 	StateBackend     string `envconfig:"BOT_STATE_BACKEND" default:"bolt"`
 	StatePath        string `envconfig:"BOT_STATE_PATH" default:"./data/state.db"`
@@ -36,6 +37,7 @@ func Load() (*Config, error) {
 	cfg.CastawayAPIAuthToken = strings.TrimSpace(cfg.CastawayAPIAuthToken)
 	cfg.StatePath = strings.TrimSpace(cfg.StatePath)
 	cfg.StateDatabaseURL = strings.TrimSpace(cfg.StateDatabaseURL)
+	cfg.DiscordAdminUserIDs = normalizeCSVList(cfg.DiscordAdminUserIDs)
 
 	if _, err := url.ParseRequestURI(cfg.CastawayAPIBaseURL); err != nil {
 		return nil, fmt.Errorf("parse CASTAWAY_API_BASE_URL: %w", err)
@@ -71,4 +73,21 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func normalizeCSVList(values []string) []string {
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
 }
