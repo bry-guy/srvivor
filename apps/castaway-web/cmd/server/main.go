@@ -55,10 +55,9 @@ func run() error {
 	}
 
 	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{
-		Enabled:             cfg.ServiceAuthEnabled,
-		BearerTokens:        cfg.ServiceAuthBearerTokens,
-		Principal:           cfg.ServiceAuthPrincipal,
-		DiscordAdminUserIDs: cfg.DiscordAdminUserIDs,
+		Enabled:      cfg.ServiceAuthEnabled,
+		BearerTokens: cfg.ServiceAuthBearerTokens,
+		Principal:    cfg.ServiceAuthPrincipal,
 	}))
 	router := server.Router()
 	httpServer := &http.Server{

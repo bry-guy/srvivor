@@ -286,6 +286,9 @@ func TestLinkAndLookupDiscordUser(t *testing.T) {
 			if got := r.Header.Get("X-Discord-User-ID"); got != "user-1" {
 				t.Fatalf("unexpected discord user header: %q", got)
 			}
+			if got := r.URL.Query().Get("discord_user_id"); got != "user-2" {
+				t.Fatalf("unexpected target discord user query: %q", got)
+			}
 			if _, err := w.Write([]byte(`{"participant":{"id":"p1","name":"Bryan"}}`)); err != nil {
 				t.Fatalf("write response: %v", err)
 			}
@@ -310,7 +313,7 @@ func TestLinkAndLookupDiscordUser(t *testing.T) {
 	if err != nil || participant.ID != "p1" {
 		t.Fatalf("get linked participant: participant=%#v err=%v", participant, err)
 	}
-	participant, err = client.LinkDiscordUser(context.Background(), "i1", "p1", "user-1")
+	participant, err = client.LinkDiscordUser(context.Background(), "i1", "p1", "user-1", "user-2")
 	if err != nil || participant.ID != "p1" {
 		t.Fatalf("link discord user: participant=%#v err=%v", participant, err)
 	}

@@ -22,11 +22,10 @@ import (
 )
 
 type Server struct {
-	pool                           *pgxpool.Pool
-	queries                        *db.Queries
-	serviceAuth                    ServiceAuthConfig
-	serviceAuthBearerTokens        map[string]struct{}
-	serviceAuthDiscordAdminUserIDs map[string]struct{}
+	pool                    *pgxpool.Pool
+	queries                 *db.Queries
+	serviceAuth             ServiceAuthConfig
+	serviceAuthBearerTokens map[string]struct{}
 }
 
 type Option func(*Server)
@@ -40,21 +39,15 @@ func WithServiceAuth(cfg ServiceAuthConfig) Option {
 			tokens[token] = struct{}{}
 		}
 		s.serviceAuthBearerTokens = tokens
-		adminUserIDs := make(map[string]struct{}, len(normalized.DiscordAdminUserIDs))
-		for _, userID := range normalized.DiscordAdminUserIDs {
-			adminUserIDs[userID] = struct{}{}
-		}
-		s.serviceAuthDiscordAdminUserIDs = adminUserIDs
 	}
 }
 
 func New(pool *pgxpool.Pool, options ...Option) *Server {
 	server := &Server{
-		pool:                           pool,
-		queries:                        db.New(pool),
-		serviceAuth:                    normalizeServiceAuthConfig(ServiceAuthConfig{}),
-		serviceAuthBearerTokens:        make(map[string]struct{}),
-		serviceAuthDiscordAdminUserIDs: make(map[string]struct{}),
+		pool:                    pool,
+		queries:                 db.New(pool),
+		serviceAuth:             normalizeServiceAuthConfig(ServiceAuthConfig{}),
+		serviceAuthBearerTokens: make(map[string]struct{}),
 	}
 	for _, option := range options {
 		option(server)
@@ -406,6 +399,10 @@ func (s *Server) getLinkedParticipant(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name)})
 }
 
+type linkParticipantDiscordUserRequest struct {
+	DiscordUserID string `json:"discord_user_id"`
+}
+
 func (s *Server) linkParticipantDiscordUser(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
@@ -415,9 +412,19 @@ func (s *Server) linkParticipantDiscordUser(c *gin.Context) {
 	if !ok {
 		return
 	}
-	discordUserID := discordUserIDFromRequest(c.Request)
-	if discordUserID == "" {
+	callerDiscordUserID := discordUserIDFromRequest(c.Request)
+	if callerDiscordUserID == "" {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "missing discord user id"})
+		return
+	}
+
+	isAdmin, err := s.isInstanceAdmin(c.Request.Context(), toPGUUID(instanceID), callerDiscordUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if !isAdmin {
+		c.JSON(http.StatusForbidden, errorResponse{Error: "forbidden"})
 		return
 	}
 
@@ -435,9 +442,24 @@ func (s *Server) linkParticipantDiscordUser(c *gin.Context) {
 		return
 	}
 
+	targetDiscordUserID := callerDiscordUserID
+	if queryTarget := strings.TrimSpace(c.Query("discord_user_id")); queryTarget != "" {
+		targetDiscordUserID = queryTarget
+	}
+	if c.Request.ContentLength != 0 {
+		var req linkParticipantDiscordUserRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return
+		}
+		if strings.TrimSpace(req.DiscordUserID) != "" {
+			targetDiscordUserID = strings.TrimSpace(req.DiscordUserID)
+		}
+	}
+
 	updated, err := s.queries.SetParticipantDiscordUserID(c.Request.Context(), db.SetParticipantDiscordUserIDParams{
 		ID:            toPGUUID(participantID),
-		DiscordUserID: pgtype.Text{String: discordUserID, Valid: true},
+		DiscordUserID: pgtype.Text{String: targetDiscordUserID, Valid: true},
 	})
 	if err != nil {
 		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
@@ -456,9 +478,19 @@ func (s *Server) unlinkParticipantDiscordUser(c *gin.Context) {
 	if !ok {
 		return
 	}
-	discordUserID := discordUserIDFromRequest(c.Request)
-	if discordUserID == "" {
+	callerDiscordUserID := discordUserIDFromRequest(c.Request)
+	if callerDiscordUserID == "" {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "missing discord user id"})
+		return
+	}
+
+	isAdmin, err := s.isInstanceAdmin(c.Request.Context(), toPGUUID(instanceID), callerDiscordUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if !isAdmin {
+		c.JSON(http.StatusForbidden, errorResponse{Error: "forbidden"})
 		return
 	}
 
@@ -473,10 +505,6 @@ func (s *Server) unlinkParticipantDiscordUser(c *gin.Context) {
 	}
 	if participant.InstanceID != toPGUUID(instanceID) {
 		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
-		return
-	}
-	if !s.canViewSecretParticipantData(discordUserID, participant) {
-		c.JSON(http.StatusForbidden, errorResponse{Error: "forbidden"})
 		return
 	}
 
@@ -901,7 +929,11 @@ func (s *Server) bonusLedger(c *gin.Context) {
 		return
 	}
 
-	canViewSecret := s.canViewSecretParticipantData(discordUserIDFromRequest(c.Request), participant)
+	canViewSecret, err := s.canViewSecretParticipantData(c.Request.Context(), toPGUUID(instanceID), discordUserIDFromRequest(c.Request), participant)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
 
 	bonusPoints := int32(0)
 	var ledger []gin.H
@@ -1047,7 +1079,11 @@ func (s *Server) participantActivityHistory(c *gin.Context) {
 		return
 	}
 
-	canViewSecret := s.canViewSecretParticipantData(discordUserIDFromRequest(c.Request), participant)
+	canViewSecret, err := s.canViewSecretParticipantData(c.Request.Context(), toPGUUID(instanceID), discordUserIDFromRequest(c.Request), participant)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
 
 	var ledgerRows []db.ListAllBonusPointLedgerEntriesForParticipantRow
 	if canViewSecret {

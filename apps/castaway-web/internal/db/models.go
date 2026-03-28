@@ -137,6 +137,13 @@ type InstanceActivity struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type InstanceAdmin struct {
+	ID            int64              `json:"id"`
+	InstanceID    int64              `json:"instance_id"`
+	DiscordUserID string             `json:"discord_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type InstanceContestant struct {
 	InstanceID   int64              `json:"instance_id"`
 	ContestantID int64              `json:"contestant_id"`

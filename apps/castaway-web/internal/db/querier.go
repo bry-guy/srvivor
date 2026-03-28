@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	ClearParticipantDiscordUserID(ctx context.Context, id pgtype.UUID) (ClearParticipantDiscordUserIDRow, error)
+	CountInstanceAdmins(ctx context.Context, instanceID pgtype.UUID) (int64, error)
 	CreateActivityGroupAssignment(ctx context.Context, arg CreateActivityGroupAssignmentParams) (CreateActivityGroupAssignmentRow, error)
 	CreateActivityOccurrence(ctx context.Context, arg CreateActivityOccurrenceParams) (CreateActivityOccurrenceRow, error)
 	CreateActivityOccurrenceGroup(ctx context.Context, arg CreateActivityOccurrenceGroupParams) (CreateActivityOccurrenceGroupRow, error)
@@ -22,12 +23,14 @@ type Querier interface {
 	CreateDraftPick(ctx context.Context, arg CreateDraftPickParams) (CreateDraftPickRow, error)
 	CreateInstance(ctx context.Context, arg CreateInstanceParams) (CreateInstanceRow, error)
 	CreateInstanceActivity(ctx context.Context, arg CreateInstanceActivityParams) (CreateInstanceActivityRow, error)
+	CreateInstanceAdmin(ctx context.Context, arg CreateInstanceAdminParams) (InstanceAdmin, error)
 	CreateInstanceEpisode(ctx context.Context, arg CreateInstanceEpisodeParams) (CreateInstanceEpisodeRow, error)
 	CreateParticipant(ctx context.Context, arg CreateParticipantParams) (CreateParticipantRow, error)
 	CreateParticipantAdvantage(ctx context.Context, arg CreateParticipantAdvantageParams) (CreateParticipantAdvantageRow, error)
 	CreateParticipantGroup(ctx context.Context, arg CreateParticipantGroupParams) (CreateParticipantGroupRow, error)
 	CreateParticipantGroupMembershipPeriod(ctx context.Context, arg CreateParticipantGroupMembershipPeriodParams) (CreateParticipantGroupMembershipPeriodRow, error)
 	DeleteDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) error
+	DeleteInstanceAdmin(ctx context.Context, arg DeleteInstanceAdminParams) error
 	DeleteInstanceByNameSeason(ctx context.Context, arg DeleteInstanceByNameSeasonParams) error
 	GetActivityOccurrence(ctx context.Context, id pgtype.UUID) (GetActivityOccurrenceRow, error)
 	GetAvailableSecretBalanceByParticipant(ctx context.Context, arg GetAvailableSecretBalanceByParticipantParams) (int32, error)
@@ -42,6 +45,7 @@ type Querier interface {
 	GetVisibleBonusTotalByParticipant(ctx context.Context, arg GetVisibleBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipantAsOf(ctx context.Context, arg GetVisibleBonusTotalByParticipantAsOfParams) (int32, error)
 	InstanceHasContestant(ctx context.Context, arg InstanceHasContestantParams) (bool, error)
+	IsInstanceAdmin(ctx context.Context, arg IsInstanceAdminParams) (bool, error)
 	ListActiveActivityGroupAssignmentsAt(ctx context.Context, arg ListActiveActivityGroupAssignmentsAtParams) ([]ListActiveActivityGroupAssignmentsAtRow, error)
 	ListActiveActivityParticipantAssignmentsAt(ctx context.Context, arg ListActiveActivityParticipantAssignmentsAtParams) ([]ListActiveActivityParticipantAssignmentsAtRow, error)
 	ListActiveAdvantagesByTypeForGroup(ctx context.Context, arg ListActiveAdvantagesByTypeForGroupParams) ([]ListActiveAdvantagesByTypeForGroupRow, error)
@@ -59,6 +63,7 @@ type Querier interface {
 	ListDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) ([]ListDraftPicksForParticipantRow, error)
 	ListEpisodeBoundaryWindows(ctx context.Context, instanceID pgtype.UUID) ([]ListEpisodeBoundaryWindowsRow, error)
 	ListInstanceActivitiesByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceActivitiesByInstanceRow, error)
+	ListInstanceAdmins(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceAdminsRow, error)
 	ListInstanceEpisodes(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceEpisodesRow, error)
 	ListInstances(ctx context.Context) ([]ListInstancesRow, error)
 	ListOutcomePositionsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListOutcomePositionsByInstanceRow, error)

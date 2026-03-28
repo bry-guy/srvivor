@@ -350,19 +350,19 @@ func TestLinkAndUnlinkCommandsRegression(t *testing.T) {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "link", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan")}})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "link", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan"), userIDOption("user", "user-2")}})
 	if err != nil {
 		t.Fatalf("link command: %v", err)
 	}
-	if message != "Linked your Discord account to Bryan in Season 50 — Historical Season 50." {
+	if message != "Linked Bryan to <@user-2> in Season 50 — Historical Season 50." {
 		t.Fatalf("unexpected link message: %q", message)
 	}
 
-	message, err = bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "unlink"})
+	message, err = bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "unlink", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan")}})
 	if err != nil {
 		t.Fatalf("unlink command: %v", err)
 	}
-	if message != "Unlinked your Discord account from Bryan in Season 50 — Historical Season 50." {
+	if message != "Unlinked Discord account from Bryan in Season 50 — Historical Season 50." {
 		t.Fatalf("unexpected unlink message: %q", message)
 	}
 }
@@ -403,7 +403,7 @@ func newTestBot(t *testing.T, api testCastawayAPI) (*Bot, *state.BoltStore) {
 	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return &Bot{castaway: client, state: store, log: logger, discordAdminUserIDs: map[string]struct{}{}}, store
+	return &Bot{castaway: client, state: store, log: logger}, store
 }
 
 func (api testCastawayAPI) handler(t *testing.T) http.Handler {
@@ -676,6 +676,10 @@ func stringOption(name, value string) *discordgo.ApplicationCommandInteractionDa
 
 func intOption(name string, value int64) *discordgo.ApplicationCommandInteractionDataOption {
 	return &discordgo.ApplicationCommandInteractionDataOption{Name: name, Type: discordgo.ApplicationCommandOptionInteger, Value: float64(value)}
+}
+
+func userIDOption(name, userID string) *discordgo.ApplicationCommandInteractionDataOption {
+	return &discordgo.ApplicationCommandInteractionDataOption{Name: name, Type: discordgo.ApplicationCommandOptionUser, Value: userID}
 }
 
 func containsFold(candidate, filter string) bool {

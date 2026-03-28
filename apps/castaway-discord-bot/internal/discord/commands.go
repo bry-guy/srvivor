@@ -28,9 +28,9 @@ func scoreCommand() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "score",
-		Description: "Show the score for a participant",
+		Description: "Show a participant score (defaults to your linked participant)",
 		Options: []*discordgo.ApplicationCommandOption{
-			participantOption(true),
+			participantOption(false),
 			instanceOption(false),
 			seasonOption(),
 		},
@@ -118,9 +118,9 @@ func historyCommand() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "history",
-		Description: "Show a participant's activity history",
+		Description: "Show participant activity history (defaults to your linked participant)",
 		Options: []*discordgo.ApplicationCommandOption{
-			participantOption(true),
+			participantOption(false),
 			instanceOption(false),
 			seasonOption(),
 		},
@@ -131,9 +131,10 @@ func linkCommand() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "link",
-		Description: "Link your Discord user to a participant",
+		Description: "Admin-only: link a participant to a Discord user",
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(true),
+			userOption("user", "Discord user to link", true),
 			instanceOption(false),
 			seasonOption(),
 		},
@@ -144,8 +145,9 @@ func unlinkCommand() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "unlink",
-		Description: "Unlink your Discord user from the current instance participant",
+		Description: "Admin-only: unlink a participant's Discord user",
 		Options: []*discordgo.ApplicationCommandOption{
+			participantOption(true),
 			instanceOption(false),
 			seasonOption(),
 		},
@@ -200,6 +202,15 @@ func participantOption(required bool) *discordgo.ApplicationCommandOption {
 		Description:  "Participant name",
 		Required:     required,
 		Autocomplete: true,
+	}
+}
+
+func userOption(name, description string, required bool) *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionUser,
+		Name:        name,
+		Description: description,
+		Required:    required,
 	}
 }
 

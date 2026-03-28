@@ -7,6 +7,7 @@ import (
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
@@ -15,10 +16,9 @@ const (
 )
 
 type ServiceAuthConfig struct {
-	Enabled             bool
-	BearerTokens        []string
-	Principal           string
-	DiscordAdminUserIDs []string
+	Enabled      bool
+	BearerTokens []string
+	Principal    string
 }
 
 type serviceAuthContextKey struct{}
@@ -52,20 +52,6 @@ func normalizeServiceAuthConfig(cfg ServiceAuthConfig) ServiceAuthConfig {
 	}
 	cfg.BearerTokens = tokens
 
-	adminUserIDs := make([]string, 0, len(cfg.DiscordAdminUserIDs))
-	seen = make(map[string]struct{}, len(cfg.DiscordAdminUserIDs))
-	for _, userID := range cfg.DiscordAdminUserIDs {
-		trimmed := strings.TrimSpace(userID)
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		adminUserIDs = append(adminUserIDs, trimmed)
-	}
-	cfg.DiscordAdminUserIDs = adminUserIDs
 	return cfg
 }
 
@@ -106,20 +92,21 @@ func discordUserIDFromRequest(r *http.Request) string {
 	return strings.TrimSpace(r.Header.Get(discordUserIDHeader))
 }
 
-func (s *Server) isDiscordAdmin(discordUserID string) bool {
+func (s *Server) isInstanceAdmin(ctx context.Context, instanceID pgtype.UUID, discordUserID string) (bool, error) {
 	if strings.TrimSpace(discordUserID) == "" {
-		return false
+		return false, nil
 	}
-	_, ok := s.serviceAuthDiscordAdminUserIDs[strings.TrimSpace(discordUserID)]
-	return ok
+	return s.queries.IsInstanceAdmin(ctx, db.IsInstanceAdminParams{
+		InstanceID:    instanceID,
+		DiscordUserID: strings.TrimSpace(discordUserID),
+	})
 }
 
-func (s *Server) canViewSecretParticipantData(discordUserID string, participant db.GetParticipantRow) bool {
-	if s.isDiscordAdmin(discordUserID) {
-		return true
+func (s *Server) canViewSecretParticipantData(ctx context.Context, instanceID pgtype.UUID, discordUserID string, participant db.GetParticipantRow) (bool, error) {
+	if participant.DiscordUserID.Valid {
+		if strings.TrimSpace(participant.DiscordUserID.String) != "" && participant.DiscordUserID.String == strings.TrimSpace(discordUserID) {
+			return true, nil
+		}
 	}
-	if !participant.DiscordUserID.Valid {
-		return false
-	}
-	return strings.TrimSpace(participant.DiscordUserID.String) != "" && participant.DiscordUserID.String == strings.TrimSpace(discordUserID)
+	return s.isInstanceAdmin(ctx, instanceID, discordUserID)
 }

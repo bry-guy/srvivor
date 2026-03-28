@@ -15,7 +15,6 @@ type Config struct {
 	ServiceAuthEnabled      bool
 	ServiceAuthBearerTokens []string
 	ServiceAuthPrincipal    string
-	DiscordAdminUserIDs     []string
 }
 
 func Load() (*Config, error) {
@@ -38,7 +37,6 @@ func Load() (*Config, error) {
 	}
 	cfg.ServiceAuthEnabled = serviceAuthEnabled
 	cfg.ServiceAuthBearerTokens = parseCSV(getEnv("SERVICE_AUTH_BEARER_TOKENS", ""))
-	cfg.DiscordAdminUserIDs = parseCSV(getEnv("DISCORD_ADMIN_USER_IDS", ""))
 
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")

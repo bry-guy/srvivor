@@ -372,22 +372,28 @@ func (c *Client) GetLinkedParticipant(ctx context.Context, instanceID, discordUs
 	return response.Participant, nil
 }
 
-func (c *Client) LinkDiscordUser(ctx context.Context, instanceID, participantID, discordUserID string) (Participant, error) {
+func (c *Client) LinkDiscordUser(ctx context.Context, instanceID, participantID, actorDiscordUserID, targetDiscordUserID string) (Participant, error) {
 	var response struct {
 		Participant Participant `json:"participant"`
 	}
-	headers := requestHeadersForDiscordUser(discordUserID)
-	if err := c.doJSON(ctx, http.MethodPut, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "discord-link")), headers, &response); err != nil {
+	requestURL := c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "discord-link"))
+	if trimmed := strings.TrimSpace(targetDiscordUserID); trimmed != "" {
+		query := requestURL.Query()
+		query.Set("discord_user_id", trimmed)
+		requestURL.RawQuery = query.Encode()
+	}
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
+	if err := c.doJSON(ctx, http.MethodPut, requestURL, headers, &response); err != nil {
 		return Participant{}, err
 	}
 	return response.Participant, nil
 }
 
-func (c *Client) UnlinkDiscordUser(ctx context.Context, instanceID, participantID, discordUserID string) (Participant, error) {
+func (c *Client) UnlinkDiscordUser(ctx context.Context, instanceID, participantID, actorDiscordUserID string) (Participant, error) {
 	var response struct {
 		Participant Participant `json:"participant"`
 	}
-	headers := requestHeadersForDiscordUser(discordUserID)
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
 	if err := c.doJSON(ctx, http.MethodDelete, c.endpoint(path.Join("/instances", instanceID, "participants", participantID, "discord-link")), headers, &response); err != nil {
 		return Participant{}, err
 	}

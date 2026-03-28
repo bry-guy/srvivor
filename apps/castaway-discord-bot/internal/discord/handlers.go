@@ -116,9 +116,6 @@ func (b *Bot) commandShouldBeEphemeral(ctx context.Context, interaction *discord
 	case "link", "unlink":
 		return true, nil
 	case "score", "history":
-		if b.isDiscordAdmin(interactionUserID(interaction)) {
-			return true, nil
-		}
 		season, err := seasonOptionValue(command)
 		if err != nil {
 			return true, err
@@ -127,7 +124,11 @@ func (b *Bot) commandShouldBeEphemeral(ctx context.Context, interaction *discord
 		if err != nil {
 			return true, err
 		}
-		participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
+		participantOption := optionString(command, "participant")
+		if participantOption == "" {
+			return true, nil
+		}
+		participant, err := b.resolveParticipant(ctx, instance.ID, participantOption)
 		if err != nil {
 			return true, err
 		}
@@ -145,11 +146,6 @@ func (b *Bot) commandShouldBeEphemeral(ctx context.Context, interaction *discord
 	}
 }
 
-func (b *Bot) isDiscordAdmin(userID string) bool {
-	_, ok := b.discordAdminUserIDs[strings.TrimSpace(userID)]
-	return ok
-}
-
 func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
 	season, err := seasonOptionValue(command)
 	if err != nil {
@@ -159,7 +155,7 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 	if err != nil {
 		return "", err
 	}
-	participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
+	participant, err := b.resolveRequestedOrLinkedParticipant(ctx, interaction, instance.ID, optionString(command, "participant"))
 	if err != nil {
 		return "", err
 	}
@@ -353,7 +349,7 @@ func (b *Bot) handleHistory(ctx context.Context, interaction *discordgo.Interact
 	if err != nil {
 		return "", err
 	}
-	participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
+	participant, err := b.resolveRequestedOrLinkedParticipant(ctx, interaction, instance.ID, optionString(command, "participant"))
 	if err != nil {
 		return "", err
 	}
@@ -383,11 +379,19 @@ func (b *Bot) handleLink(ctx context.Context, interaction *discordgo.Interaction
 	if err != nil {
 		return "", err
 	}
-	linked, err := b.castaway.LinkDiscordUser(ctx, instance.ID, participant.ID, interactionUserID(interaction))
+	targetDiscordUserID := optionUserID(command, "user")
+	if targetDiscordUserID == "" {
+		return "", fmt.Errorf("user is required")
+	}
+	linked, err := b.castaway.LinkDiscordUser(ctx, instance.ID, participant.ID, interactionUserID(interaction), targetDiscordUserID)
 	if err != nil {
+		var apiErr *castaway.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+			return "", fmt.Errorf("link is admin-only; ask a Castaway admin to run this command")
+		}
 		return "", err
 	}
-	return fmt.Sprintf("Linked your Discord account to %s in %s.", linked.Name, format.InstanceLabel(instance)), nil
+	return fmt.Sprintf("Linked %s to <@%s> in %s.", linked.Name, targetDiscordUserID, format.InstanceLabel(instance)), nil
 }
 
 func (b *Bot) handleUnlink(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -399,19 +403,19 @@ func (b *Bot) handleUnlink(ctx context.Context, interaction *discordgo.Interacti
 	if err != nil {
 		return "", err
 	}
-	participant, err := b.castaway.GetLinkedParticipant(ctx, instance.ID, interactionUserID(interaction))
+	participant, err := b.resolveParticipant(ctx, instance.ID, optionString(command, "participant"))
 	if err != nil {
-		var apiErr *castaway.APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
-			return "", fmt.Errorf("you are not linked to a participant in %s", format.InstanceLabel(instance))
-		}
 		return "", err
 	}
 	unlinked, err := b.castaway.UnlinkDiscordUser(ctx, instance.ID, participant.ID, interactionUserID(interaction))
 	if err != nil {
+		var apiErr *castaway.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+			return "", fmt.Errorf("unlink is admin-only; ask a Castaway admin to run this command")
+		}
 		return "", err
 	}
-	return fmt.Sprintf("Unlinked your Discord account from %s in %s.", unlinked.Name, format.InstanceLabel(instance)), nil
+	return fmt.Sprintf("Unlinked Discord account from %s in %s.", unlinked.Name, format.InstanceLabel(instance)), nil
 }
 
 func (b *Bot) handleInstanceList(ctx context.Context, command commandSpec) (string, error) {
@@ -738,6 +742,21 @@ func (b *Bot) resolveParticipant(ctx context.Context, instanceID, raw string) (c
 	return selectParticipantByName(raw, participants)
 }
 
+func (b *Bot) resolveRequestedOrLinkedParticipant(ctx context.Context, interaction *discordgo.InteractionCreate, instanceID, participantOption string) (castaway.Participant, error) {
+	if strings.TrimSpace(participantOption) != "" {
+		return b.resolveParticipant(ctx, instanceID, participantOption)
+	}
+	participant, err := b.castaway.GetLinkedParticipant(ctx, instanceID, interactionUserID(interaction))
+	if err == nil {
+		return participant, nil
+	}
+	var apiErr *castaway.APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+		return castaway.Participant{}, fmt.Errorf("you are not linked to a participant in this instance; ask a Castaway admin to run /castaway link")
+	}
+	return castaway.Participant{}, err
+}
+
 func (b *Bot) instanceFromStoredDefault(ctx context.Context, guildID, userID string, season *int32) (castaway.Instance, bool, error) {
 	storedID, err := b.state.GetUserDefault(guildID, userID)
 	if err != nil {
@@ -862,6 +881,22 @@ func optionString(command commandSpec, name string) string {
 		if option.Name == name {
 			return strings.TrimSpace(option.StringValue())
 		}
+	}
+	return ""
+}
+
+func optionUserID(command commandSpec, name string) string {
+	for _, option := range command.options {
+		if option.Name != name {
+			continue
+		}
+		if option.Type == discordgo.ApplicationCommandOptionUser {
+			if userID, ok := option.Value.(string); ok {
+				return strings.TrimSpace(userID)
+			}
+			return strings.TrimSpace(option.StringValue())
+		}
+		return ""
 	}
 	return ""
 }

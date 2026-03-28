@@ -39,7 +39,6 @@ func TestLoadAcceptsPostgresBackendAndAPIAuthToken(t *testing.T) {
 	t.Setenv("BOT_STATE_BACKEND", "postgres")
 	t.Setenv("BOT_STATE_DATABASE_URL", "postgres://bot:secret@localhost:5432/castaway_discord_bot?sslmode=disable")
 	t.Setenv("CASTAWAY_API_AUTH_TOKEN", "shared-token")
-	t.Setenv("DISCORD_ADMIN_USER_IDS", " admin-1, admin-2 ,admin-1 ,, ")
 
 	cfg, err := Load()
 	if err != nil {
@@ -50,8 +49,5 @@ func TestLoadAcceptsPostgresBackendAndAPIAuthToken(t *testing.T) {
 	}
 	if cfg.CastawayAPIAuthToken != "shared-token" {
 		t.Fatalf("unexpected api auth token: %q", cfg.CastawayAPIAuthToken)
-	}
-	if len(cfg.DiscordAdminUserIDs) != 2 || cfg.DiscordAdminUserIDs[0] != "admin-1" || cfg.DiscordAdminUserIDs[1] != "admin-2" {
-		t.Fatalf("unexpected discord admin user ids: %v", cfg.DiscordAdminUserIDs)
 	}
 }

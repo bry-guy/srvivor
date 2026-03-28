@@ -500,7 +500,7 @@ func TestParticipantDiscordLinkAndPrivateViews(t *testing.T) {
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, alice.ID, occurrence.ID, pgtype.UUID{}, "award", 2, "public", "public award", "alice-public")
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, alice.ID, occurrence.ID, pgtype.UUID{}, "award", 5, "secret", "secret award", "alice-secret")
 
-	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{DiscordAdminUserIDs: []string{"admin-1"}}))
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{}))
 	router := server.Router()
 
 	linkReq := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/instances/%s/participants/%s/discord-link", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(alice.ID.Bytes).String()), nil)
