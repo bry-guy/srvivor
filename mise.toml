@@ -55,3 +55,15 @@ run = "mise run //apps/castaway-web:seed"
 [tasks.openapi]
 description = "Generate OpenAPI from TypeSpec"
 run = "mise run //apps/castaway-web:openapi"
+
+[tasks.pi]
+description = "Launch pi with an ephemeral 1Password service account token"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+export OP_SERVICE_ACCOUNT_TOKEN="$(op read 'op://bry-guy/OP_SERVICE_ACCOUNT_TOKEN/credential')"
+
+exec pi "$@"
+'''
+
