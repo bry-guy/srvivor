@@ -365,7 +365,10 @@ func (b *Bot) handleHistory(ctx context.Context, interaction *discordgo.Interact
 	if history.Participant.ID == "" {
 		history.Participant = participant
 	}
-	if history.Instance.ID == "" {
+	fullInstance, fullInstanceErr := b.castaway.GetInstance(ctx, instance.ID)
+	if fullInstanceErr == nil {
+		history.Instance = fullInstance
+	} else if history.Instance.ID == "" {
 		history.Instance = instance
 	}
 	return format.ParticipantHistory(history), nil

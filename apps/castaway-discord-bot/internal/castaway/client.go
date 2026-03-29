@@ -23,11 +23,12 @@ type Options struct {
 }
 
 type Instance struct {
-	ID             string           `json:"id"`
-	Name           string           `json:"name"`
-	Season         int32            `json:"season"`
-	CreatedAt      string           `json:"created_at"`
-	CurrentEpisode *InstanceEpisode `json:"current_episode,omitempty"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Season         int32             `json:"season"`
+	CreatedAt      string            `json:"created_at"`
+	CurrentEpisode *InstanceEpisode  `json:"current_episode,omitempty"`
+	Episodes       []InstanceEpisode `json:"episodes,omitempty"`
 }
 
 type InstanceEpisode struct {
@@ -273,11 +274,13 @@ func (c *Client) ListInstances(ctx context.Context, opts ListInstancesOptions) (
 
 func (c *Client) GetInstance(ctx context.Context, instanceID string) (Instance, error) {
 	var response struct {
-		Instance Instance `json:"instance"`
+		Instance Instance          `json:"instance"`
+		Episodes []InstanceEpisode `json:"episodes"`
 	}
 	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID)), nil, &response); err != nil {
 		return Instance{}, err
 	}
+	response.Instance.Episodes = response.Episodes
 	return response.Instance, nil
 }
 

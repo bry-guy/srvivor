@@ -22,7 +22,15 @@ func InstanceLabel(instance castaway.Instance) string {
 }
 
 func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow, publicBonusPoints, secretBonusPoints int) string {
-	content := fmt.Sprintf("**%s**\n%s — %s", InstanceLabel(instance), row.ParticipantName, singleScoreSummary(row, publicBonusPoints, secretBonusPoints))
+	pointsAvailable := row.PointsAvailable - secretBonusPoints
+	content := strings.Join([]string{
+		fmt.Sprintf("**Season %d: %s Points**", instance.Season, row.ParticipantName),
+		fmt.Sprintf("%s: %d points", row.ParticipantName, row.Total()),
+		fmt.Sprintf("- Draft Points: %d", row.Draft()),
+		fmt.Sprintf("- Bonus Points: %d", publicBonusPoints),
+		fmt.Sprintf("- Secret Bonus Points: %d", secretBonusPoints),
+		fmt.Sprintf("- Points Available: %d", pointsAvailable),
+	}, "\n")
 	return TrimMessage(content)
 }
 
@@ -46,20 +54,6 @@ func scoreSummary(row castaway.LeaderboardRow, includePointsLabel bool, includeP
 		return fmt.Sprintf("%d%s (%d%+d)", row.Total(), label, row.Draft(), row.Bonus())
 	}
 	return fmt.Sprintf("%d%s (%d%+d; points available: %d)", row.Total(), label, row.Draft(), row.Bonus(), row.PointsAvailable)
-}
-
-func singleScoreSummary(row castaway.LeaderboardRow, publicBonusPoints, secretBonusPoints int) string {
-	parts := []string{fmt.Sprintf("draft %d", row.Draft())}
-	if publicBonusPoints != 0 {
-		parts = append(parts, fmt.Sprintf("bonus %d public", publicBonusPoints))
-	}
-	if secretBonusPoints != 0 {
-		parts = append(parts, fmt.Sprintf("%d secret", secretBonusPoints))
-	}
-	if publicBonusPoints == 0 && secretBonusPoints == 0 {
-		parts = append(parts, "bonus 0")
-	}
-	return fmt.Sprintf("%d points (%s; points available: %d)", row.Total(), strings.Join(parts, " + "), row.PointsAvailable)
 }
 
 func Draft(instance castaway.Instance, draft castaway.Draft) string {
@@ -240,37 +234,33 @@ func OccurrenceDetail(detail castaway.OccurrenceDetail, activity castaway.Activi
 
 func ParticipantHistory(history castaway.ParticipantActivityHistory) string {
 	var builder strings.Builder
-	builder.WriteString("**")
-	builder.WriteString(history.Participant.Name)
-	builder.WriteString(" — Activity History**\n")
-	builder.WriteString(InstanceLabel(history.Instance))
-	if len(history.Activities) == 0 {
+	builder.WriteString(fmt.Sprintf("**Season %d: %s History**", history.Instance.Season, history.Participant.Name))
+
+	episodeGroups := groupHistoryByEpisode(history)
+	if len(episodeGroups) == 0 {
 		builder.WriteString("\n\nNo activity history found.")
 		return TrimMessage(builder.String())
 	}
 
-	for activityIndex, activity := range history.Activities {
-		if activityIndex > 0 {
+	for index, group := range episodeGroups {
+		builder.WriteString("\n\n**")
+		builder.WriteString(group.label)
+		builder.WriteString("**\n")
+		if len(group.items) == 0 {
+			builder.WriteString("\nn/a")
+			continue
+		}
+		if index > 0 {
 			builder.WriteString("\n")
 		}
-		builder.WriteString("\n**")
-		builder.WriteString(activity.Activity.Name)
-		builder.WriteString("**\n")
-
-		for _, item := range activity.Occurrences {
-			label := strings.TrimSpace(item.Occurrence.Name)
-			if label == "" {
-				label = "Recorded event"
+		for itemIndex, item := range group.items {
+			if itemIndex > 0 {
+				builder.WriteString("\n")
 			}
-			builder.WriteString("- ")
-			builder.WriteString(label)
-			if when := strings.TrimSpace(item.Occurrence.EffectiveAt); when != "" {
-				builder.WriteString(" @ ")
-				builder.WriteString(formatTime(when))
-			}
+			builder.WriteString(item.activityName)
 			builder.WriteString("\n")
-			for _, detail := range historyOccurrenceDetails(item) {
-				builder.WriteString("  - ")
+			for _, detail := range item.details {
+				builder.WriteString("- ")
 				builder.WriteString(detail)
 				builder.WriteString("\n")
 			}
@@ -280,8 +270,83 @@ func ParticipantHistory(history castaway.ParticipantActivityHistory) string {
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func historyOccurrenceDetails(item castaway.ParticipantActivityHistoryOccurrence) []string {
-	lines := make([]string, 0, 3)
+type historyEpisodeGroup struct {
+	label string
+	items []historyEpisodeItem
+}
+
+type historyEpisodeItem struct {
+	activityName string
+	details      []string
+}
+
+func groupHistoryByEpisode(history castaway.ParticipantActivityHistory) []historyEpisodeGroup {
+	groups := make([]historyEpisodeGroup, 0)
+	groupIndex := make(map[int32]int)
+	for _, episode := range history.Instance.Episodes {
+		label := strings.TrimSpace(episode.Label)
+		if label == "" {
+			label = fmt.Sprintf("Episode %d", episode.EpisodeNumber)
+		}
+		groups = append(groups, historyEpisodeGroup{label: label})
+		groupIndex[episode.EpisodeNumber] = len(groups) - 1
+	}
+	if len(groups) == 0 {
+		groups = append(groups, historyEpisodeGroup{label: "History"})
+		groupIndex[0] = 0
+	}
+
+	for _, activity := range history.Activities {
+		for _, occurrence := range activity.Occurrences {
+			episodeNumber := historyEpisodeNumberForOccurrence(history.Instance.Episodes, occurrence.Occurrence.EffectiveAt)
+			index, ok := groupIndex[episodeNumber]
+			if !ok {
+				label := fmt.Sprintf("Episode %d", episodeNumber)
+				groups = append(groups, historyEpisodeGroup{label: label})
+				index = len(groups) - 1
+				groupIndex[episodeNumber] = index
+			}
+			groups[index].items = append(groups[index].items, historyEpisodeItem{
+				activityName: activity.Activity.Name,
+				details:      historyEpisodeDetails(occurrence),
+			})
+		}
+	}
+	return groups
+}
+
+func historyEpisodeNumberForOccurrence(episodes []castaway.InstanceEpisode, effectiveAt string) int32 {
+	if len(episodes) == 0 {
+		return 0
+	}
+	when, ok := parseTimeValue(effectiveAt)
+	if !ok {
+		return 0
+	}
+	current := episodes[0].EpisodeNumber
+	for _, episode := range episodes {
+		airsAt, ok := parseTimeValue(episode.AirsAt)
+		if !ok {
+			continue
+		}
+		if when.Before(airsAt) {
+			break
+		}
+		current = episode.EpisodeNumber
+	}
+	return current
+}
+
+func historyEpisodeDetails(item castaway.ParticipantActivityHistoryOccurrence) []string {
+	lines := make([]string, 0, 4)
+	label := strings.TrimSpace(item.Occurrence.Name)
+	if label == "" {
+		label = "Recorded event"
+	}
+	if when := strings.TrimSpace(item.Occurrence.EffectiveAt); when != "" {
+		label += " @ " + formatTime(when)
+	}
+	lines = append(lines, label)
 	if action := historyActionSummary(item.Involvement); action != "" {
 		lines = append(lines, "action: "+action)
 	}
@@ -553,14 +618,21 @@ func visibilityLabel(visibility string) string {
 	return strings.TrimSpace(visibility)
 }
 
-func formatTime(raw string) string {
+func parseTimeValue(raw string) (time.Time, bool) {
 	for _, layout := range []string{
 		"2006-01-02T15:04:05Z07:00",
 		"2006-01-02T15:04:05Z",
 	} {
 		if t, err := time.Parse(layout, raw); err == nil {
-			return t.Format("Jan 2 15:04")
+			return t, true
 		}
+	}
+	return time.Time{}, false
+}
+
+func formatTime(raw string) string {
+	if t, ok := parseTimeValue(raw); ok {
+		return t.Format("Jan 2 15:04")
 	}
 	return raw
 }

@@ -23,7 +23,7 @@ func TestSingleScoreIncludesTotalDraftAndBonus(t *testing.T) {
 	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}
 
 	message := SingleScore(instance, row, 5, 0)
-	expected := "**Season 49 — Office Pool**\nBryan — 26 points (draft 21 + bonus 5 public; points available: 46)"
+	expected := "**Season 49: Bryan Points**\nBryan: 26 points\n- Draft Points: 21\n- Bonus Points: 5\n- Secret Bonus Points: 0\n- Points Available: 46"
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -34,7 +34,7 @@ func TestSingleScoreIncludesSecretBonusBreakdown(t *testing.T) {
 	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 8, DraftPoints: 3, BonusPoints: 5, TotalPoints: 8, PointsAvailable: 246}
 
 	message := SingleScore(instance, row, 4, 1)
-	expected := "**Season 50 — Office Pool**\nBryan — 8 points (draft 3 + bonus 4 public + 1 secret; points available: 246)"
+	expected := "**Season 50: Bryan Points**\nBryan: 8 points\n- Draft Points: 3\n- Bonus Points: 4\n- Secret Bonus Points: 1\n- Points Available: 245"
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -149,7 +149,12 @@ func TestOccurrenceDetailFormatsRecordedAndImpactSections(t *testing.T) {
 func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 	history := castaway.ParticipantActivityHistory{
 		Participant: castaway.Participant{ID: "p1", Name: "Mooney"},
-		Instance:    castaway.Instance{ID: "i1", Name: "Season 50", Season: 50},
+		Instance: castaway.Instance{ID: "i1", Name: "Season 50", Season: 50, Episodes: []castaway.InstanceEpisode{
+			{ID: "e0", EpisodeNumber: 0, Label: "Episode 0", AirsAt: "2026-02-26T00:00:00Z"},
+			{ID: "e1", EpisodeNumber: 1, Label: "Episode 1", AirsAt: "2026-03-05T00:00:00Z"},
+			{ID: "e2", EpisodeNumber: 2, Label: "Episode 2", AirsAt: "2026-03-12T00:00:00Z"},
+			{ID: "e3", EpisodeNumber: 3, Label: "Episode 3", AirsAt: "2026-03-19T00:00:00Z"},
+		}},
 		Activities: []castaway.ParticipantActivityHistoryActivity{
 			{
 				Activity: castaway.Activity{ID: "a1", Name: "Journey 1", ActivityType: "journey"},
@@ -178,19 +183,24 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 
 	message := ParticipantHistory(history)
 	for _, fragment := range []string{
-		"**Mooney — Activity History**",
-		"**Journey 1**",
-		"- Lost for Words — Mooney @ Mar 14 02:00",
-		"  - action: delegate, group=Leaf",
-		"  - result: risked",
-		"  - impact: +1 secret",
-		"**Monty Hall Memorial Castaway Game**",
-		"- Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus) @ Mar 19 01:02",
-		"  - action: adjustment",
-		"  - result: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-		"**Tribal Pony**",
+		"**Season 50: Mooney History**",
+		"**Episode 0**",
+		"n/a",
+		"**Episode 1**",
+		"Tribal Pony",
 		"- Episode 1 Immunity @ Mar 5 01:00",
-		"  - impact: +1 public",
+		"- impact: +1 public",
+		"**Episode 2**",
+		"Journey 1",
+		"- Lost for Words — Mooney @ Mar 14 02:00",
+		"- action: delegate, group=Leaf",
+		"- result: risked",
+		"- impact: +1 secret",
+		"**Episode 3**",
+		"Monty Hall Memorial Castaway Game",
+		"- Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus) @ Mar 19 01:02",
+		"- action: adjustment",
+		"- result: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
 	} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)

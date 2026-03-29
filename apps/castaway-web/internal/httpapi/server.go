@@ -285,8 +285,24 @@ func (s *Server) getInstance(c *gin.Context) {
 		return
 	}
 
+	episodeRows, err := s.queries.ListInstanceEpisodes(c.Request.Context(), instance.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	episodes := make([]gin.H, 0, len(episodeRows))
+	for _, episode := range episodeRows {
+		episodes = append(episodes, gin.H{
+			"id":             pgUUIDString(episode.ID),
+			"episode_number": episode.EpisodeNumber,
+			"label":          episode.Label,
+			"airs_at":        formatTimestamp(episode.AirsAt),
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"instance":     instanceJSON,
+		"episodes":     episodes,
 		"contestants":  contestantResponse,
 		"participants": participantResponse,
 	})

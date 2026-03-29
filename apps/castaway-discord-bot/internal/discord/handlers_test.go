@@ -51,7 +51,7 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := "**Season 49 — Historical Season 49**\nBryan — 81 points (draft 76 + bonus 5 public; points available: -198)"
+	expected := "**Season 49: Bryan Points**\nBryan: 81 points\n- Draft Points: 76\n- Bonus Points: 5\n- Secret Bonus Points: 0\n- Points Available: -198"
 	if message != expected {
 		t.Fatalf("unexpected score message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -77,7 +77,7 @@ func TestScoreCommandRegression_IncludesPrivateBonusForLinkedSelf(t *testing.T) 
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if message != "**Season 50 — Historical Season 50**\nBryan — 81 points (draft 76 + bonus 2 public + 3 secret; points available: -198)" {
+	if message != "**Season 50: Bryan Points**\nBryan: 81 points\n- Draft Points: 76\n- Bonus Points: 2\n- Secret Bonus Points: 3\n- Points Available: -201" {
 		t.Fatalf("unexpected private score message: %q", message)
 	}
 }
@@ -312,7 +312,10 @@ func TestOccurrenceCommandRegression_ShowsDetailedOccurrence(t *testing.T) {
 
 func TestHistoryCommandRegression_ShowsParticipantActivityHistory(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
-		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50, Episodes: []castaway.InstanceEpisode{
+			{ID: "e0", EpisodeNumber: 0, Label: "Episode 0", AirsAt: "2026-03-01T00:00:00Z"},
+			{ID: "e1", EpisodeNumber: 1, Label: "Episode 1", AirsAt: "2026-03-10T00:00:00Z"},
+		}}},
 		participantsByInstance:      map[string][]castaway.Participant{"instance-50": {{ID: "participant-mooney", Name: "Mooney"}}},
 		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-mooney", Name: "Mooney"}}},
 		historyByParticipant: map[string]castaway.ParticipantActivityHistory{"participant-mooney": {
@@ -336,7 +339,7 @@ func TestHistoryCommandRegression_ShowsParticipantActivityHistory(t *testing.T) 
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	for _, fragment := range []string{"**Mooney — Activity History**", "**Journey 1**", "impact: +1 secret"} {
+	for _, fragment := range []string{"**Season 50: Mooney History**", "**Episode 0**", "n/a", "**Episode 1**", "Journey 1", "impact: +1 secret"} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
@@ -524,7 +527,7 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 
 		switch {
 		case len(parts) == 2 && r.Method == http.MethodGet:
-			writeJSON(http.StatusOK, map[string]any{"instance": instance})
+			writeJSON(http.StatusOK, map[string]any{"instance": instance, "episodes": instance.Episodes})
 		case len(parts) == 3 && parts[2] == "participants" && r.Method == http.MethodGet:
 			participants := api.participantsByInstance[instanceID]
 			if nameFilter := strings.TrimSpace(r.URL.Query().Get("name")); nameFilter != "" {
