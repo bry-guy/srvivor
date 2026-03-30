@@ -75,13 +75,15 @@ func TestActivityDetailFormatsAssignmentsAndOccurrences(t *testing.T) {
 
 	message := ActivityDetail(detail, occurrences, instance)
 	for _, fragment := range []string{
-		"**Journey 1**",
-		"Instance: Season 50",
+		"**Season 50: Journey 1**",
+		"- Type: journey",
+		"- Status: completed",
 		"**Assignments**",
 		"Leaf — role=tribe",
 		"Mooney — role=delegate, group=Leaf",
 		"**Occurrences**",
 		"Journey 1 Attendance",
+		"- Status: resolved",
 	} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
@@ -103,8 +105,12 @@ func TestOccurrencesListFormatsDetailedCompactOutput(t *testing.T) {
 
 	message := OccurrencesList(activity, details)
 	expected := strings.Join([]string{
-		"**Tribal Pony — Occurrences**",
-		"- **Ep 1 Immunity** (immunity_result) — resolved @ Mar 5 01:00 · impact: Amanda — +1 public; Bryan — +1 public",
+		"**Tribal Pony: Occurrences**",
+		"Ep 1 Immunity",
+		"- Status: resolved",
+		"- Date: Mar 5 01:00",
+		"- Impact: Amanda — +1 public",
+		"- Impact: Bryan — +1 public",
 	}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
@@ -134,7 +140,9 @@ func TestOccurrenceDetailFormatsRecordedAndImpactSections(t *testing.T) {
 	message := OccurrenceDetail(detail, activity)
 	for _, fragment := range []string{
 		"**Journey 1 Tribal Diplomacy**",
-		"Activity: Journey 1",
+		"- Activity: Journey 1",
+		"- Type: journey_resolution",
+		"- Status: resolved",
 		"**Recorded**",
 		"Adam — role=delegate, result=STEAL, group=Tangerine",
 		"**Impact**",

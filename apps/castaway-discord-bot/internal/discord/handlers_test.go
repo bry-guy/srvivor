@@ -257,7 +257,7 @@ func TestActivityCommandRegression_ShowsDetailedActivity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	for _, fragment := range []string{"**Journey 1**", "**Assignments**", "Mooney — role=delegate, group=Leaf", "**Occurrences**", "Journey 1 Attendance"} {
+	for _, fragment := range []string{"**Season 50: Journey 1**", "- Type: journey", "**Assignments**", "Mooney — role=delegate, group=Leaf", "**Occurrences**", "Journey 1 Attendance"} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
@@ -279,8 +279,10 @@ func TestOccurrencesCommandRegression_ListsOccurrencesWithImpactSummary(t *testi
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if !strings.Contains(message, "impact: Amanda — +1 public; Bryan — +1 public") {
-		t.Fatalf("expected richer occurrence impact in %q", message)
+	for _, fragment := range []string{"Episode 1 Immunity", "- Status: resolved", "- Impact: Amanda — +1 public", "- Impact: Bryan — +1 public"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
 	}
 }
 
@@ -303,7 +305,7 @@ func TestOccurrenceCommandRegression_ShowsDetailedOccurrence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	for _, fragment := range []string{"**Journey 1 Tribal Diplomacy**", "**Recorded**", "Adam — role=delegate, result=STEAL, group=Tangerine", "**Impact**"} {
+	for _, fragment := range []string{"**Journey 1 Tribal Diplomacy**", "- Activity: Journey 1", "- Type: journey_resolution", "**Recorded**", "Adam — role=delegate, result=STEAL, group=Tangerine", "**Impact**"} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}

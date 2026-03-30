@@ -92,26 +92,18 @@ func ActivitiesList(instance castaway.Instance, activities []castaway.Activity) 
 func ActivityDetail(detail castaway.ActivityDetail, occurrences []castaway.Occurrence, instance castaway.Instance) string {
 	activity := detail.Activity
 	var builder strings.Builder
-	builder.WriteString("**")
-	builder.WriteString(activity.Name)
-	builder.WriteString("**\n")
-	builder.WriteString("Instance: ")
-	builder.WriteString(InstanceLabel(instance))
-	builder.WriteString("\nType: ")
-	builder.WriteString(activity.ActivityType)
-	builder.WriteString("\nStatus: ")
-	builder.WriteString(activity.Status)
+	builder.WriteString(fmt.Sprintf("**Season %d: %s**\n", instance.Season, activity.Name))
+	builder.WriteString(fmt.Sprintf("- Type: %s\n", activity.ActivityType))
+	builder.WriteString(fmt.Sprintf("- Status: %s\n", activity.Status))
 	if when := strings.TrimSpace(activity.StartsAt); when != "" {
-		builder.WriteString("\nStarts: ")
-		builder.WriteString(formatTimeLong(when))
+		builder.WriteString(fmt.Sprintf("- Starts: %s\n", formatTimeLong(when)))
 	}
 	if when := strings.TrimSpace(activity.EndsAt); when != "" {
-		builder.WriteString("\nEnds: ")
-		builder.WriteString(formatTimeLong(when))
+		builder.WriteString(fmt.Sprintf("- Ends: %s\n", formatTimeLong(when)))
 	}
 
 	if lines := activityAssignmentLines(detail); len(lines) > 0 {
-		builder.WriteString("\n\n**Assignments**\n")
+		builder.WriteString("\n**Assignments**\n")
 		for _, line := range lines {
 			builder.WriteString("- ")
 			builder.WriteString(line)
@@ -122,17 +114,13 @@ func ActivityDetail(detail castaway.ActivityDetail, occurrences []castaway.Occur
 	if len(occurrences) > 0 {
 		builder.WriteString("\n**Occurrences**\n")
 		for _, occurrence := range occurrences {
-			builder.WriteString("- **")
 			builder.WriteString(occurrence.Name)
-			builder.WriteString("** (")
-			builder.WriteString(occurrence.OccurrenceType)
-			builder.WriteString(") — ")
-			builder.WriteString(occurrence.Status)
-			if when := strings.TrimSpace(occurrence.EffectiveAt); when != "" {
-				builder.WriteString(" @ ")
-				builder.WriteString(formatTime(when))
-			}
 			builder.WriteString("\n")
+			builder.WriteString(fmt.Sprintf("- Type: %s\n", occurrence.OccurrenceType))
+			builder.WriteString(fmt.Sprintf("- Status: %s\n", occurrence.Status))
+			if when := strings.TrimSpace(occurrence.EffectiveAt); when != "" {
+				builder.WriteString(fmt.Sprintf("- Date: %s\n", formatTime(when)))
+			}
 		}
 	}
 
@@ -176,41 +164,38 @@ func OccurrencesList(activity castaway.Activity, details []castaway.OccurrenceDe
 		return fmt.Sprintf("**%s**\nNo occurrences found.", activity.Name)
 	}
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**%s — Occurrences**\n", activity.Name))
-	for _, detail := range details {
-		builder.WriteString("- **")
-		builder.WriteString(detail.Occurrence.Name)
-		builder.WriteString("** (")
-		builder.WriteString(detail.Occurrence.OccurrenceType)
-		builder.WriteString(") — ")
-		builder.WriteString(detail.Occurrence.Status)
-		builder.WriteString(" @ ")
-		builder.WriteString(formatTime(detail.Occurrence.EffectiveAt))
-		if impact := compactOccurrenceImpact(detail); impact != "" {
-			builder.WriteString(" · ")
-			builder.WriteString(impact)
+	builder.WriteString(fmt.Sprintf("**%s: Occurrences**\n", activity.Name))
+	for detailIndex, detail := range details {
+		if detailIndex > 0 {
+			builder.WriteString("\n")
 		}
+		builder.WriteString(detail.Occurrence.Name)
 		builder.WriteString("\n")
+		builder.WriteString(fmt.Sprintf("- Status: %s\n", detail.Occurrence.Status))
+		if when := strings.TrimSpace(detail.Occurrence.EffectiveAt); when != "" {
+			builder.WriteString(fmt.Sprintf("- Date: %s\n", formatTime(when)))
+		}
+		if awards := ledgerLines(detail.Ledger); len(awards) > 0 {
+			for _, line := range awards {
+				builder.WriteString("- Impact: ")
+				builder.WriteString(line)
+				builder.WriteString("\n")
+			}
+		}
 	}
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
 func OccurrenceDetail(detail castaway.OccurrenceDetail, activity castaway.Activity) string {
 	var builder strings.Builder
-	builder.WriteString("**")
-	builder.WriteString(detail.Occurrence.Name)
-	builder.WriteString("**\n")
-	builder.WriteString("Activity: ")
-	builder.WriteString(activity.Name)
-	builder.WriteString("\nType: ")
-	builder.WriteString(detail.Occurrence.OccurrenceType)
-	builder.WriteString("\nStatus: ")
-	builder.WriteString(detail.Occurrence.Status)
-	builder.WriteString("\nEffective: ")
-	builder.WriteString(formatTimeLong(detail.Occurrence.EffectiveAt))
+	builder.WriteString(fmt.Sprintf("**%s**\n", detail.Occurrence.Name))
+	builder.WriteString(fmt.Sprintf("- Activity: %s\n", activity.Name))
+	builder.WriteString(fmt.Sprintf("- Type: %s\n", detail.Occurrence.OccurrenceType))
+	builder.WriteString(fmt.Sprintf("- Status: %s\n", detail.Occurrence.Status))
+	builder.WriteString(fmt.Sprintf("- Date: %s\n", formatTimeLong(detail.Occurrence.EffectiveAt)))
 
 	if recorded := recordedLines(detail); len(recorded) > 0 {
-		builder.WriteString("\n\n**Recorded**\n")
+		builder.WriteString("\n**Recorded**\n")
 		for _, line := range recorded {
 			builder.WriteString("- ")
 			builder.WriteString(line)
