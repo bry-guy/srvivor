@@ -36,9 +36,7 @@ func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow, public
 
 func Leaderboard(instance castaway.Instance, rows []castaway.LeaderboardRow) string {
 	var builder strings.Builder
-	builder.WriteString("**")
-	builder.WriteString(InstanceLabel(instance))
-	builder.WriteString("**\n")
+	builder.WriteString(fmt.Sprintf("**Season %d: Leaderboard**\n", instance.Season))
 	for index, row := range rows {
 		builder.WriteString(fmt.Sprintf("%d. %s — %s\n", index+1, row.ParticipantName, scoreSummary(row, false, false)))
 	}
@@ -58,7 +56,7 @@ func scoreSummary(row castaway.LeaderboardRow, includePointsLabel bool, includeP
 
 func Draft(instance castaway.Instance, draft castaway.Draft) string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**%s Draft** — %s\n", draft.Participant.Name, InstanceLabel(instance)))
+	builder.WriteString(fmt.Sprintf("**Season %d: %s Draft**\n", instance.Season, draft.Participant.Name))
 	for _, pick := range draft.Picks {
 		builder.WriteString(fmt.Sprintf("%d. %s\n", pick.Position, pick.ContestantName))
 	}
@@ -84,7 +82,7 @@ func ActivitiesList(instance castaway.Instance, activities []castaway.Activity) 
 		return fmt.Sprintf("**%s**\nNo activities found.", InstanceLabel(instance))
 	}
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**%s — Activities**\n", InstanceLabel(instance)))
+	builder.WriteString(fmt.Sprintf("**Season %d: Activities**\n", instance.Season))
 	for _, a := range activities {
 		builder.WriteString(fmt.Sprintf("- **%s** (%s) — %s\n", a.Name, a.ActivityType, a.Status))
 	}
@@ -236,23 +234,30 @@ func ParticipantHistory(history castaway.ParticipantActivityHistory) string {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("**Season %d: %s History**", history.Instance.Season, history.Participant.Name))
 
+	currentEpisodeNumber := int32(-1)
+	if history.Instance.CurrentEpisode != nil {
+		currentEpisodeNumber = history.Instance.CurrentEpisode.EpisodeNumber
+		builder.WriteString(fmt.Sprintf(" (currently %s)", strings.TrimSpace(history.Instance.CurrentEpisode.Label)))
+	}
+
 	episodeGroups := groupHistoryByEpisode(history)
 	if len(episodeGroups) == 0 {
 		builder.WriteString("\n\nNo activity history found.")
 		return TrimMessage(builder.String())
 	}
 
-	for index, group := range episodeGroups {
+	for _, group := range episodeGroups {
+		if currentEpisodeNumber >= 0 && group.episodeNumber > currentEpisodeNumber {
+			break
+		}
 		builder.WriteString("\n\n**")
 		builder.WriteString(group.label)
-		builder.WriteString("**\n")
+		builder.WriteString("**")
 		if len(group.items) == 0 {
-			builder.WriteString("\nn/a")
+			builder.WriteString("\n\nn/a")
 			continue
 		}
-		if index > 0 {
-			builder.WriteString("\n")
-		}
+		builder.WriteString("\n")
 		for itemIndex, item := range group.items {
 			if itemIndex > 0 {
 				builder.WriteString("\n")
@@ -271,8 +276,9 @@ func ParticipantHistory(history castaway.ParticipantActivityHistory) string {
 }
 
 type historyEpisodeGroup struct {
-	label string
-	items []historyEpisodeItem
+	episodeNumber int32
+	label         string
+	items         []historyEpisodeItem
 }
 
 type historyEpisodeItem struct {
@@ -288,11 +294,11 @@ func groupHistoryByEpisode(history castaway.ParticipantActivityHistory) []histor
 		if label == "" {
 			label = fmt.Sprintf("Episode %d", episode.EpisodeNumber)
 		}
-		groups = append(groups, historyEpisodeGroup{label: label})
+		groups = append(groups, historyEpisodeGroup{episodeNumber: episode.EpisodeNumber, label: label})
 		groupIndex[episode.EpisodeNumber] = len(groups) - 1
 	}
 	if len(groups) == 0 {
-		groups = append(groups, historyEpisodeGroup{label: "History"})
+		groups = append(groups, historyEpisodeGroup{episodeNumber: 0, label: "History"})
 		groupIndex[0] = 0
 	}
 
@@ -302,7 +308,7 @@ func groupHistoryByEpisode(history castaway.ParticipantActivityHistory) []histor
 			index, ok := groupIndex[episodeNumber]
 			if !ok {
 				label := fmt.Sprintf("Episode %d", episodeNumber)
-				groups = append(groups, historyEpisodeGroup{label: label})
+				groups = append(groups, historyEpisodeGroup{episodeNumber: episodeNumber, label: label})
 				index = len(groups) - 1
 				groupIndex[episodeNumber] = index
 			}

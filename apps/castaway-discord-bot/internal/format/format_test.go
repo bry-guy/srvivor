@@ -46,7 +46,7 @@ func TestActivitiesListFormatsCompactOutput(t *testing.T) {
 
 	message := ActivitiesList(instance, activities)
 	expected := strings.Join([]string{
-		"**Season 50 — Office Pool — Activities**",
+		"**Season 50: Activities**",
 		"- **Tribal Pony** (tribal_pony) — active",
 		"- **Journey 1** (journey) — completed",
 	}, "\n")
@@ -217,7 +217,7 @@ func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 
 	message := Leaderboard(instance, rows)
 	expected := strings.Join([]string{
-		"**Season 49 — Office Pool**",
+		"**Season 49: Leaderboard**",
 		"1. Bryan — 26 (21+5)",
 		"2. Riley — 19 (19+0)",
 	}, "\n")

@@ -97,7 +97,7 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{"**Season 50 — Historical Season 50**", "1. Keeling — 6 (5+1)", "2. Adam — 5 (5+0)", "3. Amanda — 3 (2+1)"}, "\n")
+	expected := strings.Join([]string{"**Season 50: Leaderboard**", "1. Keeling — 6 (5+1)", "2. Adam — 5 (5+0)", "3. Amanda — 3 (2+1)"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected leaderboard message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -119,7 +119,7 @@ func TestDraftCommandRegression_UsesGuildDefault(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{"**Bryan Draft** — Season 50 — Historical Season 50", "1. Emily", "2. Christian", "3. Q"}, "\n")
+	expected := strings.Join([]string{"**Season 50: Bryan Draft**", "1. Emily", "2. Christian", "3. Q"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected draft message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -142,7 +142,7 @@ func TestDraftCommandRegression_DefaultsToLinkedParticipant(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{"**Bryan Draft** — Season 50 — Historical Season 50", "1. Emily"}, "\n")
+	expected := strings.Join([]string{"**Season 50: Bryan Draft**", "1. Emily"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected draft message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -183,7 +183,7 @@ func TestInstanceCommandRegression_UserDefaultLifecycle(t *testing.T) {
 		t.Fatalf("unexpected show message:\nexpected: %q\nactual:   %q", showExpected, showMessage)
 	}
 
-	clearMessage, err := bot.executeCommand(context.Background(), interaction, commandSpec{group: "instance", name: "clear"})
+	clearMessage, err := bot.executeCommand(context.Background(), interaction, commandSpec{group: "instance", name: "unset"})
 	if err != nil {
 		t.Fatalf("clear defaults: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestActivitiesCommandRegression_ListsActivitiesForInstance(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{"**Season 50 — Historical Season 50 — Activities**", "- **Tribal Pony** (tribal_pony) — active", "- **Journey 1** (journey) — completed"}, "\n")
+	expected := strings.Join([]string{"**Season 50: Activities**", "- **Tribal Pony** (tribal_pony) — active", "- **Journey 1** (journey) — completed"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected activities message:\nexpected: %q\nactual:   %q", expected, message)
 	}

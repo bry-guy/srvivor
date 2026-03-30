@@ -8,54 +8,19 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 			Name:        "castaway",
 			Description: "Castaway fantasy draft commands",
 			Options: []*discordgo.ApplicationCommandOption{
-				scoreCommand(),
-				scoresCommand(),
-				draftCommand(),
 				activitiesCommand(),
 				activityCommand(),
-				occurrencesCommand(),
-				occurrenceCommand(),
+				draftCommand(),
 				historyCommand(),
-				linkCommand(),
-				unlinkCommand(),
-				instancesCommand(),
 				instanceCommandGroup(),
+				instancesCommand(),
+				linkCommand(),
+				occurrenceCommand(),
+				occurrencesCommand(),
+				scoreCommand(),
+				scoresCommand(),
+				unlinkCommand(),
 			},
-		},
-	}
-}
-
-func scoreCommand() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "score",
-		Description: "Show a participant score (defaults to your linked participant)",
-		Options: []*discordgo.ApplicationCommandOption{
-			participantOption(false),
-			instanceOption(false),
-		},
-	}
-}
-
-func scoresCommand() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "scores",
-		Description: "Show the leaderboard for an instance",
-		Options: []*discordgo.ApplicationCommandOption{
-			instanceOption(false),
-		},
-	}
-}
-
-func draftCommand() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "draft",
-		Description: "Show a participant's draft (defaults to your linked participant)",
-		Options: []*discordgo.ApplicationCommandOption{
-			participantOption(false),
-			instanceOption(false),
 		},
 	}
 }
@@ -83,26 +48,13 @@ func activityCommand() *discordgo.ApplicationCommandOption {
 	}
 }
 
-func occurrencesCommand() *discordgo.ApplicationCommandOption {
+func draftCommand() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "occurrences",
-		Description: "List occurrences for an activity",
+		Name:        "draft",
+		Description: "Show a participant's draft (defaults to your linked participant)",
 		Options: []*discordgo.ApplicationCommandOption{
-			activityOption(true),
-			instanceOption(false),
-		},
-	}
-}
-
-func occurrenceCommand() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "occurrence",
-		Description: "Show one occurrence in detail",
-		Options: []*discordgo.ApplicationCommandOption{
-			activityOption(true),
-			occurrenceOption(true),
+			participantOption(false),
 			instanceOption(false),
 		},
 	}
@@ -117,39 +69,6 @@ func historyCommand() *discordgo.ApplicationCommandOption {
 			participantOption(false),
 			instanceOption(false),
 		},
-	}
-}
-
-func linkCommand() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "link",
-		Description: "Admin-only: link a participant to a Discord user",
-		Options: []*discordgo.ApplicationCommandOption{
-			participantOption(true),
-			userOption("user", "Discord user to link", true),
-			instanceOption(false),
-		},
-	}
-}
-
-func unlinkCommand() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "unlink",
-		Description: "Admin-only: unlink a participant's Discord user",
-		Options: []*discordgo.ApplicationCommandOption{
-			participantOption(true),
-			instanceOption(false),
-		},
-	}
-}
-
-func instancesCommand() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "instances",
-		Description: "List available instances",
 	}
 }
 
@@ -175,12 +94,93 @@ func instanceCommandGroup() *discordgo.ApplicationCommandOption {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
-				Name:        "clear",
+				Name:        "unset",
 				Description: "Clear a saved instance default",
 				Options: []*discordgo.ApplicationCommandOption{
 					scopeOption(),
 				},
 			},
+		},
+	}
+}
+
+func instancesCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "instances",
+		Description: "List available instances",
+	}
+}
+
+func linkCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "link",
+		Description: "Admin-only: link a participant to a Discord user",
+		Options: []*discordgo.ApplicationCommandOption{
+			participantOption(true),
+			userOption("user", "Discord user to link", true),
+			instanceOption(false),
+		},
+	}
+}
+
+func occurrenceCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "occurrence",
+		Description: "Show one occurrence in detail",
+		Options: []*discordgo.ApplicationCommandOption{
+			activityOption(true),
+			occurrenceOption(true),
+			instanceOption(false),
+		},
+	}
+}
+
+func occurrencesCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "occurrences",
+		Description: "List occurrences for an activity",
+		Options: []*discordgo.ApplicationCommandOption{
+			activityOption(true),
+			instanceOption(false),
+		},
+	}
+}
+
+func scoreCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "score",
+		Description: "Show a participant score (defaults to your linked participant)",
+		Options: []*discordgo.ApplicationCommandOption{
+			participantOption(false),
+			instanceOption(false),
+		},
+	}
+}
+
+func scoresCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "scores",
+		Description: "Show the leaderboard for an instance",
+		Options: []*discordgo.ApplicationCommandOption{
+			instanceOption(false),
+		},
+	}
+}
+
+func unlinkCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "unlink",
+		Description: "Admin-only: unlink a participant's Discord user",
+		Options: []*discordgo.ApplicationCommandOption{
+			participantOption(true),
+			instanceOption(false),
 		},
 	}
 }
@@ -231,14 +231,6 @@ func instanceOption(required bool) *discordgo.ApplicationCommandOption {
 		Description:  "Instance name",
 		Required:     required,
 		Autocomplete: true,
-	}
-}
-
-func seasonOption() *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionInteger,
-		Name:        "season",
-		Description: "Season number",
 	}
 }
 

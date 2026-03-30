@@ -73,7 +73,7 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 			return b.handleInstanceSet(ctx, interaction, command)
 		case "show":
 			return b.handleInstanceShow(ctx, interaction)
-		case "clear":
+		case "unset":
 			return b.handleInstanceClear(interaction, command)
 		default:
 			return "", fmt.Errorf("unsupported castaway instance command: %s", command.name)
