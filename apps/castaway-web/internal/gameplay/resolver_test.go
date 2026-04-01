@@ -88,6 +88,7 @@ func TestResolveActivityOccurrenceTribalPonyAppliesOpenStirThePotBonus(t *testin
 	occurrenceID := testUUID()
 	stirThePotActivityID := testUUID()
 	stirThePotRoundID := testUUID()
+	currentEpisodeID := testUUID()
 	winningGroupID := testUUID()
 	aliceID := testUUID()
 	effectiveAt := time.Date(2026, time.March, 25, 20, 0, 0, 0, time.UTC)
@@ -106,6 +107,13 @@ func TestResolveActivityOccurrenceTribalPonyAppliesOpenStirThePotBonus(t *testin
 			InstanceID:   instanceID,
 			ActivityType: "tribal_pony",
 			Name:         "Pony Tribes",
+		},
+		currentEpisode: db.GetCurrentEpisodeAtRow{
+			ID:            currentEpisodeID,
+			InstanceID:    instanceID,
+			EpisodeNumber: 5,
+			Label:         "Episode 5",
+			AirsAt:        timestamptz(effectiveAt.Add(-time.Hour)),
 		},
 		activeActivityGroupAssignments: []db.ListActiveActivityGroupAssignmentsAtRow{{
 			ActivityID:           activityID,
@@ -130,7 +138,7 @@ func TestResolveActivityOccurrenceTribalPonyAppliesOpenStirThePotBonus(t *testin
 			Name:           "Round 1",
 			EffectiveAt:    timestamptz(effectiveAt.Add(-time.Hour)),
 			Status:         "recorded",
-			Metadata:       []byte(`{"reward_tiers":[{"contributions":2,"bonus":1},{"contributions":5,"bonus":2}]}`),
+			Metadata:       []byte(`{"reward_tiers":[{"contributions":2,"bonus":1},{"contributions":5,"bonus":2}],"target_episode":{"episode_id":"` + currentEpisodeID.String() + `","episode_number":5,"episode_label":"Episode 5"}}`),
 		}},
 		occurrenceParticipantsByOccurrence: map[[16]byte][]db.ListActivityOccurrenceParticipantsRow{
 			stirThePotRoundID.Bytes: {{ParticipantID: testUUID(), ParticipantName: "Contributor", ParticipantGroupID: winningGroupID, ParticipantGroupName: textValue("Lotus"), Role: "contributor", Metadata: []byte(`{"contribution":5}`)}},

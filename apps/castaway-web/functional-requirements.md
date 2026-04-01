@@ -30,6 +30,8 @@
   - Loan Shark borrowing and repayment
   - individual pony immunity payouts
 - support player-context write flows via linked Discord users for merge gameplay actions
+- bind newly opened Stir the Pot rounds and auction lots to the next scheduled episode for the instance
+- reveal consumed secret bonus points into public-safe ledger rows when hidden spends use them
 - support instance-admin write flows for opening/closing merge gameplay windows and recording immunity winners
 - seed historical seasons into the database for development and testing
 - keep the documented API contract aligned with the running server

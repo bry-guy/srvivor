@@ -233,3 +233,15 @@ func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
 }
+
+func TestSecretRevealAnnouncementSingular(t *testing.T) {
+	if got := SecretRevealAnnouncement("Bryan", 1); got != "Bryan revealed a secret bonus point!" {
+		t.Fatalf("unexpected singular announcement: %q", got)
+	}
+}
+
+func TestSecretRevealAnnouncementPlural(t *testing.T) {
+	if got := SecretRevealAnnouncement("Bryan", 2); got != "Bryan revealed 2 secret bonus points!" {
+		t.Fatalf("unexpected plural announcement: %q", got)
+	}
+}

@@ -155,6 +155,9 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	}
 
 	// Verify the latest known local eliminations are reflected.
+	if season50.Outcomes[17].ContestantName != "Charlie" {
+		t.Fatalf("expected Charlie at position 18, got %q", season50.Outcomes[17].ContestantName)
+	}
 	if season50.Outcomes[18].ContestantName != "Angelina" {
 		t.Fatalf("expected Angelina at position 19, got %q", season50.Outcomes[18].ContestantName)
 	}

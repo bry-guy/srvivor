@@ -136,7 +136,9 @@ Unless product wants different behavior, the implementation should use these int
 
 - Treat the auction as a set of **blind second-price lots**
 - Admin should explicitly open and close lots per player via Discord bot UX such as `/castaway auction start|stop <player>`
+- Opening a lot should bind it to the **next scheduled episode**
 - Submitted bids should **immediately debit** the bidder's bonus balance using hidden/private ledger entries while the lot is open
+- If a hidden bid spend consumes secret bonus points, those points should be converted into revealed/public-safe ledger rows first
 - Updating a bid should apply only the delta:
   - increasing a bid debits more points immediately
   - lowering a bid refunds the difference immediately
@@ -437,6 +439,7 @@ That means:
 - auction bid decreases and losing bids are returned through hidden correction/refund rows
 - loan issuance is written immediately as hidden awards
 - loan repayment is written immediately as hidden spends
+- when a hidden spend consumes secret bonus points, those points should first be converted into visible/revealed ledger rows so the secret points become public on use
 
 A dedicated balance route may still be useful, but it can usually be derived directly from the existing visible + secret bonus ledger totals rather than from a separate reservation table.
 
@@ -464,17 +467,18 @@ This preserves flexibility without new schema.
 
 ### Stir the Pot resolution
 
-Implement Stir the Pot so that player contributions are recorded during an open round and then automatically consumed by the next relevant tribal pony resolution.
+Implement Stir the Pot so that player contributions are recorded during an open round, the round is bound to the next scheduled episode, and then it is automatically consumed by the matching tribal pony resolution for that episode.
 
 During contribution:
 
 1. load the current open Stir the Pot round
 2. upsert the player's hidden contribution total for that round
-3. immediately write a hidden spend row for the added points
+3. if the spend uses secret bonus points, convert those secret points into revealed/public-safe ledger rows first
+4. immediately write a hidden spend row for the added points
 
 When tribal pony resolves:
 
-1. load any open Stir the Pot round(s) that apply
+1. load any open Stir the Pot round(s) that apply to the current episode
 2. determine which tribe(s) won the relevant tribal pony outcome
 3. compute reward using a configurable ladder from activity/occurrence metadata
 4. keep loser contributions spent

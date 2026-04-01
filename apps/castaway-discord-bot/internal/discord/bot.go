@@ -13,9 +13,10 @@ import (
 )
 
 type Bot struct {
-	appID          string
-	targetServerID string
-	log            *slog.Logger
+	appID                 string
+	targetServerID        string
+	announcementChannelID string
+	log                   *slog.Logger
 
 	castaway *castaway.Client
 	state    state.Store
@@ -30,12 +31,13 @@ func New(cfg *config.Config, client *castaway.Client, store state.Store, logger 
 	session.Identify.Intents = discordgo.IntentsGuilds
 
 	bot := &Bot{
-		appID:          cfg.DiscordApplicationID,
-		targetServerID: cfg.DiscordTargetServerID,
-		log:            logger,
-		castaway:       client,
-		state:          store,
-		session:        session,
+		appID:                 cfg.DiscordApplicationID,
+		targetServerID:        cfg.DiscordTargetServerID,
+		announcementChannelID: cfg.AnnouncementChannelID,
+		log:                   logger,
+		castaway:              client,
+		state:                 store,
+		session:               session,
 	}
 
 	session.AddHandler(bot.handleInteraction)

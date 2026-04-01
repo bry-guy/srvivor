@@ -194,6 +194,7 @@ func TestBonusAggregateHelpers(t *testing.T) {
 type fakeQuerier struct {
 	createdEpisodes                       []db.CreateInstanceEpisodeParams
 	episodes                              []db.ListInstanceEpisodesRow
+	currentEpisode                        db.GetCurrentEpisodeAtRow
 	participantGroup                      db.GetParticipantGroupRow
 	membershipRow                         db.CreateParticipantGroupMembershipPeriodRow
 	createdMemberships                    []db.CreateParticipantGroupMembershipPeriodParams
@@ -234,6 +235,9 @@ func (f *fakeQuerier) ListInstanceEpisodes(context.Context, pgtype.UUID) ([]db.L
 }
 
 func (f *fakeQuerier) GetCurrentEpisodeAt(context.Context, db.GetCurrentEpisodeAtParams) (db.GetCurrentEpisodeAtRow, error) {
+	if f.currentEpisode.ID.Valid {
+		return f.currentEpisode, nil
+	}
 	return db.GetCurrentEpisodeAtRow{}, errors.New("unexpected call")
 }
 

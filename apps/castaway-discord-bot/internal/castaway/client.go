@@ -250,6 +250,7 @@ type StirThePotContributionResult struct {
 	AddedPoints          int         `json:"added_points"`
 	MyContributionPoints int         `json:"my_contribution_points"`
 	BonusPointsAvailable int         `json:"bonus_points_available"`
+	RevealedSecretPoints int         `json:"revealed_secret_points"`
 }
 
 type AuctionLotStatus struct {
@@ -303,11 +304,13 @@ type AuctionLotStartResult struct {
 }
 
 type AuctionBidResult struct {
-	Contestant           Contestant `json:"contestant"`
-	LotID                string     `json:"lot_id"`
-	MyBidPoints          int        `json:"my_bid_points"`
-	PreviousBidPoints    int        `json:"previous_bid_points"`
-	BonusPointsAvailable int        `json:"bonus_points_available"`
+	Participant          Participant `json:"participant"`
+	Contestant           Contestant  `json:"contestant"`
+	LotID                string      `json:"lot_id"`
+	MyBidPoints          int         `json:"my_bid_points"`
+	PreviousBidPoints    int         `json:"previous_bid_points"`
+	BonusPointsAvailable int         `json:"bonus_points_available"`
+	RevealedSecretPoints int         `json:"revealed_secret_points"`
 }
 
 type AuctionLotWinner struct {
@@ -329,8 +332,9 @@ type PonyList struct {
 }
 
 type LoanStatusResponse struct {
-	Participant Participant `json:"participant"`
-	Loan        LoanStatus  `json:"loan"`
+	Participant          Participant `json:"participant"`
+	Loan                 LoanStatus  `json:"loan"`
+	RevealedSecretPoints int         `json:"revealed_secret_points"`
 }
 
 type IndividualPonyImmunityResult struct {

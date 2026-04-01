@@ -12,4 +12,10 @@ Alright. Welcome to Stir the Pot. Each of your tribes has an opportunity to win 
 
 Now of course, it's not that easy. **Contributions to the pot are blind**, and **if your tribe loses, I keep the pot**. So look around - how much do you trust each other? Will you risk your own stash to benefit yourself, and others?
 
+Operational notes:
+- Admin opens a Stir the Pot round for the **next scheduled episode**.
+- Contributions debit points immediately.
+- If a contribution uses a secret bonus point, that point is revealed publicly when spent.
+- The winning tribe's next matching tribal pony resolution automatically receives the Stir the Pot bonus.
+
 > Contribute your bonus points to the pot with /castaway pot add <points>. 

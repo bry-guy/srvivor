@@ -17,6 +17,7 @@ type Config struct {
 	DiscordBotToken       string `envconfig:"CASTAWAY_DISCORD_BOT_TOKEN" required:"true"`
 	DiscordApplicationID  string `envconfig:"CASTAWAY_DISCORD_APPLICATION_ID" required:"true"`
 	DiscordTargetServerID string `envconfig:"DISCORD_TARGET_SEVER_ID"`
+	AnnouncementChannelID string `envconfig:"CASTAWAY_ANNOUNCEMENT_CHANNEL_ID"`
 
 	CastawayAPIBaseURL   string `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
 	CastawayAPIAuthToken string `envconfig:"CASTAWAY_API_AUTH_TOKEN"`
@@ -36,6 +37,7 @@ func Load() (*Config, error) {
 	cfg.CastawayAPIAuthToken = strings.TrimSpace(cfg.CastawayAPIAuthToken)
 	cfg.StatePath = strings.TrimSpace(cfg.StatePath)
 	cfg.StateDatabaseURL = strings.TrimSpace(cfg.StateDatabaseURL)
+	cfg.AnnouncementChannelID = strings.TrimSpace(cfg.AnnouncementChannelID)
 
 	if _, err := url.ParseRequestURI(cfg.CastawayAPIBaseURL); err != nil {
 		return nil, fmt.Errorf("parse CASTAWAY_API_BASE_URL: %w", err)

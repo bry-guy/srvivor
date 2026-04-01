@@ -194,4 +194,5 @@ JOIN instances i ON i.id = bple.instance_id
 JOIN participants p ON p.id = bple.participant_id
 WHERE i.public_id = sqlc.arg(instance_id)
   AND p.public_id = sqlc.arg(participant_id)
-  AND bple.visibility = 'secret';
+  AND bple.visibility = 'secret'
+  AND COALESCE((bple.metadata ->> 'consumes_secret_balance')::BOOLEAN, TRUE);

@@ -165,3 +165,14 @@ func IndividualPonyImmunityResult(instance castaway.Instance, result castaway.In
 		fmt.Sprintf("- Created bonus entries: %d", result.CreatedCount),
 	}, "\n"))
 }
+
+func SecretRevealAnnouncement(participantName string, revealedSecretPoints int) string {
+	participantName = strings.TrimSpace(participantName)
+	if participantName == "" || revealedSecretPoints <= 0 {
+		return ""
+	}
+	if revealedSecretPoints == 1 {
+		return fmt.Sprintf("%s revealed a secret bonus point!", participantName)
+	}
+	return fmt.Sprintf("%s revealed %d secret bonus points!", participantName, revealedSecretPoints)
+}

@@ -805,11 +805,44 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	bobID := uuid.UUID(participantIDByName["Bob"].Bytes).String()
 	joeID := contestantIDByName["Joe"].String()
 
-	startPotReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/start", instanceUUID), `{"name":"Verification Round 1"}`, "verification-token", "admin-discord")
+	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
+	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", time.Now().UTC().Add(-2*time.Hour))
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Alice"], hiddenOccurrence.ID, pgtype.UUID{}, "award", 1, "secret", "Verification hidden reward", "verification:hidden:alice")
+
+	episodes, err := queries.ListInstanceEpisodes(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list verification episodes: %v", err)
+	}
+	nextEpisodeLabel := ""
+	nextEpisodeAirsAt := time.Time{}
+	now := time.Now().UTC()
+	for _, episode := range episodes {
+		if episode.AirsAt.Time.After(now) {
+			nextEpisodeLabel = episode.Label
+			nextEpisodeAirsAt = episode.AirsAt.Time
+			break
+		}
+	}
+	if nextEpisodeLabel == "" || nextEpisodeAirsAt.IsZero() {
+		t.Fatal("expected a next episode for verification instance")
+	}
+
+	startPotReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/start", instanceUUID), `{}`, "verification-token", "admin-discord")
 	startPotRecorder := httptest.NewRecorder()
 	router.ServeHTTP(startPotRecorder, startPotReq)
 	if startPotRecorder.Code != http.StatusCreated {
 		t.Fatalf("start stir the pot status = %d, body = %s", startPotRecorder.Code, startPotRecorder.Body.String())
+	}
+	var startPotResponse struct {
+		Round struct {
+			Name string `json:"name"`
+		} `json:"round"`
+	}
+	if err := json.Unmarshal(startPotRecorder.Body.Bytes(), &startPotResponse); err != nil {
+		t.Fatalf("unmarshal start stir the pot response: %v", err)
+	}
+	if !strings.Contains(startPotResponse.Round.Name, nextEpisodeLabel) {
+		t.Fatalf("expected stir the pot round name %q to target next episode %q", startPotResponse.Round.Name, nextEpisodeLabel)
 	}
 
 	aliceContributeReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/me/contributions", instanceUUID), `{"points":5}`, "verification-token", "alice-discord")
@@ -821,11 +854,12 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	var contributionResponse struct {
 		MyContributionPoints int `json:"my_contribution_points"`
 		BonusPointsAvailable int `json:"bonus_points_available"`
+		RevealedSecretPoints int `json:"revealed_secret_points"`
 	}
 	if err := json.Unmarshal(aliceContributeRecorder.Body.Bytes(), &contributionResponse); err != nil {
 		t.Fatalf("unmarshal contribution response: %v", err)
 	}
-	if contributionResponse.MyContributionPoints != 5 || contributionResponse.BonusPointsAvailable != 5 {
+	if contributionResponse.MyContributionPoints != 5 || contributionResponse.BonusPointsAvailable != 6 || contributionResponse.RevealedSecretPoints != 1 {
 		t.Fatalf("unexpected stir the pot contribution response: %+v", contributionResponse)
 	}
 
@@ -839,17 +873,24 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
 		t.Fatalf("unmarshal alice ledger after contribution: %v", err)
 	}
-	if aliceLedger.BonusPoints != 5 {
-		t.Fatalf("expected alice combined bonus to be 5 after contribution, got %d", aliceLedger.BonusPoints)
+	if aliceLedger.BonusPoints != 6 {
+		t.Fatalf("expected alice combined bonus to be 6 after contribution, got %d", aliceLedger.BonusPoints)
 	}
 	foundContributionSpend := false
+	foundSecretReveal := false
 	for _, entry := range aliceLedger.Ledger {
 		if entry.Reason == "Stir the Pot contribution" && entry.Points == -5 && entry.Visibility == "secret" {
 			foundContributionSpend = true
 		}
+		if strings.Contains(entry.Reason, "Stir the Pot contribution") && entry.Points == 1 && entry.Visibility == "revealed" {
+			foundSecretReveal = true
+		}
 	}
 	if !foundContributionSpend {
 		t.Fatalf("expected secret stir the pot spend in alice ledger: %+v", aliceLedger.Ledger)
+	}
+	if !foundSecretReveal {
+		t.Fatalf("expected revealed secret bonus point after stir the pot contribution: %+v", aliceLedger.Ledger)
 	}
 
 	activities, err := queries.ListInstanceActivitiesByType(ctx, db.ListInstanceActivitiesByTypeParams{InstanceID: instance.ID, ActivityType: "tribal_pony"})
@@ -857,7 +898,7 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		t.Fatalf("list tribal pony activities: len=%d err=%v", len(activities), err)
 	}
 	tribalPonyActivityID := uuid.UUID(activities[0].ID.Bytes).String()
-	tribalImmunityAt := time.Now().UTC().Add(time.Hour)
+	tribalImmunityAt := nextEpisodeAirsAt.Add(time.Hour)
 	createImmunityReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/activities/%s/occurrences", tribalPonyActivityID), fmt.Sprintf(`{"occurrence_type":"immunity_result","name":"Verification Tribal Immunity","effective_at":"%s","status":"recorded","metadata":{"winning_survivor_tribes":["vatu"]}}`, tribalImmunityAt.Format(time.RFC3339)), "verification-token", "admin-discord")
 	createImmunityRecorder := httptest.NewRecorder()
 	router.ServeHTTP(createImmunityRecorder, createImmunityReq)
@@ -887,8 +928,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
 		t.Fatalf("unmarshal alice ledger after tribal immunity: %v", err)
 	}
-	if aliceLedger.BonusPoints != 8 {
-		t.Fatalf("expected alice combined bonus to be 8 after tribal immunity, got %d", aliceLedger.BonusPoints)
+	if aliceLedger.BonusPoints != 9 {
+		t.Fatalf("expected alice combined bonus to be 9 after tribal immunity, got %d", aliceLedger.BonusPoints)
 	}
 	foundTribalPonyAward := false
 	for _, entry := range aliceLedger.Ledger {
@@ -905,6 +946,17 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	router.ServeHTTP(startAuctionRecorder, startAuctionReq)
 	if startAuctionRecorder.Code != http.StatusCreated {
 		t.Fatalf("start auction lot status = %d, body = %s", startAuctionRecorder.Code, startAuctionRecorder.Body.String())
+	}
+	var startAuctionResponse struct {
+		Lot struct {
+			Name string `json:"name"`
+		} `json:"lot"`
+	}
+	if err := json.Unmarshal(startAuctionRecorder.Body.Bytes(), &startAuctionResponse); err != nil {
+		t.Fatalf("unmarshal start auction response: %v", err)
+	}
+	if !strings.Contains(startAuctionResponse.Lot.Name, nextEpisodeLabel) {
+		t.Fatalf("expected auction lot name %q to target next episode %q", startAuctionResponse.Lot.Name, nextEpisodeLabel)
 	}
 
 	aliceBidReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/auction/contestants/%s/bid/me", instanceUUID, joeID), `{"points":6}`, "verification-token", "alice-discord")
@@ -928,8 +980,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
 		t.Fatalf("unmarshal alice ledger after bid: %v", err)
 	}
-	if aliceLedger.BonusPoints != 2 {
-		t.Fatalf("expected alice combined bonus to be 2 after bid debit, got %d", aliceLedger.BonusPoints)
+	if aliceLedger.BonusPoints != 3 {
+		t.Fatalf("expected alice combined bonus to be 3 after bid debit, got %d", aliceLedger.BonusPoints)
 	}
 
 	stopAuctionReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/auction/lots/%s/stop", instanceUUID, joeID), "", "verification-token", "admin-discord")
@@ -964,8 +1016,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
 		t.Fatalf("unmarshal alice ledger after auction stop: %v", err)
 	}
-	if aliceLedger.BonusPoints != 4 {
-		t.Fatalf("expected alice combined bonus to be 4 after auction resolution, got %d", aliceLedger.BonusPoints)
+	if aliceLedger.BonusPoints != 5 {
+		t.Fatalf("expected alice combined bonus to be 5 after auction resolution, got %d", aliceLedger.BonusPoints)
 	}
 	alicePoniesReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/ponies/me", instanceUUID), "", "verification-token", "alice-discord")
 	alicePoniesRecorder := httptest.NewRecorder()
@@ -1019,6 +1071,15 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if repayRecorder.Code != http.StatusOK {
 		t.Fatalf("repay loan shark status = %d, body = %s", repayRecorder.Code, repayRecorder.Body.String())
 	}
+	var repayResponse struct {
+		RevealedSecretPoints int `json:"revealed_secret_points"`
+	}
+	if err := json.Unmarshal(repayRecorder.Body.Bytes(), &repayResponse); err != nil {
+		t.Fatalf("unmarshal loan repay response: %v", err)
+	}
+	if repayResponse.RevealedSecretPoints != 2 {
+		t.Fatalf("expected two revealed secret bonus points on repay, got %+v", repayResponse)
+	}
 	loanStatusRecorder = httptest.NewRecorder()
 	router.ServeHTTP(loanStatusRecorder, loanStatusReq)
 	if loanStatusRecorder.Code != http.StatusOK {
@@ -1047,8 +1108,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
 		t.Fatalf("unmarshal alice ledger after individual immunity: %v", err)
 	}
-	if aliceLedger.BonusPoints != 8 {
-		t.Fatalf("expected alice combined bonus to be 8 after full flow, got %d", aliceLedger.BonusPoints)
+	if aliceLedger.BonusPoints != 9 {
+		t.Fatalf("expected alice combined bonus to be 9 after full flow, got %d", aliceLedger.BonusPoints)
 	}
 
 	leaderboardReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/leaderboard", instanceUUID), "", "verification-token", "")
@@ -1067,8 +1128,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		switch row.ParticipantID {
 		case aliceID:
 			aliceFound = true
-			if row.BonusPoints != 16 {
-				t.Fatalf("expected alice public bonus to be 16, got %d", row.BonusPoints)
+			if row.BonusPoints != 19 {
+				t.Fatalf("expected alice public bonus to be 19 after secret reveals, got %d", row.BonusPoints)
 			}
 		case bobID:
 			bobFound = true

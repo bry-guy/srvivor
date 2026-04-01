@@ -149,6 +149,7 @@ JOIN participants p ON p.id = bple.participant_id
 WHERE i.public_id = $1
   AND p.public_id = $2
   AND bple.visibility = 'secret'
+  AND COALESCE((bple.metadata ->> 'consumes_secret_balance')::BOOLEAN, TRUE)
 `
 
 type GetAvailableSecretBalanceByParticipantParams struct {

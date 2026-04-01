@@ -188,7 +188,7 @@ Local merge-gameplay verification scaffolding lives in:
 
 Season 50 now seeds first-class bonus gameplay structures, including participant groups, `tribal_pony`, `tribe_wordle`, and journey occurrences, while preserving the historical leaderboard end-state.
 
-The verification seed is intentionally small and contrived. It exists to exercise Stir the Pot, auction bidding, refund behavior, Loan Shark borrowing/repayment, and individual pony immunity payouts in local integration tests.
+The verification seed is intentionally small and contrived. It exists to exercise Stir the Pot, auction bidding, refund behavior, Loan Shark borrowing/repayment, secret-point reveal conversion, episode-targeted merge windows, and individual pony immunity payouts in local integration tests.
 
 Regenerate from legacy CLI data (`../cli/drafts`, `../cli/rosters`):
 

@@ -39,8 +39,18 @@ type stirThePotRewardTier struct {
 	Bonus         int32 `json:"bonus"`
 }
 
+type mergeTargetEpisodeMetadata struct {
+	EpisodeID     string `json:"episode_id,omitempty"`
+	EpisodeNumber int32  `json:"episode_number,omitempty"`
+	EpisodeLabel  string `json:"episode_label,omitempty"`
+	EpisodeAirsAt string `json:"episode_airs_at,omitempty"`
+}
+
 type stirThePotRoundMetadata struct {
-	RewardTiers []stirThePotRewardTier `json:"reward_tiers,omitempty"`
+	RewardTiers   []stirThePotRewardTier     `json:"reward_tiers,omitempty"`
+	TargetEpisode mergeTargetEpisodeMetadata `json:"target_episode,omitempty"`
+	ResolvedBy    string                     `json:"resolved_by,omitempty"`
+	ResolvedAt    string                     `json:"resolved_at,omitempty"`
 }
 
 type stirThePotContributionMetadata struct {
@@ -48,12 +58,13 @@ type stirThePotContributionMetadata struct {
 }
 
 type auctionLotMetadata struct {
-	ContestantID         string `json:"contestant_id"`
-	WinnerParticipantID  string `json:"winner_participant_id,omitempty"`
-	WinningBidPoints     int32  `json:"winning_bid_points,omitempty"`
-	PricePoints          int32  `json:"price_points,omitempty"`
-	ResolvedAt           string `json:"resolved_at,omitempty"`
-	ResolutionTiebreaker string `json:"resolution_tiebreaker,omitempty"`
+	ContestantID         string                     `json:"contestant_id"`
+	TargetEpisode        mergeTargetEpisodeMetadata `json:"target_episode,omitempty"`
+	WinnerParticipantID  string                     `json:"winner_participant_id,omitempty"`
+	WinningBidPoints     int32                      `json:"winning_bid_points,omitempty"`
+	PricePoints          int32                      `json:"price_points,omitempty"`
+	ResolvedAt           string                     `json:"resolved_at,omitempty"`
+	ResolutionTiebreaker string                     `json:"resolution_tiebreaker,omitempty"`
 }
 
 type auctionBidMetadata struct {
@@ -177,11 +188,17 @@ func (s *Server) startStirThePotRound(c *gin.Context) {
 		return
 	}
 
+	targetEpisode, err := s.nextEpisodeTarget(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		name = fmt.Sprintf("Stir the Pot — %s", now.Format("2006-01-02 15:04 UTC"))
+		name = fmt.Sprintf("Stir the Pot — %s", targetEpisode.EpisodeLabel)
 	}
-	metadata, err := json.Marshal(stirThePotRoundMetadata{RewardTiers: defaultStirThePotRewardTiers()})
+	metadata, err := json.Marshal(stirThePotRoundMetadata{RewardTiers: defaultStirThePotRewardTiers(), TargetEpisode: targetEpisode})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -284,6 +301,12 @@ func (s *Server) addStirThePotContribution(c *gin.Context) {
 		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 		return
 	}
+	ledgerMetadata := metadataWithConsumesSecretBalance(metadata, false)
+	revealedSecretPoints, err := s.revealSecretPointsOnSpend(c.Request.Context(), qtx, toPGUUID(instanceID), participant.ID, round.ID, groupMembership.ParticipantGroupID, req.Points, now, "Stir the Pot contribution", metadata)
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
 	if _, err := qtx.CreateBonusPointLedgerEntry(c.Request.Context(), db.CreateBonusPointLedgerEntryParams{
 		InstanceID:           toPGUUID(instanceID),
 		ParticipantID:        participant.ID,
@@ -295,7 +318,7 @@ func (s *Server) addStirThePotContribution(c *gin.Context) {
 		Reason:               "Stir the Pot contribution",
 		EffectiveAt:          optionalTime(now),
 		AwardKey:             optionalText(ptrString("stir_the_pot:add:" + uuid.NewString())),
-		Metadata:             metadata,
+		Metadata:             ledgerMetadata,
 	}); err != nil {
 		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 		return
@@ -314,6 +337,7 @@ func (s *Server) addStirThePotContribution(c *gin.Context) {
 		"added_points":           req.Points,
 		"my_contribution_points": newContribution,
 		"bonus_points_available": balance - req.Points,
+		"revealed_secret_points": revealedSecretPoints,
 	})
 }
 
@@ -438,7 +462,12 @@ func (s *Server) startAuctionLot(c *gin.Context) {
 		c.JSON(http.StatusConflict, errorResponse{Error: "auction lot is already open for this contestant"})
 		return
 	}
-	metadata, err := json.Marshal(auctionLotMetadata{ContestantID: contestantID.String()})
+	targetEpisode, err := s.nextEpisodeTarget(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	metadata, err := json.Marshal(auctionLotMetadata{ContestantID: contestantID.String(), TargetEpisode: targetEpisode})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -446,7 +475,7 @@ func (s *Server) startAuctionLot(c *gin.Context) {
 	created, err := s.queries.CreateActivityOccurrence(c.Request.Context(), db.CreateActivityOccurrenceParams{
 		ActivityID:     activity.ID,
 		OccurrenceType: occurrenceTypeAuctionLot,
-		Name:           fmt.Sprintf("%s Auction Lot", contestant.Name),
+		Name:           fmt.Sprintf("%s Auction Lot — %s", contestant.Name, targetEpisode.EpisodeLabel),
 		EffectiveAt:    optionalTime(now),
 		Status:         "recorded",
 		Metadata:       metadata,
@@ -528,10 +557,12 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
+			"participant":            participantSummaryToJSON(participant.ID, participant.Name),
 			"contestant":             gin.H{"id": contestant.ID.String(), "name": contestant.Name},
 			"lot_id":                 pgUUIDString(lot.Occurrence.ID),
 			"my_bid_points":          req.Points,
 			"bonus_points_available": balance,
+			"revealed_secret_points": 0,
 		})
 		return
 	}
@@ -551,6 +582,7 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
+	ledgerMetadata := metadataWithConsumesSecretBalance(metadata, false)
 
 	tx, err := s.pool.Begin(c.Request.Context())
 	if err != nil {
@@ -569,6 +601,14 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 	}); err != nil {
 		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 		return
+	}
+	revealedSecretPoints := int32(0)
+	if delta > 0 {
+		revealedSecretPoints, err = s.revealSecretPointsOnSpend(c.Request.Context(), qtx, toPGUUID(instanceID), participant.ID, lot.Occurrence.ID, pgtype.UUID{}, delta, now, fmt.Sprintf("auction bid on %s", contestant.Name), metadata)
+		if err != nil {
+			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+			return
+		}
 	}
 	if delta != 0 {
 		entryKind := "spend"
@@ -589,7 +629,7 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 			Reason:               reason,
 			EffectiveAt:          optionalTime(now),
 			AwardKey:             optionalText(ptrString("auction:bid:" + uuid.NewString())),
-			Metadata:             metadata,
+			Metadata:             ledgerMetadata,
 		}); err != nil {
 			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 			return
@@ -602,11 +642,13 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 
 	updatedBalance := balance - delta
 	c.JSON(http.StatusOK, gin.H{
+		"participant":            participantSummaryToJSON(participant.ID, participant.Name),
 		"contestant":             gin.H{"id": contestant.ID.String(), "name": contestant.Name},
 		"lot_id":                 pgUUIDString(lot.Occurrence.ID),
 		"my_bid_points":          req.Points,
 		"previous_bid_points":    oldBid,
 		"bonus_points_available": updatedBalance,
+		"revealed_secret_points": revealedSecretPoints,
 	})
 }
 
@@ -693,7 +735,7 @@ func (s *Server) stopAuctionLot(c *gin.Context) {
 			Reason:               reason,
 			EffectiveAt:          optionalTime(now),
 			AwardKey:             optionalText(ptrString("auction:refund:" + uuid.NewString())),
-			Metadata:             lot.Metadata,
+			Metadata:             metadataWithConsumesSecretBalance(lot.Metadata, false),
 		}); err != nil {
 			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 			return
@@ -717,6 +759,13 @@ func (s *Server) stopAuctionLot(c *gin.Context) {
 	}
 
 	updatedMetadata := auctionLotMetadata{ContestantID: contestantID.String(), WinningBidPoints: winningBidPoints, PricePoints: pricePoints, ResolvedAt: now.Format(time.RFC3339), ResolutionTiebreaker: "highest bid, then earliest submitted bid, then participant name"}
+	if err := json.Unmarshal(nonEmptyMetadata(lot.Metadata), &updatedMetadata); err == nil {
+		updatedMetadata.ContestantID = contestantID.String()
+		updatedMetadata.WinningBidPoints = winningBidPoints
+		updatedMetadata.PricePoints = pricePoints
+		updatedMetadata.ResolvedAt = now.Format(time.RFC3339)
+		updatedMetadata.ResolutionTiebreaker = "highest bid, then earliest submitted bid, then participant name"
+	}
 	if winner != nil {
 		updatedMetadata.WinnerParticipantID = pgUUIDString(winner.participantID)
 	}
@@ -1051,6 +1100,12 @@ func (s *Server) repayLoanShark(c *gin.Context) {
 		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 		return
 	}
+	ledgerMetadata := metadataWithConsumesSecretBalance([]byte("{}"), false)
+	revealedSecretPoints, err := s.revealSecretPointsOnSpend(c.Request.Context(), qtx, toPGUUID(instanceID), participant.ID, occurrence.ID, pgtype.UUID{}, req.Points, now, fmt.Sprintf("Loan Shark repayment of %d points", req.Points), []byte("{}"))
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
 	if _, err := qtx.CreateBonusPointLedgerEntry(c.Request.Context(), db.CreateBonusPointLedgerEntryParams{
 		InstanceID:           toPGUUID(instanceID),
 		ParticipantID:        participant.ID,
@@ -1061,7 +1116,7 @@ func (s *Server) repayLoanShark(c *gin.Context) {
 		Reason:               fmt.Sprintf("Loan Shark repayment of %d points", req.Points),
 		EffectiveAt:          optionalTime(now),
 		AwardKey:             optionalText(ptrString("loan_shark:repay:" + uuid.NewString())),
-		Metadata:             []byte("{}"),
+		Metadata:             ledgerMetadata,
 	}); err != nil {
 		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 		return
@@ -1089,7 +1144,7 @@ func (s *Server) repayLoanShark(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name), "loan": statusPayload})
+	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name), "loan": statusPayload, "revealed_secret_points": revealedSecretPoints})
 }
 
 func (s *Server) recordIndividualPonyImmunity(c *gin.Context) {
@@ -1235,6 +1290,34 @@ func (s *Server) requireInstanceAdminRequest(c *gin.Context, instanceID uuid.UUI
 		return false
 	}
 	return true
+}
+
+func (s *Server) nextEpisodeTarget(ctx context.Context, q *db.Queries, instanceID pgtype.UUID, now time.Time) (mergeTargetEpisodeMetadata, error) {
+	episodes, err := q.ListInstanceEpisodes(ctx, instanceID)
+	if err != nil {
+		return mergeTargetEpisodeMetadata{}, fmt.Errorf("list instance episodes: %w", err)
+	}
+	if len(episodes) == 0 {
+		return mergeTargetEpisodeMetadata{}, fmt.Errorf("instance has no configured episodes")
+	}
+	sort.Slice(episodes, func(i, j int) bool {
+		if episodes[i].AirsAt.Time.Equal(episodes[j].AirsAt.Time) {
+			return episodes[i].EpisodeNumber < episodes[j].EpisodeNumber
+		}
+		return episodes[i].AirsAt.Time.Before(episodes[j].AirsAt.Time)
+	})
+	for _, episode := range episodes {
+		if !episode.AirsAt.Time.After(now) {
+			continue
+		}
+		return mergeTargetEpisodeMetadata{
+			EpisodeID:     pgUUIDString(episode.ID),
+			EpisodeNumber: episode.EpisodeNumber,
+			EpisodeLabel:  episode.Label,
+			EpisodeAirsAt: episode.AirsAt.Time.Format(time.RFC3339),
+		}, nil
+	}
+	return mergeTargetEpisodeMetadata{}, fmt.Errorf("no next episode is configured after the current episode")
 }
 
 func (s *Server) ensureSystemActivity(ctx context.Context, q *db.Queries, instanceID pgtype.UUID, activityType, name string, startsAt time.Time) (db.ListInstanceActivitiesByTypeRow, error) {
@@ -1407,6 +1490,82 @@ func (s *Server) currentBonusBalance(ctx context.Context, q *db.Queries, instanc
 		return 0, err
 	}
 	return visible + secret, nil
+}
+
+func (s *Server) revealSecretPointsOnSpend(ctx context.Context, q *db.Queries, instanceID, participantID, activityOccurrenceID, sourceGroupID pgtype.UUID, spendPoints int32, now time.Time, reason string, metadata []byte) (int32, error) {
+	if spendPoints <= 0 {
+		return 0, nil
+	}
+	availableSecret, err := q.GetAvailableSecretBalanceByParticipant(ctx, db.GetAvailableSecretBalanceByParticipantParams{
+		InstanceID:    instanceID,
+		ParticipantID: participantID,
+	})
+	if err != nil {
+		return 0, err
+	}
+	revealedPoints := spendPoints
+	if revealedPoints > availableSecret {
+		revealedPoints = availableSecret
+	}
+	if revealedPoints <= 0 {
+		return 0, nil
+	}
+	revealMetadata, err := json.Marshal(map[string]any{
+		"points": revealedPoints,
+		"reason": reason,
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(metadata) > 0 && string(metadata) != "{}" {
+		revealMetadata = metadata
+	}
+	if _, err := q.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
+		InstanceID:           instanceID,
+		ParticipantID:        participantID,
+		ActivityOccurrenceID: activityOccurrenceID,
+		SourceGroupID:        sourceGroupID,
+		EntryKind:            "conversion",
+		Points:               -revealedPoints,
+		Visibility:           "secret",
+		Reason:               fmt.Sprintf("Revealed %d secret bonus point(s) for %s", revealedPoints, reason),
+		EffectiveAt:          optionalTime(now),
+		AwardKey:             optionalText(ptrString("secret:reveal:debit:" + uuid.NewString())),
+		Metadata:             revealMetadata,
+	}); err != nil {
+		return 0, err
+	}
+	if _, err := q.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
+		InstanceID:           instanceID,
+		ParticipantID:        participantID,
+		ActivityOccurrenceID: activityOccurrenceID,
+		SourceGroupID:        sourceGroupID,
+		EntryKind:            "reveal",
+		Points:               revealedPoints,
+		Visibility:           "revealed",
+		Reason:               fmt.Sprintf("Revealed %d secret bonus point(s) for %s", revealedPoints, reason),
+		EffectiveAt:          optionalTime(now),
+		AwardKey:             optionalText(ptrString("secret:reveal:credit:" + uuid.NewString())),
+		Metadata:             revealMetadata,
+	}); err != nil {
+		return 0, err
+	}
+	return revealedPoints, nil
+}
+
+func metadataWithConsumesSecretBalance(raw []byte, consumes bool) []byte {
+	payload := map[string]any{}
+	if len(raw) > 0 && string(raw) != "{}" {
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			payload = map[string]any{}
+		}
+	}
+	payload["consumes_secret_balance"] = consumes
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return raw
+	}
+	return encoded
 }
 
 func (s *Server) currentTribeMembership(ctx context.Context, q *db.Queries, participantID pgtype.UUID, at time.Time) (db.ListActiveParticipantMembershipsAtRow, error) {

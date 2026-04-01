@@ -34,10 +34,10 @@ Top-level command: `/castaway`
 - Stir the Pot
   - `/castaway pot status [instance]`
   - `/castaway pot add points:<n> [instance]`
-  - `/castaway pot start [instance]` (admin)
+  - `/castaway pot start [instance]` (admin, targets the next scheduled episode)
 - Individual Pony Auction
   - `/castaway auction status [instance]`
-  - `/castaway auction start player:<contestant> [instance]` (admin)
+  - `/castaway auction start player:<contestant> [instance]` (admin, targets the next scheduled episode)
   - `/castaway auction stop player:<contestant> [instance]` (admin)
   - `/castaway auction award player:<contestant> [instance]` (admin, records individual immunity)
   - `/castaway bid player:<contestant> points:<n> [instance]`
@@ -47,6 +47,8 @@ Top-level command: `/castaway`
   - `/castaway loan repay points:<n> [instance]`
 
 Player and admin write commands default to ephemeral responses.
+
+When a hidden spend reveals one or more secret bonus points, the bot can also post a public announcement to a configured channel.
 
 ### Context commands
 - `/castaway instance list [season]`
@@ -108,7 +110,7 @@ Optional production-oriented config:
 
 - `CASTAWAY_API_AUTH_TOKEN` for bot-to-API bearer authentication
 - `BOT_STATE_DATABASE_URL` when `BOT_STATE_BACKEND=postgres`
-- `DISCORD_ADMIN_USER_IDS` for users who may view participant-private data for others
+- `CASTAWAY_ANNOUNCEMENT_CHANNEL_ID` to publish public secret-point reveal messages (for example, `#survivor`)
 
 Override them in your shell only when you need a non-default local setup.
 

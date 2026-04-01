@@ -77,8 +77,18 @@ type stirThePotRewardTier struct {
 	Bonus         int32 `json:"bonus"`
 }
 
+type mergeTargetEpisodeMetadata struct {
+	EpisodeID     string `json:"episode_id,omitempty"`
+	EpisodeNumber int32  `json:"episode_number,omitempty"`
+	EpisodeLabel  string `json:"episode_label,omitempty"`
+	EpisodeAirsAt string `json:"episode_airs_at,omitempty"`
+}
+
 type stirThePotRoundMetadata struct {
-	RewardTiers []stirThePotRewardTier `json:"reward_tiers,omitempty"`
+	RewardTiers   []stirThePotRewardTier     `json:"reward_tiers,omitempty"`
+	TargetEpisode mergeTargetEpisodeMetadata `json:"target_episode,omitempty"`
+	ResolvedBy    string                     `json:"resolved_by,omitempty"`
+	ResolvedAt    string                     `json:"resolved_at,omitempty"`
 }
 
 type individualPonyOccurrenceMetadata struct {
@@ -721,6 +731,13 @@ func (s *Service) stirThePotBonusesForInstance(ctx context.Context, instanceID p
 		return nil, fmt.Errorf("list stir_the_pot activities: %w", err)
 	}
 	bonusByGroup := make(map[pgtype.UUID]int32)
+	if len(activities) == 0 {
+		return bonusByGroup, nil
+	}
+	currentEpisode, err := s.CurrentEpisode(ctx, instanceID, at)
+	if err != nil {
+		return nil, fmt.Errorf("get current episode for stir_the_pot resolution: %w", err)
+	}
 	for _, activity := range activities {
 		occurrences, err := s.queries.ListActivityOccurrencesByActivityAndStatus(ctx, db.ListActivityOccurrencesByActivityAndStatusParams{ActivityID: activity.ID, Status: "recorded"})
 		if err != nil {
@@ -731,6 +748,10 @@ func (s *Service) stirThePotBonusesForInstance(ctx context.Context, instanceID p
 				continue
 			}
 			if occurrence.EffectiveAt.Time.After(at) {
+				continue
+			}
+			metadata := parseStirThePotRoundMetadata(occurrence.Metadata)
+			if !stirThePotTargetsEpisode(metadata.TargetEpisode, currentEpisode) {
 				continue
 			}
 			participants, err := s.queries.ListActivityOccurrenceParticipants(ctx, occurrence.ID)
@@ -748,14 +769,15 @@ func (s *Service) stirThePotBonusesForInstance(ctx context.Context, instanceID p
 				}
 				contributionByGroup[participant.ParticipantGroupID] += contribution.Contribution
 			}
-			metadata := parseStirThePotRoundMetadata(occurrence.Metadata)
 			for groupID, total := range contributionByGroup {
 				bonus := stirThePotBonusForContribution(total, metadata.RewardTiers)
 				if bonus > bonusByGroup[groupID] {
 					bonusByGroup[groupID] = bonus
 				}
 			}
-			resolvedMetadata, err := json.Marshal(map[string]any{"resolved_by": "tribal_pony", "resolved_at": at.Format(time.RFC3339)})
+			metadata.ResolvedBy = "tribal_pony"
+			metadata.ResolvedAt = at.Format(time.RFC3339)
+			resolvedMetadata, err := json.Marshal(metadata)
 			if err != nil {
 				return nil, fmt.Errorf("marshal stir_the_pot resolved metadata: %w", err)
 			}
@@ -776,6 +798,16 @@ func parseStirThePotRoundMetadata(raw []byte) stirThePotRoundMetadata {
 		metadata.RewardTiers = defaultStirThePotRewardTiers()
 	}
 	return metadata
+}
+
+func stirThePotTargetsEpisode(target mergeTargetEpisodeMetadata, episode db.GetCurrentEpisodeAtRow) bool {
+	if strings.TrimSpace(target.EpisodeID) != "" && strings.EqualFold(strings.TrimSpace(target.EpisodeID), pgUUIDString(episode.ID)) {
+		return true
+	}
+	if target.EpisodeNumber > 0 {
+		return target.EpisodeNumber == episode.EpisodeNumber
+	}
+	return true
 }
 
 func stirThePotBonusForContribution(total int32, tiers []stirThePotRewardTier) int32 {

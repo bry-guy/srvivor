@@ -4,6 +4,13 @@ The individual pony auction is the merge event in Castaway. Players are able to 
 
 The Loan Shark participates in the Individual Pony Auction, and players may loan extra bonus points from him.
 
+Operational notes:
+- Admin opens each auction lot for the **next scheduled episode**.
+- Bids are only accepted while that lot is open.
+- Submitted bids debit bonus points immediately.
+- If a bid uses a secret bonus point, that point is revealed publicly when spent.
+- Auction settlement refunds losing bids and refunds the winner down to the second price.
+
 ### Prompt
 
 Alright players, it's time. Drop your buffs. Welcome to the merge!

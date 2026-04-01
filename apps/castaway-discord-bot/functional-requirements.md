@@ -26,9 +26,10 @@
   - blind individual pony bids and current bid review
   - current pony ownership review
   - Loan Shark borrow / repay / status
+  - public secret-bonus reveal announcements when hidden spends consume secret points
 - support admin Discord workflows for:
-  - opening Stir the Pot
-  - opening and closing individual pony auction lots
+  - opening Stir the Pot for the next scheduled episode
+  - opening and closing individual pony auction lots, with lot starts bound to the next scheduled episode
   - recording individual pony immunity winners
 - format responses safely within Discord message limits
 - fail clearly when the API or local configuration is unavailable
