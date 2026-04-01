@@ -20,12 +20,22 @@
 - save, show, and clear guild-level default instances
 - enforce Discord permission checks for guild-scoped default changes
 - resolve the active instance from explicit input or saved defaults
+- expose read workflows for activities, occurrences, and participant history
+- support linked-player merge gameplay actions for:
+  - Stir the Pot status and contributions
+  - blind individual pony bids and current bid review
+  - current pony ownership review
+  - Loan Shark borrow / repay / status
+- support admin Discord workflows for:
+  - opening Stir the Pot
+  - opening and closing individual pony auction lots
+  - recording individual pony immunity winners
 - format responses safely within Discord message limits
 - fail clearly when the API or local configuration is unavailable
 
 ## Outputs
 
-- Discord messages for score, leaderboard, draft, and instance workflows
+- Discord messages for score, leaderboard, draft, instance, activity, and merge gameplay workflows
 - persisted guild/user default state
 - structured logs for runtime failures and startup state
 

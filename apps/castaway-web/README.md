@@ -162,6 +162,19 @@ The task starts a disposable PostgreSQL container, seeds historical data, runs `
 - `POST /occurrences/:occurrenceID/participants`
 - `POST /occurrences/:occurrenceID/groups`
 - `POST /occurrences/:occurrenceID/resolve`
+- Merge gameplay routes
+  - `GET /instances/:instanceID/stir-the-pot/me`
+  - `POST /instances/:instanceID/stir-the-pot/start`
+  - `POST /instances/:instanceID/stir-the-pot/me/contributions`
+  - `GET /instances/:instanceID/auction/me`
+  - `POST /instances/:instanceID/auction/lots/start`
+  - `POST /instances/:instanceID/auction/lots/:contestantID/stop`
+  - `PUT /instances/:instanceID/auction/contestants/:contestantID/bid/me`
+  - `GET /instances/:instanceID/ponies/me`
+  - `GET /instances/:instanceID/loan-shark/me`
+  - `POST /instances/:instanceID/loan-shark/me/borrow`
+  - `POST /instances/:instanceID/loan-shark/me/repay`
+  - `POST /instances/:instanceID/individual-pony/immunity`
 
 ## Seed data
 
@@ -169,7 +182,13 @@ Historical seasons are captured in:
 
 - `seeds/historical-seasons.json`
 
+Local merge-gameplay verification scaffolding lives in:
+
+- `seeds/verification-merge-gameplay.json`
+
 Season 50 now seeds first-class bonus gameplay structures, including participant groups, `tribal_pony`, `tribe_wordle`, and journey occurrences, while preserving the historical leaderboard end-state.
+
+The verification seed is intentionally small and contrived. It exists to exercise Stir the Pot, auction bidding, refund behavior, Loan Shark borrowing/repayment, and individual pony immunity payouts in local integration tests.
 
 Regenerate from legacy CLI data (`../cli/drafts`, `../cli/rosters`):
 

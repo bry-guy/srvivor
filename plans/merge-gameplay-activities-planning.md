@@ -1,6 +1,6 @@
 # Merge Gameplay Activities Plan
 
-Status: `planning`
+Status: `done`
 Owner: castaway-web + castaway-discord-bot
 Last updated: 2026-03-28
 
@@ -22,6 +22,16 @@ This plan covers:
 Assumption from product/admin:
 
 - each player will be linked to the correct in-game participant via Discord ID, so player actions can be inferred from `X-Discord-User-ID` / `/castaway link`
+
+## Completion summary
+
+This plan has now been implemented as a practical merge-gameplay slice:
+
+- legacy `loan_shark` tribe-contribution naming was normalized to `stir_the_pot`
+- `castaway-web` now supports Stir the Pot player actions, auction lot open/close, blind bidding, Loan Shark borrow/repay, pony ownership, and individual pony immunity payouts
+- `castaway-discord-bot` now exposes player/admin slash command UX for these flows
+- local verification coverage now seeds and executes a contrived merge gameplay scenario end-to-end
+- season 50 local seed data was updated so Angelina is recorded at position 19 while Mike remains at position 20
 
 ## Current state
 
@@ -116,18 +126,20 @@ Unless product wants different behavior, the implementation should use these int
 
 ### Stir the Pot
 
-- Treat Stir the Pot as a **two-phase hidden action**:
-  1. players secretly commit bonus points during an open window
-  2. after the relevant outcome is known, the game resolves contributions and rewards
-- Do **not** write contribution spends directly to the public ledger while the window is open
-- Use a settlement step so players cannot see each other’s commitments mid-game
+- Treat Stir the Pot as a **hidden contribution window** tied to the next tribal pony result
+- Player contributions should **immediately debit** bonus points using hidden/private ledger entries so other players cannot infer the amount publicly
+- The tribal pony resolver should automatically enhance the winning tribe's tribal pony payout based on the active Stir the Pot round
+- If the tribe loses, they simply lose the contributed points and receive no Stir the Pot boost
 - Prefer a configurable reward ladder in activity metadata rather than hardcoding one formula
 
 ### Individual Pony Auction
 
 - Treat the auction as a set of **blind second-price lots**
-- Each lot should reserve up to the player’s full bid amount while the lot is open
-- A player’s total reserved amount across open lots must stay within their spendable balance
+- Admin should explicitly open and close lots per player via Discord bot UX such as `/castaway auction start|stop <player>`
+- Submitted bids should **immediately debit** the bidder's bonus balance using hidden/private ledger entries while the lot is open
+- Updating a bid should apply only the delta:
+  - increasing a bid debits more points immediately
+  - lowering a bid refunds the difference immediately
 - Resolution should charge winners the second-highest valid bid, not their own bid
 - Winning a lot should create a time-bound ownership record for that pony
 
@@ -192,17 +204,16 @@ Recommended player-facing commands:
   - shows:
     - whether the auction is open
     - open lots
-    - player’s spendable balance
-    - reserved balance across bids
+    - player’s current bonus balance after any hidden bid debits
     - any active loan balance / remaining loan capacity
 - `/castaway bid <player> <points>`
   - ephemeral
   - creates or replaces the player’s hidden bid for that pony
-  - validates reserve constraints
+  - validates that any increase can be paid immediately from current bonus balance
   - confirms only the actor’s own bid
 - `/castaway bids`
   - ephemeral
-  - shows the player’s current bids and reserved total
+  - shows the player’s current bids and current hidden amounts already committed into those bids
 - `/castaway ponies`
   - ephemeral by default when showing only your ownerships
   - optionally public when showing resolved auction ownerships after close
@@ -258,12 +269,13 @@ For new player-action routes:
 Recommended additions:
 
 - `GET /instances/:instanceID/participants/me/spendable-balance`
-  - returns:
-    - settled public bonus
-    - settled secret bonus visible to self
-    - reserved amount from open commitments
+  - optional follow-on route if a dedicated balance view is still useful
+  - if implemented, it should return:
+    - visible bonus
+    - secret bonus visible to self
+    - hidden bid / contribution debits already applied
     - active loan credit already granted
-    - current spendable amount
+    - current usable balance
 
 - `GET /activities/:activityID/pot/me`
   - player’s own Stir the Pot state
@@ -271,7 +283,7 @@ Recommended additions:
 - `GET /activities/:activityID/auction/me`
   - player’s own auction state
   - current bids
-  - reserved total
+  - current hidden debits already committed into those bids
   - ownerships if already resolved
 
 - `GET /activities/:activityID/loan/me`
@@ -317,16 +329,16 @@ Existing `activity_occurrences` + `bonus_point_ledger_entries` are good for **re
 They are not sufficient for this new work because we now need:
 
 - hidden player submissions while an activity is still open
-- reserved balances before final settlement
+- immediate hidden debits while bids/contributions remain blind
 - second-price auction resolution across many hidden bids
 - long-lived debt obligations with partial repayments and a final default rule
 - ownership of ponies as a time-bound participant-to-participant relationship
 
 ### Recommended additions
 
-#### 1. Hidden player submissions / reserves
+#### 1. Hidden player submissions
 
-Add dedicated mutable state for hidden player actions.
+Add dedicated mutable or semi-mutable state for hidden player actions.
 
 Recommended tables:
 
@@ -414,18 +426,19 @@ Recommended usage:
 - repayments write bonus ledger spend rows linked by metadata to the loan record
 - the loan table remains the source of truth for obligations and status
 
-#### 4. Spendable balance / reserve concept
+#### 4. Balance concept
 
-We need a new service-level balance calculation:
+Current implementation direction should prefer **immediate hidden debits** over a separate reservation ledger.
 
-`spendable_balance = settled_bonus_balance - open_reservations + granted_unspent_loan_credit`
+That means:
 
-Where open reservations include at least:
+- Stir the Pot contributions are written immediately as hidden spends
+- auction bid increases are written immediately as hidden spends
+- auction bid decreases and losing bids are returned through hidden correction/refund rows
+- loan issuance is written immediately as hidden awards
+- loan repayment is written immediately as hidden spends
 
-- open Stir the Pot contribution commitments
-- active auction bid reserves
-
-This may not need a dedicated table if reserves can be computed directly from the new submission tables, but the service API should expose the concept explicitly.
+A dedicated balance route may still be useful, but it can usually be derived directly from the existing visible + secret bonus ledger totals rather than from a separate reservation table.
 
 #### 5. Advantage usage
 
@@ -451,18 +464,22 @@ This preserves flexibility without new schema.
 
 ### Stir the Pot resolution
 
-Implement Stir the Pot as a resolver that consumes locked contributions and an admin-recorded resolution occurrence.
+Implement Stir the Pot so that player contributions are recorded during an open round and then automatically consumed by the next relevant tribal pony resolution.
 
-At resolve time it should:
+During contribution:
 
-1. load the locked contributions by tribe
-2. determine which tribe(s) won the relevant outcome
+1. load the current open Stir the Pot round
+2. upsert the player's hidden contribution total for that round
+3. immediately write a hidden spend row for the added points
+
+When tribal pony resolves:
+
+1. load any open Stir the Pot round(s) that apply
+2. determine which tribe(s) won the relevant tribal pony outcome
 3. compute reward using a configurable ladder from activity/occurrence metadata
-4. write contributor spend rows to the ledger
-5. write winner reward rows to the ledger
-6. mark contributions resolved
-
-If product confirms Stir the Pot modifies a later pony payout rather than awarding immediate points, then Step 5 should instead create or update a time-bound reward modifier state that the later pony resolver consumes.
+4. keep loser contributions spent
+5. increase the winning tribe's tribal pony payout automatically
+6. mark the Stir the Pot round resolved
 
 ### Individual Pony Auction resolution
 
@@ -473,10 +490,10 @@ At resolve time it should, per lot:
 1. collect active valid bids
 2. rank them by bid amount, then deterministic tie-break rules
 3. pick the winning bidder
-4. charge the second-highest valid bid amount
-5. release all losing reserves
-6. create `participant_pony_ownerships` for the winner
-7. write the winner’s final spend row to the ledger
+4. compute the second-highest valid bid amount as the final price
+5. refund all losing bids through hidden correction/refund rows
+6. refund any winner overbid amount through a hidden correction/refund row
+7. create `participant_pony_ownerships` for the winner
 8. record the lot result for audit/history
 
 Tie-break rule should be explicit in metadata or product rules, not implicit in SQL ordering.

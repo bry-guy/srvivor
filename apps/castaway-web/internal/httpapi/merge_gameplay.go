@@ -1172,11 +1172,29 @@ func (s *Server) recordIndividualPonyImmunity(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
+	entriesJSON := make([]gin.H, 0, len(createdEntries))
+	for _, entry := range createdEntries {
+		entriesJSON = append(entriesJSON, gin.H{
+			"id":                     pgUUIDString(entry.ID),
+			"instance_id":            pgUUIDString(entry.InstanceID),
+			"participant_id":         pgUUIDString(entry.ParticipantID),
+			"activity_occurrence_id": pgUUIDString(entry.ActivityOccurrenceID),
+			"source_group_id":        pgUUIDPointer(entry.SourceGroupID),
+			"entry_kind":             entry.EntryKind,
+			"points":                 entry.Points,
+			"visibility":             entry.Visibility,
+			"reason":                 entry.Reason,
+			"effective_at":           formatTimestamp(entry.EffectiveAt),
+			"award_key":              pgTextPointer(entry.AwardKey),
+			"metadata":               json.RawMessage(entry.Metadata),
+			"created_at":             formatTimestamp(entry.CreatedAt),
+		})
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"contestant":      gin.H{"id": contestant.ID.String(), "name": contestant.Name},
 		"occurrence_id":   pgUUIDString(occurrence.ID),
-		"created_count":   len(createdEntries),
-		"created_entries": createdEntries,
+		"created_count":   len(entriesJSON),
+		"created_entries": entriesJSON,
 	})
 }
 

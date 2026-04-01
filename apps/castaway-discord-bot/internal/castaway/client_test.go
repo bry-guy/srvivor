@@ -2,6 +2,7 @@ package castaway
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -320,6 +321,66 @@ func TestLinkAndLookupDiscordUser(t *testing.T) {
 	participant, err = client.UnlinkDiscordUser(context.Background(), "i1", "p1", "user-1")
 	if err != nil || participant.ID != "p1" {
 		t.Fatalf("unlink discord user: participant=%#v err=%v", participant, err)
+	}
+}
+
+func TestListContestantsParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/contestants" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if _, err := w.Write([]byte(`{"contestants":[{"id":"c1","name":"Joe"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	contestants, err := client.ListContestants(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("list contestants: %v", err)
+	}
+	if len(contestants) != 1 || contestants[0].Name != "Joe" {
+		t.Fatalf("unexpected contestants: %#v", contestants)
+	}
+}
+
+func TestSetAuctionBidSendsDiscordHeaderAndJSONBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/instances/i1/auction/contestants/c1/bid/me" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("X-Discord-User-ID"); got != "user-1" {
+			t.Fatalf("unexpected discord header: %q", got)
+		}
+		var body struct {
+			Points int `json:"points"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if body.Points != 4 {
+			t.Fatalf("unexpected points: %+v", body)
+		}
+		if _, err := w.Write([]byte(`{"contestant":{"id":"c1","name":"Joe"},"lot_id":"lot-1","my_bid_points":4,"previous_bid_points":1,"bonus_points_available":6}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	result, err := client.SetAuctionBid(context.Background(), "i1", "c1", "user-1", 4)
+	if err != nil {
+		t.Fatalf("set auction bid: %v", err)
+	}
+	if result.MyBidPoints != 4 || result.BonusPointsAvailable != 6 || result.Contestant.Name != "Joe" {
+		t.Fatalf("unexpected result: %#v", result)
 	}
 }
 

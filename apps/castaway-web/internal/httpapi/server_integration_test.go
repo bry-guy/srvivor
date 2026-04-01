@@ -14,6 +14,7 @@ import (
 	appinternal "github.com/bry-guy/srvivor/apps/castaway-web/internal/app"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/httpapi"
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/seeddata"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -740,6 +741,347 @@ func TestLeaderboardAndBonusLedgerHideSecretPoints(t *testing.T) {
 	}
 }
 
+func TestMergeGameplayVerificationFlow(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	seasons, err := seeddata.LoadFromJSON("../../seeds/verification-merge-gameplay.json")
+	if err != nil {
+		t.Fatalf("load verification seed: %v", err)
+	}
+	if _, err := appinternal.SeedHistorical(ctx, pool, seasons); err != nil {
+		t.Fatalf("seed verification season: %v", err)
+	}
+
+	queries := db.New(pool)
+	instances, err := queries.ListInstances(ctx)
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	var instance db.ListInstancesRow
+	foundInstance := false
+	for _, candidate := range instances {
+		if candidate.Name == "Verification Merge Gameplay" {
+			instance = candidate
+			foundInstance = true
+			break
+		}
+	}
+	if !foundInstance {
+		t.Fatalf("verification instance not found")
+	}
+
+	participants, err := queries.ListParticipantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list participants: %v", err)
+	}
+	participantIDByName := make(map[string]pgtype.UUID, len(participants))
+	for _, participant := range participants {
+		participantIDByName[participant.Name] = participant.ID
+	}
+	contestants, err := queries.ListContestantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list contestants: %v", err)
+	}
+	contestantIDByName := make(map[string]uuid.UUID, len(contestants))
+	for _, contestant := range contestants {
+		contestantIDByName[contestant.Name] = uuid.UUID(contestant.ID.Bytes)
+	}
+
+	for name, discordUserID := range map[string]string{"Alice": "alice-discord", "Bob": "bob-discord", "Cara": "cara-discord"} {
+		if _, err := queries.SetParticipantDiscordUserID(ctx, db.SetParticipantDiscordUserIDParams{ID: participantIDByName[name], DiscordUserID: pgtype.Text{String: discordUserID, Valid: true}}); err != nil {
+			t.Fatalf("link participant %s: %v", name, err)
+		}
+	}
+	if _, err := queries.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "admin-discord"}); err != nil {
+		t.Fatalf("create instance admin: %v", err)
+	}
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}))
+	router := server.Router()
+	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
+	aliceID := uuid.UUID(participantIDByName["Alice"].Bytes).String()
+	bobID := uuid.UUID(participantIDByName["Bob"].Bytes).String()
+	joeID := contestantIDByName["Joe"].String()
+
+	startPotReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/start", instanceUUID), `{"name":"Verification Round 1"}`, "verification-token", "admin-discord")
+	startPotRecorder := httptest.NewRecorder()
+	router.ServeHTTP(startPotRecorder, startPotReq)
+	if startPotRecorder.Code != http.StatusCreated {
+		t.Fatalf("start stir the pot status = %d, body = %s", startPotRecorder.Code, startPotRecorder.Body.String())
+	}
+
+	aliceContributeReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/me/contributions", instanceUUID), `{"points":5}`, "verification-token", "alice-discord")
+	aliceContributeRecorder := httptest.NewRecorder()
+	router.ServeHTTP(aliceContributeRecorder, aliceContributeReq)
+	if aliceContributeRecorder.Code != http.StatusOK {
+		t.Fatalf("stir the pot contribution status = %d, body = %s", aliceContributeRecorder.Code, aliceContributeRecorder.Body.String())
+	}
+	var contributionResponse struct {
+		MyContributionPoints int `json:"my_contribution_points"`
+		BonusPointsAvailable int `json:"bonus_points_available"`
+	}
+	if err := json.Unmarshal(aliceContributeRecorder.Body.Bytes(), &contributionResponse); err != nil {
+		t.Fatalf("unmarshal contribution response: %v", err)
+	}
+	if contributionResponse.MyContributionPoints != 5 || contributionResponse.BonusPointsAvailable != 5 {
+		t.Fatalf("unexpected stir the pot contribution response: %+v", contributionResponse)
+	}
+
+	aliceLedgerReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", instanceUUID, aliceID), "", "verification-token", "alice-discord")
+	aliceLedgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)
+	if aliceLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("alice bonus ledger status = %d, body = %s", aliceLedgerRecorder.Code, aliceLedgerRecorder.Body.String())
+	}
+	var aliceLedger bonusLedgerResponse
+	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
+		t.Fatalf("unmarshal alice ledger after contribution: %v", err)
+	}
+	if aliceLedger.BonusPoints != 5 {
+		t.Fatalf("expected alice combined bonus to be 5 after contribution, got %d", aliceLedger.BonusPoints)
+	}
+	foundContributionSpend := false
+	for _, entry := range aliceLedger.Ledger {
+		if entry.Reason == "Stir the Pot contribution" && entry.Points == -5 && entry.Visibility == "secret" {
+			foundContributionSpend = true
+		}
+	}
+	if !foundContributionSpend {
+		t.Fatalf("expected secret stir the pot spend in alice ledger: %+v", aliceLedger.Ledger)
+	}
+
+	activities, err := queries.ListInstanceActivitiesByType(ctx, db.ListInstanceActivitiesByTypeParams{InstanceID: instance.ID, ActivityType: "tribal_pony"})
+	if err != nil || len(activities) != 1 {
+		t.Fatalf("list tribal pony activities: len=%d err=%v", len(activities), err)
+	}
+	tribalPonyActivityID := uuid.UUID(activities[0].ID.Bytes).String()
+	tribalImmunityAt := time.Now().UTC().Add(time.Hour)
+	createImmunityReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/activities/%s/occurrences", tribalPonyActivityID), fmt.Sprintf(`{"occurrence_type":"immunity_result","name":"Verification Tribal Immunity","effective_at":"%s","status":"recorded","metadata":{"winning_survivor_tribes":["vatu"]}}`, tribalImmunityAt.Format(time.RFC3339)), "verification-token", "admin-discord")
+	createImmunityRecorder := httptest.NewRecorder()
+	router.ServeHTTP(createImmunityRecorder, createImmunityReq)
+	if createImmunityRecorder.Code != http.StatusCreated {
+		t.Fatalf("create tribal immunity occurrence status = %d, body = %s", createImmunityRecorder.Code, createImmunityRecorder.Body.String())
+	}
+	var createdOccurrence struct {
+		Occurrence struct {
+			ID string `json:"id"`
+		} `json:"occurrence"`
+	}
+	if err := json.Unmarshal(createImmunityRecorder.Body.Bytes(), &createdOccurrence); err != nil {
+		t.Fatalf("unmarshal created tribal immunity occurrence: %v", err)
+	}
+	resolveImmunityReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/occurrences/%s/resolve", createdOccurrence.Occurrence.ID), "", "verification-token", "admin-discord")
+	resolveImmunityRecorder := httptest.NewRecorder()
+	router.ServeHTTP(resolveImmunityRecorder, resolveImmunityReq)
+	if resolveImmunityRecorder.Code != http.StatusOK {
+		t.Fatalf("resolve tribal immunity status = %d, body = %s", resolveImmunityRecorder.Code, resolveImmunityRecorder.Body.String())
+	}
+
+	aliceLedgerRecorder = httptest.NewRecorder()
+	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)
+	if aliceLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("alice bonus ledger after tribal immunity status = %d, body = %s", aliceLedgerRecorder.Code, aliceLedgerRecorder.Body.String())
+	}
+	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
+		t.Fatalf("unmarshal alice ledger after tribal immunity: %v", err)
+	}
+	if aliceLedger.BonusPoints != 8 {
+		t.Fatalf("expected alice combined bonus to be 8 after tribal immunity, got %d", aliceLedger.BonusPoints)
+	}
+	foundTribalPonyAward := false
+	for _, entry := range aliceLedger.Ledger {
+		if entry.Reason == "Lotus pony tribe won immunity with Stir the Pot bonus" && entry.Points == 3 && entry.Visibility == "public" {
+			foundTribalPonyAward = true
+		}
+	}
+	if !foundTribalPonyAward {
+		t.Fatalf("expected tribal pony + stir the pot public award in alice ledger: %+v", aliceLedger.Ledger)
+	}
+
+	startAuctionReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/auction/lots/start", instanceUUID), fmt.Sprintf(`{"contestant_id":"%s"}`, joeID), "verification-token", "admin-discord")
+	startAuctionRecorder := httptest.NewRecorder()
+	router.ServeHTTP(startAuctionRecorder, startAuctionReq)
+	if startAuctionRecorder.Code != http.StatusCreated {
+		t.Fatalf("start auction lot status = %d, body = %s", startAuctionRecorder.Code, startAuctionRecorder.Body.String())
+	}
+
+	aliceBidReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/auction/contestants/%s/bid/me", instanceUUID, joeID), `{"points":6}`, "verification-token", "alice-discord")
+	aliceBidRecorder := httptest.NewRecorder()
+	router.ServeHTTP(aliceBidRecorder, aliceBidReq)
+	if aliceBidRecorder.Code != http.StatusOK {
+		t.Fatalf("alice bid status = %d, body = %s", aliceBidRecorder.Code, aliceBidRecorder.Body.String())
+	}
+	bobBidReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/auction/contestants/%s/bid/me", instanceUUID, joeID), `{"points":4}`, "verification-token", "bob-discord")
+	bobBidRecorder := httptest.NewRecorder()
+	router.ServeHTTP(bobBidRecorder, bobBidReq)
+	if bobBidRecorder.Code != http.StatusOK {
+		t.Fatalf("bob bid status = %d, body = %s", bobBidRecorder.Code, bobBidRecorder.Body.String())
+	}
+
+	aliceLedgerRecorder = httptest.NewRecorder()
+	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)
+	if aliceLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("alice bonus ledger after bid status = %d, body = %s", aliceLedgerRecorder.Code, aliceLedgerRecorder.Body.String())
+	}
+	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
+		t.Fatalf("unmarshal alice ledger after bid: %v", err)
+	}
+	if aliceLedger.BonusPoints != 2 {
+		t.Fatalf("expected alice combined bonus to be 2 after bid debit, got %d", aliceLedger.BonusPoints)
+	}
+
+	stopAuctionReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/auction/lots/%s/stop", instanceUUID, joeID), "", "verification-token", "admin-discord")
+	stopAuctionRecorder := httptest.NewRecorder()
+	router.ServeHTTP(stopAuctionRecorder, stopAuctionReq)
+	if stopAuctionRecorder.Code != http.StatusOK {
+		t.Fatalf("stop auction lot status = %d, body = %s", stopAuctionRecorder.Code, stopAuctionRecorder.Body.String())
+	}
+	var stopAuctionResponse struct {
+		WinningBidPoints int `json:"winning_bid_points"`
+		PricePoints      int `json:"price_points"`
+		Winner           *struct {
+			ParticipantID   string `json:"participant_id"`
+			ParticipantName string `json:"participant_name"`
+		} `json:"winner"`
+	}
+	if err := json.Unmarshal(stopAuctionRecorder.Body.Bytes(), &stopAuctionResponse); err != nil {
+		t.Fatalf("unmarshal stop auction response: %v", err)
+	}
+	if stopAuctionResponse.WinningBidPoints != 6 || stopAuctionResponse.PricePoints != 4 {
+		t.Fatalf("unexpected stop auction response: %+v", stopAuctionResponse)
+	}
+	if stopAuctionResponse.Winner == nil || stopAuctionResponse.Winner.ParticipantID != aliceID {
+		t.Fatalf("expected alice to win auction lot, got %+v", stopAuctionResponse.Winner)
+	}
+
+	aliceLedgerRecorder = httptest.NewRecorder()
+	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)
+	if aliceLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("alice bonus ledger after auction resolution status = %d, body = %s", aliceLedgerRecorder.Code, aliceLedgerRecorder.Body.String())
+	}
+	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
+		t.Fatalf("unmarshal alice ledger after auction stop: %v", err)
+	}
+	if aliceLedger.BonusPoints != 4 {
+		t.Fatalf("expected alice combined bonus to be 4 after auction resolution, got %d", aliceLedger.BonusPoints)
+	}
+	alicePoniesReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/ponies/me", instanceUUID), "", "verification-token", "alice-discord")
+	alicePoniesRecorder := httptest.NewRecorder()
+	router.ServeHTTP(alicePoniesRecorder, alicePoniesReq)
+	if alicePoniesRecorder.Code != http.StatusOK {
+		t.Fatalf("alice ponies status = %d, body = %s", alicePoniesRecorder.Code, alicePoniesRecorder.Body.String())
+	}
+	var poniesResponse struct {
+		Ponies []struct {
+			ContestantName string `json:"contestant_name"`
+		} `json:"ponies"`
+	}
+	if err := json.Unmarshal(alicePoniesRecorder.Body.Bytes(), &poniesResponse); err != nil {
+		t.Fatalf("unmarshal ponies response: %v", err)
+	}
+	if len(poniesResponse.Ponies) != 1 || poniesResponse.Ponies[0].ContestantName != "Joe" {
+		t.Fatalf("unexpected ponies response: %+v", poniesResponse)
+	}
+
+	borrowReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/loan-shark/me/borrow", instanceUUID), `{"points":3}`, "verification-token", "alice-discord")
+	borrowRecorder := httptest.NewRecorder()
+	router.ServeHTTP(borrowRecorder, borrowReq)
+	if borrowRecorder.Code != http.StatusOK {
+		t.Fatalf("borrow loan shark status = %d, body = %s", borrowRecorder.Code, borrowRecorder.Body.String())
+	}
+	loanStatusReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/loan-shark/me", instanceUUID), "", "verification-token", "alice-discord")
+	loanStatusRecorder := httptest.NewRecorder()
+	router.ServeHTTP(loanStatusRecorder, loanStatusReq)
+	if loanStatusRecorder.Code != http.StatusOK {
+		t.Fatalf("loan status after borrow = %d, body = %s", loanStatusRecorder.Code, loanStatusRecorder.Body.String())
+	}
+	var loanStatusResponse struct {
+		Loan struct {
+			PrincipalPoints            int `json:"principal_points"`
+			InterestPoints             int `json:"interest_points"`
+			TotalDuePoints             int `json:"total_due_points"`
+			PrincipalOutstandingPoints int `json:"principal_outstanding_points"`
+			InterestOutstandingPoints  int `json:"interest_outstanding_points"`
+		} `json:"loan"`
+	}
+	if err := json.Unmarshal(loanStatusRecorder.Body.Bytes(), &loanStatusResponse); err != nil {
+		t.Fatalf("unmarshal loan status after borrow: %v", err)
+	}
+	if loanStatusResponse.Loan.PrincipalPoints != 3 || loanStatusResponse.Loan.InterestPoints != 1 || loanStatusResponse.Loan.TotalDuePoints != 4 {
+		t.Fatalf("unexpected loan status after borrow: %+v", loanStatusResponse)
+	}
+
+	repayReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/loan-shark/me/repay", instanceUUID), `{"points":2}`, "verification-token", "alice-discord")
+	repayRecorder := httptest.NewRecorder()
+	router.ServeHTTP(repayRecorder, repayReq)
+	if repayRecorder.Code != http.StatusOK {
+		t.Fatalf("repay loan shark status = %d, body = %s", repayRecorder.Code, repayRecorder.Body.String())
+	}
+	loanStatusRecorder = httptest.NewRecorder()
+	router.ServeHTTP(loanStatusRecorder, loanStatusReq)
+	if loanStatusRecorder.Code != http.StatusOK {
+		t.Fatalf("loan status after repay = %d, body = %s", loanStatusRecorder.Code, loanStatusRecorder.Body.String())
+	}
+	if err := json.Unmarshal(loanStatusRecorder.Body.Bytes(), &loanStatusResponse); err != nil {
+		t.Fatalf("unmarshal loan status after repay: %v", err)
+	}
+	if loanStatusResponse.Loan.PrincipalOutstandingPoints != 2 || loanStatusResponse.Loan.InterestOutstandingPoints != 0 || loanStatusResponse.Loan.TotalDuePoints != 2 {
+		t.Fatalf("unexpected loan status after repay: %+v", loanStatusResponse)
+	}
+
+	individualImmunityAt := time.Now().UTC().Add(2 * time.Hour)
+	immunityReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/individual-pony/immunity", instanceUUID), fmt.Sprintf(`{"contestant_id":"%s","effective_at":"%s"}`, joeID, individualImmunityAt.Format(time.RFC3339)), "verification-token", "admin-discord")
+	immunityRecorder := httptest.NewRecorder()
+	router.ServeHTTP(immunityRecorder, immunityReq)
+	if immunityRecorder.Code != http.StatusOK {
+		t.Fatalf("record individual pony immunity status = %d, body = %s", immunityRecorder.Code, immunityRecorder.Body.String())
+	}
+
+	aliceLedgerRecorder = httptest.NewRecorder()
+	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)
+	if aliceLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("alice bonus ledger after individual immunity status = %d, body = %s", aliceLedgerRecorder.Code, aliceLedgerRecorder.Body.String())
+	}
+	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
+		t.Fatalf("unmarshal alice ledger after individual immunity: %v", err)
+	}
+	if aliceLedger.BonusPoints != 8 {
+		t.Fatalf("expected alice combined bonus to be 8 after full flow, got %d", aliceLedger.BonusPoints)
+	}
+
+	leaderboardReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/leaderboard", instanceUUID), "", "verification-token", "")
+	leaderboardRecorder := httptest.NewRecorder()
+	router.ServeHTTP(leaderboardRecorder, leaderboardReq)
+	if leaderboardRecorder.Code != http.StatusOK {
+		t.Fatalf("leaderboard status = %d, body = %s", leaderboardRecorder.Code, leaderboardRecorder.Body.String())
+	}
+	var leaderboard leaderboardResponse
+	if err := json.Unmarshal(leaderboardRecorder.Body.Bytes(), &leaderboard); err != nil {
+		t.Fatalf("unmarshal leaderboard: %v", err)
+	}
+	aliceFound := false
+	bobFound := false
+	for _, row := range leaderboard.Leaderboard {
+		switch row.ParticipantID {
+		case aliceID:
+			aliceFound = true
+			if row.BonusPoints != 16 {
+				t.Fatalf("expected alice public bonus to be 16, got %d", row.BonusPoints)
+			}
+		case bobID:
+			bobFound = true
+			if row.BonusPoints != 10 {
+				t.Fatalf("expected bob public bonus to be 10 after losing bid refund, got %d", row.BonusPoints)
+			}
+		}
+	}
+	if !aliceFound || !bobFound {
+		t.Fatalf("expected alice and bob in leaderboard: %+v", leaderboard.Leaderboard)
+	}
+}
+
 func integrationPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
 	databaseURL := os.Getenv("CASTAWAY_TEST_DATABASE_URL")
@@ -794,6 +1136,26 @@ func resetDatabase(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	if err := appinternal.RunMigrations(ctx, pool, "../../db/migrations"); err != nil {
 		t.Fatalf("run migrations: %v", err)
 	}
+}
+
+func authorizedJSONRequest(method, path, body, bearerToken, discordUserID string) *http.Request {
+	var requestBody *strings.Reader
+	if body == "" {
+		requestBody = strings.NewReader("")
+	} else {
+		requestBody = strings.NewReader(body)
+	}
+	req := httptest.NewRequest(method, path, requestBody)
+	if bearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+bearerToken)
+	}
+	if discordUserID != "" {
+		req.Header.Set("X-Discord-User-ID", discordUserID)
+	}
+	if method != http.MethodGet && method != http.MethodDelete {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return req
 }
 
 func createInstanceForTest(t *testing.T, ctx context.Context, queries *db.Queries, name string, season int32) db.CreateInstanceRow {

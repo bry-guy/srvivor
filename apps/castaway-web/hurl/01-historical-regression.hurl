@@ -92,17 +92,17 @@ GET {{base_url}}/instances/{{season50_instance_id}}/leaderboard
 HTTP 200
 [Asserts]
 jsonpath "$.leaderboard[0].participant_name" == "Katie"
-jsonpath "$.leaderboard[0].draft_points" == 6
+jsonpath "$.leaderboard[0].draft_points" == 10
 jsonpath "$.leaderboard[0].bonus_points" == 5
-jsonpath "$.leaderboard[0].total_points" == 11
+jsonpath "$.leaderboard[0].total_points" == 15
 jsonpath "$.leaderboard[1].participant_name" == "Keeling"
-jsonpath "$.leaderboard[1].draft_points" == 7
+jsonpath "$.leaderboard[1].draft_points" == 11
 jsonpath "$.leaderboard[1].bonus_points" == 4
-jsonpath "$.leaderboard[1].total_points" == 11
+jsonpath "$.leaderboard[1].total_points" == 15
 jsonpath "$.leaderboard[2].participant_name" == "Adam"
-jsonpath "$.leaderboard[2].total_points" == 9
-jsonpath "$.leaderboard[3].participant_name" == "Amanda"
-jsonpath "$.leaderboard[3].total_points" == 8
+jsonpath "$.leaderboard[2].total_points" == 14
+jsonpath "$.leaderboard[3].participant_name" == "Marv"
+jsonpath "$.leaderboard[3].total_points" == 12
 
 GET {{base_url}}/instances/{{season50_instance_id}}/participants/{{season50_katie_id}}/bonus-ledger
 HTTP 200

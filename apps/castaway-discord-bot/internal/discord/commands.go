@@ -10,13 +10,19 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 			Options: []*discordgo.ApplicationCommandOption{
 				activitiesCommand(),
 				activityCommand(),
+				auctionCommandGroup(),
+				bidCommand(),
+				bidsCommand(),
 				draftCommand(),
 				historyCommand(),
 				instanceCommandGroup(),
 				instancesCommand(),
 				linkCommand(),
+				loanCommandGroup(),
 				occurrenceCommand(),
 				occurrencesCommand(),
+				poniesCommand(),
+				potCommandGroup(),
 				scoreCommand(),
 				scoresCommand(),
 				unlinkCommand(),
@@ -68,6 +74,127 @@ func historyCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			participantOption(false),
 			instanceOption(false),
+		},
+	}
+}
+
+func potCommandGroup() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+		Name:        "pot",
+		Description: "Stir the Pot commands",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "status",
+				Description: "Show your Stir the Pot status",
+				Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "add",
+				Description: "Add blind bonus points to Stir the Pot",
+				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "start",
+				Description: "Admin-only: open a Stir the Pot round",
+				Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
+			},
+		},
+	}
+}
+
+func auctionCommandGroup() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+		Name:        "auction",
+		Description: "Individual pony auction commands",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "status",
+				Description: "Show your auction status, bids, and ponies",
+				Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "start",
+				Description: "Admin-only: open bidding for one survivor player",
+				Options:     []*discordgo.ApplicationCommandOption{contestantOption("player", "Survivor player", true), instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "stop",
+				Description: "Admin-only: close and resolve bidding for one survivor player",
+				Options:     []*discordgo.ApplicationCommandOption{contestantOption("player", "Survivor player", true), instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "award",
+				Description: "Admin-only: record an individual immunity winner",
+				Options:     []*discordgo.ApplicationCommandOption{contestantOption("player", "Survivor player", true), instanceOption(false)},
+			},
+		},
+	}
+}
+
+func bidCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "bid",
+		Description: "Set your blind bid for one survivor player",
+		Options: []*discordgo.ApplicationCommandOption{
+			contestantOption("player", "Survivor player", true),
+			pointsOption(true),
+			instanceOption(false),
+		},
+	}
+}
+
+func bidsCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "bids",
+		Description: "Show your open auction bids",
+		Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
+	}
+}
+
+func poniesCommand() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "ponies",
+		Description: "Show your currently owned individual ponies",
+		Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
+	}
+}
+
+func loanCommandGroup() *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+		Name:        "loan",
+		Description: "Loan Shark commands",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "status",
+				Description: "Show your Loan Shark status",
+				Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "request",
+				Description: "Borrow bonus points from the Loan Shark",
+				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "repay",
+				Description: "Repay bonus points to the Loan Shark",
+				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), instanceOption(false)},
+			},
 		},
 	}
 }
@@ -192,6 +319,25 @@ func participantOption(required bool) *discordgo.ApplicationCommandOption {
 		Description:  "Participant name",
 		Required:     required,
 		Autocomplete: true,
+	}
+}
+
+func contestantOption(name, description string, required bool) *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:         discordgo.ApplicationCommandOptionString,
+		Name:         name,
+		Description:  description,
+		Required:     required,
+		Autocomplete: true,
+	}
+}
+
+func pointsOption(required bool) *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionInteger,
+		Name:        "points",
+		Description: "Bonus points",
+		Required:    required,
 	}
 }
 

@@ -1,0 +1,126 @@
+[
+  {
+    "season": 50,
+    "instance_name": "Verification Merge Gameplay",
+    "contestants": [
+      "Joe",
+      "Kim",
+      "Lee",
+      "Dana"
+    ],
+    "participants": [
+      {
+        "name": "Alice",
+        "picks": ["Joe", "Kim", "Lee", "Dana"]
+      },
+      {
+        "name": "Bob",
+        "picks": ["Kim", "Joe", "Dana", "Lee"]
+      },
+      {
+        "name": "Cara",
+        "picks": ["Lee", "Dana", "Joe", "Kim"]
+      }
+    ],
+    "outcomes": [],
+    "participant_groups": [
+      {
+        "name": "Lotus",
+        "kind": "tribe",
+        "memberships": [
+          {
+            "participant_name": "Alice",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          },
+          {
+            "participant_name": "Bob",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          }
+        ]
+      },
+      {
+        "name": "Tangerine",
+        "kind": "tribe",
+        "memberships": [
+          {
+            "participant_name": "Cara",
+            "starts_at": "2026-02-25T20:00:00-05:00"
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "activity_type": "tribal_pony",
+        "name": "Pony Tribes",
+        "status": "active",
+        "starts_at": "2026-02-25T20:00:00-05:00",
+        "activity_group_assignments": [
+          {
+            "participant_group_name": "Lotus",
+            "role": "tribe",
+            "starts_at": "2026-02-25T20:00:00-05:00",
+            "configuration": {
+              "pony_survivor_tribe": "vatu"
+            }
+          },
+          {
+            "participant_group_name": "Tangerine",
+            "role": "tribe",
+            "starts_at": "2026-02-25T20:00:00-05:00",
+            "configuration": {
+              "pony_survivor_tribe": "kalo"
+            }
+          }
+        ]
+      },
+      {
+        "activity_type": "manual_adjustment",
+        "name": "Verification Starting Bonus",
+        "status": "active",
+        "starts_at": "2026-02-25T20:00:00-05:00",
+        "occurrences": [
+          {
+            "occurrence_type": "manual_correction",
+            "name": "Verification Starting Bonus Grants",
+            "effective_at": "2026-03-04T20:00:00-05:00",
+            "status": "resolved",
+            "resolve": true,
+            "participants": [
+              {
+                "name": "Alice",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 10,
+                  "visibility": "public",
+                  "reason": "Verification starting bonus",
+                  "award_key": "verification:starting-bonus:alice"
+                }
+              },
+              {
+                "name": "Bob",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 7,
+                  "visibility": "public",
+                  "reason": "Verification starting bonus",
+                  "award_key": "verification:starting-bonus:bob"
+                }
+              },
+              {
+                "name": "Cara",
+                "role": "adjustment",
+                "metadata": {
+                  "points": 4,
+                  "visibility": "public",
+                  "reason": "Verification starting bonus",
+                  "award_key": "verification:starting-bonus:cara"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

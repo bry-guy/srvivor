@@ -23,10 +23,30 @@ Top-level command: `/castaway`
 - `/castaway occurrences activity:<name> [instance] [season]`
 - `/castaway occurrence activity:<name> occurrence:<name> [instance] [season]`
 - `/castaway history participant:<name> [instance] [season]`
+- `/castaway bids [instance]`
+- `/castaway ponies [instance]`
 - `/castaway link participant:<name> [instance] [season]`
 - `/castaway unlink [instance] [season]`
 
 `score` and `history` stay single commands: public callers see public-safe data, while linked users viewing themselves and configured admins can receive private data ephemerally.
+
+### Merge gameplay commands
+- Stir the Pot
+  - `/castaway pot status [instance]`
+  - `/castaway pot add points:<n> [instance]`
+  - `/castaway pot start [instance]` (admin)
+- Individual Pony Auction
+  - `/castaway auction status [instance]`
+  - `/castaway auction start player:<contestant> [instance]` (admin)
+  - `/castaway auction stop player:<contestant> [instance]` (admin)
+  - `/castaway auction award player:<contestant> [instance]` (admin, records individual immunity)
+  - `/castaway bid player:<contestant> points:<n> [instance]`
+- Loan Shark
+  - `/castaway loan status [instance]`
+  - `/castaway loan request points:<n> [instance]`
+  - `/castaway loan repay points:<n> [instance]`
+
+Player and admin write commands default to ephemeral responses.
 
 ### Context commands
 - `/castaway instance list [season]`

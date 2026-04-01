@@ -1,9 +1,11 @@
 package castaway
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -39,6 +41,11 @@ type InstanceEpisode struct {
 }
 
 type Participant struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type Contestant struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
@@ -216,6 +223,123 @@ type Draft struct {
 	Picks       []DraftPick `json:"picks"`
 }
 
+type StirThePotRewardTier struct {
+	Contributions int32 `json:"contributions"`
+	Bonus         int32 `json:"bonus"`
+}
+
+type StirThePotStatus struct {
+	Open                 bool                   `json:"open"`
+	Participant          Participant            `json:"participant"`
+	Round                Occurrence             `json:"round"`
+	MyContributionPoints int                    `json:"my_contribution_points"`
+	BonusPointsAvailable int                    `json:"bonus_points_available"`
+	RewardTiers          []StirThePotRewardTier `json:"reward_tiers"`
+}
+
+type StirThePotStartResult struct {
+	Activity Activity   `json:"activity"`
+	Round    Occurrence `json:"round"`
+}
+
+type StirThePotContributionResult struct {
+	Participant          Participant `json:"participant"`
+	RoundID              string      `json:"round_id"`
+	GroupID              string      `json:"group_id"`
+	GroupName            string      `json:"group_name"`
+	AddedPoints          int         `json:"added_points"`
+	MyContributionPoints int         `json:"my_contribution_points"`
+	BonusPointsAvailable int         `json:"bonus_points_available"`
+}
+
+type AuctionLotStatus struct {
+	Lot            Occurrence `json:"lot"`
+	ContestantID   string     `json:"contestant_id"`
+	ContestantName string     `json:"contestant_name"`
+	MyBidPoints    int        `json:"my_bid_points"`
+}
+
+type OwnedPony struct {
+	ID             string `json:"id"`
+	ContestantID   string `json:"contestant_id"`
+	ContestantName string `json:"contestant_name"`
+	AcquiredAt     string `json:"acquired_at"`
+}
+
+type LoanStatus struct {
+	HasActiveLoan         bool   `json:"has_active_loan"`
+	LoanID                string `json:"loan_id,omitempty"`
+	Status                string `json:"status,omitempty"`
+	PrincipalPoints       int    `json:"principal_points"`
+	InterestPoints        int    `json:"interest_points"`
+	PrincipalRepaidPoints int    `json:"principal_repaid_points"`
+	InterestRepaidPoints  int    `json:"interest_repaid_points"`
+	PrincipalOutstanding  int    `json:"principal_outstanding_points"`
+	InterestOutstanding   int    `json:"interest_outstanding_points"`
+	TotalDuePoints        int    `json:"total_due_points"`
+	RemainingBorrowPoints int    `json:"remaining_borrow_points"`
+	MaxPrincipalPoints    int    `json:"max_principal_points"`
+	BonusPointsAvailable  int    `json:"bonus_points_available"`
+	GrantedAt             string `json:"granted_at,omitempty"`
+	DueAt                 string `json:"due_at,omitempty"`
+	ActivityID            string `json:"activity_id,omitempty"`
+}
+
+type AuctionStatus struct {
+	Open                 bool               `json:"open"`
+	Participant          Participant        `json:"participant"`
+	BonusPointsAvailable int                `json:"bonus_points_available"`
+	OpenLots             []AuctionLotStatus `json:"open_lots"`
+	Ponies               []OwnedPony        `json:"ponies"`
+	Loan                 LoanStatus         `json:"loan"`
+	Activity             *Activity          `json:"activity,omitempty"`
+}
+
+type AuctionLotStartResult struct {
+	Activity    Activity   `json:"activity"`
+	Lot         Occurrence `json:"lot"`
+	Contestant  Contestant `json:"contestant"`
+	BiddingOpen bool       `json:"bidding_open"`
+}
+
+type AuctionBidResult struct {
+	Contestant           Contestant `json:"contestant"`
+	LotID                string     `json:"lot_id"`
+	MyBidPoints          int        `json:"my_bid_points"`
+	PreviousBidPoints    int        `json:"previous_bid_points"`
+	BonusPointsAvailable int        `json:"bonus_points_available"`
+}
+
+type AuctionLotWinner struct {
+	ParticipantID   string `json:"participant_id"`
+	ParticipantName string `json:"participant_name"`
+}
+
+type AuctionLotStopResult struct {
+	Contestant       Contestant        `json:"contestant"`
+	LotID            string            `json:"lot_id"`
+	Winner           *AuctionLotWinner `json:"winner"`
+	WinningBidPoints int               `json:"winning_bid_points"`
+	PricePoints      int               `json:"price_points"`
+}
+
+type PonyList struct {
+	Participant Participant `json:"participant"`
+	Ponies      []OwnedPony `json:"ponies"`
+}
+
+type LoanStatusResponse struct {
+	Participant Participant `json:"participant"`
+	Loan        LoanStatus  `json:"loan"`
+}
+
+type IndividualPonyImmunityResult struct {
+	Contestant     Contestant         `json:"contestant"`
+	OccurrenceID   string             `json:"occurrence_id"`
+	CreatedCount   int                `json:"created_count"`
+	CreatedEntries []BonusLedgerEntry `json:"created_entries"`
+}
+
 type ListInstancesOptions struct {
 	Season *int32
 	Name   string
@@ -282,6 +406,16 @@ func (c *Client) GetInstance(ctx context.Context, instanceID string) (Instance, 
 	}
 	response.Instance.Episodes = response.Episodes
 	return response.Instance, nil
+}
+
+func (c *Client) ListContestants(ctx context.Context, instanceID string) ([]Contestant, error) {
+	var response struct {
+		Contestants []Contestant `json:"contestants"`
+	}
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "contestants")), nil, &response); err != nil {
+		return nil, err
+	}
+	return response.Contestants, nil
 }
 
 func (c *Client) ListParticipants(ctx context.Context, instanceID string, opts ListParticipantsOptions) ([]Participant, error) {
@@ -419,6 +553,121 @@ func (c *Client) GetDraft(ctx context.Context, instanceID, participantID string)
 	return draft, nil
 }
 
+func (c *Client) GetStirThePotStatus(ctx context.Context, instanceID, discordUserID string) (StirThePotStatus, error) {
+	var status StirThePotStatus
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "me")), headers, &status); err != nil {
+		return StirThePotStatus{}, err
+	}
+	return status, nil
+}
+
+func (c *Client) StartStirThePotRound(ctx context.Context, instanceID, actorDiscordUserID, name string) (StirThePotStartResult, error) {
+	var result StirThePotStartResult
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
+	body := map[string]string{"name": strings.TrimSpace(name)}
+	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "start")), headers, body, &result); err != nil {
+		return StirThePotStartResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) AddStirThePotContribution(ctx context.Context, instanceID, discordUserID string, points int) (StirThePotContributionResult, error) {
+	var result StirThePotContributionResult
+	headers := requestHeadersForDiscordUser(discordUserID)
+	body := map[string]int{"points": points}
+	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "me", "contributions")), headers, body, &result); err != nil {
+		return StirThePotContributionResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) GetAuctionStatus(ctx context.Context, instanceID, discordUserID string) (AuctionStatus, error) {
+	var status AuctionStatus
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "auction", "me")), headers, &status); err != nil {
+		return AuctionStatus{}, err
+	}
+	return status, nil
+}
+
+func (c *Client) StartAuctionLot(ctx context.Context, instanceID, actorDiscordUserID, contestantID string) (AuctionLotStartResult, error) {
+	var result AuctionLotStartResult
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
+	body := map[string]string{"contestant_id": strings.TrimSpace(contestantID)}
+	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "auction", "lots", "start")), headers, body, &result); err != nil {
+		return AuctionLotStartResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) StopAuctionLot(ctx context.Context, instanceID, actorDiscordUserID, contestantID string) (AuctionLotStopResult, error) {
+	var result AuctionLotStopResult
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
+	if err := c.doJSON(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "auction", "lots", contestantID, "stop")), headers, &result); err != nil {
+		return AuctionLotStopResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) SetAuctionBid(ctx context.Context, instanceID, contestantID, discordUserID string, points int) (AuctionBidResult, error) {
+	var result AuctionBidResult
+	headers := requestHeadersForDiscordUser(discordUserID)
+	body := map[string]int{"points": points}
+	if err := c.doJSONBody(ctx, http.MethodPut, c.endpoint(path.Join("/instances", instanceID, "auction", "contestants", contestantID, "bid", "me")), headers, body, &result); err != nil {
+		return AuctionBidResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) GetMyPonies(ctx context.Context, instanceID, discordUserID string) (PonyList, error) {
+	var result PonyList
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "ponies", "me")), headers, &result); err != nil {
+		return PonyList{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) GetLoanSharkStatus(ctx context.Context, instanceID, discordUserID string) (LoanStatusResponse, error) {
+	var result LoanStatusResponse
+	headers := requestHeadersForDiscordUser(discordUserID)
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "loan-shark", "me")), headers, &result); err != nil {
+		return LoanStatusResponse{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) BorrowFromLoanShark(ctx context.Context, instanceID, discordUserID string, points int) (LoanStatusResponse, error) {
+	var result LoanStatusResponse
+	headers := requestHeadersForDiscordUser(discordUserID)
+	body := map[string]int{"points": points}
+	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "loan-shark", "me", "borrow")), headers, body, &result); err != nil {
+		return LoanStatusResponse{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) RepayLoanShark(ctx context.Context, instanceID, discordUserID string, points int) (LoanStatusResponse, error) {
+	var result LoanStatusResponse
+	headers := requestHeadersForDiscordUser(discordUserID)
+	body := map[string]int{"points": points}
+	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "loan-shark", "me", "repay")), headers, body, &result); err != nil {
+		return LoanStatusResponse{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) RecordIndividualPonyImmunity(ctx context.Context, instanceID, actorDiscordUserID, contestantID string) (IndividualPonyImmunityResult, error) {
+	var result IndividualPonyImmunityResult
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
+	body := map[string]string{"contestant_id": strings.TrimSpace(contestantID)}
+	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "individual-pony", "immunity")), headers, body, &result); err != nil {
+		return IndividualPonyImmunityResult{}, err
+	}
+	return result, nil
+}
+
 func (c *Client) endpoint(relativePath string) *url.URL {
 	resolved := *c.baseURL
 	resolved.Path = path.Join(c.baseURL.Path, relativePath)
@@ -430,10 +679,29 @@ func (c *Client) getJSON(ctx context.Context, requestURL *url.URL, headers map[s
 	return c.doJSON(ctx, http.MethodGet, requestURL, headers, out)
 }
 
+func (c *Client) doJSONBody(ctx context.Context, method string, requestURL *url.URL, headers map[string]string, body any, out any) error {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshal request body: %w", err)
+	}
+	return c.doJSONRequest(ctx, method, requestURL, headers, bytes.NewReader(payload), out)
+}
+
 func (c *Client) doJSON(ctx context.Context, method string, requestURL *url.URL, headers map[string]string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, requestURL.String(), nil)
+	return c.doJSONRequest(ctx, method, requestURL, headers, nil, out)
+}
+
+func (c *Client) doJSONRequest(ctx context.Context, method string, requestURL *url.URL, headers map[string]string, body *bytes.Reader, out any) error {
+	var requestBody io.Reader
+	if body != nil {
+		requestBody = body
+	}
+	req, err := http.NewRequestWithContext(ctx, method, requestURL.String(), requestBody)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	if c.bearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.bearerToken)

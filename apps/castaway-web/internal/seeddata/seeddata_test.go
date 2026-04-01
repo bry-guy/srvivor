@@ -154,8 +154,40 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 		}
 	}
 
-	// Verify Mike at position 20
+	// Verify the latest known local eliminations are reflected.
+	if season50.Outcomes[18].ContestantName != "Angelina" {
+		t.Fatalf("expected Angelina at position 19, got %q", season50.Outcomes[18].ContestantName)
+	}
 	if season50.Outcomes[19].ContestantName != "Mike" {
 		t.Fatalf("expected Mike at position 20, got %q", season50.Outcomes[19].ContestantName)
+	}
+}
+
+func TestLoadVerificationMergeGameplaySeed(t *testing.T) {
+	seasons, err := LoadFromJSON("../../seeds/verification-merge-gameplay.json")
+	if err != nil {
+		t.Fatalf("load verification seed: %v", err)
+	}
+	if len(seasons) != 1 {
+		t.Fatalf("expected exactly 1 verification season, got %d", len(seasons))
+	}
+	season := seasons[0]
+	if season.InstanceName != "Verification Merge Gameplay" {
+		t.Fatalf("unexpected verification instance name %q", season.InstanceName)
+	}
+	if got := len(season.Participants); got != 3 {
+		t.Fatalf("expected 3 verification participants, got %d", got)
+	}
+	if got := len(season.ParticipantGroups); got != 2 {
+		t.Fatalf("expected 2 verification participant groups, got %d", got)
+	}
+	if got := len(season.Activities); got != 2 {
+		t.Fatalf("expected 2 verification activities, got %d", got)
+	}
+	if season.Activities[0].ActivityType != "tribal_pony" {
+		t.Fatalf("expected first verification activity to be tribal_pony, got %q", season.Activities[0].ActivityType)
+	}
+	if season.Activities[1].ActivityType != "manual_adjustment" {
+		t.Fatalf("expected second verification activity to be manual_adjustment, got %q", season.Activities[1].ActivityType)
 	}
 }

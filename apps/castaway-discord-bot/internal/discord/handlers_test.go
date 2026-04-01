@@ -18,17 +18,30 @@ import (
 )
 
 type testCastawayAPI struct {
-	instances                   []castaway.Instance
-	participantsByInstance      map[string][]castaway.Participant
-	linkedParticipantByInstance map[string]map[string]castaway.Participant
-	leaderboardByInstance       map[string][]castaway.LeaderboardRow
-	bonusLedgerByParticipant    map[string]castaway.ParticipantBonusLedger
-	draftsByInstance            map[string]map[string]castaway.Draft
-	activitiesByInstance        map[string][]castaway.Activity
-	activityDetails             map[string]castaway.ActivityDetail
-	occurrencesByActivity       map[string][]castaway.Occurrence
-	occurrenceDetails           map[string]castaway.OccurrenceDetail
-	historyByParticipant        map[string]castaway.ParticipantActivityHistory
+	instances                        []castaway.Instance
+	contestantsByInstance            map[string][]castaway.Contestant
+	participantsByInstance           map[string][]castaway.Participant
+	linkedParticipantByInstance      map[string]map[string]castaway.Participant
+	leaderboardByInstance            map[string][]castaway.LeaderboardRow
+	bonusLedgerByParticipant         map[string]castaway.ParticipantBonusLedger
+	draftsByInstance                 map[string]map[string]castaway.Draft
+	activitiesByInstance             map[string][]castaway.Activity
+	activityDetails                  map[string]castaway.ActivityDetail
+	occurrencesByActivity            map[string][]castaway.Occurrence
+	occurrenceDetails                map[string]castaway.OccurrenceDetail
+	historyByParticipant             map[string]castaway.ParticipantActivityHistory
+	stirThePotStatusByInstance       map[string]castaway.StirThePotStatus
+	stirThePotContributionByInstance map[string]castaway.StirThePotContributionResult
+	stirThePotStartByInstance        map[string]castaway.StirThePotStartResult
+	auctionStatusByInstance          map[string]castaway.AuctionStatus
+	auctionLotStartByContestant      map[string]castaway.AuctionLotStartResult
+	auctionLotStopByContestant       map[string]castaway.AuctionLotStopResult
+	auctionBidByContestant           map[string]castaway.AuctionBidResult
+	ponyListByInstance               map[string]castaway.PonyList
+	loanStatusByInstance             map[string]castaway.LoanStatusResponse
+	loanBorrowByInstance             map[string]castaway.LoanStatusResponse
+	loanRepayByInstance              map[string]castaway.LoanStatusResponse
+	individualPonyByContestant       map[string]castaway.IndividualPonyImmunityResult
 }
 
 func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
@@ -218,6 +231,137 @@ func TestResolveInstanceRegression_ClearsStaleUserDefaultBeforeGuildFallback(t *
 	}
 	if instance.ID != "instance-49" {
 		t.Fatalf("unexpected instance: %#v", instance)
+	}
+}
+
+func TestPotStatusCommandRegression_ShowsOpenRound(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-1", Name: "Bryan"}}},
+		stirThePotStatusByInstance: map[string]castaway.StirThePotStatus{"instance-50": {
+			Open:                 true,
+			Participant:          castaway.Participant{ID: "participant-1", Name: "Bryan"},
+			Round:                castaway.Occurrence{ID: "pot-1", Name: "Stir the Pot — Episode 5"},
+			MyContributionPoints: 3,
+			BonusPointsAvailable: 7,
+			RewardTiers:          []castaway.StirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{group: "pot", name: "status"})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Stir the Pot**", "- Round: Stir the Pot — Episode 5", "- Your contribution: 3", "- Bonus points available: 7"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestBidCommandRegression_SetsBlindBidAgainstContestant(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		contestantsByInstance:       map[string][]castaway.Contestant{"instance-50": {{ID: "c-joe", Name: "Joe"}}},
+		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-1", Name: "Bryan"}}},
+		auctionBidByContestant: map[string]castaway.AuctionBidResult{"c-joe": {
+			Contestant:           castaway.Contestant{ID: "c-joe", Name: "Joe"},
+			LotID:                "lot-1",
+			MyBidPoints:          4,
+			PreviousBidPoints:    1,
+			BonusPointsAvailable: 6,
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Joe"), intOption("points", 4)}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Bid submitted**", "Joe — your bid is now 4.", "- Bonus points available: 6"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestAuctionStartCommandRegression_OpensLotForContestant(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:             []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		contestantsByInstance: map[string][]castaway.Contestant{"instance-50": {{ID: "c-angelina", Name: "Angelina"}}},
+		auctionLotStartByContestant: map[string]castaway.AuctionLotStartResult{"c-angelina": {
+			Activity:    castaway.Activity{ID: "a-auction", Name: "Individual Pony Auction"},
+			Lot:         castaway.Occurrence{ID: "lot-1", Name: "Angelina Auction Lot"},
+			Contestant:  castaway.Contestant{ID: "c-angelina", Name: "Angelina"},
+			BiddingOpen: true,
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "auction", name: "start", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Angelina")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Auction lot opened**", "Angelina is now open for bidding.", "- Lot: Angelina Auction Lot"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestLoanRequestCommandRegression_BorrowsPoints(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-1", Name: "Bryan"}}},
+		loanBorrowByInstance: map[string]castaway.LoanStatusResponse{"instance-50": {
+			Participant: castaway.Participant{ID: "participant-1", Name: "Bryan"},
+			Loan:        castaway.LoanStatus{PrincipalPoints: 2, InterestPoints: 1, TotalDuePoints: 3, RemainingBorrowPoints: 1, BonusPointsAvailable: 8},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{group: "loan", name: "request", options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("points", 2)}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Loan Shark**", "Borrowed 2 points.", "- Total due: 3", "- Remaining borrow: 1"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestAuctionAwardCommandRegression_RecordsIndividualImmunity(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:             []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		contestantsByInstance: map[string][]castaway.Contestant{"instance-50": {{ID: "c-mike", Name: "Mike"}}},
+		individualPonyByContestant: map[string]castaway.IndividualPonyImmunityResult{"c-mike": {
+			Contestant:   castaway.Contestant{ID: "c-mike", Name: "Mike"},
+			OccurrenceID: "occ-pony-1",
+			CreatedCount: 2,
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "auction", name: "award", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Mike")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Individual Pony immunity**", "Recorded immunity for Mike.", "- Created bonus entries: 2"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
 	}
 }
 
@@ -530,6 +674,12 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 		switch {
 		case len(parts) == 2 && r.Method == http.MethodGet:
 			writeJSON(http.StatusOK, map[string]any{"instance": instance, "episodes": instance.Episodes})
+		case len(parts) == 3 && parts[2] == "contestants" && r.Method == http.MethodGet:
+			contestants := api.contestantsByInstance[instanceID]
+			if contestants == nil {
+				contestants = []castaway.Contestant{}
+			}
+			writeJSON(http.StatusOK, map[string]any{"contestants": contestants})
 		case len(parts) == 3 && parts[2] == "participants" && r.Method == http.MethodGet:
 			participants := api.participantsByInstance[instanceID]
 			if nameFilter := strings.TrimSpace(r.URL.Query().Get("name")); nameFilter != "" {
@@ -630,6 +780,42 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 				history = api.publicHistory(history)
 			}
 			writeJSON(http.StatusOK, history)
+		case len(parts) == 4 && parts[2] == "stir-the-pot" && parts[3] == "me" && r.Method == http.MethodGet:
+			writeJSON(http.StatusOK, api.stirThePotStatusByInstance[instanceID])
+		case len(parts) == 4 && parts[2] == "stir-the-pot" && parts[3] == "start" && r.Method == http.MethodPost:
+			writeJSON(http.StatusOK, api.stirThePotStartByInstance[instanceID])
+		case len(parts) == 5 && parts[2] == "stir-the-pot" && parts[3] == "me" && parts[4] == "contributions" && r.Method == http.MethodPost:
+			writeJSON(http.StatusOK, api.stirThePotContributionByInstance[instanceID])
+		case len(parts) == 4 && parts[2] == "auction" && parts[3] == "me" && r.Method == http.MethodGet:
+			writeJSON(http.StatusOK, api.auctionStatusByInstance[instanceID])
+		case len(parts) == 5 && parts[2] == "auction" && parts[3] == "lots" && parts[4] == "start" && r.Method == http.MethodPost:
+			var req struct {
+				ContestantID string `json:"contestant_id"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode auction start: %v", err)
+			}
+			writeJSON(http.StatusOK, api.auctionLotStartByContestant[req.ContestantID])
+		case len(parts) == 6 && parts[2] == "auction" && parts[3] == "lots" && parts[5] == "stop" && r.Method == http.MethodPost:
+			writeJSON(http.StatusOK, api.auctionLotStopByContestant[parts[4]])
+		case len(parts) == 7 && parts[2] == "auction" && parts[3] == "contestants" && parts[5] == "bid" && parts[6] == "me" && r.Method == http.MethodPut:
+			writeJSON(http.StatusOK, api.auctionBidByContestant[parts[4]])
+		case len(parts) == 4 && parts[2] == "ponies" && parts[3] == "me" && r.Method == http.MethodGet:
+			writeJSON(http.StatusOK, api.ponyListByInstance[instanceID])
+		case len(parts) == 4 && parts[2] == "loan-shark" && parts[3] == "me" && r.Method == http.MethodGet:
+			writeJSON(http.StatusOK, api.loanStatusByInstance[instanceID])
+		case len(parts) == 5 && parts[2] == "loan-shark" && parts[3] == "me" && parts[4] == "borrow" && r.Method == http.MethodPost:
+			writeJSON(http.StatusOK, api.loanBorrowByInstance[instanceID])
+		case len(parts) == 5 && parts[2] == "loan-shark" && parts[3] == "me" && parts[4] == "repay" && r.Method == http.MethodPost:
+			writeJSON(http.StatusOK, api.loanRepayByInstance[instanceID])
+		case len(parts) == 4 && parts[2] == "individual-pony" && parts[3] == "immunity" && r.Method == http.MethodPost:
+			var req struct {
+				ContestantID string `json:"contestant_id"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode pony immunity: %v", err)
+			}
+			writeJSON(http.StatusOK, api.individualPonyByContestant[req.ContestantID])
 		default:
 			writeJSON(http.StatusNotFound, map[string]any{"error": "not found"})
 		}
