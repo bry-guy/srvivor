@@ -2801,7 +2801,7 @@
           },
           {
             "occurrence_type": "manual_correction",
-            "name": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+            "name": "Monty Hall \u2014 Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
             "effective_at": "2026-03-19T01:02:00Z",
             "status": "resolved",
             "resolve": true,
@@ -2812,8 +2812,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
+                  "reason": "Monty Hall \u2014 Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:stir-the-pot-secret"
                 }
               },
               {
@@ -2822,8 +2822,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
+                  "reason": "Monty Hall \u2014 Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:stir-the-pot-secret"
                 }
               },
               {
@@ -2832,8 +2832,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
+                  "reason": "Monty Hall \u2014 Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:stir-the-pot-secret"
                 }
               },
               {
@@ -2842,8 +2842,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
+                  "reason": "Monty Hall \u2014 Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:stir-the-pot-secret"
                 }
               },
               {
@@ -2852,8 +2852,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
+                  "reason": "Monty Hall \u2014 Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:stir-the-pot-secret"
                 }
               },
               {
@@ -2862,8 +2862,8 @@
                 "metadata": {
                   "points": 1,
                   "visibility": "secret",
-                  "reason": "Monty Hall \u2014 Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
-                  "award_key": "season50:monty-hall:leaf:loan-shark-secret"
+                  "reason": "Monty Hall \u2014 Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
+                  "award_key": "season50:monty-hall:leaf:stir-the-pot-secret"
                 }
               }
             ]
@@ -2871,8 +2871,8 @@
         ]
       },
       {
-        "activity_type": "loan_shark",
-        "name": "Loan Shark",
+        "activity_type": "stir_the_pot",
+        "name": "Stir the Pot",
         "status": "planned",
         "starts_at": "2026-03-25T20:00:00-04:00"
       }
@@ -2881,8 +2881,8 @@
       {
         "participant_name": "Bryan",
         "group_name": "Leaf",
-        "advantage_type": "loan_shark",
-        "name": "Loan Shark Advantage Scroll",
+        "advantage_type": "stir_the_pot_advantage",
+        "name": "Stir the Pot Advantage Scroll",
         "granted_at": "2026-03-19T01:02:00Z",
         "effective_at": "2026-03-25T20:00:00-04:00",
         "effective_until": "2026-04-08T20:00:00-04:00"
@@ -2890,8 +2890,8 @@
       {
         "participant_name": "Lauren",
         "group_name": "Leaf",
-        "advantage_type": "loan_shark",
-        "name": "Loan Shark Advantage Scroll",
+        "advantage_type": "stir_the_pot_advantage",
+        "name": "Stir the Pot Advantage Scroll",
         "granted_at": "2026-03-19T01:02:00Z",
         "effective_at": "2026-03-25T20:00:00-04:00",
         "effective_until": "2026-04-08T20:00:00-04:00"
@@ -2899,8 +2899,8 @@
       {
         "participant_name": "Amanda",
         "group_name": "Leaf",
-        "advantage_type": "loan_shark",
-        "name": "Loan Shark Advantage Scroll",
+        "advantage_type": "stir_the_pot_advantage",
+        "name": "Stir the Pot Advantage Scroll",
         "granted_at": "2026-03-19T01:02:00Z",
         "effective_at": "2026-03-25T20:00:00-04:00",
         "effective_until": "2026-04-08T20:00:00-04:00"
@@ -2908,8 +2908,8 @@
       {
         "participant_name": "Yacob",
         "group_name": "Leaf",
-        "advantage_type": "loan_shark",
-        "name": "Loan Shark Advantage Scroll",
+        "advantage_type": "stir_the_pot_advantage",
+        "name": "Stir the Pot Advantage Scroll",
         "granted_at": "2026-03-19T01:02:00Z",
         "effective_at": "2026-03-25T20:00:00-04:00",
         "effective_until": "2026-04-08T20:00:00-04:00"
@@ -2917,8 +2917,8 @@
       {
         "participant_name": "Riley",
         "group_name": "Leaf",
-        "advantage_type": "loan_shark",
-        "name": "Loan Shark Advantage Scroll",
+        "advantage_type": "stir_the_pot_advantage",
+        "name": "Stir the Pot Advantage Scroll",
         "granted_at": "2026-03-19T01:02:00Z",
         "effective_at": "2026-03-25T20:00:00-04:00",
         "effective_until": "2026-04-08T20:00:00-04:00"
@@ -2926,8 +2926,8 @@
       {
         "participant_name": "Mooney",
         "group_name": "Leaf",
-        "advantage_type": "loan_shark",
-        "name": "Loan Shark Advantage Scroll",
+        "advantage_type": "stir_the_pot_advantage",
+        "name": "Stir the Pot Advantage Scroll",
         "granted_at": "2026-03-19T01:02:00Z",
         "effective_at": "2026-03-25T20:00:00-04:00",
         "effective_until": "2026-04-08T20:00:00-04:00"

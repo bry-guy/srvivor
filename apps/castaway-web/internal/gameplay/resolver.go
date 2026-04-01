@@ -68,7 +68,7 @@ type manualAdjustmentParticipantMetadata struct {
 	Metadata   []byte `json:"metadata"`
 }
 
-type loanSharkContributionMetadata struct {
+type stirThePotContributionMetadata struct {
 	Contribution int32 `json:"contribution"`
 }
 
@@ -116,8 +116,8 @@ func (s *Service) ResolveActivityOccurrence(ctx context.Context, occurrenceID pg
 		entries, err = s.resolveJourney(ctx, resolverCtx)
 	case "manual_adjustment":
 		entries, err = s.resolveManualAdjustment(resolverCtx)
-	case "loan_shark":
-		entries, err = s.resolveLoanShark(ctx, resolverCtx)
+	case "stir_the_pot":
+		entries, err = s.resolveStirThePot(ctx, resolverCtx)
 	default:
 		return nil, fmt.Errorf("unsupported activity type %q", activity.ActivityType)
 	}
@@ -545,9 +545,9 @@ func (s *Service) resolveManualAdjustment(resolverCtx resolverContext) ([]resolv
 	return entries, nil
 }
 
-func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverContext) ([]resolvedLedgerEntry, error) {
+func (s *Service) resolveStirThePot(ctx context.Context, resolverCtx resolverContext) ([]resolvedLedgerEntry, error) {
 	if len(resolverCtx.occurrenceParticipants) == 0 {
-		return nil, fmt.Errorf("loan_shark occurrence must include participant contributions")
+		return nil, fmt.Errorf("stir_the_pot occurrence must include participant contributions")
 	}
 
 	// Group contributions by participant group (tribe).
@@ -561,15 +561,15 @@ func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverCont
 
 	for _, participantRow := range resolverCtx.occurrenceParticipants {
 		if !participantRow.ParticipantGroupID.Valid {
-			return nil, fmt.Errorf("loan_shark participant %q must belong to a tribe", participantRow.ParticipantName)
+			return nil, fmt.Errorf("stir_the_pot participant %q must belong to a tribe", participantRow.ParticipantName)
 		}
 
-		var contribution loanSharkContributionMetadata
+		var contribution stirThePotContributionMetadata
 		if err := parseJSON(participantRow.Metadata, &contribution); err != nil {
-			return nil, fmt.Errorf("parse loan_shark contribution for participant %q: %w", participantRow.ParticipantName, err)
+			return nil, fmt.Errorf("parse stir_the_pot contribution for participant %q: %w", participantRow.ParticipantName, err)
 		}
 		if contribution.Contribution < 0 {
-			return nil, fmt.Errorf("loan_shark contribution for participant %q must be non-negative", participantRow.ParticipantName)
+			return nil, fmt.Errorf("stir_the_pot contribution for participant %q must be non-negative", participantRow.ParticipantName)
 		}
 
 		gc, ok := contributionsByGroup[participantRow.ParticipantGroupID]
@@ -588,16 +588,16 @@ func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverCont
 	entries := make([]resolvedLedgerEntry, 0)
 
 	for _, gc := range contributionsByGroup {
-		// Check if this tribe has the Loan Shark Advantage.
+		// Check if this tribe has the Stir the Pot Advantage.
 		costPerPoint := int32(4)
 		advantages, err := s.queries.ListActiveAdvantagesByTypeForGroup(ctx, db.ListActiveAdvantagesByTypeForGroupParams{
 			InstanceID:         resolverCtx.activity.InstanceID,
 			ParticipantGroupID: gc.groupID,
-			AdvantageType:      "loan_shark",
+			AdvantageType:      "stir_the_pot_advantage",
 			At:                 resolverCtx.occurrence.EffectiveAt,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("check loan shark advantages for group %q: %w", gc.groupName, err)
+			return nil, fmt.Errorf("check stir_the_pot advantages for group %q: %w", gc.groupName, err)
 		}
 		if len(advantages) > 0 {
 			costPerPoint = 3
@@ -612,9 +612,9 @@ func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverCont
 				continue
 			}
 
-			var contribution loanSharkContributionMetadata
+			var contribution stirThePotContributionMetadata
 			if err := parseJSON(participantRow.Metadata, &contribution); err != nil {
-				return nil, fmt.Errorf("re-parse loan_shark contribution for participant spend: %w", err)
+				return nil, fmt.Errorf("re-parse stir_the_pot contribution for participant spend: %w", err)
 			}
 
 			if contribution.Contribution > 0 {
@@ -625,8 +625,8 @@ func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverCont
 					EntryKind:      bonusEntryKindSpend,
 					Points:         -contribution.Contribution,
 					Visibility:     bonusVisibilityPublic,
-					Reason:         fmt.Sprintf("%s Loan Shark contribution", gc.groupName),
-					AwardKey:       fmt.Sprintf("loan_shark:spend:%s", pgUUIDString(participantRow.ParticipantID)),
+					Reason:         fmt.Sprintf("%s Stir the Pot contribution", gc.groupName),
+					AwardKey:       fmt.Sprintf("stir_the_pot:spend:%s", pgUUIDString(participantRow.ParticipantID)),
 				})
 			}
 		}
@@ -635,7 +635,7 @@ func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverCont
 		if rewardPerMember > 0 {
 			members, err := s.membersForGroupAt(ctx, membershipCache, gc.groupID, resolverCtx.occurrence.EffectiveAt.Time)
 			if err != nil {
-				return nil, fmt.Errorf("list active members for loan shark group %q: %w", gc.groupName, err)
+				return nil, fmt.Errorf("list active members for stir_the_pot group %q: %w", gc.groupName, err)
 			}
 			for _, member := range members {
 				entries = append(entries, resolvedLedgerEntry{
@@ -645,8 +645,8 @@ func (s *Service) resolveLoanShark(ctx context.Context, resolverCtx resolverCont
 					EntryKind:      bonusEntryKindAward,
 					Points:         rewardPerMember,
 					Visibility:     bonusVisibilityPublic,
-					Reason:         fmt.Sprintf("%s Loan Shark reward", gc.groupName),
-					AwardKey:       fmt.Sprintf("loan_shark:reward:%s", pgUUIDString(gc.groupID)),
+					Reason:         fmt.Sprintf("%s Stir the Pot reward", gc.groupName),
+					AwardKey:       fmt.Sprintf("stir_the_pot:reward:%s", pgUUIDString(gc.groupID)),
 				})
 			}
 		}

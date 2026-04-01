@@ -134,14 +134,14 @@ func run() error {
 	}
 	_ = lotusOccurrence
 
-	leafScrollOccurrence, err := ensureManualAdjustmentOccurrence(ctx, svc, q, montyHallActivity.ID, "Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)", mustTime("2026-03-19T01:02:00Z"), []adjustmentParticipant{
+	leafScrollOccurrence, err := ensureManualAdjustmentOccurrence(ctx, svc, q, montyHallActivity.ID, "Monty Hall — Leaf Stir the Pot Advantage Scroll (+1 secret bonus)", mustTime("2026-03-19T01:02:00Z"), []adjustmentParticipant{
 		{Name: "Bryan", Points: 1}, {Name: "Lauren", Points: 1}, {Name: "Amanda", Points: 1}, {Name: "Yacob", Points: 1}, {Name: "Riley", Points: 1}, {Name: "Mooney", Points: 1},
-	}, "secret", "Loan Shark Advantage Scroll — secret bonus point", "season50:monty-hall-scroll-secret", participantByName)
+	}, "secret", "Stir the Pot Advantage Scroll — secret bonus point", "season50:monty-hall-scroll-secret", participantByName)
 	if err != nil {
 		return err
 	}
 
-	_, err = ensureActivity(ctx, q, instance.ID, "loan_shark", "Loan Shark", "planned", mustTime("2026-03-25T20:00:00-04:00"))
+	_, err = ensureActivity(ctx, q, instance.ID, "stir_the_pot", "Stir the Pot", "planned", mustTime("2026-03-25T20:00:00-04:00"))
 	if err != nil {
 		return err
 	}
@@ -348,7 +348,7 @@ func ensureAdvantage(ctx context.Context, q *db.Queries, instanceID, participant
 	active, err := q.ListActiveAdvantagesByTypeForParticipant(ctx, db.ListActiveAdvantagesByTypeForParticipantParams{
 		InstanceID:    instanceID,
 		ParticipantID: participantID,
-		AdvantageType: "loan_shark",
+		AdvantageType: "stir_the_pot_advantage",
 		At:            timestamptz(mustTime("2026-03-25T20:00:00-04:00")),
 	})
 	if err != nil {
@@ -361,8 +361,8 @@ func ensureAdvantage(ctx context.Context, q *db.Queries, instanceID, participant
 		InstanceID:                 instanceID,
 		ParticipantID:              participantID,
 		ParticipantGroupID:         groupID,
-		AdvantageType:              "loan_shark",
-		Name:                       "Loan Shark Advantage Scroll",
+		AdvantageType:              "stir_the_pot_advantage",
+		Name:                       "Stir the Pot Advantage Scroll",
 		Status:                     "active",
 		SourceActivityOccurrenceID: sourceOccurrenceID,
 		GrantedAt:                  timestamptz(mustTime("2026-03-19T01:02:00Z")),
@@ -372,7 +372,7 @@ func ensureAdvantage(ctx context.Context, q *db.Queries, instanceID, participant
 	}); err != nil {
 		return fmt.Errorf("create advantage for %q: %w", participantName, err)
 	}
-	fmt.Printf("created loan shark advantage for %s\n", participantName)
+	fmt.Printf("created stir the pot advantage for %s\n", participantName)
 	return nil
 }
 

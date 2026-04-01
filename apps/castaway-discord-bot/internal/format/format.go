@@ -413,59 +413,6 @@ func historyImpactSummary(entries []castaway.BonusLedgerEntry) string {
 	return strings.Join(items, ", ")
 }
 
-func compactOccurrenceImpact(detail castaway.OccurrenceDetail) string {
-	parts := make([]string, 0, 3)
-	if len(detail.Participants) > 0 {
-		parts = append(parts, summarizeRecordedParticipants(detail.Participants))
-	}
-	if len(detail.Groups) > 0 {
-		parts = append(parts, summarizeRecordedGroups(detail.Groups))
-	}
-	if awards := summarizeLedger(detail.Ledger); awards != "" {
-		parts = append(parts, awards)
-	}
-	return strings.Join(parts, " · ")
-}
-
-func summarizeRecordedParticipants(participants []castaway.OccurrenceParticipant) string {
-	labels := make([]string, 0, min(len(participants), 3))
-	for _, participant := range participants {
-		labels = append(labels, compactRecordedParticipant(participant))
-		if len(labels) == 3 {
-			break
-		}
-	}
-	if len(participants) > len(labels) {
-		labels = append(labels, fmt.Sprintf("+%d more", len(participants)-len(labels)))
-	}
-	return "recorded: " + strings.Join(labels, ", ")
-}
-
-func summarizeRecordedGroups(groups []castaway.OccurrenceGroup) string {
-	labels := make([]string, 0, min(len(groups), 2))
-	for _, group := range groups {
-		labels = append(labels, compactRecordedGroup(group))
-		if len(labels) == 2 {
-			break
-		}
-	}
-	if len(groups) > len(labels) {
-		labels = append(labels, fmt.Sprintf("+%d more", len(groups)-len(labels)))
-	}
-	return "groups: " + strings.Join(labels, ", ")
-}
-
-func summarizeLedger(entries []castaway.BonusLedgerEntry) string {
-	if len(entries) == 0 {
-		return ""
-	}
-	items := ledgerLines(entries)
-	if len(items) > 2 {
-		return fmt.Sprintf("impact: %s; +%d more", strings.Join(items[:2], "; "), len(items)-2)
-	}
-	return "impact: " + strings.Join(items, "; ")
-}
-
 func recordedLines(detail castaway.OccurrenceDetail) []string {
 	lines := make([]string, 0, len(detail.Participants)+len(detail.Groups))
 	for _, participant := range detail.Participants {
@@ -547,26 +494,6 @@ func formatResultLine(role, result, groupName string) string {
 		parts = append(parts, "group="+strings.TrimSpace(groupName))
 	}
 	return strings.Join(parts, ", ")
-}
-
-func compactRecordedParticipant(participant castaway.OccurrenceParticipant) string {
-	if strings.TrimSpace(participant.Result) != "" {
-		return fmt.Sprintf("%s=%s", participantLabel(participant), strings.TrimSpace(participant.Result))
-	}
-	if strings.TrimSpace(participant.Role) != "" {
-		return fmt.Sprintf("%s(%s)", participantLabel(participant), strings.TrimSpace(participant.Role))
-	}
-	return participantLabel(participant)
-}
-
-func compactRecordedGroup(group castaway.OccurrenceGroup) string {
-	if strings.TrimSpace(group.Result) != "" {
-		return fmt.Sprintf("%s=%s", group.ParticipantGroupName, strings.TrimSpace(group.Result))
-	}
-	if strings.TrimSpace(group.Role) != "" {
-		return fmt.Sprintf("%s(%s)", group.ParticipantGroupName, strings.TrimSpace(group.Role))
-	}
-	return group.ParticipantGroupName
 }
 
 func formatMetadataSummary(raw json.RawMessage) string {

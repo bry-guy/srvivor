@@ -363,7 +363,7 @@ func TestResolveActivityOccurrenceManualAdjustmentCreatesCorrectionRows(t *testi
 	}
 }
 
-func TestResolveActivityOccurrenceLoanSharkWithoutAdvantage(t *testing.T) {
+func TestResolveActivityOccurrenceStirThePotWithoutAdvantage(t *testing.T) {
 	instanceID := testUUID()
 	activityID := testUUID()
 	occurrenceID := testUUID()
@@ -377,15 +377,15 @@ func TestResolveActivityOccurrenceLoanSharkWithoutAdvantage(t *testing.T) {
 		activityOccurrence: db.GetActivityOccurrenceRow{
 			ID:             occurrenceID,
 			ActivityID:     activityID,
-			OccurrenceType: "loan_shark_result",
-			Name:           "Loan Shark Round 1",
+			OccurrenceType: "stir_the_pot_result",
+			Name:           "Stir the Pot Round 1",
 			EffectiveAt:    timestamptz(effectiveAt),
 		},
 		instanceActivity: db.GetInstanceActivityRow{
 			ID:           activityID,
 			InstanceID:   instanceID,
-			ActivityType: "loan_shark",
-			Name:         "Loan Shark",
+			ActivityType: "stir_the_pot",
+			Name:         "Stir the Pot",
 		},
 		occurrenceParticipants: []db.ListActivityOccurrenceParticipantsRow{
 			{ParticipantID: aliceID, ParticipantName: "Alice", ParticipantGroupID: tangerineID, ParticipantGroupName: textValue("Tangerine"), Metadata: []byte(`{"contribution":2}`)},
@@ -432,7 +432,7 @@ func TestResolveActivityOccurrenceLoanSharkWithoutAdvantage(t *testing.T) {
 	}
 }
 
-func TestResolveActivityOccurrenceLoanSharkWithAdvantage(t *testing.T) {
+func TestResolveActivityOccurrenceStirThePotWithAdvantage(t *testing.T) {
 	instanceID := testUUID()
 	activityID := testUUID()
 	occurrenceID := testUUID()
@@ -445,15 +445,15 @@ func TestResolveActivityOccurrenceLoanSharkWithAdvantage(t *testing.T) {
 		activityOccurrence: db.GetActivityOccurrenceRow{
 			ID:             occurrenceID,
 			ActivityID:     activityID,
-			OccurrenceType: "loan_shark_result",
-			Name:           "Loan Shark Round 1",
+			OccurrenceType: "stir_the_pot_result",
+			Name:           "Stir the Pot Round 1",
 			EffectiveAt:    timestamptz(effectiveAt),
 		},
 		instanceActivity: db.GetInstanceActivityRow{
 			ID:           activityID,
 			InstanceID:   instanceID,
-			ActivityType: "loan_shark",
-			Name:         "Loan Shark",
+			ActivityType: "stir_the_pot",
+			Name:         "Stir the Pot",
 		},
 		occurrenceParticipants: []db.ListActivityOccurrenceParticipantsRow{
 			{ParticipantID: aliceID, ParticipantName: "Alice", ParticipantGroupID: leafID, ParticipantGroupName: textValue("Leaf"), Metadata: []byte(`{"contribution":2}`)},
@@ -466,7 +466,7 @@ func TestResolveActivityOccurrenceLoanSharkWithAdvantage(t *testing.T) {
 			},
 		},
 		activeAdvantagesByGroup: []db.ListActiveAdvantagesByTypeForGroupRow{
-			{ID: testUUID(), InstanceID: instanceID, ParticipantGroupID: leafID, AdvantageType: "loan_shark"},
+			{ID: testUUID(), InstanceID: instanceID, ParticipantGroupID: leafID, AdvantageType: "stir_the_pot_advantage"},
 		},
 	}
 
@@ -501,7 +501,7 @@ func TestResolveActivityOccurrenceLoanSharkWithAdvantage(t *testing.T) {
 	}
 }
 
-func TestResolveActivityOccurrenceLoanSharkInsufficientContribution(t *testing.T) {
+func TestResolveActivityOccurrenceStirThePotInsufficientContribution(t *testing.T) {
 	instanceID := testUUID()
 	activityID := testUUID()
 	occurrenceID := testUUID()
@@ -513,15 +513,15 @@ func TestResolveActivityOccurrenceLoanSharkInsufficientContribution(t *testing.T
 		activityOccurrence: db.GetActivityOccurrenceRow{
 			ID:             occurrenceID,
 			ActivityID:     activityID,
-			OccurrenceType: "loan_shark_result",
-			Name:           "Loan Shark Round 1",
+			OccurrenceType: "stir_the_pot_result",
+			Name:           "Stir the Pot Round 1",
 			EffectiveAt:    timestamptz(effectiveAt),
 		},
 		instanceActivity: db.GetInstanceActivityRow{
 			ID:           activityID,
 			InstanceID:   instanceID,
-			ActivityType: "loan_shark",
-			Name:         "Loan Shark",
+			ActivityType: "stir_the_pot",
+			Name:         "Stir the Pot",
 		},
 		occurrenceParticipants: []db.ListActivityOccurrenceParticipantsRow{
 			{ParticipantID: aliceID, ParticipantName: "Alice", ParticipantGroupID: tangerineID, ParticipantGroupName: textValue("Tangerine"), Metadata: []byte(`{"contribution":3}`)},

@@ -412,15 +412,15 @@ WHERE pa.instance_id = i.id
   AND pa.participant_id = p.id
   AND i.public_id = $1
   AND p.public_id = $2
-  AND pa.advantage_type = 'loan_shark'
-  AND pa.name = 'Loan Shark Advantage Scroll'
+  AND pa.advantage_type = 'stir_the_pot_advantage'
+  AND pa.name = 'Stir the Pot Advantage Scroll'
   AND pa.status = 'active'
 `, instanceID, participantID)
 		if err != nil {
 			return fmt.Errorf("expire wrong advantage for %q: %w", name, err)
 		}
 		if commandTag.RowsAffected() > 0 {
-			fmt.Printf("expired incorrect loan shark advantage for %s\n", name)
+			fmt.Printf("expired incorrect stir the pot advantage for %s\n", name)
 		}
 	}
 	return nil
@@ -430,7 +430,7 @@ func ensureAdvantage(ctx context.Context, q *db.Queries, instanceID, participant
 	active, err := q.ListActiveAdvantagesByTypeForParticipant(ctx, db.ListActiveAdvantagesByTypeForParticipantParams{
 		InstanceID:    instanceID,
 		ParticipantID: participantID,
-		AdvantageType: "loan_shark",
+		AdvantageType: "stir_the_pot_advantage",
 		At:            timestamptz(mustTime("2026-03-25T20:00:00-04:00")),
 	})
 	if err != nil {
@@ -443,8 +443,8 @@ func ensureAdvantage(ctx context.Context, q *db.Queries, instanceID, participant
 		InstanceID:                 instanceID,
 		ParticipantID:              participantID,
 		ParticipantGroupID:         groupID,
-		AdvantageType:              "loan_shark",
-		Name:                       "Loan Shark Advantage Scroll",
+		AdvantageType:              "stir_the_pot_advantage",
+		Name:                       "Stir the Pot Advantage Scroll",
 		Status:                     "active",
 		SourceActivityOccurrenceID: sourceOccurrenceID,
 		GrantedAt:                  timestamptz(mustTime("2026-03-19T01:02:00Z")),
@@ -454,7 +454,7 @@ func ensureAdvantage(ctx context.Context, q *db.Queries, instanceID, participant
 	}); err != nil {
 		return fmt.Errorf("create advantage for %q: %w", participantName, err)
 	}
-	fmt.Printf("created loan shark advantage for %s\n", participantName)
+	fmt.Printf("created stir the pot advantage for %s\n", participantName)
 	return nil
 }
 

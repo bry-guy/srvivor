@@ -84,8 +84,8 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	if season50.Activities[3].ActivityType != "manual_adjustment" {
 		t.Fatalf("expected fourth activity to be manual_adjustment (Monty Hall), got %q", season50.Activities[3].ActivityType)
 	}
-	if season50.Activities[4].ActivityType != "loan_shark" {
-		t.Fatalf("expected fifth activity to be loan_shark, got %q", season50.Activities[4].ActivityType)
+	if season50.Activities[4].ActivityType != "stir_the_pot" {
+		t.Fatalf("expected fifth activity to be stir_the_pot, got %q", season50.Activities[4].ActivityType)
 	}
 	if got := len(season50.Activities[0].GroupAssignments); got != 3 {
 		t.Fatalf("tribal pony activity expected 3 group assignments, got %d", got)
@@ -146,8 +146,8 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 		t.Fatalf("season 50 expected 6 advantages, got %d", got)
 	}
 	for _, a := range season50.Advantages {
-		if a.AdvantageType != "loan_shark" {
-			t.Fatalf("expected all advantages to be loan_shark, got %q", a.AdvantageType)
+		if a.AdvantageType != "stir_the_pot_advantage" {
+			t.Fatalf("expected all advantages to be stir_the_pot_advantage, got %q", a.AdvantageType)
 		}
 		if a.GroupName != "Leaf" {
 			t.Fatalf("expected all advantages to be for Leaf, got %q", a.GroupName)

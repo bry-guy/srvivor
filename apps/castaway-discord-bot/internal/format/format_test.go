@@ -175,8 +175,8 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 			{
 				Activity: castaway.Activity{ID: "a2", Name: "Monty Hall Memorial Castaway Game", ActivityType: "manual_adjustment"},
 				Occurrences: []castaway.ParticipantActivityHistoryOccurrence{{
-					Occurrence:  castaway.Occurrence{ID: "o2", Name: "Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)", EffectiveAt: "2026-03-19T01:02:00Z"},
-					Involvement: &castaway.ParticipantOccurrenceInvolvement{Role: "adjustment", Metadata: []byte(`{"award_key":"season50:monty-hall:leaf:loan-shark-secret","points":1,"reason":"Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)"}`)},
+					Occurrence:  castaway.Occurrence{ID: "o2", Name: "Monty Hall — Leaf Stir the Pot Advantage Scroll (+1 secret bonus)", EffectiveAt: "2026-03-19T01:02:00Z"},
+					Involvement: &castaway.ParticipantOccurrenceInvolvement{Role: "adjustment", Metadata: []byte(`{"award_key":"season50:monty-hall:leaf:stir-the-pot-secret","points":1,"reason":"Monty Hall — Leaf Stir the Pot Advantage Scroll (+1 secret bonus)"}`)},
 				}},
 			},
 			{
@@ -206,9 +206,9 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 		"- impact: +1 secret",
 		"**Episode 3**",
 		"Monty Hall Memorial Castaway Game",
-		"- Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus) @ Mar 19 01:02",
+		"- Monty Hall — Leaf Stir the Pot Advantage Scroll (+1 secret bonus) @ Mar 19 01:02",
 		"- action: adjustment",
-		"- result: Monty Hall — Leaf Loan Shark Advantage Scroll (+1 secret bonus)",
+		"- result: Monty Hall — Leaf Stir the Pot Advantage Scroll (+1 secret bonus)",
 	} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)

@@ -456,11 +456,11 @@ Let's see what's behind each door!
 
 Thanks for playing everybody! See you next week!
 
-#### Scroll: Loan Shark Advantage
+#### Scroll: Stir the Pot Advantage
 
 <@198239741265707008> <@705588098129461248> <@695840219819147264> <@88437577341755392> <@693275146047324232> 
 
-Congratulations players! You have earned the **Loan Shark Advantage**. Each player on your tribe has earned a **secret bonus point**! Secret bonus points count the same as bonus points, except they are only revealed when used or scored in the finale.
+Congratulations players! You have earned the **Stir the Pot Advantage**. Each player on your tribe has earned a **secret bonus point**! Secret bonus points count the same as bonus points, except they are only revealed when used or scored in the finale.
 
 In an upcoming tribe challenge, you will be able to risk your bonus points to earn a reward. This advantage reduces the cost of your risk!
 
