@@ -82,6 +82,81 @@ func TestResolveActivityOccurrenceTribalPonyAwardsWinningTribeMembers(t *testing
 	}
 }
 
+func TestResolveActivityOccurrenceTribalPonyAppliesOpenStirThePotBonus(t *testing.T) {
+	instanceID := testUUID()
+	activityID := testUUID()
+	occurrenceID := testUUID()
+	stirThePotActivityID := testUUID()
+	stirThePotRoundID := testUUID()
+	winningGroupID := testUUID()
+	aliceID := testUUID()
+	effectiveAt := time.Date(2026, time.March, 25, 20, 0, 0, 0, time.UTC)
+
+	fake := &fakeQuerier{
+		activityOccurrence: db.GetActivityOccurrenceRow{
+			ID:             occurrenceID,
+			ActivityID:     activityID,
+			OccurrenceType: "immunity_result",
+			Name:           "Episode 4 Immunity",
+			EffectiveAt:    timestamptz(effectiveAt),
+			Metadata:       []byte(`{"winning_survivor_tribes":["vatu"]}`),
+		},
+		instanceActivity: db.GetInstanceActivityRow{
+			ID:           activityID,
+			InstanceID:   instanceID,
+			ActivityType: "tribal_pony",
+			Name:         "Pony Tribes",
+		},
+		activeActivityGroupAssignments: []db.ListActiveActivityGroupAssignmentsAtRow{{
+			ActivityID:           activityID,
+			ParticipantGroupID:   winningGroupID,
+			ParticipantGroupName: "Lotus",
+			Role:                 "tribe",
+			Configuration:        []byte(`{"pony_survivor_tribe":"vatu"}`),
+		}},
+		activeMembershipsByGroup: map[[16]byte][]db.ListActiveParticipantGroupMembershipsAtRow{
+			winningGroupID.Bytes: {{ParticipantGroupID: winningGroupID, ParticipantID: aliceID, ParticipantName: "Alice"}},
+		},
+		instanceActivitiesByType: []db.ListInstanceActivitiesByTypeRow{{
+			ID:           stirThePotActivityID,
+			InstanceID:   instanceID,
+			ActivityType: "stir_the_pot",
+			Name:         "Stir the Pot",
+		}},
+		occurrencesByStatus: []db.ListActivityOccurrencesByActivityAndStatusRow{{
+			ID:             stirThePotRoundID,
+			ActivityID:     stirThePotActivityID,
+			OccurrenceType: "stir_the_pot_round",
+			Name:           "Round 1",
+			EffectiveAt:    timestamptz(effectiveAt.Add(-time.Hour)),
+			Status:         "recorded",
+			Metadata:       []byte(`{"reward_tiers":[{"contributions":2,"bonus":1},{"contributions":5,"bonus":2}]}`),
+		}},
+		occurrenceParticipantsByOccurrence: map[[16]byte][]db.ListActivityOccurrenceParticipantsRow{
+			stirThePotRoundID.Bytes: {{ParticipantID: testUUID(), ParticipantName: "Contributor", ParticipantGroupID: winningGroupID, ParticipantGroupName: textValue("Lotus"), Role: "contributor", Metadata: []byte(`{"contribution":5}`)}},
+		},
+	}
+
+	service := NewService(fake)
+	created, err := service.ResolveActivityOccurrence(context.Background(), occurrenceID)
+	if err != nil {
+		t.Fatalf("resolve activity occurrence: %v", err)
+	}
+	if got := len(created); got != 1 {
+		t.Fatalf("expected 1 created ledger entry, got %d", got)
+	}
+	entry := fake.createdBonusLedgerEntries[0]
+	if entry.Points != 3 {
+		t.Fatalf("expected tribal pony + stir the pot award of 3, got %d", entry.Points)
+	}
+	if got := len(fake.updatedOccurrences); got != 1 {
+		t.Fatalf("expected stir the pot round to be marked resolved, got %d updates", got)
+	}
+	if fake.updatedOccurrences[0].ID != stirThePotRoundID || fake.updatedOccurrences[0].Status != "resolved" {
+		t.Fatalf("unexpected stir the pot round update: %+v", fake.updatedOccurrences[0])
+	}
+}
+
 func TestResolveActivityOccurrenceTribeWordleAwardsTopThreeTieWinners(t *testing.T) {
 	instanceID := testUUID()
 	activityID := testUUID()
@@ -546,6 +621,52 @@ func TestResolveActivityOccurrenceStirThePotInsufficientContribution(t *testing.
 	}
 	if fake.createdBonusLedgerEntries[0].EntryKind != "spend" || fake.createdBonusLedgerEntries[0].Points != -3 {
 		t.Fatalf("expected spend of -3, got %+v", fake.createdBonusLedgerEntries[0])
+	}
+}
+
+func TestResolveActivityOccurrenceIndividualPonyAwardsOwners(t *testing.T) {
+	instanceID := testUUID()
+	activityID := testUUID()
+	occurrenceID := testUUID()
+	ownerID := testUUID()
+	contestantID := testUUID()
+	effectiveAt := time.Date(2026, time.April, 1, 20, 0, 0, 0, time.UTC)
+
+	fake := &fakeQuerier{
+		activityOccurrence: db.GetActivityOccurrenceRow{
+			ID:             occurrenceID,
+			ActivityID:     activityID,
+			OccurrenceType: "immunity_result",
+			Name:           "Joe Individual Immunity",
+			EffectiveAt:    timestamptz(effectiveAt),
+			Metadata:       []byte(`{"winning_contestant_id":"` + pgUUIDString(contestantID) + `"}`),
+		},
+		instanceActivity: db.GetInstanceActivityRow{
+			ID:           activityID,
+			InstanceID:   instanceID,
+			ActivityType: "individual_pony",
+			Name:         "Individual Pony",
+		},
+		activePonyOwnershipsByContestant: []db.ListActiveParticipantPonyOwnershipsByContestantAtRow{{
+			InstanceID:           instanceID,
+			OwnerParticipantID:   ownerID,
+			OwnerParticipantName: "Alice",
+			ContestantID:         contestantID,
+			ContestantName:       "Joe",
+		}},
+	}
+
+	service := NewService(fake)
+	created, err := service.ResolveActivityOccurrence(context.Background(), occurrenceID)
+	if err != nil {
+		t.Fatalf("resolve activity occurrence: %v", err)
+	}
+	if got := len(created); got != 1 {
+		t.Fatalf("expected 1 created ledger entry, got %d", got)
+	}
+	entry := fake.createdBonusLedgerEntries[0]
+	if entry.ParticipantID != ownerID || entry.Points != 3 || entry.EntryKind != bonusEntryKindAward {
+		t.Fatalf("unexpected individual pony entry: %+v", entry)
 	}
 }
 

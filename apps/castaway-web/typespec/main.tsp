@@ -235,6 +235,31 @@ model ImportInstanceRequest {
   submissions: ImportSubmission[];
 }
 
+model StartStirThePotRoundRequest {
+  name?: string;
+}
+
+model AddStirThePotContributionRequest {
+  points: int32;
+}
+
+model StartAuctionLotRequest {
+  contestant_id: string;
+}
+
+model SetAuctionBidRequest {
+  points: int32;
+}
+
+model LoanSharkRequest {
+  points: int32;
+}
+
+model RecordIndividualPonyImmunityRequest {
+  contestant_id: string;
+  effective_at?: utcDateTime;
+}
+
 // --- Activities & Occurrences request/response models ---
 
 model ListActivitiesResponse {
@@ -498,6 +523,79 @@ op getParticipantBonusLedger(
   @path instanceID: string,
   @path participantID: string,
 ): ParticipantBonusLedgerResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/stir-the-pot/me")
+@get
+op getStirThePotStatus(@path instanceID: string): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/stir-the-pot/start")
+@post
+op startStirThePotRound(
+  @path instanceID: string,
+  @body body: StartStirThePotRoundRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/stir-the-pot/me/contributions")
+@post
+op addStirThePotContribution(
+  @path instanceID: string,
+  @body body: AddStirThePotContributionRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/auction/me")
+@get
+op getAuctionStatus(@path instanceID: string): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/auction/lots/start")
+@post
+op startAuctionLot(
+  @path instanceID: string,
+  @body body: StartAuctionLotRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/auction/lots/{contestantID}/stop")
+@post
+op stopAuctionLot(
+  @path instanceID: string,
+  @path contestantID: string,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/auction/contestants/{contestantID}/bid/me")
+@put
+op setAuctionBid(
+  @path instanceID: string,
+  @path contestantID: string,
+  @body body: SetAuctionBidRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/ponies/me")
+@get
+op getMyPonies(@path instanceID: string): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/loan-shark/me")
+@get
+op getLoanSharkStatus(@path instanceID: string): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/loan-shark/me/borrow")
+@post
+op borrowFromLoanShark(
+  @path instanceID: string,
+  @body body: LoanSharkRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/loan-shark/me/repay")
+@post
+op repayLoanShark(
+  @path instanceID: string,
+  @body body: LoanSharkRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/individual-pony/immunity")
+@post
+op recordIndividualPonyImmunity(
+  @path instanceID: string,
+  @body body: RecordIndividualPonyImmunityRequest,
+): JsonObject | ErrorResponse;
 
 @route("/instances/{instanceID}/drafts/{participantID}")
 @put

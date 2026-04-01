@@ -72,6 +72,19 @@ type stirThePotContributionMetadata struct {
 	Contribution int32 `json:"contribution"`
 }
 
+type stirThePotRewardTier struct {
+	Contributions int32 `json:"contributions"`
+	Bonus         int32 `json:"bonus"`
+}
+
+type stirThePotRoundMetadata struct {
+	RewardTiers []stirThePotRewardTier `json:"reward_tiers,omitempty"`
+}
+
+type individualPonyOccurrenceMetadata struct {
+	WinningContestantID string `json:"winning_contestant_id"`
+}
+
 type wordleGroupScore struct {
 	GroupID   pgtype.UUID
 	GroupName string
@@ -118,6 +131,8 @@ func (s *Service) ResolveActivityOccurrence(ctx context.Context, occurrenceID pg
 		entries, err = s.resolveManualAdjustment(resolverCtx)
 	case "stir_the_pot":
 		entries, err = s.resolveStirThePot(ctx, resolverCtx)
+	case "individual_pony":
+		entries, err = s.resolveIndividualPony(ctx, resolverCtx)
 	default:
 		return nil, fmt.Errorf("unsupported activity type %q", activity.ActivityType)
 	}
@@ -177,6 +192,10 @@ func (s *Service) resolveTribalPony(ctx context.Context, resolverCtx resolverCon
 	if err != nil {
 		return nil, fmt.Errorf("list active activity group assignments: %w", err)
 	}
+	stirThePotBonusByGroup, err := s.stirThePotBonusesForInstance(ctx, resolverCtx.activity.InstanceID, resolverCtx.occurrence.EffectiveAt.Time)
+	if err != nil {
+		return nil, err
+	}
 
 	entries := make([]resolvedLedgerEntry, 0)
 	membershipCache := make(map[pgtype.UUID][]db.ListActiveParticipantGroupMembershipsAtRow)
@@ -193,16 +212,26 @@ func (s *Service) resolveTribalPony(ctx context.Context, resolverCtx resolverCon
 		if err != nil {
 			return nil, fmt.Errorf("list active members for group %q: %w", assignment.ParticipantGroupName, err)
 		}
+		points := int32(1)
+		if bonus, ok := stirThePotBonusByGroup[assignment.ParticipantGroupID]; ok && bonus > 0 {
+			points += bonus
+		}
 		for _, member := range members {
+			reason := fmt.Sprintf("%s pony tribe won immunity", assignment.ParticipantGroupName)
+			awardKey := fmt.Sprintf("tribal_pony:%s", pgUUIDString(assignment.ParticipantGroupID))
+			if points > 1 {
+				reason = fmt.Sprintf("%s pony tribe won immunity with Stir the Pot bonus", assignment.ParticipantGroupName)
+				awardKey = fmt.Sprintf("tribal_pony:%s:stir_the_pot", pgUUIDString(assignment.ParticipantGroupID))
+			}
 			entries = append(entries, resolvedLedgerEntry{
 				ParticipantID:  member.ParticipantID,
 				SourceGroupID:  assignment.ParticipantGroupID,
 				HasSourceGroup: true,
 				EntryKind:      bonusEntryKindAward,
-				Points:         1,
+				Points:         points,
 				Visibility:     bonusVisibilityPublic,
-				Reason:         fmt.Sprintf("%s pony tribe won immunity", assignment.ParticipantGroupName),
-				AwardKey:       fmt.Sprintf("tribal_pony:%s", pgUUIDString(assignment.ParticipantGroupID)),
+				Reason:         reason,
+				AwardKey:       awardKey,
 			})
 		}
 	}
@@ -653,6 +682,114 @@ func (s *Service) resolveStirThePot(ctx context.Context, resolverCtx resolverCon
 	}
 
 	return entries, nil
+}
+
+func (s *Service) resolveIndividualPony(ctx context.Context, resolverCtx resolverContext) ([]resolvedLedgerEntry, error) {
+	var metadata individualPonyOccurrenceMetadata
+	if err := parseJSON(resolverCtx.occurrence.Metadata, &metadata); err != nil {
+		return nil, fmt.Errorf("parse individual_pony occurrence metadata: %w", err)
+	}
+	winningContestantID, err := uuid.Parse(strings.TrimSpace(metadata.WinningContestantID))
+	if err != nil {
+		return nil, fmt.Errorf("individual_pony occurrence must include winning_contestant_id")
+	}
+	owners, err := s.queries.ListActiveParticipantPonyOwnershipsByContestantAt(ctx, db.ListActiveParticipantPonyOwnershipsByContestantAtParams{
+		InstanceID:   resolverCtx.activity.InstanceID,
+		ContestantID: pgtype.UUID{Bytes: [16]byte(winningContestantID), Valid: true},
+		At:           resolverCtx.occurrence.EffectiveAt,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list active pony ownerships: %w", err)
+	}
+	entries := make([]resolvedLedgerEntry, 0, len(owners))
+	for _, owner := range owners {
+		entries = append(entries, resolvedLedgerEntry{
+			ParticipantID: owner.OwnerParticipantID,
+			EntryKind:     bonusEntryKindAward,
+			Points:        3,
+			Visibility:    bonusVisibilityPublic,
+			Reason:        fmt.Sprintf("%s won individual immunity", owner.ContestantName),
+			AwardKey:      fmt.Sprintf("individual_pony:%s", pgUUIDString(owner.ContestantID)),
+		})
+	}
+	return entries, nil
+}
+
+func (s *Service) stirThePotBonusesForInstance(ctx context.Context, instanceID pgtype.UUID, at time.Time) (map[pgtype.UUID]int32, error) {
+	activities, err := s.queries.ListInstanceActivitiesByType(ctx, db.ListInstanceActivitiesByTypeParams{InstanceID: instanceID, ActivityType: "stir_the_pot"})
+	if err != nil {
+		return nil, fmt.Errorf("list stir_the_pot activities: %w", err)
+	}
+	bonusByGroup := make(map[pgtype.UUID]int32)
+	for _, activity := range activities {
+		occurrences, err := s.queries.ListActivityOccurrencesByActivityAndStatus(ctx, db.ListActivityOccurrencesByActivityAndStatusParams{ActivityID: activity.ID, Status: "recorded"})
+		if err != nil {
+			return nil, fmt.Errorf("list open stir_the_pot occurrences: %w", err)
+		}
+		for _, occurrence := range occurrences {
+			if occurrence.OccurrenceType != "stir_the_pot_round" {
+				continue
+			}
+			if occurrence.EffectiveAt.Time.After(at) {
+				continue
+			}
+			participants, err := s.queries.ListActivityOccurrenceParticipants(ctx, occurrence.ID)
+			if err != nil {
+				return nil, fmt.Errorf("list stir_the_pot participants: %w", err)
+			}
+			contributionByGroup := make(map[pgtype.UUID]int32)
+			for _, participant := range participants {
+				if participant.Role != "contributor" || !participant.ParticipantGroupID.Valid {
+					continue
+				}
+				var contribution stirThePotContributionMetadata
+				if err := parseJSON(participant.Metadata, &contribution); err != nil {
+					return nil, fmt.Errorf("parse stir_the_pot contribution for participant %q: %w", participant.ParticipantName, err)
+				}
+				contributionByGroup[participant.ParticipantGroupID] += contribution.Contribution
+			}
+			metadata := parseStirThePotRoundMetadata(occurrence.Metadata)
+			for groupID, total := range contributionByGroup {
+				bonus := stirThePotBonusForContribution(total, metadata.RewardTiers)
+				if bonus > bonusByGroup[groupID] {
+					bonusByGroup[groupID] = bonus
+				}
+			}
+			resolvedMetadata, err := json.Marshal(map[string]any{"resolved_by": "tribal_pony", "resolved_at": at.Format(time.RFC3339)})
+			if err != nil {
+				return nil, fmt.Errorf("marshal stir_the_pot resolved metadata: %w", err)
+			}
+			if _, err := s.queries.UpdateActivityOccurrenceStatusAndMetadata(ctx, db.UpdateActivityOccurrenceStatusAndMetadataParams{ID: occurrence.ID, Status: "resolved", EndsAt: timestamptz(at), Metadata: resolvedMetadata}); err != nil {
+				return nil, fmt.Errorf("resolve stir_the_pot round: %w", err)
+			}
+		}
+	}
+	return bonusByGroup, nil
+}
+
+func parseStirThePotRoundMetadata(raw []byte) stirThePotRoundMetadata {
+	var metadata stirThePotRoundMetadata
+	if err := parseJSON(raw, &metadata); err != nil {
+		return stirThePotRoundMetadata{RewardTiers: defaultStirThePotRewardTiers()}
+	}
+	if len(metadata.RewardTiers) == 0 {
+		metadata.RewardTiers = defaultStirThePotRewardTiers()
+	}
+	return metadata
+}
+
+func stirThePotBonusForContribution(total int32, tiers []stirThePotRewardTier) int32 {
+	var best int32
+	for _, tier := range tiers {
+		if total >= tier.Contributions && tier.Bonus > best {
+			best = tier.Bonus
+		}
+	}
+	return best
+}
+
+func defaultStirThePotRewardTiers() []stirThePotRewardTier {
+	return []stirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 11, Bonus: 4}}
 }
 
 func (s *Service) resolveJourneyDelegatesAt(ctx context.Context, resolverCtx resolverContext) ([]db.ListActiveActivityParticipantAssignmentsAtRow, error) {

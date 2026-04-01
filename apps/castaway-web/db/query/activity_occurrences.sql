@@ -61,6 +61,26 @@ JOIN instance_activities ia ON ia.id = ao.activity_id
 WHERE ia.public_id = sqlc.arg(activity_id)
 ORDER BY ao.effective_at ASC, ao.id ASC;
 
+-- name: ListActivityOccurrencesByActivityAndStatus :many
+SELECT
+    ao.public_id AS id,
+    ia.public_id AS activity_id,
+    ao.occurrence_type,
+    ao.name,
+    ao.effective_at,
+    ao.starts_at,
+    ao.ends_at,
+    ao.status,
+    ao.source_ref,
+    ao.metadata,
+    ao.created_at,
+    ao.updated_at
+FROM activity_occurrences ao
+JOIN instance_activities ia ON ia.id = ao.activity_id
+WHERE ia.public_id = sqlc.arg(activity_id)
+  AND ao.status = sqlc.arg(status)
+ORDER BY ao.effective_at ASC, ao.id ASC;
+
 -- name: GetActivityOccurrence :one
 SELECT
     ao.public_id AS id,
@@ -188,6 +208,83 @@ RETURNING
     metadata,
     created_at;
 
+-- name: UpsertActivityOccurrenceParticipant :one
+WITH resolved_occurrence AS (
+    SELECT
+        ao.id AS activity_occurrence_internal_id,
+        ao.public_id AS activity_occurrence_id,
+        ia.instance_id
+    FROM activity_occurrences ao
+    JOIN instance_activities ia ON ia.id = ao.activity_id
+    WHERE ao.public_id = sqlc.arg(activity_occurrence_id)
+), resolved_participant AS (
+    SELECT
+        p.id AS participant_internal_id,
+        p.public_id AS participant_id
+    FROM participants p
+    JOIN resolved_occurrence ro ON ro.instance_id = p.instance_id
+    WHERE p.public_id = sqlc.arg(participant_id)
+), resolved_group AS (
+    SELECT
+        pg.id AS participant_group_internal_id,
+        pg.public_id AS participant_group_id
+    FROM participant_groups pg
+    JOIN resolved_occurrence ro ON ro.instance_id = pg.instance_id
+    WHERE pg.public_id = sqlc.arg(participant_group_id)
+)
+INSERT INTO activity_occurrence_participants (
+    activity_occurrence_id,
+    participant_id,
+    participant_group_id,
+    role,
+    result,
+    metadata
+)
+SELECT
+    ro.activity_occurrence_internal_id,
+    rp.participant_internal_id,
+    rg.participant_group_internal_id,
+    sqlc.arg(role),
+    sqlc.arg(result),
+    sqlc.arg(metadata)
+FROM resolved_occurrence ro
+CROSS JOIN resolved_participant rp
+LEFT JOIN resolved_group rg ON TRUE
+ON CONFLICT (activity_occurrence_id, participant_id, role)
+DO UPDATE SET
+    participant_group_id = EXCLUDED.participant_group_id,
+    result = EXCLUDED.result,
+    metadata = EXCLUDED.metadata
+RETURNING
+    id,
+    (SELECT activity_occurrence_id FROM resolved_occurrence) AS activity_occurrence_id,
+    (SELECT participant_id FROM resolved_participant) AS participant_id,
+    (SELECT participant_group_id FROM resolved_group) AS participant_group_id,
+    role,
+    result,
+    metadata,
+    created_at;
+
+-- name: GetActivityOccurrenceParticipant :one
+SELECT
+    aop.id,
+    ao.public_id AS activity_occurrence_id,
+    p.public_id AS participant_id,
+    p.name AS participant_name,
+    pg.public_id AS participant_group_id,
+    pg.name AS participant_group_name,
+    aop.role,
+    aop.result,
+    aop.metadata,
+    aop.created_at
+FROM activity_occurrence_participants aop
+JOIN activity_occurrences ao ON ao.id = aop.activity_occurrence_id
+JOIN participants p ON p.id = aop.participant_id
+LEFT JOIN participant_groups pg ON pg.id = aop.participant_group_id
+WHERE ao.public_id = sqlc.arg(activity_occurrence_id)
+  AND p.public_id = sqlc.arg(participant_id)
+  AND aop.role = sqlc.arg(role);
+
 -- name: ListActivityOccurrenceParticipants :many
 SELECT
     aop.id,
@@ -206,6 +303,27 @@ JOIN participants p ON p.id = aop.participant_id
 LEFT JOIN participant_groups pg ON pg.id = aop.participant_group_id
 WHERE ao.public_id = sqlc.arg(activity_occurrence_id)
 ORDER BY p.name ASC, aop.id ASC;
+
+-- name: UpdateActivityOccurrenceStatusAndMetadata :one
+UPDATE activity_occurrences ao
+SET status = sqlc.arg(status),
+    ends_at = sqlc.arg(ends_at),
+    metadata = sqlc.arg(metadata),
+    updated_at = NOW()
+WHERE ao.public_id = sqlc.arg(id)
+RETURNING
+    ao.public_id AS id,
+    (SELECT ia.public_id FROM instance_activities ia WHERE ia.id = ao.activity_id) AS activity_id,
+    ao.occurrence_type,
+    ao.name,
+    ao.effective_at,
+    ao.starts_at,
+    ao.ends_at,
+    ao.status,
+    ao.source_ref,
+    ao.metadata,
+    ao.created_at,
+    ao.updated_at;
 
 -- name: ListParticipantOccurrenceInvolvementByInstance :many
 SELECT

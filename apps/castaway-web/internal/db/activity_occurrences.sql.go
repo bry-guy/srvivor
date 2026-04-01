@@ -344,6 +344,64 @@ func (q *Queries) GetActivityOccurrence(ctx context.Context, id pgtype.UUID) (Ge
 	return i, err
 }
 
+const getActivityOccurrenceParticipant = `-- name: GetActivityOccurrenceParticipant :one
+SELECT
+    aop.id,
+    ao.public_id AS activity_occurrence_id,
+    p.public_id AS participant_id,
+    p.name AS participant_name,
+    pg.public_id AS participant_group_id,
+    pg.name AS participant_group_name,
+    aop.role,
+    aop.result,
+    aop.metadata,
+    aop.created_at
+FROM activity_occurrence_participants aop
+JOIN activity_occurrences ao ON ao.id = aop.activity_occurrence_id
+JOIN participants p ON p.id = aop.participant_id
+LEFT JOIN participant_groups pg ON pg.id = aop.participant_group_id
+WHERE ao.public_id = $1
+  AND p.public_id = $2
+  AND aop.role = $3
+`
+
+type GetActivityOccurrenceParticipantParams struct {
+	ActivityOccurrenceID pgtype.UUID `json:"activity_occurrence_id"`
+	ParticipantID        pgtype.UUID `json:"participant_id"`
+	Role                 string      `json:"role"`
+}
+
+type GetActivityOccurrenceParticipantRow struct {
+	ID                   int64              `json:"id"`
+	ActivityOccurrenceID pgtype.UUID        `json:"activity_occurrence_id"`
+	ParticipantID        pgtype.UUID        `json:"participant_id"`
+	ParticipantName      string             `json:"participant_name"`
+	ParticipantGroupID   pgtype.UUID        `json:"participant_group_id"`
+	ParticipantGroupName pgtype.Text        `json:"participant_group_name"`
+	Role                 string             `json:"role"`
+	Result               string             `json:"result"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetActivityOccurrenceParticipant(ctx context.Context, arg GetActivityOccurrenceParticipantParams) (GetActivityOccurrenceParticipantRow, error) {
+	row := q.db.QueryRow(ctx, getActivityOccurrenceParticipant, arg.ActivityOccurrenceID, arg.ParticipantID, arg.Role)
+	var i GetActivityOccurrenceParticipantRow
+	err := row.Scan(
+		&i.ID,
+		&i.ActivityOccurrenceID,
+		&i.ParticipantID,
+		&i.ParticipantName,
+		&i.ParticipantGroupID,
+		&i.ParticipantGroupName,
+		&i.Role,
+		&i.Result,
+		&i.Metadata,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listActivityOccurrenceGroups = `-- name: ListActivityOccurrenceGroups :many
 SELECT
     aog.id,
@@ -533,6 +591,80 @@ func (q *Queries) ListActivityOccurrencesByActivity(ctx context.Context, activit
 	return items, nil
 }
 
+const listActivityOccurrencesByActivityAndStatus = `-- name: ListActivityOccurrencesByActivityAndStatus :many
+SELECT
+    ao.public_id AS id,
+    ia.public_id AS activity_id,
+    ao.occurrence_type,
+    ao.name,
+    ao.effective_at,
+    ao.starts_at,
+    ao.ends_at,
+    ao.status,
+    ao.source_ref,
+    ao.metadata,
+    ao.created_at,
+    ao.updated_at
+FROM activity_occurrences ao
+JOIN instance_activities ia ON ia.id = ao.activity_id
+WHERE ia.public_id = $1
+  AND ao.status = $2
+ORDER BY ao.effective_at ASC, ao.id ASC
+`
+
+type ListActivityOccurrencesByActivityAndStatusParams struct {
+	ActivityID pgtype.UUID `json:"activity_id"`
+	Status     string      `json:"status"`
+}
+
+type ListActivityOccurrencesByActivityAndStatusRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	ActivityID     pgtype.UUID        `json:"activity_id"`
+	OccurrenceType string             `json:"occurrence_type"`
+	Name           string             `json:"name"`
+	EffectiveAt    pgtype.Timestamptz `json:"effective_at"`
+	StartsAt       pgtype.Timestamptz `json:"starts_at"`
+	EndsAt         pgtype.Timestamptz `json:"ends_at"`
+	Status         string             `json:"status"`
+	SourceRef      pgtype.Text        `json:"source_ref"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListActivityOccurrencesByActivityAndStatus(ctx context.Context, arg ListActivityOccurrencesByActivityAndStatusParams) ([]ListActivityOccurrencesByActivityAndStatusRow, error) {
+	rows, err := q.db.Query(ctx, listActivityOccurrencesByActivityAndStatus, arg.ActivityID, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActivityOccurrencesByActivityAndStatusRow{}
+	for rows.Next() {
+		var i ListActivityOccurrencesByActivityAndStatusRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ActivityID,
+			&i.OccurrenceType,
+			&i.Name,
+			&i.EffectiveAt,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Status,
+			&i.SourceRef,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listParticipantOccurrenceInvolvementByInstance = `-- name: ListParticipantOccurrenceInvolvementByInstance :many
 SELECT
     ia.public_id AS activity_id,
@@ -657,4 +789,174 @@ func (q *Queries) ListParticipantOccurrenceInvolvementByInstance(ctx context.Con
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateActivityOccurrenceStatusAndMetadata = `-- name: UpdateActivityOccurrenceStatusAndMetadata :one
+UPDATE activity_occurrences ao
+SET status = $1,
+    ends_at = $2,
+    metadata = $3,
+    updated_at = NOW()
+WHERE ao.public_id = $4
+RETURNING
+    ao.public_id AS id,
+    (SELECT ia.public_id FROM instance_activities ia WHERE ia.id = ao.activity_id) AS activity_id,
+    ao.occurrence_type,
+    ao.name,
+    ao.effective_at,
+    ao.starts_at,
+    ao.ends_at,
+    ao.status,
+    ao.source_ref,
+    ao.metadata,
+    ao.created_at,
+    ao.updated_at
+`
+
+type UpdateActivityOccurrenceStatusAndMetadataParams struct {
+	Status   string             `json:"status"`
+	EndsAt   pgtype.Timestamptz `json:"ends_at"`
+	Metadata []byte             `json:"metadata"`
+	ID       pgtype.UUID        `json:"id"`
+}
+
+type UpdateActivityOccurrenceStatusAndMetadataRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	ActivityID     pgtype.UUID        `json:"activity_id"`
+	OccurrenceType string             `json:"occurrence_type"`
+	Name           string             `json:"name"`
+	EffectiveAt    pgtype.Timestamptz `json:"effective_at"`
+	StartsAt       pgtype.Timestamptz `json:"starts_at"`
+	EndsAt         pgtype.Timestamptz `json:"ends_at"`
+	Status         string             `json:"status"`
+	SourceRef      pgtype.Text        `json:"source_ref"`
+	Metadata       []byte             `json:"metadata"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateActivityOccurrenceStatusAndMetadata(ctx context.Context, arg UpdateActivityOccurrenceStatusAndMetadataParams) (UpdateActivityOccurrenceStatusAndMetadataRow, error) {
+	row := q.db.QueryRow(ctx, updateActivityOccurrenceStatusAndMetadata,
+		arg.Status,
+		arg.EndsAt,
+		arg.Metadata,
+		arg.ID,
+	)
+	var i UpdateActivityOccurrenceStatusAndMetadataRow
+	err := row.Scan(
+		&i.ID,
+		&i.ActivityID,
+		&i.OccurrenceType,
+		&i.Name,
+		&i.EffectiveAt,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.Status,
+		&i.SourceRef,
+		&i.Metadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertActivityOccurrenceParticipant = `-- name: UpsertActivityOccurrenceParticipant :one
+WITH resolved_occurrence AS (
+    SELECT
+        ao.id AS activity_occurrence_internal_id,
+        ao.public_id AS activity_occurrence_id,
+        ia.instance_id
+    FROM activity_occurrences ao
+    JOIN instance_activities ia ON ia.id = ao.activity_id
+    WHERE ao.public_id = $4
+), resolved_participant AS (
+    SELECT
+        p.id AS participant_internal_id,
+        p.public_id AS participant_id
+    FROM participants p
+    JOIN resolved_occurrence ro ON ro.instance_id = p.instance_id
+    WHERE p.public_id = $5
+), resolved_group AS (
+    SELECT
+        pg.id AS participant_group_internal_id,
+        pg.public_id AS participant_group_id
+    FROM participant_groups pg
+    JOIN resolved_occurrence ro ON ro.instance_id = pg.instance_id
+    WHERE pg.public_id = $6
+)
+INSERT INTO activity_occurrence_participants (
+    activity_occurrence_id,
+    participant_id,
+    participant_group_id,
+    role,
+    result,
+    metadata
+)
+SELECT
+    ro.activity_occurrence_internal_id,
+    rp.participant_internal_id,
+    rg.participant_group_internal_id,
+    $1,
+    $2,
+    $3
+FROM resolved_occurrence ro
+CROSS JOIN resolved_participant rp
+LEFT JOIN resolved_group rg ON TRUE
+ON CONFLICT (activity_occurrence_id, participant_id, role)
+DO UPDATE SET
+    participant_group_id = EXCLUDED.participant_group_id,
+    result = EXCLUDED.result,
+    metadata = EXCLUDED.metadata
+RETURNING
+    id,
+    (SELECT activity_occurrence_id FROM resolved_occurrence) AS activity_occurrence_id,
+    (SELECT participant_id FROM resolved_participant) AS participant_id,
+    (SELECT participant_group_id FROM resolved_group) AS participant_group_id,
+    role,
+    result,
+    metadata,
+    created_at
+`
+
+type UpsertActivityOccurrenceParticipantParams struct {
+	Role                 string      `json:"role"`
+	Result               string      `json:"result"`
+	Metadata             []byte      `json:"metadata"`
+	ActivityOccurrenceID pgtype.UUID `json:"activity_occurrence_id"`
+	ParticipantID        pgtype.UUID `json:"participant_id"`
+	ParticipantGroupID   pgtype.UUID `json:"participant_group_id"`
+}
+
+type UpsertActivityOccurrenceParticipantRow struct {
+	ID                   int64              `json:"id"`
+	ActivityOccurrenceID pgtype.UUID        `json:"activity_occurrence_id"`
+	ParticipantID        pgtype.UUID        `json:"participant_id"`
+	ParticipantGroupID   pgtype.UUID        `json:"participant_group_id"`
+	Role                 string             `json:"role"`
+	Result               string             `json:"result"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) UpsertActivityOccurrenceParticipant(ctx context.Context, arg UpsertActivityOccurrenceParticipantParams) (UpsertActivityOccurrenceParticipantRow, error) {
+	row := q.db.QueryRow(ctx, upsertActivityOccurrenceParticipant,
+		arg.Role,
+		arg.Result,
+		arg.Metadata,
+		arg.ActivityOccurrenceID,
+		arg.ParticipantID,
+		arg.ParticipantGroupID,
+	)
+	var i UpsertActivityOccurrenceParticipantRow
+	err := row.Scan(
+		&i.ID,
+		&i.ActivityOccurrenceID,
+		&i.ParticipantID,
+		&i.ParticipantGroupID,
+		&i.Role,
+		&i.Result,
+		&i.Metadata,
+		&i.CreatedAt,
+	)
+	return i, err
 }

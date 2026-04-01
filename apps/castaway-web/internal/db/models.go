@@ -217,3 +217,37 @@ type ParticipantGroupMembershipPeriod struct {
 	Metadata           []byte             `json:"metadata"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
+
+type ParticipantLoan struct {
+	ID                    int64              `json:"id"`
+	PublicID              pgtype.UUID        `json:"public_id"`
+	InstanceID            int64              `json:"instance_id"`
+	ParticipantID         int64              `json:"participant_id"`
+	ActivityID            pgtype.Int8        `json:"activity_id"`
+	Status                string             `json:"status"`
+	PrincipalPoints       int32              `json:"principal_points"`
+	InterestPoints        int32              `json:"interest_points"`
+	PrincipalRepaidPoints int32              `json:"principal_repaid_points"`
+	InterestRepaidPoints  int32              `json:"interest_repaid_points"`
+	GrantedAt             pgtype.Timestamptz `json:"granted_at"`
+	DueAt                 pgtype.Timestamptz `json:"due_at"`
+	SettledAt             pgtype.Timestamptz `json:"settled_at"`
+	Metadata              []byte             `json:"metadata"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ParticipantPonyOwnership struct {
+	ID                         int64              `json:"id"`
+	PublicID                   pgtype.UUID        `json:"public_id"`
+	InstanceID                 int64              `json:"instance_id"`
+	OwnerParticipantID         int64              `json:"owner_participant_id"`
+	ContestantID               int64              `json:"contestant_id"`
+	SourceActivityOccurrenceID pgtype.Int8        `json:"source_activity_occurrence_id"`
+	AcquiredAt                 pgtype.Timestamptz `json:"acquired_at"`
+	ReleasedAt                 pgtype.Timestamptz `json:"released_at"`
+	Status                     string             `json:"status"`
+	Metadata                   []byte             `json:"metadata"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}

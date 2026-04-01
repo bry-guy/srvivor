@@ -201,6 +201,7 @@ type fakeQuerier struct {
 	activityOccurrence                    db.GetActivityOccurrenceRow
 	occurrenceGroups                      []db.ListActivityOccurrenceGroupsRow
 	occurrenceParticipants                []db.ListActivityOccurrenceParticipantsRow
+	occurrenceParticipantsByOccurrence    map[[16]byte][]db.ListActivityOccurrenceParticipantsRow
 	instanceActivity                      db.GetInstanceActivityRow
 	activityGroupAssignmentRow            db.CreateActivityGroupAssignmentRow
 	createdActivityGroupAssignments       []db.CreateActivityGroupAssignmentParams
@@ -208,6 +209,9 @@ type fakeQuerier struct {
 	activityParticipantAssignmentRow      db.CreateActivityParticipantAssignmentRow
 	createdActivityParticipantAssignments []db.CreateActivityParticipantAssignmentParams
 	activeActivityParticipantAssignments  []db.ListActiveActivityParticipantAssignmentsAtRow
+	occurrencesByStatus                   []db.ListActivityOccurrencesByActivityAndStatusRow
+	instanceActivitiesByType              []db.ListInstanceActivitiesByTypeRow
+	updatedOccurrences                    []db.UpdateActivityOccurrenceStatusAndMetadataParams
 	createdBonusLedgerEntries             []db.CreateBonusPointLedgerEntryParams
 	visibleTotal                          int32
 	secretTotal                           int32
@@ -216,6 +220,8 @@ type fakeQuerier struct {
 	activeAdvantagesByGroup               []db.ListActiveAdvantagesByTypeForGroupRow
 	activeAdvantagesByParticipant         []db.ListActiveAdvantagesByTypeForParticipantRow
 	createdAdvantages                     []db.CreateParticipantAdvantageParams
+	createdPonyOwnerships                 []db.CreateParticipantPonyOwnershipParams
+	activePonyOwnershipsByContestant      []db.ListActiveParticipantPonyOwnershipsByContestantAtRow
 }
 
 func (f *fakeQuerier) CreateInstanceEpisode(_ context.Context, arg db.CreateInstanceEpisodeParams) (db.CreateInstanceEpisodeRow, error) {
@@ -287,8 +293,26 @@ func (f *fakeQuerier) ListActivityOccurrenceGroups(context.Context, pgtype.UUID)
 	return f.occurrenceGroups, nil
 }
 
-func (f *fakeQuerier) ListActivityOccurrenceParticipants(context.Context, pgtype.UUID) ([]db.ListActivityOccurrenceParticipantsRow, error) {
+func (f *fakeQuerier) ListActivityOccurrenceParticipants(_ context.Context, occurrenceID pgtype.UUID) ([]db.ListActivityOccurrenceParticipantsRow, error) {
+	if f.occurrenceParticipantsByOccurrence != nil {
+		if rows, ok := f.occurrenceParticipantsByOccurrence[occurrenceID.Bytes]; ok {
+			return rows, nil
+		}
+	}
 	return f.occurrenceParticipants, nil
+}
+
+func (f *fakeQuerier) ListActivityOccurrencesByActivityAndStatus(context.Context, db.ListActivityOccurrencesByActivityAndStatusParams) ([]db.ListActivityOccurrencesByActivityAndStatusRow, error) {
+	return f.occurrencesByStatus, nil
+}
+
+func (f *fakeQuerier) UpdateActivityOccurrenceStatusAndMetadata(_ context.Context, arg db.UpdateActivityOccurrenceStatusAndMetadataParams) (db.UpdateActivityOccurrenceStatusAndMetadataRow, error) {
+	f.updatedOccurrences = append(f.updatedOccurrences, arg)
+	return db.UpdateActivityOccurrenceStatusAndMetadataRow{ID: arg.ID, Status: arg.Status, EndsAt: arg.EndsAt, Metadata: arg.Metadata}, nil
+}
+
+func (f *fakeQuerier) ListInstanceActivitiesByType(context.Context, db.ListInstanceActivitiesByTypeParams) ([]db.ListInstanceActivitiesByTypeRow, error) {
+	return f.instanceActivitiesByType, nil
 }
 
 func (f *fakeQuerier) CreateBonusPointLedgerEntry(_ context.Context, arg db.CreateBonusPointLedgerEntryParams) (db.CreateBonusPointLedgerEntryRow, error) {
@@ -341,6 +365,15 @@ func (f *fakeQuerier) ListActiveAdvantagesByTypeForGroup(context.Context, db.Lis
 
 func (f *fakeQuerier) ListActiveAdvantagesByTypeForParticipant(context.Context, db.ListActiveAdvantagesByTypeForParticipantParams) ([]db.ListActiveAdvantagesByTypeForParticipantRow, error) {
 	return f.activeAdvantagesByParticipant, nil
+}
+
+func (f *fakeQuerier) CreateParticipantPonyOwnership(_ context.Context, arg db.CreateParticipantPonyOwnershipParams) (db.CreateParticipantPonyOwnershipRow, error) {
+	f.createdPonyOwnerships = append(f.createdPonyOwnerships, arg)
+	return db.CreateParticipantPonyOwnershipRow{InstanceID: arg.InstanceID, OwnerParticipantID: arg.OwnerParticipantID, ContestantID: arg.ContestantID, Status: arg.Status, AcquiredAt: arg.AcquiredAt}, nil
+}
+
+func (f *fakeQuerier) ListActiveParticipantPonyOwnershipsByContestantAt(context.Context, db.ListActiveParticipantPonyOwnershipsByContestantAtParams) ([]db.ListActiveParticipantPonyOwnershipsByContestantAtRow, error) {
+	return f.activePonyOwnershipsByContestant, nil
 }
 
 func (f *fakeQuerier) MarkAdvantageUsed(context.Context, pgtype.UUID) error {

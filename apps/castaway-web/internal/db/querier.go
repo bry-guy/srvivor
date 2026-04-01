@@ -29,10 +29,14 @@ type Querier interface {
 	CreateParticipantAdvantage(ctx context.Context, arg CreateParticipantAdvantageParams) (CreateParticipantAdvantageRow, error)
 	CreateParticipantGroup(ctx context.Context, arg CreateParticipantGroupParams) (CreateParticipantGroupRow, error)
 	CreateParticipantGroupMembershipPeriod(ctx context.Context, arg CreateParticipantGroupMembershipPeriodParams) (CreateParticipantGroupMembershipPeriodRow, error)
+	CreateParticipantLoan(ctx context.Context, arg CreateParticipantLoanParams) (CreateParticipantLoanRow, error)
+	CreateParticipantPonyOwnership(ctx context.Context, arg CreateParticipantPonyOwnershipParams) (CreateParticipantPonyOwnershipRow, error)
 	DeleteDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) error
 	DeleteInstanceAdmin(ctx context.Context, arg DeleteInstanceAdminParams) error
 	DeleteInstanceByNameSeason(ctx context.Context, arg DeleteInstanceByNameSeasonParams) error
+	GetActiveParticipantLoanByParticipant(ctx context.Context, arg GetActiveParticipantLoanByParticipantParams) (GetActiveParticipantLoanByParticipantRow, error)
 	GetActivityOccurrence(ctx context.Context, id pgtype.UUID) (GetActivityOccurrenceRow, error)
+	GetActivityOccurrenceParticipant(ctx context.Context, arg GetActivityOccurrenceParticipantParams) (GetActivityOccurrenceParticipantRow, error)
 	GetAvailableSecretBalanceByParticipant(ctx context.Context, arg GetAvailableSecretBalanceByParticipantParams) (int32, error)
 	GetContestant(ctx context.Context, id pgtype.UUID) (GetContestantRow, error)
 	GetCurrentEpisodeAt(ctx context.Context, arg GetCurrentEpisodeAtParams) (GetCurrentEpisodeAtRow, error)
@@ -51,10 +55,15 @@ type Querier interface {
 	ListActiveAdvantagesByTypeForGroup(ctx context.Context, arg ListActiveAdvantagesByTypeForGroupParams) ([]ListActiveAdvantagesByTypeForGroupRow, error)
 	ListActiveAdvantagesByTypeForParticipant(ctx context.Context, arg ListActiveAdvantagesByTypeForParticipantParams) ([]ListActiveAdvantagesByTypeForParticipantRow, error)
 	ListActiveParticipantGroupMembershipsAt(ctx context.Context, arg ListActiveParticipantGroupMembershipsAtParams) ([]ListActiveParticipantGroupMembershipsAtRow, error)
+	ListActiveParticipantLoansByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListActiveParticipantLoansByInstanceRow, error)
+	ListActiveParticipantMembershipsAt(ctx context.Context, arg ListActiveParticipantMembershipsAtParams) ([]ListActiveParticipantMembershipsAtRow, error)
+	ListActiveParticipantPonyOwnershipsByContestantAt(ctx context.Context, arg ListActiveParticipantPonyOwnershipsByContestantAtParams) ([]ListActiveParticipantPonyOwnershipsByContestantAtRow, error)
+	ListActiveParticipantPonyOwnershipsByOwnerAt(ctx context.Context, arg ListActiveParticipantPonyOwnershipsByOwnerAtParams) ([]ListActiveParticipantPonyOwnershipsByOwnerAtRow, error)
 	ListActivityGroupAssignments(ctx context.Context, activityID pgtype.UUID) ([]ListActivityGroupAssignmentsRow, error)
 	ListActivityOccurrenceGroups(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListActivityOccurrenceGroupsRow, error)
 	ListActivityOccurrenceParticipants(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListActivityOccurrenceParticipantsRow, error)
 	ListActivityOccurrencesByActivity(ctx context.Context, activityID pgtype.UUID) ([]ListActivityOccurrencesByActivityRow, error)
+	ListActivityOccurrencesByActivityAndStatus(ctx context.Context, arg ListActivityOccurrencesByActivityAndStatusParams) ([]ListActivityOccurrencesByActivityAndStatusRow, error)
 	ListActivityParticipantAssignments(ctx context.Context, activityID pgtype.UUID) ([]ListActivityParticipantAssignmentsRow, error)
 	ListAllBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListAllBonusPointLedgerEntriesForParticipantParams) ([]ListAllBonusPointLedgerEntriesForParticipantRow, error)
 	ListContestantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListContestantsByInstanceRow, error)
@@ -63,6 +72,7 @@ type Querier interface {
 	ListDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) ([]ListDraftPicksForParticipantRow, error)
 	ListEpisodeBoundaryWindows(ctx context.Context, instanceID pgtype.UUID) ([]ListEpisodeBoundaryWindowsRow, error)
 	ListInstanceActivitiesByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceActivitiesByInstanceRow, error)
+	ListInstanceActivitiesByType(ctx context.Context, arg ListInstanceActivitiesByTypeParams) ([]ListInstanceActivitiesByTypeRow, error)
 	ListInstanceAdmins(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceAdminsRow, error)
 	ListInstanceEpisodes(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceEpisodesRow, error)
 	ListInstances(ctx context.Context) ([]ListInstancesRow, error)
@@ -75,7 +85,10 @@ type Querier interface {
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
 	SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error)
+	UpdateActivityOccurrenceStatusAndMetadata(ctx context.Context, arg UpdateActivityOccurrenceStatusAndMetadataParams) (UpdateActivityOccurrenceStatusAndMetadataRow, error)
 	UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error)
+	UpdateParticipantLoan(ctx context.Context, arg UpdateParticipantLoanParams) (UpdateParticipantLoanRow, error)
+	UpsertActivityOccurrenceParticipant(ctx context.Context, arg UpsertActivityOccurrenceParticipantParams) (UpsertActivityOccurrenceParticipantRow, error)
 	UpsertOutcomePosition(ctx context.Context, arg UpsertOutcomePositionParams) (UpsertOutcomePositionRow, error)
 }
 

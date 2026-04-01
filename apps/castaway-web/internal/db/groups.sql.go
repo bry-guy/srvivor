@@ -251,6 +251,79 @@ func (q *Queries) ListActiveParticipantGroupMembershipsAt(ctx context.Context, a
 	return items, nil
 }
 
+const listActiveParticipantMembershipsAt = `-- name: ListActiveParticipantMembershipsAt :many
+SELECT
+    pgmp.id,
+    pg.public_id AS participant_group_id,
+    pg.name AS participant_group_name,
+    pg.kind AS participant_group_kind,
+    p.public_id AS participant_id,
+    p.name AS participant_name,
+    pgmp.role,
+    pgmp.starts_at,
+    pgmp.ends_at,
+    pgmp.metadata,
+    pgmp.created_at
+FROM participant_group_membership_periods pgmp
+JOIN participant_groups pg ON pg.id = pgmp.participant_group_id
+JOIN participants p ON p.id = pgmp.participant_id
+WHERE p.public_id = $1
+  AND pgmp.starts_at <= $2
+  AND (pgmp.ends_at IS NULL OR pgmp.ends_at > $2)
+ORDER BY pg.kind ASC, pg.name ASC, pgmp.id ASC
+`
+
+type ListActiveParticipantMembershipsAtParams struct {
+	ParticipantID pgtype.UUID        `json:"participant_id"`
+	At            pgtype.Timestamptz `json:"at"`
+}
+
+type ListActiveParticipantMembershipsAtRow struct {
+	ID                   int64              `json:"id"`
+	ParticipantGroupID   pgtype.UUID        `json:"participant_group_id"`
+	ParticipantGroupName string             `json:"participant_group_name"`
+	ParticipantGroupKind string             `json:"participant_group_kind"`
+	ParticipantID        pgtype.UUID        `json:"participant_id"`
+	ParticipantName      string             `json:"participant_name"`
+	Role                 string             `json:"role"`
+	StartsAt             pgtype.Timestamptz `json:"starts_at"`
+	EndsAt               pgtype.Timestamptz `json:"ends_at"`
+	Metadata             []byte             `json:"metadata"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListActiveParticipantMembershipsAt(ctx context.Context, arg ListActiveParticipantMembershipsAtParams) ([]ListActiveParticipantMembershipsAtRow, error) {
+	rows, err := q.db.Query(ctx, listActiveParticipantMembershipsAt, arg.ParticipantID, arg.At)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActiveParticipantMembershipsAtRow{}
+	for rows.Next() {
+		var i ListActiveParticipantMembershipsAtRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParticipantGroupID,
+			&i.ParticipantGroupName,
+			&i.ParticipantGroupKind,
+			&i.ParticipantID,
+			&i.ParticipantName,
+			&i.Role,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Metadata,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listParticipantGroupMembershipPeriods = `-- name: ListParticipantGroupMembershipPeriods :many
 SELECT
     pgmp.id,

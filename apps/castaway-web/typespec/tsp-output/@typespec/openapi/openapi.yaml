@@ -204,6 +204,104 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateActivityRequest'
+  /instances/{instanceID}/auction/contestants/{contestantID}/bid/me:
+    put:
+      operationId: setAuctionBid
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: contestantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAuctionBidRequest'
+  /instances/{instanceID}/auction/lots/start:
+    post:
+      operationId: startAuctionLot
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartAuctionLotRequest'
+  /instances/{instanceID}/auction/lots/{contestantID}/stop:
+    post:
+      operationId: stopAuctionLot
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: contestantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/auction/me:
+    get:
+      operationId: getAuctionStatus
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/contestants:
     post:
       operationId: createContestant
@@ -300,6 +398,31 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/GetDraftResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/individual-pony/immunity:
+    post:
+      operationId: recordIndividualPonyImmunity
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordIndividualPonyImmunityRequest'
   /instances/{instanceID}/leaderboard:
     get:
       operationId: leaderboard
@@ -324,6 +447,75 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/LeaderboardResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/loan-shark/me:
+    get:
+      operationId: getLoanSharkStatus
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/loan-shark/me/borrow:
+    post:
+      operationId: borrowFromLoanShark
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanSharkRequest'
+  /instances/{instanceID}/loan-shark/me/repay:
+    post:
+      operationId: repayLoanShark
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanSharkRequest'
   /instances/{instanceID}/outcomes:
     get:
       operationId: listOutcomes
@@ -532,6 +724,94 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/CreateParticipantResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/ponies/me:
+    get:
+      operationId: getMyPonies
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/stir-the-pot/me:
+    get:
+      operationId: getStirThePotStatus
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/stir-the-pot/me/contributions:
+    post:
+      operationId: addStirThePotContribution
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddStirThePotContributionRequest'
+  /instances/{instanceID}/stir-the-pot/start:
+    post:
+      operationId: startStirThePotRound
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartStirThePotRoundRequest'
   /occurrences/{occurrenceID}:
     get:
       operationId: getOccurrence
@@ -738,6 +1018,14 @@ components:
         created_at:
           type: string
           format: date-time
+    AddStirThePotContributionRequest:
+      type: object
+      required:
+        - points
+      properties:
+        points:
+          type: integer
+          format: int32
     BonusLedgerEntry:
       type: object
       required:
@@ -1198,6 +1486,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Participant'
+    LoanSharkRequest:
+      type: object
+      required:
+        - points
+      properties:
+        points:
+          type: integer
+          format: int32
     Occurrence:
       type: object
       required:
@@ -1541,6 +1837,16 @@ components:
         created_at:
           type: string
           format: date-time
+    RecordIndividualPonyImmunityRequest:
+      type: object
+      required:
+        - contestant_id
+      properties:
+        contestant_id:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
     ReplaceDraftRequest:
       type: object
       required:
@@ -1615,6 +1921,26 @@ components:
         created_count:
           type: integer
           format: int32
+    SetAuctionBidRequest:
+      type: object
+      required:
+        - points
+      properties:
+        points:
+          type: integer
+          format: int32
+    StartAuctionLotRequest:
+      type: object
+      required:
+        - contestant_id
+      properties:
+        contestant_id:
+          type: string
+    StartStirThePotRoundRequest:
+      type: object
+      properties:
+        name:
+          type: string
     UpsertOutcomeRequest:
       type: object
       properties:

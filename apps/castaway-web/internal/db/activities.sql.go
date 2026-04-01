@@ -654,3 +654,71 @@ func (q *Queries) ListInstanceActivitiesByInstance(ctx context.Context, instance
 	}
 	return items, nil
 }
+
+const listInstanceActivitiesByType = `-- name: ListInstanceActivitiesByType :many
+SELECT
+    ia.public_id AS id,
+    i.public_id AS instance_id,
+    ia.activity_type,
+    ia.name,
+    ia.status,
+    ia.starts_at,
+    ia.ends_at,
+    ia.metadata,
+    ia.created_at,
+    ia.updated_at
+FROM instance_activities ia
+JOIN instances i ON i.id = ia.instance_id
+WHERE i.public_id = $1
+  AND ia.activity_type = $2
+ORDER BY ia.starts_at ASC, ia.id ASC
+`
+
+type ListInstanceActivitiesByTypeParams struct {
+	InstanceID   pgtype.UUID `json:"instance_id"`
+	ActivityType string      `json:"activity_type"`
+}
+
+type ListInstanceActivitiesByTypeRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	InstanceID   pgtype.UUID        `json:"instance_id"`
+	ActivityType string             `json:"activity_type"`
+	Name         string             `json:"name"`
+	Status       string             `json:"status"`
+	StartsAt     pgtype.Timestamptz `json:"starts_at"`
+	EndsAt       pgtype.Timestamptz `json:"ends_at"`
+	Metadata     []byte             `json:"metadata"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListInstanceActivitiesByType(ctx context.Context, arg ListInstanceActivitiesByTypeParams) ([]ListInstanceActivitiesByTypeRow, error) {
+	rows, err := q.db.Query(ctx, listInstanceActivitiesByType, arg.InstanceID, arg.ActivityType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInstanceActivitiesByTypeRow{}
+	for rows.Next() {
+		var i ListInstanceActivitiesByTypeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InstanceID,
+			&i.ActivityType,
+			&i.Name,
+			&i.Status,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Metadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

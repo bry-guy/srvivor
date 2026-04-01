@@ -47,6 +47,24 @@ JOIN instances i ON i.id = ia.instance_id
 WHERE i.public_id = sqlc.arg(instance_id)
 ORDER BY ia.starts_at ASC, ia.id ASC;
 
+-- name: ListInstanceActivitiesByType :many
+SELECT
+    ia.public_id AS id,
+    i.public_id AS instance_id,
+    ia.activity_type,
+    ia.name,
+    ia.status,
+    ia.starts_at,
+    ia.ends_at,
+    ia.metadata,
+    ia.created_at,
+    ia.updated_at
+FROM instance_activities ia
+JOIN instances i ON i.id = ia.instance_id
+WHERE i.public_id = sqlc.arg(instance_id)
+  AND ia.activity_type = sqlc.arg(activity_type)
+ORDER BY ia.starts_at ASC, ia.id ASC;
+
 -- name: GetInstanceActivity :one
 SELECT
     ia.public_id AS id,

@@ -111,3 +111,24 @@ WHERE pg.public_id = sqlc.arg(participant_group_id)
   AND pgmp.starts_at <= sqlc.arg(at)
   AND (pgmp.ends_at IS NULL OR pgmp.ends_at > sqlc.arg(at))
 ORDER BY p.name ASC, pgmp.id ASC;
+
+-- name: ListActiveParticipantMembershipsAt :many
+SELECT
+    pgmp.id,
+    pg.public_id AS participant_group_id,
+    pg.name AS participant_group_name,
+    pg.kind AS participant_group_kind,
+    p.public_id AS participant_id,
+    p.name AS participant_name,
+    pgmp.role,
+    pgmp.starts_at,
+    pgmp.ends_at,
+    pgmp.metadata,
+    pgmp.created_at
+FROM participant_group_membership_periods pgmp
+JOIN participant_groups pg ON pg.id = pgmp.participant_group_id
+JOIN participants p ON p.id = pgmp.participant_id
+WHERE p.public_id = sqlc.arg(participant_id)
+  AND pgmp.starts_at <= sqlc.arg(at)
+  AND (pgmp.ends_at IS NULL OR pgmp.ends_at > sqlc.arg(at))
+ORDER BY pg.kind ASC, pg.name ASC, pgmp.id ASC;

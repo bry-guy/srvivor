@@ -28,6 +28,9 @@ type serviceQuerier interface {
 	ListActiveActivityParticipantAssignmentsAt(ctx context.Context, arg db.ListActiveActivityParticipantAssignmentsAtParams) ([]db.ListActiveActivityParticipantAssignmentsAtRow, error)
 	ListActivityOccurrenceGroups(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]db.ListActivityOccurrenceGroupsRow, error)
 	ListActivityOccurrenceParticipants(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]db.ListActivityOccurrenceParticipantsRow, error)
+	ListActivityOccurrencesByActivityAndStatus(ctx context.Context, arg db.ListActivityOccurrencesByActivityAndStatusParams) ([]db.ListActivityOccurrencesByActivityAndStatusRow, error)
+	UpdateActivityOccurrenceStatusAndMetadata(ctx context.Context, arg db.UpdateActivityOccurrenceStatusAndMetadataParams) (db.UpdateActivityOccurrenceStatusAndMetadataRow, error)
+	ListInstanceActivitiesByType(ctx context.Context, arg db.ListInstanceActivitiesByTypeParams) ([]db.ListInstanceActivitiesByTypeRow, error)
 	CreateBonusPointLedgerEntry(ctx context.Context, arg db.CreateBonusPointLedgerEntryParams) (db.CreateBonusPointLedgerEntryRow, error)
 	GetVisibleBonusTotalByParticipant(ctx context.Context, arg db.GetVisibleBonusTotalByParticipantParams) (int32, error)
 	GetSecretBonusTotalByParticipant(ctx context.Context, arg db.GetSecretBonusTotalByParticipantParams) (int32, error)
@@ -36,6 +39,8 @@ type serviceQuerier interface {
 	CreateParticipantAdvantage(ctx context.Context, arg db.CreateParticipantAdvantageParams) (db.CreateParticipantAdvantageRow, error)
 	ListActiveAdvantagesByTypeForGroup(ctx context.Context, arg db.ListActiveAdvantagesByTypeForGroupParams) ([]db.ListActiveAdvantagesByTypeForGroupRow, error)
 	ListActiveAdvantagesByTypeForParticipant(ctx context.Context, arg db.ListActiveAdvantagesByTypeForParticipantParams) ([]db.ListActiveAdvantagesByTypeForParticipantRow, error)
+	CreateParticipantPonyOwnership(ctx context.Context, arg db.CreateParticipantPonyOwnershipParams) (db.CreateParticipantPonyOwnershipRow, error)
+	ListActiveParticipantPonyOwnershipsByContestantAt(ctx context.Context, arg db.ListActiveParticipantPonyOwnershipsByContestantAtParams) ([]db.ListActiveParticipantPonyOwnershipsByContestantAtRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
 }
 
