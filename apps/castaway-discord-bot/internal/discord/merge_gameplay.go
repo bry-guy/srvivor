@@ -33,14 +33,26 @@ func (b *Bot) handlePotAdd(ctx context.Context, interaction *discordgo.Interacti
 	if points <= 0 {
 		return "", fmt.Errorf("points must be positive")
 	}
-	result, err := b.castaway.AddStirThePotContribution(ctx, instance.ID, interactionUserID(interaction), points)
+	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "participant"))
 	if err != nil {
 		return "", err
+	}
+	result, err := b.castaway.AddStirThePotContribution(ctx, instance.ID, interactionUserID(interaction), targetParticipantID, points)
+	if err != nil {
+		var apiErr *castaway.APIError
+		switch {
+		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden && targetSpecified:
+			return "", fmt.Errorf("pot add with a participant name is admin-only; ask a Castaway admin to run this command")
+		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && !targetSpecified:
+			return "", fmt.Errorf("you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first")
+		default:
+			return "", err
+		}
 	}
 	if err := b.publishSecretReveal(result.Participant.Name, result.RevealedSecretPoints); err != nil {
 		b.log.Warn("publish secret reveal after stir the pot contribution", "participant", result.Participant.Name, "revealed_secret_points", result.RevealedSecretPoints, "error", err)
 	}
-	return format.StirThePotContributionResult(instance, result), nil
+	return format.StirThePotContributionResult(instance, result, !targetSpecified), nil
 }
 
 func (b *Bot) handlePotStart(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -144,14 +156,26 @@ func (b *Bot) handleBid(ctx context.Context, interaction *discordgo.InteractionC
 	if points <= 0 {
 		return "", fmt.Errorf("points must be positive")
 	}
-	result, err := b.castaway.SetAuctionBid(ctx, instance.ID, contestant.ID, interactionUserID(interaction), points)
+	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "participant"))
 	if err != nil {
 		return "", err
+	}
+	result, err := b.castaway.SetAuctionBid(ctx, instance.ID, contestant.ID, interactionUserID(interaction), targetParticipantID, points)
+	if err != nil {
+		var apiErr *castaway.APIError
+		switch {
+		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden && targetSpecified:
+			return "", fmt.Errorf("bid with a participant name is admin-only; ask a Castaway admin to run this command")
+		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && !targetSpecified:
+			return "", fmt.Errorf("you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first")
+		default:
+			return "", err
+		}
 	}
 	if err := b.publishSecretReveal(result.Participant.Name, result.RevealedSecretPoints); err != nil {
 		b.log.Warn("publish secret reveal after auction bid", "participant", result.Participant.Name, "revealed_secret_points", result.RevealedSecretPoints, "error", err)
 	}
-	return format.AuctionBidResult(instance, result), nil
+	return format.AuctionBidResult(instance, result, !targetSpecified), nil
 }
 
 func (b *Bot) handleBids(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -223,6 +247,18 @@ func (b *Bot) handleLoanRepay(ctx context.Context, interaction *discordgo.Intera
 		b.log.Warn("publish secret reveal after loan repayment", "participant", status.Participant.Name, "revealed_secret_points", status.RevealedSecretPoints, "error", err)
 	}
 	return format.LoanActionResult(instance, status, "Repaid", points), nil
+}
+
+func (b *Bot) resolveActionParticipantID(ctx context.Context, interaction *discordgo.InteractionCreate, instanceID, requestedParticipant string) (string, bool, error) {
+	requestedParticipant = strings.TrimSpace(requestedParticipant)
+	if requestedParticipant == "" {
+		return "", false, nil
+	}
+	participant, err := b.resolveParticipant(ctx, instanceID, requestedParticipant)
+	if err != nil {
+		return "", false, err
+	}
+	return participant.ID, true, nil
 }
 
 func (b *Bot) publishSecretReveal(participantName string, revealedSecretPoints int) error {

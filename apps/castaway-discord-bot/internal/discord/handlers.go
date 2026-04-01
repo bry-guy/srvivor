@@ -200,27 +200,20 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 	if err != nil {
 		return "", err
 	}
-	rows, err := b.castaway.GetLeaderboard(ctx, instance.ID, participant.ID)
+	rows, err := b.castaway.GetLeaderboard(ctx, instance.ID, "")
 	if err != nil {
 		return "", err
 	}
 	if len(rows) == 0 {
 		return "", fmt.Errorf("no score found for %s in %s", participant.Name, format.InstanceLabel(instance))
 	}
-	row := rows[0]
-	publicBonusPoints := row.BonusPoints
-	ledger, err := b.castaway.GetBonusLedger(ctx, instance.ID, participant.ID, interactionUserID(interaction))
-	if err != nil {
-		return "", err
+	rows = b.decorateLeaderboardRows(interaction, rows)
+	for index, row := range rows {
+		if row.ParticipantID == participant.ID {
+			return format.SingleScore(instance, row, index+1), nil
+		}
 	}
-	row.BonusPoints = ledger.BonusPoints
-	row.TotalPoints = row.Draft() + row.BonusPoints
-	row.Score = row.TotalPoints
-	secretBonusPoints := row.BonusPoints - publicBonusPoints
-	if secretBonusPoints < 0 {
-		secretBonusPoints = 0
-	}
-	return format.SingleScore(instance, row, publicBonusPoints, secretBonusPoints), nil
+	return "", fmt.Errorf("no score found for %s in %s", participant.Name, format.InstanceLabel(instance))
 }
 
 func (b *Bot) handleScores(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -239,7 +232,46 @@ func (b *Bot) handleScores(ctx context.Context, interaction *discordgo.Interacti
 	if len(rows) == 0 {
 		return "No leaderboard rows found yet.", nil
 	}
-	return format.Leaderboard(instance, rows), nil
+	return format.Leaderboard(instance, b.decorateLeaderboardRows(interaction, rows)), nil
+}
+
+func (b *Bot) decorateLeaderboardRows(interaction *discordgo.InteractionCreate, rows []castaway.LeaderboardRow) []castaway.LeaderboardRow {
+	decorated := make([]castaway.LeaderboardRow, len(rows))
+	copy(decorated, rows)
+	displayNameCache := make(map[string]string, len(rows))
+	for index, row := range decorated {
+		decorated[index].ParticipantName = b.leaderboardParticipantDisplayName(interaction, row, displayNameCache)
+	}
+	return decorated
+}
+
+func (b *Bot) leaderboardParticipantDisplayName(interaction *discordgo.InteractionCreate, row castaway.LeaderboardRow, cache map[string]string) string {
+	discordUserID := strings.TrimSpace(row.ParticipantDiscordUserID)
+	if discordUserID == "" {
+		return row.ParticipantName
+	}
+	if cached, ok := cache[discordUserID]; ok {
+		return cached
+	}
+	displayName := strings.TrimSpace(row.ParticipantName)
+	if b.session != nil {
+		if interaction != nil && strings.TrimSpace(interaction.GuildID) != "" {
+			if member, err := b.session.GuildMember(interaction.GuildID, discordUserID); err == nil && member != nil && member.User != nil {
+				if username := strings.TrimSpace(member.User.Username); username != "" {
+					displayName = "@" + username
+					cache[discordUserID] = displayName
+					return displayName
+				}
+			}
+		}
+		if user, err := b.session.User(discordUserID); err == nil && user != nil {
+			if username := strings.TrimSpace(user.Username); username != "" {
+				displayName = "@" + username
+			}
+		}
+	}
+	cache[discordUserID] = displayName
+	return displayName
 }
 
 func (b *Bot) handleDraft(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {

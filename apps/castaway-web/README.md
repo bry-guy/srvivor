@@ -154,7 +154,7 @@ The task starts a disposable PostgreSQL container, seeds historical data, runs `
 - `GET /instances/:instanceID/drafts/:participantID`
 - `PUT /instances/:instanceID/outcomes/:position`
 - `GET /instances/:instanceID/outcomes`
-- `GET /instances/:instanceID/leaderboard` (`participant_id` filter supported)
+- `GET /instances/:instanceID/leaderboard` (`participant_id` filter supported; rows also include linked `participant_discord_user_id` and `current_tribe_name` when available)
 - `GET /instances/:instanceID/activities`
 - `POST /instances/:instanceID/activities`
 - `GET /activities/:activityID/occurrences`
@@ -165,11 +165,11 @@ The task starts a disposable PostgreSQL container, seeds historical data, runs `
 - Merge gameplay routes
   - `GET /instances/:instanceID/stir-the-pot/me`
   - `POST /instances/:instanceID/stir-the-pot/start`
-  - `POST /instances/:instanceID/stir-the-pot/me/contributions`
+  - `POST /instances/:instanceID/stir-the-pot/me/contributions` (linked self by default; admins may target another participant via `participant_id`)
   - `GET /instances/:instanceID/auction/me`
   - `POST /instances/:instanceID/auction/lots/start`
   - `POST /instances/:instanceID/auction/lots/:contestantID/stop`
-  - `PUT /instances/:instanceID/auction/contestants/:contestantID/bid/me`
+  - `PUT /instances/:instanceID/auction/contestants/:contestantID/bid/me` (linked self by default; admins may target another participant via `participant_id`)
   - `GET /instances/:instanceID/ponies/me`
   - `GET /instances/:instanceID/loan-shark/me`
   - `POST /instances/:instanceID/loan-shark/me/borrow`

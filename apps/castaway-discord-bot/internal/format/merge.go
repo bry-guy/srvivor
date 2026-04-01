@@ -28,11 +28,17 @@ func StirThePotStatus(instance castaway.Instance, status castaway.StirThePotStat
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func StirThePotContributionResult(instance castaway.Instance, result castaway.StirThePotContributionResult) string {
+func StirThePotContributionResult(instance castaway.Instance, result castaway.StirThePotContributionResult, self bool) string {
+	headline := fmt.Sprintf("Added %d points to the pot.", result.AddedPoints)
+	contributionLabel := "Your contribution"
+	if !self {
+		headline = fmt.Sprintf("Recorded %d Stir the Pot points for %s.", result.AddedPoints, result.Participant.Name)
+		contributionLabel = result.Participant.Name + " contribution"
+	}
 	return TrimMessage(strings.Join([]string{
 		fmt.Sprintf("**Season %d: Stir the Pot**", instance.Season),
-		fmt.Sprintf("Added %d points to the pot.", result.AddedPoints),
-		fmt.Sprintf("- Your contribution: %d", result.MyContributionPoints),
+		headline,
+		fmt.Sprintf("- %s: %d", contributionLabel, result.MyContributionPoints),
 		fmt.Sprintf("- Bonus points available: %d", result.BonusPointsAvailable),
 	}, "\n"))
 }
@@ -71,10 +77,14 @@ func AuctionStatus(instance castaway.Instance, status castaway.AuctionStatus) st
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func AuctionBidResult(instance castaway.Instance, result castaway.AuctionBidResult) string {
+func AuctionBidResult(instance castaway.Instance, result castaway.AuctionBidResult, self bool) string {
+	headline := fmt.Sprintf("%s — your bid is now %d.", result.Contestant.Name, result.MyBidPoints)
+	if !self {
+		headline = fmt.Sprintf("%s — %s's bid is now %d.", result.Contestant.Name, result.Participant.Name, result.MyBidPoints)
+	}
 	return TrimMessage(strings.Join([]string{
 		fmt.Sprintf("**Season %d: Bid submitted**", instance.Season),
-		fmt.Sprintf("%s — your bid is now %d.", result.Contestant.Name, result.MyBidPoints),
+		headline,
 		fmt.Sprintf("- Previous bid: %d", result.PreviousBidPoints),
 		fmt.Sprintf("- Bonus points available: %d", result.BonusPointsAvailable),
 	}, "\n"))

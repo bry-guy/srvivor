@@ -94,7 +94,7 @@ func potCommandGroup() *discordgo.ApplicationCommandOption {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "add",
 				Description: "Add blind bonus points to Stir the Pot",
-				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), instanceOption(false)},
+				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), participantOption(false), instanceOption(false)},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -148,6 +148,7 @@ func bidCommand() *discordgo.ApplicationCommandOption {
 		Options: []*discordgo.ApplicationCommandOption{
 			contestantOption("player", "Survivor player", true),
 			pointsOption(true),
+			participantOption(false),
 			instanceOption(false),
 		},
 	}

@@ -12,8 +12,8 @@
 ## Required capabilities
 
 - register and serve the `/castaway` command surface
-- return an individual participant score
-- return a leaderboard for the selected instance
+- return an individual participant score using the public weekly-score layout (rank, tribe badge, Discord handle when linked, and public draft/bonus subtotal)
+- return a leaderboard for the selected instance using that same public weekly-score layout
 - return a participant draft for the selected instance
 - list available instances
 - save, show, and clear user-level default instances
@@ -27,6 +27,8 @@
   - current pony ownership review
   - Loan Shark borrow / repay / status
   - public secret-bonus reveal announcements when hidden spends consume secret points
+- require callers to be linked before they can submit self-service Stir the Pot contributions or auction bids
+- support admin-on-behalf merge gameplay actions for named participants on Stir the Pot contributions and blind individual pony bids
 - support admin Discord workflows for:
   - opening Stir the Pot for the next scheduled episode
   - opening and closing individual pony auction lots, with lot starts bound to the next scheduled episode

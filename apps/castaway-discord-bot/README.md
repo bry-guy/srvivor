@@ -28,19 +28,21 @@ Top-level command: `/castaway`
 - `/castaway link participant:<name> [instance] [season]`
 - `/castaway unlink [instance] [season]`
 
-`score` and `history` stay single commands: public callers see public-safe data, while linked users viewing themselves and configured admins can receive private data ephemerally.
+`score` and `scores` use the public weekly-score format: rank, tribe badge, Discord handle when linked, total points, and public draft/bonus breakdown. Secret bonus points stay hidden there until a spend reveals them into the public ledger.
+
+`history` stays a single command: public callers see public-safe data, while linked users viewing themselves and configured admins can receive private data ephemerally.
 
 ### Merge gameplay commands
 - Stir the Pot
   - `/castaway pot status [instance]`
-  - `/castaway pot add points:<n> [instance]`
+  - `/castaway pot add points:<n> [participant] [instance]` (participant is admin-only; otherwise the caller must be linked and it defaults to them)
   - `/castaway pot start [instance]` (admin, targets the next scheduled episode)
 - Individual Pony Auction
   - `/castaway auction status [instance]`
   - `/castaway auction start player:<contestant> [instance]` (admin, targets the next scheduled episode)
   - `/castaway auction stop player:<contestant> [instance]` (admin)
   - `/castaway auction award player:<contestant> [instance]` (admin, records individual immunity)
-  - `/castaway bid player:<contestant> points:<n> [instance]`
+  - `/castaway bid player:<contestant> points:<n> [participant] [instance]` (participant is admin-only; otherwise the caller must be linked and it defaults to them)
 - Loan Shark
   - `/castaway loan status [instance]`
   - `/castaway loan request points:<n> [instance]`

@@ -80,7 +80,8 @@ type startStirThePotRoundRequest struct {
 }
 
 type addStirThePotContributionRequest struct {
-	Points int32 `json:"points" binding:"required"`
+	ParticipantID string `json:"participant_id"`
+	Points        int32  `json:"points" binding:"required"`
 }
 
 type startAuctionLotRequest struct {
@@ -88,7 +89,8 @@ type startAuctionLotRequest struct {
 }
 
 type setAuctionBidRequest struct {
-	Points int32 `json:"points" binding:"required"`
+	ParticipantID string `json:"participant_id"`
+	Points        int32  `json:"points" binding:"required"`
 }
 
 type loanSharkRequest struct {
@@ -228,11 +230,6 @@ func (s *Server) addStirThePotContribution(c *gin.Context) {
 	if !ok {
 		return
 	}
-	participant, ok := s.requireLinkedParticipant(c, instanceID)
-	if !ok {
-		return
-	}
-
 	var req addStirThePotContributionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
@@ -240,6 +237,10 @@ func (s *Server) addStirThePotContribution(c *gin.Context) {
 	}
 	if req.Points <= 0 {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "points must be positive"})
+		return
+	}
+	participant, ok := s.resolveRequestedOrLinkedParticipant(c, instanceID, req.ParticipantID)
+	if !ok {
 		return
 	}
 
@@ -501,11 +502,6 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 	if !ok {
 		return
 	}
-	participant, ok := s.requireLinkedParticipant(c, instanceID)
-	if !ok {
-		return
-	}
-
 	var req setAuctionBidRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
@@ -513,6 +509,10 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 	}
 	if req.Points <= 0 {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "points must be positive"})
+		return
+	}
+	participant, ok := s.resolveRequestedOrLinkedParticipant(c, instanceID, req.ParticipantID)
+	if !ok {
 		return
 	}
 	contestant, err := s.requireContestant(c.Request.Context(), toPGUUID(instanceID), contestantID)
@@ -1270,6 +1270,42 @@ func (s *Server) requireLinkedParticipant(c *gin.Context, instanceID uuid.UUID) 
 		}
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return db.GetParticipantByDiscordUserIDRow{}, false
+	}
+	return participant, true
+}
+
+func linkedParticipantRowToParticipant(row db.GetParticipantByDiscordUserIDRow) db.GetParticipantRow {
+	return db.GetParticipantRow(row)
+}
+
+func (s *Server) resolveRequestedOrLinkedParticipant(c *gin.Context, instanceID uuid.UUID, requestedParticipantID string) (db.GetParticipantRow, bool) {
+	if strings.TrimSpace(requestedParticipantID) == "" {
+		participant, ok := s.requireLinkedParticipant(c, instanceID)
+		if !ok {
+			return db.GetParticipantRow{}, false
+		}
+		return linkedParticipantRowToParticipant(participant), true
+	}
+	if !s.requireInstanceAdminRequest(c, instanceID) {
+		return db.GetParticipantRow{}, false
+	}
+	participantID, err := uuid.Parse(strings.TrimSpace(requestedParticipantID))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid participant_id"})
+		return db.GetParticipantRow{}, false
+	}
+	participant, err := s.queries.GetParticipant(c.Request.Context(), toPGUUID(participantID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+			return db.GetParticipantRow{}, false
+		}
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return db.GetParticipantRow{}, false
+	}
+	if participant.InstanceID != toPGUUID(instanceID) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
+		return db.GetParticipantRow{}, false
 	}
 	return participant, true
 }

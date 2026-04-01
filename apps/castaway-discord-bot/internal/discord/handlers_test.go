@@ -44,14 +44,12 @@ type testCastawayAPI struct {
 	individualPonyByContestant       map[string]castaway.IndividualPonyImmunityResult
 }
 
-func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
+func TestScoreCommandRegression_UsesLeaderboardStyleOutput(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
 		instances:              []castaway.Instance{{ID: "instance-49", Name: "Historical Season 49", Season: 49}},
 		participantsByInstance: map[string][]castaway.Participant{"instance-49": {{ID: "participant-bryan", Name: "Bryan"}}},
-		leaderboardByInstance:  map[string][]castaway.LeaderboardRow{"instance-49": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198}}},
-		bonusLedgerByParticipant: map[string]castaway.ParticipantBonusLedger{"participant-bryan": {
-			Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"},
-			BonusPoints: 5,
+		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-49": {
+			{ParticipantID: "participant-bryan", ParticipantName: "@prettybry", CurrentTribeName: "Leafy Green", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198},
 		}},
 	})
 
@@ -64,18 +62,20 @@ func TestScoreCommandRegression_UsesUserDefault(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := "**Season 49: Bryan Points**\nBryan: 81 points\n- Draft Points: 76\n- Bonus Points: 5\n- Secret Bonus Points: 0\n- Points Available: -198"
+	expected := "**Season 49: Score**\n1. :leafy_green: @prettybry: 81 (76+5)"
 	if message != expected {
 		t.Fatalf("unexpected score message:\nexpected: %q\nactual:   %q", expected, message)
 	}
 }
 
-func TestScoreCommandRegression_IncludesPrivateBonusForLinkedSelf(t *testing.T) {
+func TestScoreCommandRegression_HidesSecretBonusBreakdownForLinkedSelf(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
 		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
 		participantsByInstance:      map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
 		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-bryan", Name: "Bryan"}}},
-		leaderboardByInstance:       map[string][]castaway.LeaderboardRow{"instance-50": {{ParticipantID: "participant-bryan", ParticipantName: "Bryan", Score: 78, DraftPoints: 76, BonusPoints: 2, TotalPoints: 78, PointsAvailable: -198}}},
+		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-50": {
+			{ParticipantID: "participant-bryan", ParticipantName: "@prettybry", CurrentTribeName: "Lotus", Score: 78, DraftPoints: 76, BonusPoints: 2, TotalPoints: 78, PointsAvailable: -198},
+		}},
 		bonusLedgerByParticipant: map[string]castaway.ParticipantBonusLedger{"participant-bryan": {
 			Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"},
 			BonusPoints: 5,
@@ -90,8 +90,8 @@ func TestScoreCommandRegression_IncludesPrivateBonusForLinkedSelf(t *testing.T) 
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if message != "**Season 50: Bryan Points**\nBryan: 81 points\n- Draft Points: 76\n- Bonus Points: 2\n- Secret Bonus Points: 3\n- Points Available: -201" {
-		t.Fatalf("unexpected private score message: %q", message)
+	if message != "**Season 50: Score**\n1. :lotus: @prettybry: 78 (76+2)" {
+		t.Fatalf("unexpected score message: %q", message)
 	}
 }
 
@@ -99,9 +99,9 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 	bot, _ := newTestBot(t, testCastawayAPI{
 		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
 		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-50": {
-			{ParticipantID: "participant-keeling", ParticipantName: "Keeling", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
-			{ParticipantID: "participant-adam", ParticipantName: "Adam", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
-			{ParticipantID: "participant-amanda", ParticipantName: "Amanda", Score: 3, DraftPoints: 2, BonusPoints: 1, TotalPoints: 3, PointsAvailable: 281},
+			{ParticipantID: "participant-keeling", ParticipantName: "@keeling", CurrentTribeName: "Lotus", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
+			{ParticipantID: "participant-adam", ParticipantName: "@adam", CurrentTribeName: "Tangerine", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
+			{ParticipantID: "participant-amanda", ParticipantName: "@amanda", CurrentTribeName: "Leafy Green", Score: 3, DraftPoints: 2, BonusPoints: 1, TotalPoints: 3, PointsAvailable: 281},
 		}},
 	})
 
@@ -110,7 +110,7 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{"**Season 50: Leaderboard**", "1. Keeling — 6 (5+1)", "2. Adam — 5 (5+0)", "3. Amanda — 3 (2+1)"}, "\n")
+	expected := strings.Join([]string{"**Season 50: Leaderboard**", "1. :lotus: @keeling: 6 (5+1)", "2. :tangerine: @adam: 5 (5+0)", "3. :leafy_green: @amanda: 3 (2+1)"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected leaderboard message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -262,6 +262,49 @@ func TestPotStatusCommandRegression_ShowsOpenRound(t *testing.T) {
 	}
 }
 
+func TestPotAddCommandRegression_AllowsAdminToContributeForNamedParticipant(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:              []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-keith", Name: "Keith"}}},
+		stirThePotContributionByInstance: map[string]castaway.StirThePotContributionResult{"instance-50": {
+			Participant:          castaway.Participant{ID: "participant-keith", Name: "Keith"},
+			AddedPoints:          1,
+			MyContributionPoints: 1,
+			BonusPointsAvailable: 3,
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "admin-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "pot", name: "add", options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("points", 1), stringOption("participant", "Keith")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Stir the Pot**", "Recorded 1 Stir the Pot points for Keith.", "- Keith contribution: 1", "- Bonus points available: 3"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestPotAddCommandRegression_RejectsUnlinkedCaller(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-2", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-2", 0), commandSpec{group: "pot", name: "add", options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("points", 1)}})
+	if err == nil {
+		t.Fatal("expected unlinked error")
+	}
+	if err.Error() != "you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestBidCommandRegression_SetsBlindBidAgainstContestant(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
 		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
@@ -287,6 +330,55 @@ func TestBidCommandRegression_SetsBlindBidAgainstContestant(t *testing.T) {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
+	}
+}
+
+func TestBidCommandRegression_AllowsAdminToBidForNamedParticipant(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:             []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		contestantsByInstance: map[string][]castaway.Contestant{"instance-50": {{ID: "c-joe", Name: "Joe"}}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {
+			{ID: "participant-keith", Name: "Keith"},
+		}},
+		auctionBidByContestant: map[string]castaway.AuctionBidResult{"c-joe": {
+			Participant:          castaway.Participant{ID: "participant-keith", Name: "Keith"},
+			Contestant:           castaway.Contestant{ID: "c-joe", Name: "Joe"},
+			LotID:                "lot-1",
+			MyBidPoints:          3,
+			PreviousBidPoints:    0,
+			BonusPointsAvailable: 1,
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "admin-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Joe"), intOption("points", 3), stringOption("participant", "Keith")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Bid submitted**", "Joe — Keith's bid is now 3.", "- Bonus points available: 1"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestBidCommandRegression_RejectsUnlinkedCaller(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:             []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		contestantsByInstance: map[string][]castaway.Contestant{"instance-50": {{ID: "c-joe", Name: "Joe"}}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-2", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-2", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Joe"), intOption("points", 3)}})
+	if err == nil {
+		t.Fatal("expected unlinked error")
+	}
+	if err.Error() != "you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first" {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -785,6 +877,23 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 		case len(parts) == 4 && parts[2] == "stir-the-pot" && parts[3] == "start" && r.Method == http.MethodPost:
 			writeJSON(http.StatusOK, api.stirThePotStartByInstance[instanceID])
 		case len(parts) == 5 && parts[2] == "stir-the-pot" && parts[3] == "me" && parts[4] == "contributions" && r.Method == http.MethodPost:
+			var req struct {
+				ParticipantID string `json:"participant_id"`
+				Points        int    `json:"points"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode stir the pot contribution: %v", err)
+			}
+			if strings.TrimSpace(req.ParticipantID) != "" && r.Header.Get("X-Discord-User-ID") != "admin-1" {
+				writeJSON(http.StatusForbidden, map[string]any{"error": "forbidden"})
+				return
+			}
+			if strings.TrimSpace(req.ParticipantID) == "" {
+				if _, ok := api.linkedParticipantByInstance[instanceID][r.Header.Get("X-Discord-User-ID")]; !ok {
+					writeJSON(http.StatusNotFound, map[string]any{"error": "participant not linked"})
+					return
+				}
+			}
 			writeJSON(http.StatusOK, api.stirThePotContributionByInstance[instanceID])
 		case len(parts) == 4 && parts[2] == "auction" && parts[3] == "me" && r.Method == http.MethodGet:
 			writeJSON(http.StatusOK, api.auctionStatusByInstance[instanceID])
@@ -799,6 +908,23 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 		case len(parts) == 6 && parts[2] == "auction" && parts[3] == "lots" && parts[5] == "stop" && r.Method == http.MethodPost:
 			writeJSON(http.StatusOK, api.auctionLotStopByContestant[parts[4]])
 		case len(parts) == 7 && parts[2] == "auction" && parts[3] == "contestants" && parts[5] == "bid" && parts[6] == "me" && r.Method == http.MethodPut:
+			var req struct {
+				ParticipantID string `json:"participant_id"`
+				Points        int    `json:"points"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode auction bid: %v", err)
+			}
+			if strings.TrimSpace(req.ParticipantID) != "" && r.Header.Get("X-Discord-User-ID") != "admin-1" {
+				writeJSON(http.StatusForbidden, map[string]any{"error": "forbidden"})
+				return
+			}
+			if strings.TrimSpace(req.ParticipantID) == "" {
+				if _, ok := api.linkedParticipantByInstance[instanceID][r.Header.Get("X-Discord-User-ID")]; !ok {
+					writeJSON(http.StatusNotFound, map[string]any{"error": "participant not linked"})
+					return
+				}
+			}
 			writeJSON(http.StatusOK, api.auctionBidByContestant[parts[4]])
 		case len(parts) == 4 && parts[2] == "ponies" && parts[3] == "me" && r.Method == http.MethodGet:
 			writeJSON(http.StatusOK, api.ponyListByInstance[instanceID])

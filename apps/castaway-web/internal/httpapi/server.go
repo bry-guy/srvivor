@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -581,6 +582,22 @@ func participantSummaryToJSON(id pgtype.UUID, name string) gin.H {
 	}
 }
 
+func (s *Server) currentTribeName(ctx context.Context, participantID pgtype.UUID, at time.Time) (string, error) {
+	memberships, err := s.queries.ListActiveParticipantMembershipsAt(ctx, db.ListActiveParticipantMembershipsAtParams{
+		ParticipantID: participantID,
+		At:            optionalTime(at),
+	})
+	if err != nil {
+		return "", err
+	}
+	for _, membership := range memberships {
+		if strings.EqualFold(strings.TrimSpace(membership.ParticipantGroupKind), "tribe") {
+			return membership.ParticipantGroupName, nil
+		}
+	}
+	return "", nil
+}
+
 type replaceDraftRequest struct {
 	ContestantIDs []string `json:"contestant_ids" binding:"required"`
 }
@@ -903,8 +920,21 @@ func (s *Server) leaderboard(c *gin.Context) {
 	}
 
 	participantNames := make(map[string]string, len(participants))
+	participantDiscordUserIDs := make(map[string]string, len(participants))
+	currentTribeNames := make(map[string]string, len(participants))
+	leaderboardAt := time.Now().UTC()
 	for _, participant := range participants {
-		participantNames[uuid.UUID(participant.ID.Bytes).String()] = participant.Name
+		participantID := uuid.UUID(participant.ID.Bytes).String()
+		participantNames[participantID] = participant.Name
+		if participant.DiscordUserID.Valid {
+			participantDiscordUserIDs[participantID] = strings.TrimSpace(participant.DiscordUserID.String)
+		}
+		tribeName, err := s.currentTribeName(c.Request.Context(), participant.ID, leaderboardAt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		currentTribeNames[participantID] = tribeName
 	}
 
 	draftsByParticipant := make(map[string][]scoring.DraftPick, len(participants))
@@ -949,13 +979,15 @@ func (s *Server) leaderboard(c *gin.Context) {
 			continue
 		}
 		response = append(response, gin.H{
-			"participant_id":   row.ParticipantID,
-			"participant_name": row.ParticipantName,
-			"score":            row.Score,
-			"draft_points":     row.DraftPoints,
-			"bonus_points":     row.BonusPoints,
-			"total_points":     row.TotalPoints,
-			"points_available": row.PointsAvailable,
+			"participant_id":              row.ParticipantID,
+			"participant_name":            row.ParticipantName,
+			"participant_discord_user_id": participantDiscordUserIDs[row.ParticipantID],
+			"current_tribe_name":          currentTribeNames[row.ParticipantID],
+			"score":                       row.Score,
+			"draft_points":                row.DraftPoints,
+			"bonus_points":                row.BonusPoints,
+			"total_points":                row.TotalPoints,
+			"points_available":            row.PointsAvailable,
 		})
 	}
 

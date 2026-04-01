@@ -357,13 +357,14 @@ func TestSetAuctionBidSendsDiscordHeaderAndJSONBody(t *testing.T) {
 			t.Fatalf("unexpected discord header: %q", got)
 		}
 		var body struct {
-			Points int `json:"points"`
+			ParticipantID string `json:"participant_id"`
+			Points        int    `json:"points"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode request body: %v", err)
 		}
-		if body.Points != 4 {
-			t.Fatalf("unexpected points: %+v", body)
+		if body.Points != 4 || body.ParticipantID != "participant-1" {
+			t.Fatalf("unexpected body: %+v", body)
 		}
 		if _, err := w.Write([]byte(`{"contestant":{"id":"c1","name":"Joe"},"lot_id":"lot-1","my_bid_points":4,"previous_bid_points":1,"bonus_points_available":6}`)); err != nil {
 			t.Fatalf("write response: %v", err)
@@ -375,11 +376,48 @@ func TestSetAuctionBidSendsDiscordHeaderAndJSONBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
-	result, err := client.SetAuctionBid(context.Background(), "i1", "c1", "user-1", 4)
+	result, err := client.SetAuctionBid(context.Background(), "i1", "c1", "user-1", "participant-1", 4)
 	if err != nil {
 		t.Fatalf("set auction bid: %v", err)
 	}
 	if result.MyBidPoints != 4 || result.BonusPointsAvailable != 6 || result.Contestant.Name != "Joe" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
+func TestAddStirThePotContributionSendsOptionalParticipantID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/instances/i1/stir-the-pot/me/contributions" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("X-Discord-User-ID"); got != "admin-1" {
+			t.Fatalf("unexpected discord header: %q", got)
+		}
+		var body struct {
+			ParticipantID string `json:"participant_id"`
+			Points        int    `json:"points"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if body.Points != 1 || body.ParticipantID != "participant-keith" {
+			t.Fatalf("unexpected body: %+v", body)
+		}
+		if _, err := w.Write([]byte(`{"participant":{"id":"participant-keith","name":"Keith"},"added_points":1,"my_contribution_points":1,"bonus_points_available":3}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	result, err := client.AddStirThePotContribution(context.Background(), "i1", "admin-1", "participant-keith", 1)
+	if err != nil {
+		t.Fatalf("add stir the pot contribution: %v", err)
+	}
+	if result.Participant.Name != "Keith" || result.AddedPoints != 1 {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 }

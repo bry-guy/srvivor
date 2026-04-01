@@ -1023,6 +1023,8 @@ components:
       required:
         - points
       properties:
+        participant_id:
+          type: string
         points:
           type: integer
           format: int32
@@ -1416,6 +1418,10 @@ components:
         participant_id:
           type: string
         participant_name:
+          type: string
+        participant_discord_user_id:
+          type: string
+        current_tribe_name:
           type: string
         score:
           type: integer
@@ -1926,6 +1932,8 @@ components:
       required:
         - points
       properties:
+        participant_id:
+          type: string
         points:
           type: integer
           format: int32

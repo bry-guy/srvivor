@@ -24,13 +24,15 @@ var testEmptyJSONB = []byte("{}")
 
 type leaderboardResponse struct {
 	Leaderboard []struct {
-		ParticipantID   string `json:"participant_id"`
-		ParticipantName string `json:"participant_name"`
-		Score           int    `json:"score"`
-		DraftPoints     int    `json:"draft_points"`
-		BonusPoints     int    `json:"bonus_points"`
-		TotalPoints     int    `json:"total_points"`
-		PointsAvailable int    `json:"points_available"`
+		ParticipantID            string `json:"participant_id"`
+		ParticipantName          string `json:"participant_name"`
+		ParticipantDiscordUserID string `json:"participant_discord_user_id"`
+		CurrentTribeName         string `json:"current_tribe_name"`
+		Score                    int    `json:"score"`
+		DraftPoints              int    `json:"draft_points"`
+		BonusPoints              int    `json:"bonus_points"`
+		TotalPoints              int    `json:"total_points"`
+		PointsAvailable          int    `json:"points_available"`
 	} `json:"leaderboard"`
 }
 
@@ -1131,10 +1133,16 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 			if row.BonusPoints != 19 {
 				t.Fatalf("expected alice public bonus to be 19 after secret reveals, got %d", row.BonusPoints)
 			}
+			if row.ParticipantDiscordUserID != "alice-discord" || row.CurrentTribeName != "Lotus" {
+				t.Fatalf("unexpected alice leaderboard row: %+v", row)
+			}
 		case bobID:
 			bobFound = true
 			if row.BonusPoints != 10 {
 				t.Fatalf("expected bob public bonus to be 10 after losing bid refund, got %d", row.BonusPoints)
+			}
+			if row.ParticipantDiscordUserID != "bob-discord" || row.CurrentTribeName != "Tangerine" {
+				t.Fatalf("unexpected bob leaderboard row: %+v", row)
 			}
 		}
 	}

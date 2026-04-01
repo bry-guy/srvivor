@@ -57,13 +57,15 @@ type ParticipantBonusLedger struct {
 }
 
 type LeaderboardRow struct {
-	ParticipantID   string `json:"participant_id"`
-	ParticipantName string `json:"participant_name"`
-	Score           int    `json:"score"`
-	DraftPoints     int    `json:"draft_points"`
-	BonusPoints     int    `json:"bonus_points"`
-	TotalPoints     int    `json:"total_points"`
-	PointsAvailable int    `json:"points_available"`
+	ParticipantID            string `json:"participant_id"`
+	ParticipantName          string `json:"participant_name"`
+	ParticipantDiscordUserID string `json:"participant_discord_user_id"`
+	CurrentTribeName         string `json:"current_tribe_name"`
+	Score                    int    `json:"score"`
+	DraftPoints              int    `json:"draft_points"`
+	BonusPoints              int    `json:"bonus_points"`
+	TotalPoints              int    `json:"total_points"`
+	PointsAvailable          int    `json:"points_available"`
 }
 
 func (r LeaderboardRow) Total() int {
@@ -576,10 +578,13 @@ func (c *Client) StartStirThePotRound(ctx context.Context, instanceID, actorDisc
 	return result, nil
 }
 
-func (c *Client) AddStirThePotContribution(ctx context.Context, instanceID, discordUserID string, points int) (StirThePotContributionResult, error) {
+func (c *Client) AddStirThePotContribution(ctx context.Context, instanceID, discordUserID, participantID string, points int) (StirThePotContributionResult, error) {
 	var result StirThePotContributionResult
 	headers := requestHeadersForDiscordUser(discordUserID)
-	body := map[string]int{"points": points}
+	body := map[string]any{"points": points}
+	if strings.TrimSpace(participantID) != "" {
+		body["participant_id"] = strings.TrimSpace(participantID)
+	}
 	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "me", "contributions")), headers, body, &result); err != nil {
 		return StirThePotContributionResult{}, err
 	}
@@ -614,10 +619,13 @@ func (c *Client) StopAuctionLot(ctx context.Context, instanceID, actorDiscordUse
 	return result, nil
 }
 
-func (c *Client) SetAuctionBid(ctx context.Context, instanceID, contestantID, discordUserID string, points int) (AuctionBidResult, error) {
+func (c *Client) SetAuctionBid(ctx context.Context, instanceID, contestantID, discordUserID, participantID string, points int) (AuctionBidResult, error) {
 	var result AuctionBidResult
 	headers := requestHeadersForDiscordUser(discordUserID)
-	body := map[string]int{"points": points}
+	body := map[string]any{"points": points}
+	if strings.TrimSpace(participantID) != "" {
+		body["participant_id"] = strings.TrimSpace(participantID)
+	}
 	if err := c.doJSONBody(ctx, http.MethodPut, c.endpoint(path.Join("/instances", instanceID, "auction", "contestants", contestantID, "bid", "me")), headers, body, &result); err != nil {
 		return AuctionBidResult{}, err
 	}

@@ -21,15 +21,10 @@ func InstanceLabel(instance castaway.Instance) string {
 	return fmt.Sprintf("%s — %s", seasonLabel, name)
 }
 
-func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow, publicBonusPoints, secretBonusPoints int) string {
-	pointsAvailable := row.PointsAvailable - secretBonusPoints
+func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow, rank int) string {
 	content := strings.Join([]string{
-		fmt.Sprintf("**Season %d: %s Points**", instance.Season, row.ParticipantName),
-		fmt.Sprintf("%s: %d points", row.ParticipantName, row.Total()),
-		fmt.Sprintf("- Draft Points: %d", row.Draft()),
-		fmt.Sprintf("- Bonus Points: %d", publicBonusPoints),
-		fmt.Sprintf("- Secret Bonus Points: %d", secretBonusPoints),
-		fmt.Sprintf("- Points Available: %d", pointsAvailable),
+		fmt.Sprintf("**Season %d: Score**", instance.Season),
+		leaderboardLine(rank, row),
 	}, "\n")
 	return TrimMessage(content)
 }
@@ -38,20 +33,32 @@ func Leaderboard(instance castaway.Instance, rows []castaway.LeaderboardRow) str
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("**Season %d: Leaderboard**\n", instance.Season))
 	for index, row := range rows {
-		builder.WriteString(fmt.Sprintf("%d. %s — %s\n", index+1, row.ParticipantName, scoreSummary(row, false, false)))
+		builder.WriteString(leaderboardLine(index+1, row))
+		builder.WriteString("\n")
 	}
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
-func scoreSummary(row castaway.LeaderboardRow, includePointsLabel bool, includePointsAvailable bool) string {
-	label := ""
-	if includePointsLabel {
-		label = " points"
+func leaderboardLine(rank int, row castaway.LeaderboardRow) string {
+	prefix := ""
+	if badge := tribeBadge(row.CurrentTribeName); badge != "" {
+		prefix = badge + " "
 	}
-	if !includePointsAvailable {
-		return fmt.Sprintf("%d%s (%d%+d)", row.Total(), label, row.Draft(), row.Bonus())
+	return fmt.Sprintf("%d. %s%s: %d (%d+%d)", rank, prefix, row.ParticipantName, row.Total(), row.Draft(), row.Bonus())
+}
+
+func tribeBadge(name string) string {
+	normalized := strings.NewReplacer(" ", "", "_", "", "-", "").Replace(strings.ToLower(strings.TrimSpace(name)))
+	switch normalized {
+	case "lotus":
+		return ":lotus:"
+	case "tangerine":
+		return ":tangerine:"
+	case "leaf", "leafygreen":
+		return ":leafy_green:"
+	default:
+		return ""
 	}
-	return fmt.Sprintf("%d%s (%d%+d; points available: %d)", row.Total(), label, row.Draft(), row.Bonus(), row.PointsAvailable)
 }
 
 func Draft(instance castaway.Instance, draft castaway.Draft) string {

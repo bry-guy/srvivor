@@ -47,6 +47,8 @@ model Outcome {
 model LeaderboardRow {
   participant_id: string;
   participant_name: string;
+  participant_discord_user_id?: string;
+  current_tribe_name?: string;
   score: int32;
   draft_points: int32;
   bonus_points: int32;
@@ -240,6 +242,7 @@ model StartStirThePotRoundRequest {
 }
 
 model AddStirThePotContributionRequest {
+  participant_id?: string;
   points: int32;
 }
 
@@ -248,6 +251,7 @@ model StartAuctionLotRequest {
 }
 
 model SetAuctionBidRequest {
+  participant_id?: string;
   points: int32;
 }
 

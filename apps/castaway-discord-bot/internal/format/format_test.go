@@ -18,23 +18,23 @@ func TestTrimMessageTruncatesLongResponses(t *testing.T) {
 	}
 }
 
-func TestSingleScoreIncludesTotalDraftAndBonus(t *testing.T) {
+func TestSingleScoreFormatsLeaderboardStyleOutput(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
-	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}
+	row := castaway.LeaderboardRow{ParticipantName: "@prettybry", CurrentTribeName: "Lotus", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}
 
-	message := SingleScore(instance, row, 5, 0)
-	expected := "**Season 49: Bryan Points**\nBryan: 26 points\n- Draft Points: 21\n- Bonus Points: 5\n- Secret Bonus Points: 0\n- Points Available: 46"
+	message := SingleScore(instance, row, 1)
+	expected := "**Season 49: Score**\n1. :lotus: @prettybry: 26 (21+5)"
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
 }
 
-func TestSingleScoreIncludesSecretBonusBreakdown(t *testing.T) {
+func TestSingleScoreOmitsUnknownTribeBadge(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 50}
-	row := castaway.LeaderboardRow{ParticipantName: "Bryan", Score: 8, DraftPoints: 3, BonusPoints: 5, TotalPoints: 8, PointsAvailable: 246}
+	row := castaway.LeaderboardRow{ParticipantName: "Keith", Score: 4, DraftPoints: 3, BonusPoints: 1, TotalPoints: 4, PointsAvailable: 246}
 
-	message := SingleScore(instance, row, 4, 1)
-	expected := "**Season 50: Bryan Points**\nBryan: 8 points\n- Draft Points: 3\n- Bonus Points: 4\n- Secret Bonus Points: 1\n- Points Available: 245"
+	message := SingleScore(instance, row, 15)
+	expected := "**Season 50: Score**\n15. Keith: 4 (3+1)"
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -221,13 +221,13 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 
 func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
-	rows := []castaway.LeaderboardRow{{ParticipantName: "Bryan", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}, {ParticipantName: "Riley", Score: 19, DraftPoints: 19, BonusPoints: 0, TotalPoints: 19, PointsAvailable: 41}}
+	rows := []castaway.LeaderboardRow{{ParticipantName: "@prettybry", CurrentTribeName: "Leafy Green", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}, {ParticipantName: "Keith", CurrentTribeName: "Tangerine", Score: 19, DraftPoints: 19, BonusPoints: 0, TotalPoints: 19, PointsAvailable: 41}}
 
 	message := Leaderboard(instance, rows)
 	expected := strings.Join([]string{
 		"**Season 49: Leaderboard**",
-		"1. Bryan — 26 (21+5)",
-		"2. Riley — 19 (19+0)",
+		"1. :leafy_green: @prettybry: 26 (21+5)",
+		"2. :tangerine: Keith: 19 (19+0)",
 	}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
