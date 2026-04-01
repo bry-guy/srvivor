@@ -69,7 +69,7 @@ func (b *Bot) handlePotAdd(ctx context.Context, interaction *discordgo.Interacti
 			return "", err
 		}
 	}
-	if err := b.publishSecretReveal(result.Participant.Name, result.RevealedSecretPoints); err != nil {
+	if err := b.publishSecretReveal(result.Participant, result.RevealedSecretPoints); err != nil {
 		b.log.Warn("publish secret reveal after stir the pot contribution", "participant", result.Participant.Name, "revealed_secret_points", result.RevealedSecretPoints, "error", err)
 	}
 	return format.StirThePotContributionResult(instance, result, !targetSpecified), nil
@@ -192,7 +192,7 @@ func (b *Bot) handleBid(ctx context.Context, interaction *discordgo.InteractionC
 			return "", err
 		}
 	}
-	if err := b.publishSecretReveal(result.Participant.Name, result.RevealedSecretPoints); err != nil {
+	if err := b.publishSecretReveal(result.Participant, result.RevealedSecretPoints); err != nil {
 		b.log.Warn("publish secret reveal after auction bid", "participant", result.Participant.Name, "revealed_secret_points", result.RevealedSecretPoints, "error", err)
 	}
 	return format.AuctionBidResult(instance, result, !targetSpecified), nil
@@ -263,7 +263,7 @@ func (b *Bot) handleLoanRepay(ctx context.Context, interaction *discordgo.Intera
 	if err != nil {
 		return "", err
 	}
-	if err := b.publishSecretReveal(status.Participant.Name, status.RevealedSecretPoints); err != nil {
+	if err := b.publishSecretReveal(status.Participant, status.RevealedSecretPoints); err != nil {
 		b.log.Warn("publish secret reveal after loan repayment", "participant", status.Participant.Name, "revealed_secret_points", status.RevealedSecretPoints, "error", err)
 	}
 	return format.LoanActionResult(instance, status, "Repaid", points), nil
@@ -281,11 +281,11 @@ func (b *Bot) resolveActionParticipantID(ctx context.Context, interaction *disco
 	return participant.ID, true, nil
 }
 
-func (b *Bot) publishSecretReveal(participantName string, revealedSecretPoints int) error {
+func (b *Bot) publishSecretReveal(participant castaway.Participant, revealedSecretPoints int) error {
 	if strings.TrimSpace(b.announcementChannelID) == "" || revealedSecretPoints <= 0 || b.session == nil {
 		return nil
 	}
-	message := format.SecretRevealAnnouncement(strings.TrimSpace(participantName), revealedSecretPoints)
+	message := format.SecretRevealAnnouncement(participant, revealedSecretPoints)
 	if strings.TrimSpace(message) == "" {
 		return nil
 	}

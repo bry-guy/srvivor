@@ -255,23 +255,7 @@ func (b *Bot) leaderboardParticipantDisplayName(interaction *discordgo.Interacti
 	if cached, ok := cache[discordUserID]; ok {
 		return cached
 	}
-	displayName := strings.TrimSpace(row.ParticipantName)
-	if b.session != nil {
-		if interaction != nil && strings.TrimSpace(interaction.GuildID) != "" {
-			if member, err := b.session.GuildMember(interaction.GuildID, discordUserID); err == nil && member != nil && member.User != nil {
-				if username := strings.TrimSpace(member.User.Username); username != "" {
-					displayName = "@" + username
-					cache[discordUserID] = displayName
-					return displayName
-				}
-			}
-		}
-		if user, err := b.session.User(discordUserID); err == nil && user != nil {
-			if username := strings.TrimSpace(user.Username); username != "" {
-				displayName = "@" + username
-			}
-		}
-	}
+	displayName := "<@" + discordUserID + ">"
 	cache[discordUserID] = displayName
 	return displayName
 }

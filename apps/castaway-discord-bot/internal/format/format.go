@@ -44,7 +44,11 @@ func leaderboardLine(rank int, row castaway.LeaderboardRow) string {
 	if badge := tribeBadge(row.CurrentTribeName); badge != "" {
 		prefix = badge + " "
 	}
-	return fmt.Sprintf("%d. %s%s: %d (%d+%d)", rank, prefix, row.ParticipantName, row.Total(), row.Draft(), row.Bonus())
+	displayName := strings.TrimSpace(row.ParticipantName)
+	if discordUserID := strings.TrimSpace(row.ParticipantDiscordUserID); discordUserID != "" {
+		displayName = "<@" + discordUserID + ">"
+	}
+	return fmt.Sprintf("%d. %s%s: %d (%d+%d)", rank, prefix, displayName, row.Total(), row.Draft(), row.Bonus())
 }
 
 func tribeBadge(name string) string {

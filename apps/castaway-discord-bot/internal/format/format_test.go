@@ -20,10 +20,10 @@ func TestTrimMessageTruncatesLongResponses(t *testing.T) {
 
 func TestSingleScoreFormatsLeaderboardStyleOutput(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
-	row := castaway.LeaderboardRow{ParticipantName: "@prettybry", CurrentTribeName: "Lotus", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}
+	row := castaway.LeaderboardRow{ParticipantName: "Bryan", ParticipantDiscordUserID: "user-1", CurrentTribeName: "Lotus", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}
 
 	message := SingleScore(instance, row, 1)
-	expected := "**Season 49: Score**\n1. :lotus: @prettybry: 26 (21+5)"
+	expected := "**Season 49: Score**\n1. :lotus: <@user-1>: 26 (21+5)"
 	if message != expected {
 		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -221,12 +221,12 @@ func TestParticipantHistoryFormatsGroupedEntries(t *testing.T) {
 
 func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 49}
-	rows := []castaway.LeaderboardRow{{ParticipantName: "@prettybry", CurrentTribeName: "Leafy Green", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}, {ParticipantName: "Keith", CurrentTribeName: "Tangerine", Score: 19, DraftPoints: 19, BonusPoints: 0, TotalPoints: 19, PointsAvailable: 41}}
+	rows := []castaway.LeaderboardRow{{ParticipantName: "Bryan", ParticipantDiscordUserID: "user-1", CurrentTribeName: "Leafy Green", Score: 26, DraftPoints: 21, BonusPoints: 5, TotalPoints: 26, PointsAvailable: 46}, {ParticipantName: "Keith", CurrentTribeName: "Tangerine", Score: 19, DraftPoints: 19, BonusPoints: 0, TotalPoints: 19, PointsAvailable: 41}}
 
 	message := Leaderboard(instance, rows)
 	expected := strings.Join([]string{
 		"**Season 49: Leaderboard**",
-		"1. :leafy_green: @prettybry: 26 (21+5)",
+		"1. :leafy_green: <@user-1>: 26 (21+5)",
 		"2. :tangerine: Keith: 19 (19+0)",
 	}, "\n")
 	if message != expected {
@@ -254,13 +254,15 @@ func TestStirThePotTribeStatusFormatsCurrentTotal(t *testing.T) {
 }
 
 func TestSecretRevealAnnouncementSingular(t *testing.T) {
-	if got := SecretRevealAnnouncement("Bryan", 1); got != "Bryan revealed a secret bonus point!" {
+	participant := castaway.Participant{ID: "p1", Name: "Bryan", DiscordUserID: "user-1"}
+	if got := SecretRevealAnnouncement(participant, 1); got != "<@user-1> (Bryan) has revealed a secret bonus point!" {
 		t.Fatalf("unexpected singular announcement: %q", got)
 	}
 }
 
 func TestSecretRevealAnnouncementPlural(t *testing.T) {
-	if got := SecretRevealAnnouncement("Bryan", 2); got != "Bryan revealed 2 secret bonus points!" {
+	participant := castaway.Participant{ID: "p1", Name: "Bryan", DiscordUserID: "user-1"}
+	if got := SecretRevealAnnouncement(participant, 2); got != "<@user-1> (Bryan) has revealed 2 secret bonus points!" {
 		t.Fatalf("unexpected plural announcement: %q", got)
 	}
 }

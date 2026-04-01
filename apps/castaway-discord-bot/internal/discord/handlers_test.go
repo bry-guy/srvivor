@@ -50,7 +50,7 @@ func TestScoreCommandRegression_UsesLeaderboardStyleOutput(t *testing.T) {
 		instances:              []castaway.Instance{{ID: "instance-49", Name: "Historical Season 49", Season: 49}},
 		participantsByInstance: map[string][]castaway.Participant{"instance-49": {{ID: "participant-bryan", Name: "Bryan"}}},
 		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-49": {
-			{ParticipantID: "participant-bryan", ParticipantName: "@prettybry", CurrentTribeName: "Leafy Green", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198},
+			{ParticipantID: "participant-bryan", ParticipantName: "Bryan", ParticipantDiscordUserID: "user-1", CurrentTribeName: "Leafy Green", Score: 81, DraftPoints: 76, BonusPoints: 5, TotalPoints: 81, PointsAvailable: -198},
 		}},
 	})
 
@@ -63,7 +63,7 @@ func TestScoreCommandRegression_UsesLeaderboardStyleOutput(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := "**Season 49: Score**\n1. :leafy_green: @prettybry: 81 (76+5)"
+	expected := "**Season 49: Score**\n1. :leafy_green: <@user-1>: 81 (76+5)"
 	if message != expected {
 		t.Fatalf("unexpected score message:\nexpected: %q\nactual:   %q", expected, message)
 	}
@@ -75,7 +75,7 @@ func TestScoreCommandRegression_HidesSecretBonusBreakdownForLinkedSelf(t *testin
 		participantsByInstance:      map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
 		linkedParticipantByInstance: map[string]map[string]castaway.Participant{"instance-50": {"user-1": {ID: "participant-bryan", Name: "Bryan"}}},
 		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-50": {
-			{ParticipantID: "participant-bryan", ParticipantName: "@prettybry", CurrentTribeName: "Lotus", Score: 78, DraftPoints: 76, BonusPoints: 2, TotalPoints: 78, PointsAvailable: -198},
+			{ParticipantID: "participant-bryan", ParticipantName: "Bryan", ParticipantDiscordUserID: "user-1", CurrentTribeName: "Lotus", Score: 78, DraftPoints: 76, BonusPoints: 2, TotalPoints: 78, PointsAvailable: -198},
 		}},
 		bonusLedgerByParticipant: map[string]castaway.ParticipantBonusLedger{"participant-bryan": {
 			Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"},
@@ -91,7 +91,7 @@ func TestScoreCommandRegression_HidesSecretBonusBreakdownForLinkedSelf(t *testin
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if message != "**Season 50: Score**\n1. :lotus: @prettybry: 78 (76+2)" {
+	if message != "**Season 50: Score**\n1. :lotus: <@user-1>: 78 (76+2)" {
 		t.Fatalf("unexpected score message: %q", message)
 	}
 }
@@ -100,9 +100,9 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 	bot, _ := newTestBot(t, testCastawayAPI{
 		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
 		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-50": {
-			{ParticipantID: "participant-keeling", ParticipantName: "@keeling", CurrentTribeName: "Lotus", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
-			{ParticipantID: "participant-adam", ParticipantName: "@adam", CurrentTribeName: "Tangerine", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
-			{ParticipantID: "participant-amanda", ParticipantName: "@amanda", CurrentTribeName: "Leafy Green", Score: 3, DraftPoints: 2, BonusPoints: 1, TotalPoints: 3, PointsAvailable: 281},
+			{ParticipantID: "participant-keeling", ParticipantName: "Keeling", ParticipantDiscordUserID: "u-keeling", CurrentTribeName: "Lotus", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
+			{ParticipantID: "participant-adam", ParticipantName: "Adam", ParticipantDiscordUserID: "u-adam", CurrentTribeName: "Tangerine", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
+			{ParticipantID: "participant-amanda", ParticipantName: "Amanda", ParticipantDiscordUserID: "u-amanda", CurrentTribeName: "Leafy Green", Score: 3, DraftPoints: 2, BonusPoints: 1, TotalPoints: 3, PointsAvailable: 281},
 		}},
 	})
 
@@ -111,7 +111,7 @@ func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 
-	expected := strings.Join([]string{"**Season 50: Leaderboard**", "1. :lotus: @keeling: 6 (5+1)", "2. :tangerine: @adam: 5 (5+0)", "3. :leafy_green: @amanda: 3 (2+1)"}, "\n")
+	expected := strings.Join([]string{"**Season 50: Leaderboard**", "1. :lotus: <@u-keeling>: 6 (5+1)", "2. :tangerine: <@u-adam>: 5 (5+0)", "3. :leafy_green: <@u-amanda>: 3 (2+1)"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected leaderboard message:\nexpected: %q\nactual:   %q", expected, message)
 	}

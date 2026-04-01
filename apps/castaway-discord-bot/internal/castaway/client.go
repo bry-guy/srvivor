@@ -41,8 +41,9 @@ type InstanceEpisode struct {
 }
 
 type Participant struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	DiscordUserID string `json:"discord_user_id,omitempty"`
 }
 
 type ParticipantGroup struct {

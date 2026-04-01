@@ -30,6 +30,7 @@ model Contestant {
 model Participant {
   id: string;
   name: string;
+  discord_user_id?: string;
 }
 
 model DraftPick {

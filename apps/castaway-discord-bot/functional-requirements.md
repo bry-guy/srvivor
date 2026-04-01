@@ -12,7 +12,7 @@
 ## Required capabilities
 
 - register and serve the `/castaway` command surface
-- return an individual participant score using the public weekly-score layout (rank, tribe badge, Discord handle when linked, and public draft/bonus subtotal)
+- return an individual participant score using the public weekly-score layout (rank, tribe badge, real Discord mention when linked, and public draft/bonus subtotal)
 - return a leaderboard for the selected instance using that same public weekly-score layout
 - return a participant draft for the selected instance
 - list available instances

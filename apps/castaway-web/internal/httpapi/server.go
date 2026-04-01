@@ -425,7 +425,7 @@ func (s *Server) listParticipants(c *gin.Context) {
 		if !matchesContainsFold(participant.Name, nameFilter) {
 			continue
 		}
-		participants = append(participants, participantSummaryToJSON(participant.ID, participant.Name))
+		participants = append(participants, participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"participants": participants})
@@ -455,7 +455,7 @@ func (s *Server) getLinkedParticipant(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name)})
+	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID))})
 }
 
 type linkParticipantDiscordUserRequest struct {
@@ -576,11 +576,15 @@ func (s *Server) unlinkParticipantDiscordUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(updated.ID, updated.Name)})
 }
 
-func participantSummaryToJSON(id pgtype.UUID, name string) gin.H {
-	return gin.H{
+func participantSummaryToJSON(id pgtype.UUID, name string, discordUserID ...string) gin.H {
+	participant := gin.H{
 		"id":   pgUUIDString(id),
 		"name": name,
 	}
+	if len(discordUserID) > 0 && strings.TrimSpace(discordUserID[0]) != "" {
+		participant["discord_user_id"] = strings.TrimSpace(discordUserID[0])
+	}
+	return participant
 }
 
 func (s *Server) currentTribeName(ctx context.Context, participantID pgtype.UUID, at time.Time) (string, error) {
@@ -1951,6 +1955,13 @@ func pgTextPointer(value pgtype.Text) *string {
 	}
 	formatted := value.String
 	return &formatted
+}
+
+func pgTextString(value pgtype.Text) string {
+	if !value.Valid {
+		return ""
+	}
+	return strings.TrimSpace(value.String)
 }
 
 func optionalText(value *string) pgtype.Text {

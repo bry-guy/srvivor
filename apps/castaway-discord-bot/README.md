@@ -28,7 +28,7 @@ Top-level command: `/castaway`
 - `/castaway link participant:<name> [instance] [season]`
 - `/castaway unlink [instance] [season]`
 
-`score` and `scores` use the public weekly-score format: rank, tribe badge, Discord handle when linked, total points, and public draft/bonus breakdown. Secret bonus points stay hidden there until a spend reveals them into the public ledger.
+`score` and `scores` use the public weekly-score format: rank, tribe badge, real Discord mention when linked, total points, and public draft/bonus breakdown. Secret bonus points stay hidden there until a spend reveals them into the public ledger.
 
 `history` stays a single command: public callers see public-safe data, while linked users viewing themselves and configured admins can receive private data ephemerally.
 
@@ -113,7 +113,7 @@ Optional production-oriented config:
 
 - `CASTAWAY_API_AUTH_TOKEN` for bot-to-API bearer authentication
 - `BOT_STATE_DATABASE_URL` when `BOT_STATE_BACKEND=postgres`
-- `CASTAWAY_ANNOUNCEMENT_CHANNEL_ID` to publish public secret-point reveal messages (for example, `#survivor`)
+- `CASTAWAY_ANNOUNCEMENT_CHANNEL_ID` to publish public secret-point reveal messages (for example, `#survivor`); the bot uses real Discord mentions when it knows the linked user id
 
 Override them in your shell only when you need a non-default local setup.
 

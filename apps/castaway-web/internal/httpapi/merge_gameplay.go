@@ -128,7 +128,7 @@ func (s *Server) getStirThePotStatus(c *gin.Context) {
 	if !found {
 		c.JSON(http.StatusOK, gin.H{
 			"open":         false,
-			"participant":  participantSummaryToJSON(participant.ID, participant.Name),
+			"participant":  participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 			"reward_tiers": defaultStirThePotRewardTiers(),
 		})
 		return
@@ -151,7 +151,7 @@ func (s *Server) getStirThePotStatus(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"open":                   true,
-		"participant":            participantSummaryToJSON(participant.ID, participant.Name),
+		"participant":            participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 		"round":                  occurrenceToJSON(round.ID, round.ActivityID, round.OccurrenceType, round.Name, round.EffectiveAt, round.StartsAt, round.EndsAt, round.Status, round.SourceRef, round.Metadata, round.CreatedAt, round.UpdatedAt),
 		"my_contribution_points": contributionPoints,
 		"bonus_points_available": balance,
@@ -389,7 +389,7 @@ func (s *Server) addStirThePotContribution(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"participant":            participantSummaryToJSON(participant.ID, participant.Name),
+		"participant":            participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 		"round_id":               pgUUIDString(round.ID),
 		"group_id":               pgUUIDString(groupMembership.ParticipantGroupID),
 		"group_name":             groupMembership.ParticipantGroupName,
@@ -463,7 +463,7 @@ func (s *Server) getAuctionStatus(c *gin.Context) {
 	}
 
 	response := gin.H{
-		"participant":            participantSummaryToJSON(participant.ID, participant.Name),
+		"participant":            participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 		"bonus_points_available": balance,
 		"open_lots":              lotsJSON,
 		"ponies":                 poniesJSON,
@@ -615,7 +615,7 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"participant":            participantSummaryToJSON(participant.ID, participant.Name),
+			"participant":            participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 			"contestant":             gin.H{"id": contestant.ID.String(), "name": contestant.Name},
 			"lot_id":                 pgUUIDString(lot.Occurrence.ID),
 			"my_bid_points":          req.Points,
@@ -700,7 +700,7 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 
 	updatedBalance := balance - delta
 	c.JSON(http.StatusOK, gin.H{
-		"participant":            participantSummaryToJSON(participant.ID, participant.Name),
+		"participant":            participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 		"contestant":             gin.H{"id": contestant.ID.String(), "name": contestant.Name},
 		"lot_id":                 pgUUIDString(lot.Occurrence.ID),
 		"my_bid_points":          req.Points,
@@ -890,7 +890,7 @@ func (s *Server) getMyPonies(c *gin.Context) {
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"participant": participantSummaryToJSON(participant.ID, participant.Name),
+		"participant": participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 		"ponies":      ponies,
 	})
 }
@@ -910,7 +910,7 @@ func (s *Server) getLoanSharkStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"participant": participantSummaryToJSON(participant.ID, participant.Name),
+		"participant": participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)),
 		"loan":        status,
 	})
 }
@@ -1065,7 +1065,7 @@ func (s *Server) borrowFromLoanShark(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name), "loan": statusPayload})
+	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)), "loan": statusPayload})
 }
 
 func (s *Server) repayLoanShark(c *gin.Context) {
@@ -1202,7 +1202,7 @@ func (s *Server) repayLoanShark(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name), "loan": statusPayload, "revealed_secret_points": revealedSecretPoints})
+	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)), "loan": statusPayload, "revealed_secret_points": revealedSecretPoints})
 }
 
 func (s *Server) recordIndividualPonyImmunity(c *gin.Context) {

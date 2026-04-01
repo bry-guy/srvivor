@@ -210,13 +210,19 @@ func nextStirThePotTier(currentContribution int, tiers []castaway.StirThePotRewa
 	return castaway.StirThePotRewardTier{}, 0, false
 }
 
-func SecretRevealAnnouncement(participantName string, revealedSecretPoints int) string {
-	participantName = strings.TrimSpace(participantName)
-	if participantName == "" || revealedSecretPoints <= 0 {
+func SecretRevealAnnouncement(participant castaway.Participant, revealedSecretPoints int) string {
+	label := strings.TrimSpace(participant.Name)
+	discordUserID := strings.TrimSpace(participant.DiscordUserID)
+	if discordUserID != "" && label != "" {
+		label = fmt.Sprintf("<@%s> (%s)", discordUserID, label)
+	} else if discordUserID != "" {
+		label = fmt.Sprintf("<@%s>", discordUserID)
+	}
+	if label == "" || revealedSecretPoints <= 0 {
 		return ""
 	}
 	if revealedSecretPoints == 1 {
-		return fmt.Sprintf("%s revealed a secret bonus point!", participantName)
+		return fmt.Sprintf("%s has revealed a secret bonus point!", label)
 	}
-	return fmt.Sprintf("%s revealed %d secret bonus points!", participantName, revealedSecretPoints)
+	return fmt.Sprintf("%s has revealed %d secret bonus points!", label, revealedSecretPoints)
 }
