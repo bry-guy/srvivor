@@ -90,8 +90,26 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	if got := len(season50.Activities[0].GroupAssignments); got != 3 {
 		t.Fatalf("tribal pony activity expected 3 group assignments, got %d", got)
 	}
-	if got := len(season50.Activities[0].Occurrences); got != 3 {
-		t.Fatalf("tribal pony activity expected 3 occurrences, got %d", got)
+	if got := len(season50.Activities[0].Occurrences); got != 5 {
+		t.Fatalf("tribal pony activity expected 5 occurrences, got %d", got)
+	}
+	var episode4PonyMetadata struct {
+		WinningSurvivorTribes []string `json:"winning_survivor_tribes"`
+	}
+	if err := json.Unmarshal(season50.Activities[0].Occurrences[3].Metadata, &episode4PonyMetadata); err != nil {
+		t.Fatalf("unmarshal episode 4 tribal pony metadata: %v", err)
+	}
+	if len(episode4PonyMetadata.WinningSurvivorTribes) != 2 || episode4PonyMetadata.WinningSurvivorTribes[0] != "leaf" || episode4PonyMetadata.WinningSurvivorTribes[1] != "tangerine" {
+		t.Fatalf("unexpected episode 4 tribal pony metadata: %+v", episode4PonyMetadata)
+	}
+	var episode5PonyMetadata struct {
+		WinningSurvivorTribes []string `json:"winning_survivor_tribes"`
+	}
+	if err := json.Unmarshal(season50.Activities[0].Occurrences[4].Metadata, &episode5PonyMetadata); err != nil {
+		t.Fatalf("unmarshal episode 5 tribal pony metadata: %v", err)
+	}
+	if len(episode5PonyMetadata.WinningSurvivorTribes) != 1 || episode5PonyMetadata.WinningSurvivorTribes[0] != "leaf" {
+		t.Fatalf("unexpected episode 5 tribal pony metadata: %+v", episode5PonyMetadata)
 	}
 	if got := len(season50.Activities[1].Occurrences); got != 1 {
 		t.Fatalf("tribe wordle activity expected 1 occurrence, got %d", got)

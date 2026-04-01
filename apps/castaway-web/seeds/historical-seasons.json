@@ -2503,6 +2503,31 @@
                 "tangerine"
               ]
             }
+          },
+          {
+            "occurrence_type": "immunity_result",
+            "name": "Episode 4 Immunity",
+            "effective_at": "2026-03-26T00:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "metadata": {
+              "winning_survivor_tribes": [
+                "leaf",
+                "tangerine"
+              ]
+            }
+          },
+          {
+            "occurrence_type": "immunity_result",
+            "name": "Episode 5 Immunity",
+            "effective_at": "2026-04-02T00:00:00Z",
+            "status": "resolved",
+            "resolve": true,
+            "metadata": {
+              "winning_survivor_tribes": [
+                "leaf"
+              ]
+            }
           }
         ]
       },
