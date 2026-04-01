@@ -1,6 +1,6 @@
 # Discord User Authentication Plan
 
-Status: `in-progress`
+Status: `done`
 
 ## Goal
 
@@ -63,9 +63,11 @@ Updated existing commands:
 
 Private responses are sent ephemerally when the bot can determine the caller is linked self or admin.
 
-## Remaining follow-ups
+## Resolution
 
-- define the production admin allowlist source and deployment config
-- verify live Discord behavior end-to-end after deploy
-- decide whether future participant-private routes should reuse the same `self/admin/public` pattern
-- fold this slice into the broader `apps/castaway-web/plans/auth-and-authorization-planning.md`
+All items in this plan are now deployed and verified live:
+
+- Admin identity is DB-backed via `instance_admins` (not config allowlist)
+- Live Discord behavior verified: link/unlink, self-score with secret bonus, ephemeral private responses
+- The `self/admin/public` pattern is established and reusable for future participant-private routes
+- Web auth plan (`apps/castaway-web/plans/auth-and-authorization-planning.md`) is updated and marked done

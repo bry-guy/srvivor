@@ -1,19 +1,24 @@
 # State Backend and Operations Plan
 
-Status: `planning`
+Status: `done`
 
 ## Goal
 
 Define the production storage and operational model for `castaway-discord-bot`.
 
-## Open questions
+## Resolution
 
-- whether local file-backed state is sufficient for the intended deployment model
-- what backup and restore expectations apply to saved defaults
-- what restart, outage, and token-rotation runbooks are required
-- whether multi-instance deployment is in scope
+Production state is now fully backed by PostgreSQL:
+
+- `BOT_STATE_BACKEND=postgres` configured in deploy configmap
+- `BOT_STATE_DATABASE_URL` provisioned via k8s secret pointing to the `castaway_discord_bot` database
+- `PostgresStore` with auto-schema management handles `guild_defaults` and `user_defaults` tables
+- BoltDB import path (`--import-bolt-state-from`) available for migration
+- No local writable volume required in production deployment
+
+Remaining operational concerns (token rotation, runbooks, alerting) are tracked in the production readiness checklists rather than this plan.
 
 ## Related threads
 
-- `postgres-state-backend-planning.md` — planned move from local BoltDB to PostgreSQL
-- `service-to-service-authentication-planning.md` — bot-side auth plan for calls into `castaway-web`
+- `postgres-state-backend-planning.md` — PostgreSQL store implementation (done)
+- `service-to-service-authentication-planning.md` — bot-side auth (done)
