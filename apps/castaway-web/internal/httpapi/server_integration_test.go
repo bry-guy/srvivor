@@ -861,7 +861,7 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if err := json.Unmarshal(aliceContributeRecorder.Body.Bytes(), &contributionResponse); err != nil {
 		t.Fatalf("unmarshal contribution response: %v", err)
 	}
-	if contributionResponse.MyContributionPoints != 5 || contributionResponse.BonusPointsAvailable != 6 || contributionResponse.RevealedSecretPoints != 1 {
+	if contributionResponse.MyContributionPoints != 5 || contributionResponse.BonusPointsAvailable != 6 || contributionResponse.RevealedSecretPoints != 0 {
 		t.Fatalf("unexpected stir the pot contribution response: %+v", contributionResponse)
 	}
 
@@ -900,20 +900,16 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		t.Fatalf("expected alice combined bonus to be 6 after contribution, got %d", aliceLedger.BonusPoints)
 	}
 	foundContributionSpend := false
-	foundSecretReveal := false
 	for _, entry := range aliceLedger.Ledger {
 		if entry.Reason == "Stir the Pot contribution" && entry.Points == -5 && entry.Visibility == "secret" {
 			foundContributionSpend = true
 		}
-		if strings.Contains(entry.Reason, "Stir the Pot contribution") && entry.Points == 1 && entry.Visibility == "revealed" {
-			foundSecretReveal = true
+		if strings.Contains(entry.Reason, "Stir the Pot contribution") && entry.Visibility == "revealed" {
+			t.Fatalf("did not expect revealed secret bonus point after public-covered stir the pot contribution: %+v", aliceLedger.Ledger)
 		}
 	}
 	if !foundContributionSpend {
 		t.Fatalf("expected secret stir the pot spend in alice ledger: %+v", aliceLedger.Ledger)
-	}
-	if !foundSecretReveal {
-		t.Fatalf("expected revealed secret bonus point after stir the pot contribution: %+v", aliceLedger.Ledger)
 	}
 
 	activities, err := queries.ListInstanceActivitiesByType(ctx, db.ListInstanceActivitiesByTypeParams{InstanceID: instance.ID, ActivityType: "tribal_pony"})
@@ -1100,8 +1096,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	if err := json.Unmarshal(repayRecorder.Body.Bytes(), &repayResponse); err != nil {
 		t.Fatalf("unmarshal loan repay response: %v", err)
 	}
-	if repayResponse.RevealedSecretPoints != 2 {
-		t.Fatalf("expected two revealed secret bonus points on repay, got %+v", repayResponse)
+	if repayResponse.RevealedSecretPoints != 0 {
+		t.Fatalf("expected no secret reveal on repay when visible balance covers it, got %+v", repayResponse)
 	}
 	loanStatusRecorder = httptest.NewRecorder()
 	router.ServeHTTP(loanStatusRecorder, loanStatusReq)
@@ -1151,8 +1147,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		switch row.ParticipantID {
 		case aliceID:
 			aliceFound = true
-			if row.BonusPoints != 19 {
-				t.Fatalf("expected alice public bonus to be 19 after secret reveals, got %d", row.BonusPoints)
+			if row.BonusPoints != 16 {
+				t.Fatalf("expected alice public bonus to remain 16 without unnecessary secret reveals, got %d", row.BonusPoints)
 			}
 			if row.ParticipantDiscordUserID != "alice-discord" || row.CurrentTribeName != "Lotus" {
 				t.Fatalf("unexpected alice leaderboard row: %+v", row)
@@ -1162,13 +1158,117 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 			if row.BonusPoints != 10 {
 				t.Fatalf("expected bob public bonus to be 10 after losing bid refund, got %d", row.BonusPoints)
 			}
-			if row.ParticipantDiscordUserID != "bob-discord" || row.CurrentTribeName != "Tangerine" {
+			if row.ParticipantDiscordUserID != "bob-discord" || row.CurrentTribeName != "Lotus" {
 				t.Fatalf("unexpected bob leaderboard row: %+v", row)
 			}
 		}
 	}
 	if !aliceFound || !bobFound {
 		t.Fatalf("expected alice and bob in leaderboard: %+v", leaderboard.Leaderboard)
+	}
+}
+
+func TestStirThePotContributionDoesNotRevealSecretWhenVisibleBalanceCoversSpend(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	seasons, err := seeddata.LoadFromJSON("../../seeds/verification-merge-gameplay.json")
+	if err != nil {
+		t.Fatalf("load verification seed: %v", err)
+	}
+	if _, err := appinternal.SeedHistorical(ctx, pool, seasons); err != nil {
+		t.Fatalf("seed verification season: %v", err)
+	}
+
+	queries := db.New(pool)
+	instances, err := queries.ListInstances(ctx)
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	var instance db.ListInstancesRow
+	for _, candidate := range instances {
+		if candidate.Name == "Verification Merge Gameplay" {
+			instance = candidate
+			break
+		}
+	}
+	if !instance.ID.Valid {
+		t.Fatalf("verification instance not found")
+	}
+
+	participants, err := queries.ListParticipantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list participants: %v", err)
+	}
+	participantIDByName := make(map[string]pgtype.UUID, len(participants))
+	for _, participant := range participants {
+		participantIDByName[participant.Name] = participant.ID
+	}
+	if _, err := queries.SetParticipantDiscordUserID(ctx, db.SetParticipantDiscordUserIDParams{ID: participantIDByName["Bob"], DiscordUserID: pgtype.Text{String: "bob-discord", Valid: true}}); err != nil {
+		t.Fatalf("link bob: %v", err)
+	}
+	if _, err := queries.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "admin-discord"}); err != nil {
+		t.Fatalf("create instance admin: %v", err)
+	}
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}))
+	router := server.Router()
+	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
+	bobID := uuid.UUID(participantIDByName["Bob"].Bytes).String()
+
+	publicActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-3*time.Hour), nil, "manual_adjustment", "Verification Public Bonus")
+	publicOccurrence := createOccurrenceForTest(t, ctx, queries, publicActivity.ID, "manual_correction", "Verification Public Bonus Grant", time.Now().UTC().Add(-3*time.Hour))
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Bob"], publicOccurrence.ID, pgtype.UUID{}, "award", 3, "public", "Verification public reward", "verification:public:bob")
+
+	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
+	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", time.Now().UTC().Add(-2*time.Hour))
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Bob"], hiddenOccurrence.ID, pgtype.UUID{}, "award", 1, "secret", "Verification hidden reward", "verification:hidden:bob")
+
+	startPotReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/start", instanceUUID), `{}`, "verification-token", "admin-discord")
+	startPotRecorder := httptest.NewRecorder()
+	router.ServeHTTP(startPotRecorder, startPotReq)
+	if startPotRecorder.Code != http.StatusCreated {
+		t.Fatalf("start stir the pot status = %d, body = %s", startPotRecorder.Code, startPotRecorder.Body.String())
+	}
+
+	bobContributeReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/me/contributions", instanceUUID), `{"points":2}`, "verification-token", "bob-discord")
+	bobContributeRecorder := httptest.NewRecorder()
+	router.ServeHTTP(bobContributeRecorder, bobContributeReq)
+	if bobContributeRecorder.Code != http.StatusOK {
+		t.Fatalf("bob stir the pot contribution status = %d, body = %s", bobContributeRecorder.Code, bobContributeRecorder.Body.String())
+	}
+	var contributionResponse struct {
+		RevealedSecretPoints int `json:"revealed_secret_points"`
+	}
+	if err := json.Unmarshal(bobContributeRecorder.Body.Bytes(), &contributionResponse); err != nil {
+		t.Fatalf("unmarshal bob contribution response: %v", err)
+	}
+	if contributionResponse.RevealedSecretPoints != 0 {
+		t.Fatalf("expected no secret reveal when visible balance covers spend, got %+v", contributionResponse)
+	}
+
+	bobLedgerReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", instanceUUID, bobID), "", "verification-token", "bob-discord")
+	bobLedgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(bobLedgerRecorder, bobLedgerReq)
+	if bobLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("bob bonus ledger status = %d, body = %s", bobLedgerRecorder.Code, bobLedgerRecorder.Body.String())
+	}
+	var bobLedger bonusLedgerResponse
+	if err := json.Unmarshal(bobLedgerRecorder.Body.Bytes(), &bobLedger); err != nil {
+		t.Fatalf("unmarshal bob ledger after contribution: %v", err)
+	}
+	foundContributionSpend := false
+	for _, entry := range bobLedger.Ledger {
+		if entry.Reason == "Stir the Pot contribution" && entry.Points == -2 && entry.Visibility == "secret" {
+			foundContributionSpend = true
+		}
+		if strings.Contains(entry.Reason, "Stir the Pot contribution") && entry.Visibility == "revealed" {
+			t.Fatalf("did not expect revealed secret bonus point after public-covered contribution: %+v", bobLedger.Ledger)
+		}
+	}
+	if !foundContributionSpend {
+		t.Fatalf("expected secret stir the pot spend in bob ledger: %+v", bobLedger.Ledger)
 	}
 }
 
@@ -1350,6 +1450,14 @@ func createOccurrenceForTest(t *testing.T, ctx context.Context, queries *db.Quer
 
 func createLedgerEntryForTest(t *testing.T, ctx context.Context, queries *db.Queries, instanceID, participantID, occurrenceID, sourceGroupID pgtype.UUID, entryKind string, points int32, visibility string, reason string, awardKey string) {
 	t.Helper()
+	createLedgerEntryWithMetadataForTest(t, ctx, queries, instanceID, participantID, occurrenceID, sourceGroupID, entryKind, points, visibility, reason, awardKey, testEmptyJSONB)
+}
+
+func createLedgerEntryWithMetadataForTest(t *testing.T, ctx context.Context, queries *db.Queries, instanceID, participantID, occurrenceID, sourceGroupID pgtype.UUID, entryKind string, points int32, visibility string, reason string, awardKey string, metadata []byte) {
+	t.Helper()
+	if len(metadata) == 0 {
+		metadata = testEmptyJSONB
+	}
 	if _, err := queries.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
 		InstanceID:           instanceID,
 		ParticipantID:        participantID,
@@ -1361,7 +1469,7 @@ func createLedgerEntryForTest(t *testing.T, ctx context.Context, queries *db.Que
 		Reason:               reason,
 		EffectiveAt:          timestamptz(time.Date(2026, time.March, 21, 12, 0, 0, 0, time.UTC)),
 		AwardKey:             pgtype.Text{String: awardKey, Valid: true},
-		Metadata:             testEmptyJSONB,
+		Metadata:             metadata,
 	}); err != nil {
 		t.Fatalf("create ledger entry %q: %v", awardKey, err)
 	}

@@ -1645,6 +1645,17 @@ func (s *Server) revealSecretPointsOnSpend(ctx context.Context, q *db.Queries, i
 	if spendPoints <= 0 {
 		return 0, nil
 	}
+	visibleBalance, err := q.GetVisibleBonusTotalByParticipant(ctx, db.GetVisibleBonusTotalByParticipantParams{
+		InstanceID:    instanceID,
+		ParticipantID: participantID,
+	})
+	if err != nil {
+		return 0, err
+	}
+	secretShortfall := spendPoints - visibleBalance
+	if secretShortfall <= 0 {
+		return 0, nil
+	}
 	availableSecret, err := q.GetAvailableSecretBalanceByParticipant(ctx, db.GetAvailableSecretBalanceByParticipantParams{
 		InstanceID:    instanceID,
 		ParticipantID: participantID,
@@ -1652,7 +1663,7 @@ func (s *Server) revealSecretPointsOnSpend(ctx context.Context, q *db.Queries, i
 	if err != nil {
 		return 0, err
 	}
-	revealedPoints := spendPoints
+	revealedPoints := secretShortfall
 	if revealedPoints > availableSecret {
 		revealedPoints = availableSecret
 	}
