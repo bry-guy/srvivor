@@ -94,7 +94,7 @@ func potCommandGroup() *discordgo.ApplicationCommandOption {
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "add",
 				Description: "Add blind bonus points to Stir the Pot",
-				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), participantOption(false), instanceOption(false)},
+				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), playerOption(false), instanceOption(false)},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -121,20 +121,20 @@ func auctionCommandGroup() *discordgo.ApplicationCommandOption {
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "start",
-				Description: "Admin-only: open bidding for one survivor player",
-				Options:     []*discordgo.ApplicationCommandOption{contestantOption("player", "Survivor player", true), instanceOption(false)},
+				Description: "Admin-only: open bidding for one survivor",
+				Options:     []*discordgo.ApplicationCommandOption{survivorOption(true), instanceOption(false)},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "stop",
-				Description: "Admin-only: close and resolve bidding for one survivor player",
-				Options:     []*discordgo.ApplicationCommandOption{contestantOption("player", "Survivor player", true), instanceOption(false)},
+				Description: "Admin-only: close and resolve bidding for one survivor",
+				Options:     []*discordgo.ApplicationCommandOption{survivorOption(true), instanceOption(false)},
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "award",
 				Description: "Admin-only: record an individual immunity winner",
-				Options:     []*discordgo.ApplicationCommandOption{contestantOption("player", "Survivor player", true), instanceOption(false)},
+				Options:     []*discordgo.ApplicationCommandOption{survivorOption(true), instanceOption(false)},
 			},
 		},
 	}
@@ -144,11 +144,11 @@ func bidCommand() *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "bid",
-		Description: "Set your blind bid for one survivor player",
+		Description: "Set your blind bid for one survivor",
 		Options: []*discordgo.ApplicationCommandOption{
-			contestantOption("player", "Survivor player", true),
+			survivorOption(true),
 			pointsOption(true),
-			participantOption(false),
+			playerOption(false),
 			instanceOption(false),
 		},
 	}
@@ -314,16 +314,18 @@ func unlinkCommand() *discordgo.ApplicationCommandOption {
 }
 
 func participantOption(required bool) *discordgo.ApplicationCommandOption {
-	return &discordgo.ApplicationCommandOption{
-		Type:         discordgo.ApplicationCommandOptionString,
-		Name:         "participant",
-		Description:  "Participant name",
-		Required:     required,
-		Autocomplete: true,
-	}
+	return namedAutocompleteOption("participant", "Participant name", required)
 }
 
-func contestantOption(name, description string, required bool) *discordgo.ApplicationCommandOption {
+func playerOption(required bool) *discordgo.ApplicationCommandOption {
+	return namedAutocompleteOption("player", "Player name", required)
+}
+
+func survivorOption(required bool) *discordgo.ApplicationCommandOption {
+	return namedAutocompleteOption("survivor", "Survivor name", required)
+}
+
+func namedAutocompleteOption(name, description string, required bool) *discordgo.ApplicationCommandOption {
 	return &discordgo.ApplicationCommandOption{
 		Type:         discordgo.ApplicationCommandOptionString,
 		Name:         name,

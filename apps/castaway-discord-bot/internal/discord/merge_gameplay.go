@@ -33,7 +33,7 @@ func (b *Bot) handlePotAdd(ctx context.Context, interaction *discordgo.Interacti
 	if points <= 0 {
 		return "", fmt.Errorf("points must be positive")
 	}
-	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "participant"))
+	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "player"))
 	if err != nil {
 		return "", err
 	}
@@ -42,9 +42,9 @@ func (b *Bot) handlePotAdd(ctx context.Context, interaction *discordgo.Interacti
 		var apiErr *castaway.APIError
 		switch {
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden && targetSpecified:
-			return "", fmt.Errorf("pot add with a participant name is admin-only; ask a Castaway admin to run this command")
+			return "", fmt.Errorf("pot add with a player name is admin-only; ask a Castaway admin to run this command")
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && !targetSpecified:
-			return "", fmt.Errorf("you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first")
+			return "", fmt.Errorf("you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first")
 		default:
 			return "", err
 		}
@@ -88,7 +88,7 @@ func (b *Bot) handleAuctionStart(ctx context.Context, interaction *discordgo.Int
 	if err != nil {
 		return "", err
 	}
-	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "player"))
+	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "survivor"))
 	if err != nil {
 		return "", err
 	}
@@ -108,7 +108,7 @@ func (b *Bot) handleAuctionStop(ctx context.Context, interaction *discordgo.Inte
 	if err != nil {
 		return "", err
 	}
-	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "player"))
+	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "survivor"))
 	if err != nil {
 		return "", err
 	}
@@ -128,7 +128,7 @@ func (b *Bot) handleAuctionAward(ctx context.Context, interaction *discordgo.Int
 	if err != nil {
 		return "", err
 	}
-	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "player"))
+	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "survivor"))
 	if err != nil {
 		return "", err
 	}
@@ -148,7 +148,7 @@ func (b *Bot) handleBid(ctx context.Context, interaction *discordgo.InteractionC
 	if err != nil {
 		return "", err
 	}
-	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "player"))
+	contestant, err := b.resolveContestant(ctx, instance.ID, optionString(command, "survivor"))
 	if err != nil {
 		return "", err
 	}
@@ -156,7 +156,7 @@ func (b *Bot) handleBid(ctx context.Context, interaction *discordgo.InteractionC
 	if points <= 0 {
 		return "", fmt.Errorf("points must be positive")
 	}
-	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "participant"))
+	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "player"))
 	if err != nil {
 		return "", err
 	}
@@ -165,9 +165,9 @@ func (b *Bot) handleBid(ctx context.Context, interaction *discordgo.InteractionC
 		var apiErr *castaway.APIError
 		switch {
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden && targetSpecified:
-			return "", fmt.Errorf("bid with a participant name is admin-only; ask a Castaway admin to run this command")
+			return "", fmt.Errorf("bid with a player name is admin-only; ask a Castaway admin to run this command")
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && !targetSpecified:
-			return "", fmt.Errorf("you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first")
+			return "", fmt.Errorf("you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first")
 		default:
 			return "", err
 		}

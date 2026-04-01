@@ -277,7 +277,7 @@ func TestPotAddCommandRegression_AllowsAdminToContributeForNamedParticipant(t *t
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "pot", name: "add", options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("points", 1), stringOption("participant", "Keith")}})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "pot", name: "add", options: []*discordgo.ApplicationCommandInteractionDataOption{intOption("points", 1), stringOption("player", "Keith")}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestPotAddCommandRegression_RejectsUnlinkedCaller(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unlinked error")
 	}
-	if err.Error() != "you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first" {
+	if err.Error() != "you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -322,7 +322,7 @@ func TestBidCommandRegression_SetsBlindBidAgainstContestant(t *testing.T) {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Joe"), intOption("points", 4)}})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-1", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("survivor", "Joe"), intOption("points", 4)}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
@@ -353,7 +353,7 @@ func TestBidCommandRegression_AllowsAdminToBidForNamedParticipant(t *testing.T) 
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Joe"), intOption("points", 3), stringOption("participant", "Keith")}})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("survivor", "Joe"), intOption("points", 3), stringOption("player", "Keith")}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
@@ -373,11 +373,11 @@ func TestBidCommandRegression_RejectsUnlinkedCaller(t *testing.T) {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-2", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Joe"), intOption("points", 3)}})
+	_, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "user-2", 0), commandSpec{name: "bid", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("survivor", "Joe"), intOption("points", 3)}})
 	if err == nil {
 		t.Fatal("expected unlinked error")
 	}
-	if err.Error() != "you are not linked to a Castaway participant for this season; ask a Castaway admin to run /castaway link first" {
+	if err.Error() != "you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -397,7 +397,7 @@ func TestAuctionStartCommandRegression_OpensLotForContestant(t *testing.T) {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "auction", name: "start", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Angelina")}})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "auction", name: "start", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("survivor", "Angelina")}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestAuctionAwardCommandRegression_RecordsIndividualImmunity(t *testing.T) {
 		t.Fatalf("set user default: %v", err)
 	}
 
-	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "auction", name: "award", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("player", "Mike")}})
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "auction", name: "award", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("survivor", "Mike")}})
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}

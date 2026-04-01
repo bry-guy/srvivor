@@ -35,14 +35,14 @@ Top-level command: `/castaway`
 ### Merge gameplay commands
 - Stir the Pot
   - `/castaway pot status [instance]`
-  - `/castaway pot add points:<n> [participant] [instance]` (participant is admin-only; otherwise the caller must be linked and it defaults to them)
+  - `/castaway pot add points:<n> [player] [instance]` (player is admin-only; otherwise the caller must be linked and it defaults to them)
   - `/castaway pot start [instance]` (admin, targets the next scheduled episode)
 - Individual Pony Auction
   - `/castaway auction status [instance]`
-  - `/castaway auction start player:<contestant> [instance]` (admin, targets the next scheduled episode)
-  - `/castaway auction stop player:<contestant> [instance]` (admin)
-  - `/castaway auction award player:<contestant> [instance]` (admin, records individual immunity)
-  - `/castaway bid player:<contestant> points:<n> [participant] [instance]` (participant is admin-only; otherwise the caller must be linked and it defaults to them)
+  - `/castaway auction start survivor:<contestant> [instance]` (admin, targets the next scheduled episode)
+  - `/castaway auction stop survivor:<contestant> [instance]` (admin)
+  - `/castaway auction award survivor:<contestant> [instance]` (admin, records individual immunity)
+  - `/castaway bid survivor:<contestant> points:<n> [player] [instance]` (player is admin-only; otherwise the caller must be linked and it defaults to them)
 - Loan Shark
   - `/castaway loan status [instance]`
   - `/castaway loan request points:<n> [instance]`
