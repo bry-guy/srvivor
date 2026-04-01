@@ -114,6 +114,21 @@ func TestLoadFromJSONSeason50Activities(t *testing.T) {
 	if got := len(season50.Activities[1].Occurrences); got != 1 {
 		t.Fatalf("tribe wordle activity expected 1 occurrence, got %d", got)
 	}
+	wordleParticipants := season50.Activities[1].Occurrences[0].Participants
+	if len(wordleParticipants) != 9 {
+		t.Fatalf("tribe wordle occurrence expected 9 participants, got %d", len(wordleParticipants))
+	}
+	for _, participant := range wordleParticipants[6:] {
+		var guessCount struct {
+			GuessCount int `json:"guess_count"`
+		}
+		if err := json.Unmarshal(participant.Metadata, &guessCount); err != nil {
+			t.Fatalf("unmarshal tangerine wordle metadata for %s: %v", participant.Name, err)
+		}
+		if guessCount.GuessCount != 2 {
+			t.Fatalf("expected tangerine wordle guess_count 2 for %s, got %d", participant.Name, guessCount.GuessCount)
+		}
+	}
 	if got := len(season50.Activities[2].ParticipantAssignments); got != 3 {
 		t.Fatalf("journey activity expected 3 participant assignments, got %d", got)
 	}
