@@ -159,6 +159,64 @@ func (s *Server) getStirThePotStatus(c *gin.Context) {
 	})
 }
 
+func (s *Server) getStirThePotTribeStatus(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	if !s.requireInstanceAdminRequest(c, instanceID) {
+		return
+	}
+	tribeName := strings.TrimSpace(c.Query("name"))
+	if tribeName == "" {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "tribe name is required"})
+		return
+	}
+	tribe, found, err := s.resolveTribeByName(c.Request.Context(), s.queries, toPGUUID(instanceID), tribeName)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, errorResponse{Error: fmt.Sprintf("tribe %q not found", tribeName)})
+		return
+	}
+
+	now := time.Now().UTC()
+	round, _, roundFound, err := s.findOpenStirThePotRound(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if !roundFound {
+		c.JSON(http.StatusOK, gin.H{
+			"open":         false,
+			"tribe":        gin.H{"id": pgUUIDString(tribe.ID), "name": tribe.Name, "kind": tribe.Kind},
+			"reward_tiers": defaultStirThePotRewardTiers(),
+		})
+		return
+	}
+
+	metadata := parseStirThePotRoundMetadata(round.Metadata)
+	if len(metadata.RewardTiers) == 0 {
+		metadata.RewardTiers = defaultStirThePotRewardTiers()
+	}
+	contributionPoints, err := s.groupContributionPoints(c.Request.Context(), s.queries, round.ID, tribe.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"open":                         true,
+		"tribe":                        gin.H{"id": pgUUIDString(tribe.ID), "name": tribe.Name, "kind": tribe.Kind},
+		"round":                        occurrenceToJSON(round.ID, round.ActivityID, round.OccurrenceType, round.Name, round.EffectiveAt, round.StartsAt, round.EndsAt, round.Status, round.SourceRef, round.Metadata, round.CreatedAt, round.UpdatedAt),
+		"contribution_points":          contributionPoints,
+		"bonus_points_if_resolved_now": stirThePotBonusForContribution(contributionPoints, metadata.RewardTiers),
+		"reward_tiers":                 metadata.RewardTiers,
+	})
+}
+
 func (s *Server) startStirThePotRound(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
@@ -1328,6 +1386,41 @@ func (s *Server) requireInstanceAdminRequest(c *gin.Context, instanceID uuid.UUI
 	return true
 }
 
+func (s *Server) resolveTribeByName(ctx context.Context, q *db.Queries, instanceID pgtype.UUID, raw string) (db.ListParticipantGroupsByInstanceRow, bool, error) {
+	groups, err := q.ListParticipantGroupsByInstance(ctx, instanceID)
+	if err != nil {
+		return db.ListParticipantGroupsByInstanceRow{}, false, err
+	}
+	query := strings.TrimSpace(raw)
+	exactMatches := make([]db.ListParticipantGroupsByInstanceRow, 0, 1)
+	containsMatches := make([]db.ListParticipantGroupsByInstanceRow, 0, 1)
+	for _, group := range groups {
+		if !strings.EqualFold(strings.TrimSpace(group.Kind), "tribe") {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(group.Name), query) {
+			exactMatches = append(exactMatches, group)
+			continue
+		}
+		if matchesContainsFold(group.Name, query) {
+			containsMatches = append(containsMatches, group)
+		}
+	}
+	if len(exactMatches) == 1 {
+		return exactMatches[0], true, nil
+	}
+	if len(exactMatches) > 1 {
+		return db.ListParticipantGroupsByInstanceRow{}, false, fmt.Errorf("tribe %q is ambiguous", raw)
+	}
+	if len(containsMatches) == 1 {
+		return containsMatches[0], true, nil
+	}
+	if len(containsMatches) > 1 {
+		return db.ListParticipantGroupsByInstanceRow{}, false, fmt.Errorf("tribe %q is ambiguous", raw)
+	}
+	return db.ListParticipantGroupsByInstanceRow{}, false, nil
+}
+
 func (s *Server) nextEpisodeTarget(ctx context.Context, q *db.Queries, instanceID pgtype.UUID, now time.Time) (mergeTargetEpisodeMetadata, error) {
 	episodes, err := q.ListInstanceEpisodes(ctx, instanceID)
 	if err != nil {
@@ -1494,11 +1587,31 @@ func (s *Server) participantContributionPoints(ctx context.Context, q *db.Querie
 		}
 		return 0, err
 	}
-	var metadata stirThePotContributionMetadata
-	if err := json.Unmarshal(nonEmptyMetadata(row.Metadata), &metadata); err != nil {
+	metadata, err := parseStirThePotContributionMetadata(row.Metadata)
+	if err != nil {
 		return 0, err
 	}
 	return metadata.Contribution, nil
+}
+
+func (s *Server) groupContributionPoints(ctx context.Context, q *db.Queries, occurrenceID, groupID pgtype.UUID) (int32, error) {
+	participants, err := q.ListActivityOccurrenceParticipants(ctx, occurrenceID)
+	if err != nil {
+		return 0, err
+	}
+	groupIDString := pgUUIDString(groupID)
+	var total int32
+	for _, participant := range participants {
+		if participant.Role != occurrenceRoleStirThePotContributor || !participant.ParticipantGroupID.Valid || pgUUIDString(participant.ParticipantGroupID) != groupIDString {
+			continue
+		}
+		metadata, err := parseStirThePotContributionMetadata(participant.Metadata)
+		if err != nil {
+			return 0, err
+		}
+		total += metadata.Contribution
+	}
+	return total, nil
 }
 
 func (s *Server) participantBidPoints(ctx context.Context, q *db.Queries, occurrenceID, participantID pgtype.UUID) (int32, error) {
@@ -1766,12 +1879,30 @@ func defaultStirThePotRewardTiers() []stirThePotRewardTier {
 	return []stirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 11, Bonus: 4}}
 }
 
+func stirThePotBonusForContribution(total int32, tiers []stirThePotRewardTier) int32 {
+	var best int32
+	for _, tier := range tiers {
+		if total >= tier.Contributions && tier.Bonus > best {
+			best = tier.Bonus
+		}
+	}
+	return best
+}
+
 func parseStirThePotRoundMetadata(raw []byte) stirThePotRoundMetadata {
 	var metadata stirThePotRoundMetadata
 	if err := json.Unmarshal(nonEmptyMetadata(raw), &metadata); err != nil {
 		return stirThePotRoundMetadata{}
 	}
 	return metadata
+}
+
+func parseStirThePotContributionMetadata(raw []byte) (stirThePotContributionMetadata, error) {
+	var metadata stirThePotContributionMetadata
+	if err := json.Unmarshal(nonEmptyMetadata(raw), &metadata); err != nil {
+		return stirThePotContributionMetadata{}, err
+	}
+	return metadata, nil
 }
 
 func nonEmptyMetadata(raw []byte) []byte {

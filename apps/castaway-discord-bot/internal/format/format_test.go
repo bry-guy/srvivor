@@ -234,6 +234,25 @@ func TestLeaderboardIncludesTotalDraftAndBonus(t *testing.T) {
 	}
 }
 
+func TestStirThePotTribeStatusFormatsCurrentTotal(t *testing.T) {
+	instance := castaway.Instance{Name: "Office Pool", Season: 50}
+	status := castaway.StirThePotTribeStatus{
+		Open:                     true,
+		Tribe:                    castaway.ParticipantGroup{Name: "Lotus", Kind: "tribe"},
+		Round:                    castaway.Occurrence{Name: "Stir the Pot — Episode 6"},
+		ContributionPoints:       5,
+		BonusPointsIfResolvedNow: 2,
+		RewardTiers:              []castaway.StirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}},
+	}
+
+	message := StirThePotTribeStatus(instance, status)
+	for _, fragment := range []string{"**Season 50: Stir the Pot**", "- Tribe: Lotus", "- Round: Stir the Pot — Episode 6", "- Current contribution: 5", "- Bonus if resolved now: +2", "- Next tier: 8→+3 (3 more)"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
 func TestSecretRevealAnnouncementSingular(t *testing.T) {
 	if got := SecretRevealAnnouncement("Bryan", 1); got != "Bryan revealed a secret bonus point!" {
 		t.Fatalf("unexpected singular announcement: %q", got)

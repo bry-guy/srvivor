@@ -422,6 +422,36 @@ func TestAddStirThePotContributionSendsOptionalParticipantID(t *testing.T) {
 	}
 }
 
+func TestGetStirThePotTribeStatusSendsAdminHeaderAndQuery(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/instances/i1/stir-the-pot/tribes/show" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("X-Discord-User-ID"); got != "admin-1" {
+			t.Fatalf("unexpected discord header: %q", got)
+		}
+		if got := r.URL.Query().Get("name"); got != "Lotus" {
+			t.Fatalf("unexpected tribe query: %q", got)
+		}
+		if _, err := w.Write([]byte(`{"open":true,"tribe":{"id":"tribe-1","name":"Lotus","kind":"tribe"},"round":{"id":"round-1","name":"Stir the Pot — Episode 6"},"contribution_points":5,"bonus_points_if_resolved_now":2,"reward_tiers":[{"contributions":2,"bonus":1},{"contributions":5,"bonus":2}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	status, err := client.GetStirThePotTribeStatus(context.Background(), "i1", "admin-1", "Lotus")
+	if err != nil {
+		t.Fatalf("get stir the pot tribe status: %v", err)
+	}
+	if status.Tribe.Name != "Lotus" || status.ContributionPoints != 5 || status.BonusPointsIfResolvedNow != 2 {
+		t.Fatalf("unexpected status: %#v", status)
+	}
+}
+
 func TestGetJSONReturnsTypedAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

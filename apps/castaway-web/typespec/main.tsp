@@ -532,6 +532,13 @@ op getParticipantBonusLedger(
 @get
 op getStirThePotStatus(@path instanceID: string): JsonObject | ErrorResponse;
 
+@route("/instances/{instanceID}/stir-the-pot/tribes/show")
+@get
+op getStirThePotTribeStatus(
+  @path instanceID: string,
+  @query name: string,
+): JsonObject | ErrorResponse;
+
 @route("/instances/{instanceID}/stir-the-pot/start")
 @post
 op startStirThePotRound(

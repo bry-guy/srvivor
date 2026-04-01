@@ -35,6 +35,7 @@ Top-level command: `/castaway`
 ### Merge gameplay commands
 - Stir the Pot
   - `/castaway pot status [instance]`
+  - `/castaway pot show tribe:<tribe> [instance]` (admin-only current tribe total visibility)
   - `/castaway pot add points:<n> [player] [instance]` (player is admin-only; otherwise the caller must be linked and it defaults to them)
   - `/castaway pot start [instance]` (admin, targets the next scheduled episode)
 - Individual Pony Auction

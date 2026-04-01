@@ -31,6 +31,7 @@
   - individual pony immunity payouts
 - support player-context write flows via linked Discord users for merge gameplay actions
 - allow instance admins to submit Stir the Pot contributions and individual pony bids on behalf of named participants
+- allow instance admins to inspect the current Stir the Pot total for a named tribe without exposing other tribes' totals
 - bind newly opened Stir the Pot rounds and auction lots to the next scheduled episode for the instance
 - reveal consumed secret bonus points into public-safe ledger rows when hidden spends use them
 - support instance-admin write flows for opening/closing merge gameplay windows and recording immunity winners

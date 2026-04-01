@@ -82,6 +82,8 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 		switch command.name {
 		case "status":
 			return b.handlePotStatus(ctx, interaction, command)
+		case "show":
+			return b.handlePotShow(ctx, interaction, command)
 		case "add":
 			return b.handlePotAdd(ctx, interaction, command)
 		case "start":

@@ -24,6 +24,26 @@ func (b *Bot) handlePotStatus(ctx context.Context, interaction *discordgo.Intera
 	return format.StirThePotStatus(instance, status), nil
 }
 
+func (b *Bot) handlePotShow(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), nil)
+	if err != nil {
+		return "", err
+	}
+	tribeName := strings.TrimSpace(optionString(command, "tribe"))
+	if tribeName == "" {
+		return "", fmt.Errorf("tribe name is required")
+	}
+	status, err := b.castaway.GetStirThePotTribeStatus(ctx, instance.ID, interactionUserID(interaction), tribeName)
+	if err != nil {
+		var apiErr *castaway.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+			return "", fmt.Errorf("pot show is admin-only; ask a Castaway admin to run this command")
+		}
+		return "", err
+	}
+	return format.StirThePotTribeStatus(instance, status), nil
+}
+
 func (b *Bot) handlePotAdd(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
 	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), nil)
 	if err != nil {

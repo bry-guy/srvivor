@@ -865,6 +865,27 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		t.Fatalf("unexpected stir the pot contribution response: %+v", contributionResponse)
 	}
 
+	potShowReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/stir-the-pot/tribes/show?name=Lotus", instanceUUID), "", "verification-token", "admin-discord")
+	potShowRecorder := httptest.NewRecorder()
+	router.ServeHTTP(potShowRecorder, potShowReq)
+	if potShowRecorder.Code != http.StatusOK {
+		t.Fatalf("stir the pot tribe show status = %d, body = %s", potShowRecorder.Code, potShowRecorder.Body.String())
+	}
+	var potShowResponse struct {
+		Open                     bool `json:"open"`
+		ContributionPoints       int  `json:"contribution_points"`
+		BonusPointsIfResolvedNow int  `json:"bonus_points_if_resolved_now"`
+		Tribe                    struct {
+			Name string `json:"name"`
+		} `json:"tribe"`
+	}
+	if err := json.Unmarshal(potShowRecorder.Body.Bytes(), &potShowResponse); err != nil {
+		t.Fatalf("unmarshal stir the pot tribe show response: %v", err)
+	}
+	if !potShowResponse.Open || potShowResponse.Tribe.Name != "Lotus" || potShowResponse.ContributionPoints != 5 || potShowResponse.BonusPointsIfResolvedNow != 2 {
+		t.Fatalf("unexpected stir the pot tribe show response: %+v", potShowResponse)
+	}
+
 	aliceLedgerReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", instanceUUID, aliceID), "", "verification-token", "alice-discord")
 	aliceLedgerRecorder := httptest.NewRecorder()
 	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)

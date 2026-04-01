@@ -28,6 +28,31 @@ func StirThePotStatus(instance castaway.Instance, status castaway.StirThePotStat
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
 
+func StirThePotTribeStatus(instance castaway.Instance, status castaway.StirThePotTribeStatus) string {
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("**Season %d: Stir the Pot**\n", instance.Season))
+	builder.WriteString(fmt.Sprintf("- Tribe: %s\n", status.Tribe.Name))
+	if !status.Open {
+		builder.WriteString("Stir the Pot is not currently open.")
+		return TrimMessage(strings.TrimSpace(builder.String()))
+	}
+	builder.WriteString(fmt.Sprintf("- Round: %s\n", status.Round.Name))
+	builder.WriteString(fmt.Sprintf("- Current contribution: %d\n", status.ContributionPoints))
+	builder.WriteString(fmt.Sprintf("- Bonus if resolved now: +%d\n", status.BonusPointsIfResolvedNow))
+	if nextTier, pointsNeeded, ok := nextStirThePotTier(status.ContributionPoints, status.RewardTiers); ok {
+		builder.WriteString(fmt.Sprintf("- Next tier: %d→+%d (%d more)\n", nextTier.Contributions, nextTier.Bonus, pointsNeeded))
+	}
+	if len(status.RewardTiers) > 0 {
+		builder.WriteString("- Reward tiers: ")
+		parts := make([]string, 0, len(status.RewardTiers))
+		for _, tier := range status.RewardTiers {
+			parts = append(parts, fmt.Sprintf("%d→+%d", tier.Contributions, tier.Bonus))
+		}
+		builder.WriteString(strings.Join(parts, ", "))
+	}
+	return TrimMessage(strings.TrimSpace(builder.String()))
+}
+
 func StirThePotContributionResult(instance castaway.Instance, result castaway.StirThePotContributionResult, self bool) string {
 	headline := fmt.Sprintf("Added %d points to the pot.", result.AddedPoints)
 	contributionLabel := "Your contribution"
@@ -174,6 +199,15 @@ func IndividualPonyImmunityResult(instance castaway.Instance, result castaway.In
 		fmt.Sprintf("Recorded immunity for %s.", result.Contestant.Name),
 		fmt.Sprintf("- Created bonus entries: %d", result.CreatedCount),
 	}, "\n"))
+}
+
+func nextStirThePotTier(currentContribution int, tiers []castaway.StirThePotRewardTier) (castaway.StirThePotRewardTier, int, bool) {
+	for _, tier := range tiers {
+		if currentContribution < int(tier.Contributions) {
+			return tier, int(tier.Contributions) - currentContribution, true
+		}
+	}
+	return castaway.StirThePotRewardTier{}, 0, false
 }
 
 func SecretRevealAnnouncement(participantName string, revealedSecretPoints int) string {

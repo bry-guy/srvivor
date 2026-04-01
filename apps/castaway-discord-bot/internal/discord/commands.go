@@ -92,6 +92,12 @@ func potCommandGroup() *discordgo.ApplicationCommandOption {
 			},
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "show",
+				Description: "Admin-only: show one tribe's current Stir the Pot total",
+				Options:     []*discordgo.ApplicationCommandOption{tribeOption(true), instanceOption(false)},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "add",
 				Description: "Add blind bonus points to Stir the Pot",
 				Options:     []*discordgo.ApplicationCommandOption{pointsOption(true), playerOption(false), instanceOption(false)},
@@ -319,6 +325,15 @@ func participantOption(required bool) *discordgo.ApplicationCommandOption {
 
 func playerOption(required bool) *discordgo.ApplicationCommandOption {
 	return namedAutocompleteOption("player", "Player name", required)
+}
+
+func tribeOption(required bool) *discordgo.ApplicationCommandOption {
+	return &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionString,
+		Name:        "tribe",
+		Description: "Tribe name",
+		Required:    required,
+	}
 }
 
 func survivorOption(required bool) *discordgo.ApplicationCommandOption {

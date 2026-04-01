@@ -17,5 +17,6 @@ Operational notes:
 - Contributions debit points immediately.
 - If a contribution uses a secret bonus point, that point is revealed publicly when spent.
 - The winning tribe's next matching tribal pony resolution automatically receives the Stir the Pot bonus.
+- Admins can inspect one tribe's current hidden total with `/castaway pot show tribe:<tribe>`.
 
 > Contribute your bonus points to the pot with /castaway pot add <points>. 

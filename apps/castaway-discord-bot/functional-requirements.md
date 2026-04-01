@@ -31,6 +31,7 @@
 - support admin-on-behalf merge gameplay actions for named participants on Stir the Pot contributions and blind individual pony bids
 - support admin Discord workflows for:
   - opening Stir the Pot for the next scheduled episode
+  - showing the current Stir the Pot total for a named tribe
   - opening and closing individual pony auction lots, with lot starts bound to the next scheduled episode
   - recording individual pony immunity winners
 - format responses safely within Discord message limits

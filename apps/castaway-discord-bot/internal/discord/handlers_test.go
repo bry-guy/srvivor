@@ -31,6 +31,7 @@ type testCastawayAPI struct {
 	occurrenceDetails                map[string]castaway.OccurrenceDetail
 	historyByParticipant             map[string]castaway.ParticipantActivityHistory
 	stirThePotStatusByInstance       map[string]castaway.StirThePotStatus
+	stirThePotTribeStatusByInstance  map[string]map[string]castaway.StirThePotTribeStatus
 	stirThePotContributionByInstance map[string]castaway.StirThePotContributionResult
 	stirThePotStartByInstance        map[string]castaway.StirThePotStartResult
 	auctionStatusByInstance          map[string]castaway.AuctionStatus
@@ -256,6 +257,35 @@ func TestPotStatusCommandRegression_ShowsOpenRound(t *testing.T) {
 		t.Fatalf("execute command: %v", err)
 	}
 	for _, fragment := range []string{"**Season 50: Stir the Pot**", "- Round: Stir the Pot — Episode 5", "- Your contribution: 3", "- Bonus points available: 7"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
+	}
+}
+
+func TestPotShowCommandRegression_ShowsCurrentTribeTotal(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		stirThePotTribeStatusByInstance: map[string]map[string]castaway.StirThePotTribeStatus{"instance-50": {
+			"lotus": {
+				Open:                     true,
+				Tribe:                    castaway.ParticipantGroup{ID: "tribe-lotus", Name: "Lotus", Kind: "tribe"},
+				Round:                    castaway.Occurrence{ID: "pot-1", Name: "Stir the Pot — Episode 6"},
+				ContributionPoints:       5,
+				BonusPointsIfResolvedNow: 2,
+				RewardTiers:              []castaway.StirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}},
+			},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "admin-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "pot", name: "show", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("tribe", "Lotus")}})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Stir the Pot**", "- Tribe: Lotus", "- Round: Stir the Pot — Episode 6", "- Current contribution: 5", "- Bonus if resolved now: +2", "- Next tier: 8→+3 (3 more)"} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
@@ -874,6 +904,18 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 			writeJSON(http.StatusOK, history)
 		case len(parts) == 4 && parts[2] == "stir-the-pot" && parts[3] == "me" && r.Method == http.MethodGet:
 			writeJSON(http.StatusOK, api.stirThePotStatusByInstance[instanceID])
+		case len(parts) == 5 && parts[2] == "stir-the-pot" && parts[3] == "tribes" && parts[4] == "show" && r.Method == http.MethodGet:
+			if r.Header.Get("X-Discord-User-ID") != "admin-1" {
+				writeJSON(http.StatusForbidden, map[string]any{"error": "forbidden"})
+				return
+			}
+			tribeName := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("name")))
+			status, ok := api.stirThePotTribeStatusByInstance[instanceID][tribeName]
+			if !ok {
+				writeJSON(http.StatusNotFound, map[string]any{"error": "tribe not found"})
+				return
+			}
+			writeJSON(http.StatusOK, status)
 		case len(parts) == 4 && parts[2] == "stir-the-pot" && parts[3] == "start" && r.Method == http.MethodPost:
 			writeJSON(http.StatusOK, api.stirThePotStartByInstance[instanceID])
 		case len(parts) == 5 && parts[2] == "stir-the-pot" && parts[3] == "me" && parts[4] == "contributions" && r.Method == http.MethodPost:

@@ -812,6 +812,31 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/StartStirThePotRoundRequest'
+  /instances/{instanceID}/stir-the-pot/tribes/show:
+    get:
+      operationId: getStirThePotTribeStatus
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
   /occurrences/{occurrenceID}:
     get:
       operationId: getOccurrence

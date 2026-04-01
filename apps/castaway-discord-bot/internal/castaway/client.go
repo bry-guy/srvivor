@@ -45,6 +45,12 @@ type Participant struct {
 	Name string `json:"name"`
 }
 
+type ParticipantGroup struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Kind string `json:"kind,omitempty"`
+}
+
 type Contestant struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -237,6 +243,15 @@ type StirThePotStatus struct {
 	MyContributionPoints int                    `json:"my_contribution_points"`
 	BonusPointsAvailable int                    `json:"bonus_points_available"`
 	RewardTiers          []StirThePotRewardTier `json:"reward_tiers"`
+}
+
+type StirThePotTribeStatus struct {
+	Open                     bool                   `json:"open"`
+	Tribe                    ParticipantGroup       `json:"tribe"`
+	Round                    Occurrence             `json:"round"`
+	ContributionPoints       int                    `json:"contribution_points"`
+	BonusPointsIfResolvedNow int                    `json:"bonus_points_if_resolved_now"`
+	RewardTiers              []StirThePotRewardTier `json:"reward_tiers"`
 }
 
 type StirThePotStartResult struct {
@@ -564,6 +579,19 @@ func (c *Client) GetStirThePotStatus(ctx context.Context, instanceID, discordUse
 	headers := requestHeadersForDiscordUser(discordUserID)
 	if err := c.getJSON(ctx, c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "me")), headers, &status); err != nil {
 		return StirThePotStatus{}, err
+	}
+	return status, nil
+}
+
+func (c *Client) GetStirThePotTribeStatus(ctx context.Context, instanceID, actorDiscordUserID, tribeName string) (StirThePotTribeStatus, error) {
+	var status StirThePotTribeStatus
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
+	requestURL := c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "tribes", "show"))
+	query := requestURL.Query()
+	query.Set("name", strings.TrimSpace(tribeName))
+	requestURL.RawQuery = query.Encode()
+	if err := c.getJSON(ctx, requestURL, headers, &status); err != nil {
+		return StirThePotTribeStatus{}, err
 	}
 	return status, nil
 }
