@@ -354,6 +354,14 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 		return strings.ToLower(tribes[i]["tribe"].(gin.H)["name"].(string)) < strings.ToLower(tribes[j]["tribe"].(gin.H)["name"].(string))
 	})
 
+	if _, err := s.pool.Exec(c.Request.Context(),
+		`UPDATE bonus_point_ledger_entries SET visibility = 'public' WHERE activity_occurrence_id = $1 AND visibility = 'secret'`,
+		round.ID,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("convert secret pot spends to public: %s", err.Error())})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"round":  occurrenceToJSON(updatedRound.ID, updatedRound.ActivityID, updatedRound.OccurrenceType, updatedRound.Name, updatedRound.EffectiveAt, updatedRound.StartsAt, updatedRound.EndsAt, updatedRound.Status, updatedRound.SourceRef, updatedRound.Metadata, updatedRound.CreatedAt, updatedRound.UpdatedAt),
 		"tribes": tribes,
