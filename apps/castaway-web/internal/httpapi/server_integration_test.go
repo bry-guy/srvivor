@@ -886,6 +886,55 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		t.Fatalf("unexpected stir the pot tribe show response: %+v", potShowResponse)
 	}
 
+	closePotReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/close", instanceUUID), "", "verification-token", "admin-discord")
+	closePotRecorder := httptest.NewRecorder()
+	router.ServeHTTP(closePotRecorder, closePotReq)
+	if closePotRecorder.Code != http.StatusOK {
+		t.Fatalf("close stir the pot status = %d, body = %s", closePotRecorder.Code, closePotRecorder.Body.String())
+	}
+	var closePotResponse struct {
+		Tribes []struct {
+			ContributionPoints       int `json:"contribution_points"`
+			BonusPointsEarned        int `json:"bonus_points_earned"`
+			TotalPotentialPonyPoints int `json:"total_potential_pony_points"`
+			Tribe                    struct {
+				Name string `json:"name"`
+			} `json:"tribe"`
+		} `json:"tribes"`
+	}
+	if err := json.Unmarshal(closePotRecorder.Body.Bytes(), &closePotResponse); err != nil {
+		t.Fatalf("unmarshal close stir the pot response: %v", err)
+	}
+	foundLotus := false
+	for _, tribe := range closePotResponse.Tribes {
+		if tribe.Tribe.Name != "Lotus" {
+			continue
+		}
+		foundLotus = true
+		if tribe.ContributionPoints != 5 || tribe.BonusPointsEarned != 2 || tribe.TotalPotentialPonyPoints != 3 {
+			t.Fatalf("unexpected lotus close response: %+v", tribe)
+		}
+	}
+	if !foundLotus {
+		t.Fatalf("expected lotus tribe in close response: %+v", closePotResponse)
+	}
+
+	closedStatusReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/stir-the-pot/me", instanceUUID), "", "verification-token", "alice-discord")
+	closedStatusRecorder := httptest.NewRecorder()
+	router.ServeHTTP(closedStatusRecorder, closedStatusReq)
+	if closedStatusRecorder.Code != http.StatusOK {
+		t.Fatalf("closed stir the pot status = %d, body = %s", closedStatusRecorder.Code, closedStatusRecorder.Body.String())
+	}
+	var closedStatusResponse struct {
+		Open bool `json:"open"`
+	}
+	if err := json.Unmarshal(closedStatusRecorder.Body.Bytes(), &closedStatusResponse); err != nil {
+		t.Fatalf("unmarshal closed stir the pot status: %v", err)
+	}
+	if closedStatusResponse.Open {
+		t.Fatalf("expected stir the pot to be closed after admin close: %+v", closedStatusResponse)
+	}
+
 	aliceLedgerReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", instanceUUID, aliceID), "", "verification-token", "alice-discord")
 	aliceLedgerRecorder := httptest.NewRecorder()
 	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)

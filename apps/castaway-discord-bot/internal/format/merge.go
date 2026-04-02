@@ -19,11 +19,7 @@ func StirThePotStatus(instance castaway.Instance, status castaway.StirThePotStat
 	builder.WriteString(fmt.Sprintf("- Bonus points available: %d\n", status.BonusPointsAvailable))
 	if len(status.RewardTiers) > 0 {
 		builder.WriteString("- Reward tiers: ")
-		parts := make([]string, 0, len(status.RewardTiers))
-		for _, tier := range status.RewardTiers {
-			parts = append(parts, fmt.Sprintf("%d→+%d", tier.Contributions, tier.Bonus))
-		}
-		builder.WriteString(strings.Join(parts, ", "))
+		builder.WriteString(strings.Join(stirThePotRewardTierLabels(status.RewardTiers, false), ", "))
 	}
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
@@ -39,16 +35,12 @@ func StirThePotTribeStatus(instance castaway.Instance, status castaway.StirThePo
 	builder.WriteString(fmt.Sprintf("- Round: %s\n", status.Round.Name))
 	builder.WriteString(fmt.Sprintf("- Current contribution: %d\n", status.ContributionPoints))
 	builder.WriteString(fmt.Sprintf("- Bonus if resolved now: +%d\n", status.BonusPointsIfResolvedNow))
-	if nextTier, pointsNeeded, ok := nextStirThePotTier(status.ContributionPoints, status.RewardTiers); ok {
-		builder.WriteString(fmt.Sprintf("- Next tier: %d→+%d (%d more)\n", nextTier.Contributions, nextTier.Bonus, pointsNeeded))
+	if nextTier, pointsNeeded, ok := nextStirThePotTier(status.ContributionPoints, status.RewardTiers, false); ok {
+		builder.WriteString(fmt.Sprintf("- Next tier: %s (%d more)\n", stirThePotRewardTierLabelForRound(nextTier, status.RewardTiers, false), pointsNeeded))
 	}
 	if len(status.RewardTiers) > 0 {
 		builder.WriteString("- Reward tiers: ")
-		parts := make([]string, 0, len(status.RewardTiers))
-		for _, tier := range status.RewardTiers {
-			parts = append(parts, fmt.Sprintf("%d→+%d", tier.Contributions, tier.Bonus))
-		}
-		builder.WriteString(strings.Join(parts, ", "))
+		builder.WriteString(strings.Join(stirThePotRewardTierLabels(status.RewardTiers, false), ", "))
 	}
 	return TrimMessage(strings.TrimSpace(builder.String()))
 }
@@ -74,6 +66,24 @@ func StirThePotStartResult(instance castaway.Instance, result castaway.StirThePo
 		fmt.Sprintf("Opened %s.", result.Round.Name),
 		fmt.Sprintf("- Activity: %s", result.Activity.Name),
 	}, "\n"))
+}
+
+func StirThePotCloseResult(instance castaway.Instance, result castaway.StirThePotCloseResult, announcedCount int) string {
+	lines := []string{
+		fmt.Sprintf("**Season %d: Stir the Pot**", instance.Season),
+		fmt.Sprintf("Closed %s.", result.Round.Name),
+		fmt.Sprintf("- Tribes resolved: %d", len(result.Tribes)),
+	}
+	if announcedCount > 0 {
+		lines = append(lines, fmt.Sprintf("- Jeff announcements sent: %d", announcedCount))
+	} else {
+		lines = append(lines, "- Jeff announcements sent: 0")
+	}
+	return TrimMessage(strings.Join(lines, "\n"))
+}
+
+func StirThePotCloseAnnouncement(tribeResult castaway.StirThePotClosedTribeResult) string {
+	return TrimMessage(fmt.Sprintf("Pots are closed. Here's what you got. %s, you contributed %d to the pot, which earns your immunity pony %s an additional %d possible points, for a total of %d points earned for each player of your tribe. Good luck!", tribeResult.Tribe.Name, tribeResult.ContributionPoints, tribeResult.Tribe.Name, tribeResult.BonusPointsEarned, tribeResult.TotalPotentialPonyPoints))
 }
 
 func AuctionStatus(instance castaway.Instance, status castaway.AuctionStatus) string {
@@ -201,13 +211,38 @@ func IndividualPonyImmunityResult(instance castaway.Instance, result castaway.In
 	}, "\n"))
 }
 
-func nextStirThePotTier(currentContribution int, tiers []castaway.StirThePotRewardTier) (castaway.StirThePotRewardTier, int, bool) {
+func nextStirThePotTier(currentContribution int, tiers []castaway.StirThePotRewardTier, revealFinalTier bool) (castaway.StirThePotRewardTier, int, bool) {
 	for _, tier := range tiers {
+		if !revealFinalTier && isHiddenStirThePotTier(tier, tiers) {
+			continue
+		}
 		if currentContribution < int(tier.Contributions) {
 			return tier, int(tier.Contributions) - currentContribution, true
 		}
 	}
 	return castaway.StirThePotRewardTier{}, 0, false
+}
+
+func stirThePotRewardTierLabels(tiers []castaway.StirThePotRewardTier, revealFinalTier bool) []string {
+	parts := make([]string, 0, len(tiers))
+	for _, tier := range tiers {
+		parts = append(parts, stirThePotRewardTierLabelForRound(tier, tiers, revealFinalTier))
+	}
+	return parts
+}
+
+func stirThePotRewardTierLabelForRound(tier castaway.StirThePotRewardTier, tiers []castaway.StirThePotRewardTier, revealFinalTier bool) string {
+	if !revealFinalTier && isHiddenStirThePotTier(tier, tiers) {
+		return fmt.Sprintf("?→+%d", tier.Bonus)
+	}
+	return fmt.Sprintf("%d→+%d", tier.Contributions, tier.Bonus)
+}
+
+func isHiddenStirThePotTier(tier castaway.StirThePotRewardTier, tiers []castaway.StirThePotRewardTier) bool {
+	if len(tiers) == 0 {
+		return false
+	}
+	return tier.Bonus >= 4
 }
 
 func SecretRevealAnnouncement(participant castaway.Participant, revealedSecretPoints int) string {

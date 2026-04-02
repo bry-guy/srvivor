@@ -108,6 +108,12 @@ func potCommandGroup() *discordgo.ApplicationCommandOption {
 				Description: "Admin-only: open a Stir the Pot round",
 				Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "close",
+				Description: "Admin-only: close the current Stir the Pot round",
+				Options:     []*discordgo.ApplicationCommandOption{instanceOption(false)},
+			},
 		},
 	}
 }

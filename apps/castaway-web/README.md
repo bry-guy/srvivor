@@ -165,6 +165,7 @@ The task starts a disposable PostgreSQL container, seeds historical data, runs `
 - Merge gameplay routes
   - `GET /instances/:instanceID/stir-the-pot/me`
   - `POST /instances/:instanceID/stir-the-pot/start`
+  - `POST /instances/:instanceID/stir-the-pot/close`
   - `POST /instances/:instanceID/stir-the-pot/me/contributions` (linked self by default; admins may target another participant via `participant_id`)
   - `GET /instances/:instanceID/auction/me`
   - `POST /instances/:instanceID/auction/lots/start`

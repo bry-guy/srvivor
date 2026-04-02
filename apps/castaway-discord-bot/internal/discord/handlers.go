@@ -88,6 +88,8 @@ func (b *Bot) executeCommand(ctx context.Context, interaction *discordgo.Interac
 			return b.handlePotAdd(ctx, interaction, command)
 		case "start":
 			return b.handlePotStart(ctx, interaction, command)
+		case "close":
+			return b.handlePotClose(ctx, interaction, command)
 		default:
 			return "", fmt.Errorf("unsupported castaway pot command: %s", command.name)
 		}

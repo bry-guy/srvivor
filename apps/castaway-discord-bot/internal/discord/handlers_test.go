@@ -34,6 +34,7 @@ type testCastawayAPI struct {
 	stirThePotTribeStatusByInstance  map[string]map[string]castaway.StirThePotTribeStatus
 	stirThePotContributionByInstance map[string]castaway.StirThePotContributionResult
 	stirThePotStartByInstance        map[string]castaway.StirThePotStartResult
+	stirThePotCloseByInstance        map[string]castaway.StirThePotCloseResult
 	auctionStatusByInstance          map[string]castaway.AuctionStatus
 	auctionLotStartByContestant      map[string]castaway.AuctionLotStartResult
 	auctionLotStopByContestant       map[string]castaway.AuctionLotStopResult
@@ -332,6 +333,34 @@ func TestPotAddCommandRegression_RejectsUnlinkedCaller(t *testing.T) {
 	}
 	if err.Error() != "you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first" {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPotCloseCommandRegression_ClosesRound(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		stirThePotCloseByInstance: map[string]castaway.StirThePotCloseResult{"instance-50": {
+			Round: castaway.Occurrence{ID: "pot-1", Name: "Stir the Pot — Episode 6"},
+			Tribes: []castaway.StirThePotClosedTribeResult{{
+				Tribe:                    castaway.ParticipantGroup{ID: "tribe-lotus", Name: "Lotus", Kind: "tribe"},
+				ContributionPoints:       10,
+				BonusPointsEarned:        4,
+				TotalPotentialPonyPoints: 5,
+			}},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "admin-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+
+	message, err := bot.executeCommand(context.Background(), testInteraction("guild-1", "admin-1", 0), commandSpec{group: "pot", name: "close"})
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	for _, fragment := range []string{"**Season 50: Stir the Pot**", "Closed Stir the Pot — Episode 6.", "- Tribes resolved: 1"} {
+		if !strings.Contains(message, fragment) {
+			t.Fatalf("expected fragment %q in %q", fragment, message)
+		}
 	}
 }
 
@@ -918,6 +947,8 @@ func (api testCastawayAPI) handler(t *testing.T) http.Handler {
 			writeJSON(http.StatusOK, status)
 		case len(parts) == 4 && parts[2] == "stir-the-pot" && parts[3] == "start" && r.Method == http.MethodPost:
 			writeJSON(http.StatusOK, api.stirThePotStartByInstance[instanceID])
+		case len(parts) == 4 && parts[2] == "stir-the-pot" && parts[3] == "close" && r.Method == http.MethodPost:
+			writeJSON(http.StatusOK, api.stirThePotCloseByInstance[instanceID])
 		case len(parts) == 5 && parts[2] == "stir-the-pot" && parts[3] == "me" && parts[4] == "contributions" && r.Method == http.MethodPost:
 			var req struct {
 				ParticipantID string `json:"participant_id"`

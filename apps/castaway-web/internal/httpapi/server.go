@@ -79,6 +79,7 @@ func (s *Server) Router() *gin.Engine {
 	protected.GET("/instances/:instanceID/stir-the-pot/me", s.getStirThePotStatus)
 	protected.GET("/instances/:instanceID/stir-the-pot/tribes/show", s.getStirThePotTribeStatus)
 	protected.POST("/instances/:instanceID/stir-the-pot/start", s.startStirThePotRound)
+	protected.POST("/instances/:instanceID/stir-the-pot/close", s.closeStirThePotRound)
 	protected.POST("/instances/:instanceID/stir-the-pot/me/contributions", s.addStirThePotContribution)
 	protected.GET("/instances/:instanceID/auction/me", s.getAuctionStatus)
 	protected.POST("/instances/:instanceID/auction/lots/start", s.startAuctionLot)

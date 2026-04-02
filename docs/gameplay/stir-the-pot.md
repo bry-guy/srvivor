@@ -1,6 +1,6 @@
 # Stir The Pot
 
-Stir The Pot is a tribe activity, where each tribe member can risk bonus points by contributing them to the pot. For each 5 bonus points contributed by a tribe, they earn the right to receive +1 points. 4 bonus points receive +0 points.
+Stir The Pot is a tribe activity where each tribe member can risk bonus points by contributing them to the pot. Tribe rewards climb through a tier ladder based on total contribution, ending with a hidden final tier that stays secret until the pots close.
 
 Operational notes:
 - Admin opens a Stir the Pot round for the **next scheduled episode**.
@@ -15,6 +15,11 @@ Welcome to **Stir the Pot**. Each of your tribes has an **opportunity to win it 
 - 5 points -> +2 point
 - 8 points -> +3 point
 - ? points -> +4 point
+
+Admin close flow:
+- Admin closes the pots when contribution time ends.
+- The hidden final threshold is 10 points.
+- JeffProbst then announces each tribe's final contribution and resulting tribal pony potential.
 
 Now of course, it's not that easy. **Contributions to the pot are blind**, and **if your tribe loses, I keep the pot**. So look around - how much do you trust each other? Will you risk your own stash to benefit yourself, and others?
 

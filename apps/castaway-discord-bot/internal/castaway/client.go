@@ -260,6 +260,18 @@ type StirThePotStartResult struct {
 	Round    Occurrence `json:"round"`
 }
 
+type StirThePotClosedTribeResult struct {
+	Tribe                    ParticipantGroup `json:"tribe"`
+	ContributionPoints       int              `json:"contribution_points"`
+	BonusPointsEarned        int              `json:"bonus_points_earned"`
+	TotalPotentialPonyPoints int              `json:"total_potential_pony_points"`
+}
+
+type StirThePotCloseResult struct {
+	Round  Occurrence                    `json:"round"`
+	Tribes []StirThePotClosedTribeResult `json:"tribes"`
+}
+
 type StirThePotContributionResult struct {
 	Participant          Participant `json:"participant"`
 	RoundID              string      `json:"round_id"`
@@ -603,6 +615,15 @@ func (c *Client) StartStirThePotRound(ctx context.Context, instanceID, actorDisc
 	body := map[string]string{"name": strings.TrimSpace(name)}
 	if err := c.doJSONBody(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "start")), headers, body, &result); err != nil {
 		return StirThePotStartResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) CloseStirThePotRound(ctx context.Context, instanceID, actorDiscordUserID string) (StirThePotCloseResult, error) {
+	var result StirThePotCloseResult
+	headers := requestHeadersForDiscordUser(actorDiscordUserID)
+	if err := c.doJSON(ctx, http.MethodPost, c.endpoint(path.Join("/instances", instanceID, "stir-the-pot", "close")), headers, &result); err != nil {
+		return StirThePotCloseResult{}, err
 	}
 	return result, nil
 }

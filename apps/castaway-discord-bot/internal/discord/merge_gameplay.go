@@ -91,6 +91,26 @@ func (b *Bot) handlePotStart(ctx context.Context, interaction *discordgo.Interac
 	return format.StirThePotStartResult(instance, result), nil
 }
 
+func (b *Bot) handlePotClose(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
+	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), nil)
+	if err != nil {
+		return "", err
+	}
+	result, err := b.castaway.CloseStirThePotRound(ctx, instance.ID, interactionUserID(interaction))
+	if err != nil {
+		var apiErr *castaway.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+			return "", fmt.Errorf("pot close is admin-only; ask a Castaway admin to run this command")
+		}
+		return "", err
+	}
+	announcedCount, announceErr := b.publishStirThePotCloseAnnouncements(result)
+	if announceErr != nil {
+		b.log.Warn("publish stir the pot close announcements", "round", result.Round.Name, "error", announceErr)
+	}
+	return format.StirThePotCloseResult(instance, result, announcedCount), nil
+}
+
 func (b *Bot) handleAuctionStatus(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
 	instance, err := b.resolveInstance(ctx, interaction, optionString(command, "instance"), nil)
 	if err != nil {
@@ -291,4 +311,22 @@ func (b *Bot) publishSecretReveal(participant castaway.Participant, revealedSecr
 	}
 	_, err := b.session.ChannelMessageSend(b.announcementChannelID, message)
 	return err
+}
+
+func (b *Bot) publishStirThePotCloseAnnouncements(result castaway.StirThePotCloseResult) (int, error) {
+	if strings.TrimSpace(b.announcementChannelID) == "" || b.session == nil {
+		return 0, nil
+	}
+	announced := 0
+	for _, tribe := range result.Tribes {
+		message := format.StirThePotCloseAnnouncement(tribe)
+		if strings.TrimSpace(message) == "" {
+			continue
+		}
+		if _, err := b.session.ChannelMessageSend(b.announcementChannelID, message); err != nil {
+			return announced, err
+		}
+		announced++
+	}
+	return announced, nil
 }

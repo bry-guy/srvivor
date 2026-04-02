@@ -38,6 +38,7 @@ Top-level command: `/castaway`
   - `/castaway pot show tribe:<tribe> [instance]` (admin-only current tribe total visibility)
   - `/castaway pot add points:<n> [player] [instance]` (player is admin-only; otherwise the caller must be linked and it defaults to them)
   - `/castaway pot start [instance]` (admin, targets the next scheduled episode)
+  - `/castaway pot close [instance]` (admin, closes contributions and triggers Jeff's tribe-by-tribe results announcement)
 - Individual Pony Auction
   - `/castaway auction status [instance]`
   - `/castaway auction start survivor:<contestant> [instance]` (admin, targets the next scheduled episode)

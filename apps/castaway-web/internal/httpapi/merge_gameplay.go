@@ -49,6 +49,8 @@ type mergeTargetEpisodeMetadata struct {
 type stirThePotRoundMetadata struct {
 	RewardTiers   []stirThePotRewardTier     `json:"reward_tiers,omitempty"`
 	TargetEpisode mergeTargetEpisodeMetadata `json:"target_episode,omitempty"`
+	ClosedBy      string                     `json:"closed_by,omitempty"`
+	ClosedAt      string                     `json:"closed_at,omitempty"`
 	ResolvedBy    string                     `json:"resolved_by,omitempty"`
 	ResolvedAt    string                     `json:"resolved_at,omitempty"`
 }
@@ -280,6 +282,81 @@ func (s *Server) startStirThePotRound(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"activity": activityToJSON(activity.ID, activity.InstanceID, activity.ActivityType, activity.Name, activity.Status, activity.StartsAt, activity.EndsAt, activity.Metadata, activity.CreatedAt, activity.UpdatedAt),
 		"round":    occurrenceToJSON(created.ID, created.ActivityID, created.OccurrenceType, created.Name, created.EffectiveAt, created.StartsAt, created.EndsAt, created.Status, created.SourceRef, created.Metadata, created.CreatedAt, created.UpdatedAt),
+	})
+}
+
+func (s *Server) closeStirThePotRound(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	if !s.requireInstanceAdminRequest(c, instanceID) {
+		return
+	}
+
+	now := time.Now().UTC()
+	round, _, found, err := s.findOpenStirThePotRound(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if !found {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "stir the pot is not open"})
+		return
+	}
+
+	metadata := parseStirThePotRoundMetadata(round.Metadata)
+	if len(metadata.RewardTiers) == 0 {
+		metadata.RewardTiers = defaultStirThePotRewardTiers()
+	}
+	metadata.ClosedAt = now.Format(time.RFC3339)
+	metadata.ClosedBy = strings.TrimSpace(discordUserIDFromRequest(c.Request))
+	updatedMetadata, err := json.Marshal(metadata)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	updatedRound, err := s.queries.UpdateActivityOccurrenceStatusAndMetadata(c.Request.Context(), db.UpdateActivityOccurrenceStatusAndMetadataParams{
+		ID:       round.ID,
+		Status:   round.Status,
+		EndsAt:   optionalTime(now),
+		Metadata: updatedMetadata,
+	})
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	groups, err := s.queries.ListParticipantGroupsByInstance(c.Request.Context(), toPGUUID(instanceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	tribes := make([]gin.H, 0)
+	for _, group := range groups {
+		if !strings.EqualFold(strings.TrimSpace(group.Kind), "tribe") {
+			continue
+		}
+		contributionPoints, err := s.groupContributionPoints(c.Request.Context(), s.queries, round.ID, group.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		bonus := stirThePotBonusForContribution(contributionPoints, metadata.RewardTiers)
+		tribes = append(tribes, gin.H{
+			"tribe":                       gin.H{"id": pgUUIDString(group.ID), "name": group.Name, "kind": group.Kind},
+			"contribution_points":         contributionPoints,
+			"bonus_points_earned":         bonus,
+			"total_potential_pony_points": 1 + bonus,
+		})
+	}
+	sort.Slice(tribes, func(i, j int) bool {
+		return strings.ToLower(tribes[i]["tribe"].(gin.H)["name"].(string)) < strings.ToLower(tribes[j]["tribe"].(gin.H)["name"].(string))
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"round":  occurrenceToJSON(updatedRound.ID, updatedRound.ActivityID, updatedRound.OccurrenceType, updatedRound.Name, updatedRound.EffectiveAt, updatedRound.StartsAt, updatedRound.EndsAt, updatedRound.Status, updatedRound.SourceRef, updatedRound.Metadata, updatedRound.CreatedAt, updatedRound.UpdatedAt),
+		"tribes": tribes,
 	})
 }
 
@@ -1574,9 +1651,17 @@ func (s *Server) findOpenStirThePotRound(ctx context.Context, q *db.Queries, ins
 		if occurrence.EffectiveAt.Time.After(at) {
 			continue
 		}
+		if stirThePotRoundIsClosed(occurrence) {
+			continue
+		}
 		return occurrence, *activity, true, nil
 	}
 	return db.ListActivityOccurrencesByActivityAndStatusRow{}, db.ListInstanceActivitiesByTypeRow{}, false, nil
+}
+
+func stirThePotRoundIsClosed(occurrence db.ListActivityOccurrencesByActivityAndStatusRow) bool {
+	metadata := parseStirThePotRoundMetadata(occurrence.Metadata)
+	return strings.TrimSpace(metadata.ClosedAt) != ""
 }
 
 func (s *Server) participantContributionPoints(ctx context.Context, q *db.Queries, occurrenceID, participantID pgtype.UUID) (int32, error) {
@@ -1887,7 +1972,7 @@ func rollbackTx(c *gin.Context, tx pgx.Tx) {
 }
 
 func defaultStirThePotRewardTiers() []stirThePotRewardTier {
-	return []stirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 11, Bonus: 4}}
+	return []stirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 10, Bonus: 4}}
 }
 
 func stirThePotBonusForContribution(total int32, tiers []stirThePotRewardTier) int32 {

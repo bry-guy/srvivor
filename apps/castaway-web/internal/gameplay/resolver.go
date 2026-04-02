@@ -87,6 +87,8 @@ type mergeTargetEpisodeMetadata struct {
 type stirThePotRoundMetadata struct {
 	RewardTiers   []stirThePotRewardTier     `json:"reward_tiers,omitempty"`
 	TargetEpisode mergeTargetEpisodeMetadata `json:"target_episode,omitempty"`
+	ClosedBy      string                     `json:"closed_by,omitempty"`
+	ClosedAt      string                     `json:"closed_at,omitempty"`
 	ResolvedBy    string                     `json:"resolved_by,omitempty"`
 	ResolvedAt    string                     `json:"resolved_at,omitempty"`
 }
@@ -821,7 +823,7 @@ func stirThePotBonusForContribution(total int32, tiers []stirThePotRewardTier) i
 }
 
 func defaultStirThePotRewardTiers() []stirThePotRewardTier {
-	return []stirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 11, Bonus: 4}}
+	return []stirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 10, Bonus: 4}}
 }
 
 func (s *Service) resolveJourneyDelegatesAt(ctx context.Context, resolverCtx resolverContext) ([]db.ListActiveActivityParticipantAssignmentsAtRow, error) {

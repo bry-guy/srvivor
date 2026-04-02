@@ -242,14 +242,47 @@ func TestStirThePotTribeStatusFormatsCurrentTotal(t *testing.T) {
 		Round:                    castaway.Occurrence{Name: "Stir the Pot — Episode 6"},
 		ContributionPoints:       5,
 		BonusPointsIfResolvedNow: 2,
-		RewardTiers:              []castaway.StirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}},
+		RewardTiers:              []castaway.StirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 10, Bonus: 4}},
 	}
 
 	message := StirThePotTribeStatus(instance, status)
-	for _, fragment := range []string{"**Season 50: Stir the Pot**", "- Tribe: Lotus", "- Round: Stir the Pot — Episode 6", "- Current contribution: 5", "- Bonus if resolved now: +2", "- Next tier: 8→+3 (3 more)"} {
+	for _, fragment := range []string{"**Season 50: Stir the Pot**", "- Tribe: Lotus", "- Round: Stir the Pot — Episode 6", "- Current contribution: 5", "- Bonus if resolved now: +2", "- Next tier: 8→+3 (3 more)", "- Reward tiers: 2→+1, 5→+2, 8→+3, ?→+4"} {
 		if !strings.Contains(message, fragment) {
 			t.Fatalf("expected fragment %q in %q", fragment, message)
 		}
+	}
+}
+
+func TestStirThePotStatusHidesFinalThreshold(t *testing.T) {
+	instance := castaway.Instance{Name: "Office Pool", Season: 50}
+	status := castaway.StirThePotStatus{
+		Open:                 true,
+		Participant:          castaway.Participant{Name: "Bryan"},
+		Round:                castaway.Occurrence{Name: "Stir the Pot — Episode 6"},
+		MyContributionPoints: 2,
+		BonusPointsAvailable: 4,
+		RewardTiers:          []castaway.StirThePotRewardTier{{Contributions: 2, Bonus: 1}, {Contributions: 5, Bonus: 2}, {Contributions: 8, Bonus: 3}, {Contributions: 10, Bonus: 4}},
+	}
+
+	message := StirThePotStatus(instance, status)
+	if !strings.Contains(message, "- Reward tiers: 2→+1, 5→+2, 8→+3, ?→+4") {
+		t.Fatalf("expected hidden final tier in %q", message)
+	}
+	if strings.Contains(message, "10→+4") {
+		t.Fatalf("did not expect revealed final tier in %q", message)
+	}
+}
+
+func TestStirThePotCloseAnnouncement(t *testing.T) {
+	message := StirThePotCloseAnnouncement(castaway.StirThePotClosedTribeResult{
+		Tribe:                    castaway.ParticipantGroup{Name: "Lotus", Kind: "tribe"},
+		ContributionPoints:       10,
+		BonusPointsEarned:        4,
+		TotalPotentialPonyPoints: 5,
+	})
+	want := "Pots are closed. Here's what you got. Lotus, you contributed 10 to the pot, which earns your immunity pony Lotus an additional 4 possible points, for a total of 5 points earned for each player of your tribe. Good luck!"
+	if message != want {
+		t.Fatalf("unexpected close announcement:\nexpected: %q\nactual:   %q", want, message)
 	}
 }
 
