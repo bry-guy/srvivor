@@ -182,6 +182,16 @@ func (s *Service) ResolveActivityOccurrence(ctx context.Context, occurrenceID pg
 		created = append(created, createdEntry)
 	}
 
+	resolvedAt := time.Now().UTC()
+	if _, err := s.queries.UpdateActivityOccurrenceStatusAndMetadata(ctx, db.UpdateActivityOccurrenceStatusAndMetadataParams{
+		ID:       occurrence.ID,
+		Status:   "resolved",
+		EndsAt:   timestamptz(resolvedAt),
+		Metadata: occurrence.Metadata,
+	}); err != nil {
+		return nil, fmt.Errorf("mark occurrence %s resolved: %w", pgUUIDString(occurrence.ID), err)
+	}
+
 	return created, nil
 }
 

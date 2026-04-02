@@ -80,6 +80,12 @@ func TestResolveActivityOccurrenceTribalPonyAwardsWinningTribeMembers(t *testing
 			t.Fatalf("expected source group %v, got %v", winningGroupID, entry.SourceGroupID)
 		}
 	}
+	if got := len(fake.updatedOccurrences); got != 1 {
+		t.Fatalf("expected resolved occurrence update, got %d", got)
+	}
+	if fake.updatedOccurrences[0].ID != occurrenceID || fake.updatedOccurrences[0].Status != "resolved" {
+		t.Fatalf("unexpected occurrence update: %+v", fake.updatedOccurrences[0])
+	}
 }
 
 func TestResolveActivityOccurrenceTribalPonyAppliesOpenStirThePotBonus(t *testing.T) {
@@ -157,11 +163,21 @@ func TestResolveActivityOccurrenceTribalPonyAppliesOpenStirThePotBonus(t *testin
 	if entry.Points != 3 {
 		t.Fatalf("expected tribal pony + stir the pot award of 3, got %d", entry.Points)
 	}
-	if got := len(fake.updatedOccurrences); got != 1 {
-		t.Fatalf("expected stir the pot round to be marked resolved, got %d updates", got)
+	if got := len(fake.updatedOccurrences); got != 2 {
+		t.Fatalf("expected tribal pony occurrence and stir the pot round to be marked resolved, got %d updates", got)
 	}
-	if fake.updatedOccurrences[0].ID != stirThePotRoundID || fake.updatedOccurrences[0].Status != "resolved" {
-		t.Fatalf("unexpected stir the pot round update: %+v", fake.updatedOccurrences[0])
+	foundOccurrence := false
+	foundStirThePotRound := false
+	for _, update := range fake.updatedOccurrences {
+		if update.ID == occurrenceID && update.Status == "resolved" {
+			foundOccurrence = true
+		}
+		if update.ID == stirThePotRoundID && update.Status == "resolved" {
+			foundStirThePotRound = true
+		}
+	}
+	if !foundOccurrence || !foundStirThePotRound {
+		t.Fatalf("expected resolved updates for occurrence %v and stir the pot round %v, got %+v", occurrenceID, stirThePotRoundID, fake.updatedOccurrences)
 	}
 }
 
