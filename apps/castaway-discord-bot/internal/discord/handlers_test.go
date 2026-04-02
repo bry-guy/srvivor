@@ -70,6 +70,29 @@ func TestScoreCommandRegression_UsesLeaderboardStyleOutput(t *testing.T) {
 	}
 }
 
+func TestCommandShouldBeEphemeral_DraftHistoryAndScoresArePrivate(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+	})
+	if err := store.SetUserDefault("guild-1", "user-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+	interaction := testInteraction("guild-1", "user-1", 0)
+	for _, command := range []commandSpec{
+		{name: "draft"},
+		{name: "history"},
+		{name: "scores"},
+	} {
+		ephemeral, err := bot.commandShouldBeEphemeral(context.Background(), interaction, command)
+		if err != nil {
+			t.Fatalf("commandShouldBeEphemeral(%s): %v", command.name, err)
+		}
+		if !ephemeral {
+			t.Fatalf("expected %s to be ephemeral", command.name)
+		}
+	}
+}
+
 func TestScoreCommandRegression_HidesSecretBonusBreakdownForLinkedSelf(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
 		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},

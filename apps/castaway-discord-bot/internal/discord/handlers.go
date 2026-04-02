@@ -158,9 +158,9 @@ func (b *Bot) commandShouldBeEphemeral(ctx context.Context, interaction *discord
 		return true, nil
 	}
 	switch command.name {
-	case "link", "unlink", "bid", "bids", "ponies":
+	case "link", "unlink", "bid", "bids", "ponies", "draft", "history", "scores":
 		return true, nil
-	case "score", "history":
+	case "score":
 		season, err := seasonOptionValue(command)
 		if err != nil {
 			return true, err

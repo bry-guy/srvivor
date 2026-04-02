@@ -30,7 +30,7 @@ Top-level command: `/castaway`
 
 `score` and `scores` use the public weekly-score format: rank, tribe badge, real Discord mention when linked, total points, and public draft/bonus breakdown. Secret bonus points stay hidden there until a spend reveals them into the public ledger.
 
-`history` stays a single command: public callers see public-safe data, while linked users viewing themselves and configured admins can receive private data ephemerally.
+`history` now responds ephemerally. `draft` and `scores` also respond ephemerally so they stay out of the channel.
 
 ### Merge gameplay commands
 - Stir the Pot
