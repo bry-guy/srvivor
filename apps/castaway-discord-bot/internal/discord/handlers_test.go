@@ -93,7 +93,7 @@ func TestCommandShouldBeEphemeral_DraftHistoryAndScoresArePrivate(t *testing.T) 
 	}
 }
 
-func TestScoreCommandRegression_HidesSecretBonusBreakdownForLinkedSelf(t *testing.T) {
+func TestScoreCommandRegression_ShowsSecretBonusBreakdownForLinkedSelf(t *testing.T) {
 	bot, store := newTestBot(t, testCastawayAPI{
 		instances:                   []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
 		participantsByInstance:      map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
@@ -115,7 +115,43 @@ func TestScoreCommandRegression_HidesSecretBonusBreakdownForLinkedSelf(t *testin
 	if err != nil {
 		t.Fatalf("execute command: %v", err)
 	}
-	if message != "**Season 50: Score**\n1. :lotus: <@user-1>: 78 (76+2)" {
+	if message != "**Season 50: Score**\n1. :lotus: <@user-1>: 78 (76 draft + 2 bonus + 3 secret bonus)" {
+		t.Fatalf("unexpected score message: %q", message)
+	}
+}
+
+func TestScoreCommandRegression_AdminGetsPrivateSecretBreakdownEphemerally(t *testing.T) {
+	bot, store := newTestBot(t, testCastawayAPI{
+		instances:              []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-bryan", Name: "Bryan"}}},
+		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-50": {
+			{ParticipantID: "participant-bryan", ParticipantName: "Bryan", ParticipantDiscordUserID: "user-1", CurrentTribeName: "Lotus", Score: 78, DraftPoints: 76, BonusPoints: 2, TotalPoints: 78, PointsAvailable: -198},
+		}},
+		bonusLedgerByParticipant: map[string]castaway.ParticipantBonusLedger{"participant-bryan": {
+			Participant: castaway.Participant{ID: "participant-bryan", Name: "Bryan"},
+			BonusPoints: 5,
+			Ledger:      []castaway.BonusLedgerEntry{{ParticipantName: "Bryan", Points: 2, Visibility: "public"}, {ParticipantName: "Bryan", Points: 3, Visibility: "secret"}},
+		}},
+	})
+	if err := store.SetUserDefault("guild-1", "admin-1", "instance-50"); err != nil {
+		t.Fatalf("set user default: %v", err)
+	}
+	interaction := testInteraction("guild-1", "admin-1", 0)
+	command := commandSpec{name: "score", options: []*discordgo.ApplicationCommandInteractionDataOption{stringOption("participant", "Bryan")}}
+
+	ephemeral, err := bot.commandShouldBeEphemeral(context.Background(), interaction, command)
+	if err != nil {
+		t.Fatalf("commandShouldBeEphemeral: %v", err)
+	}
+	if !ephemeral {
+		t.Fatal("expected admin secret score view to be ephemeral")
+	}
+
+	message, err := bot.executeCommand(context.Background(), interaction, command)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if message != "**Season 50: Score**\n1. :lotus: <@user-1>: 78 (76 draft + 2 bonus + 3 secret bonus)" {
 		t.Fatalf("unexpected score message: %q", message)
 	}
 }

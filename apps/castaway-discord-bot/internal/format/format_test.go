@@ -40,6 +40,17 @@ func TestSingleScoreOmitsUnknownTribeBadge(t *testing.T) {
 	}
 }
 
+func TestPrivateScoreFormatsDetailedBreakdown(t *testing.T) {
+	instance := castaway.Instance{Name: "Office Pool", Season: 50}
+	row := castaway.LeaderboardRow{ParticipantName: "Bryan", ParticipantDiscordUserID: "user-1", CurrentTribeName: "Lotus", Score: 10, DraftPoints: 4, BonusPoints: 4, TotalPoints: 10}
+
+	message := PrivateScore(instance, row, 1, 4, 2)
+	expected := "**Season 50: Score**\n1. :lotus: <@user-1>: 10 (4 draft + 4 bonus + 2 secret bonus)"
+	if message != expected {
+		t.Fatalf("unexpected message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
 func TestActivitiesListFormatsCompactOutput(t *testing.T) {
 	instance := castaway.Instance{Name: "Office Pool", Season: 50}
 	activities := []castaway.Activity{{ID: "a1", Name: "Tribal Pony", ActivityType: "tribal_pony", Status: "active"}, {ID: "a2", Name: "Journey 1", ActivityType: "journey", Status: "completed"}}

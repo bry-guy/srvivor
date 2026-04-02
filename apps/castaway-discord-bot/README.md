@@ -28,7 +28,7 @@ Top-level command: `/castaway`
 - `/castaway link participant:<name> [instance] [season]`
 - `/castaway unlink [instance] [season]`
 
-`score` and `scores` use the public weekly-score format: rank, tribe badge, real Discord mention when linked, total points, and public draft/bonus breakdown. Secret bonus points stay hidden there until a spend reveals them into the public ledger.
+`scores` uses the public weekly-score format: rank, tribe badge, real Discord mention when linked, total points, and public draft/bonus breakdown. `score` uses that same public format for public views, but linked self and admins viewing private score data get an ephemeral detailed breakdown including secret bonus points.
 
 `history` now responds ephemerally. `draft` and `scores` also respond ephemerally so they stay out of the channel.
 

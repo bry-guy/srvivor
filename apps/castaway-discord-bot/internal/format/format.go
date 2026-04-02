@@ -29,6 +29,22 @@ func SingleScore(instance castaway.Instance, row castaway.LeaderboardRow, rank i
 	return TrimMessage(content)
 }
 
+func PrivateScore(instance castaway.Instance, row castaway.LeaderboardRow, rank int, visibleBonusPoints, secretBonusPoints int) string {
+	prefix := ""
+	if badge := tribeBadge(row.CurrentTribeName); badge != "" {
+		prefix = badge + " "
+	}
+	displayName := strings.TrimSpace(row.ParticipantName)
+	if discordUserID := strings.TrimSpace(row.ParticipantDiscordUserID); discordUserID != "" {
+		displayName = "<@" + discordUserID + ">"
+	}
+	line := fmt.Sprintf("%d. %s%s: %d (%d draft + %d bonus + %d secret bonus)", rank, prefix, displayName, row.Total(), row.Draft(), visibleBonusPoints, secretBonusPoints)
+	return TrimMessage(strings.Join([]string{
+		fmt.Sprintf("**Season %d: Score**", instance.Season),
+		line,
+	}, "\n"))
+}
+
 func Leaderboard(instance castaway.Instance, rows []castaway.LeaderboardRow) string {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("**Season %d: Leaderboard**\n", instance.Season))

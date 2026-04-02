@@ -177,15 +177,11 @@ func (b *Bot) commandShouldBeEphemeral(ctx context.Context, interaction *discord
 		if err != nil {
 			return true, err
 		}
-		linkedParticipant, err := b.castaway.GetLinkedParticipant(ctx, instance.ID, interactionUserID(interaction))
+		_, _, privateView, err := b.scoreBreakdown(ctx, instance.ID, interactionUserID(interaction), participant.ID, castaway.LeaderboardRow{ParticipantID: participant.ID})
 		if err != nil {
-			var apiErr *castaway.APIError
-			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
-				return false, nil
-			}
 			return true, err
 		}
-		return linkedParticipant.ID == participant.ID, nil
+		return privateView, nil
 	default:
 		return false, nil
 	}
@@ -213,9 +209,17 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 	}
 	rows = b.decorateLeaderboardRows(interaction, rows)
 	for index, row := range rows {
-		if row.ParticipantID == participant.ID {
-			return format.SingleScore(instance, row, index+1), nil
+		if row.ParticipantID != participant.ID {
+			continue
 		}
+		visibleBonusPoints, secretBonusPoints, privateView, err := b.scoreBreakdown(ctx, instance.ID, interactionUserID(interaction), participant.ID, row)
+		if err != nil {
+			return "", err
+		}
+		if privateView {
+			return format.PrivateScore(instance, row, index+1, visibleBonusPoints, secretBonusPoints), nil
+		}
+		return format.SingleScore(instance, row, index+1), nil
 	}
 	return "", fmt.Errorf("no score found for %s in %s", participant.Name, format.InstanceLabel(instance))
 }
@@ -237,6 +241,51 @@ func (b *Bot) handleScores(ctx context.Context, interaction *discordgo.Interacti
 		return "No leaderboard rows found yet.", nil
 	}
 	return format.Leaderboard(instance, b.decorateLeaderboardRows(interaction, rows)), nil
+}
+
+func (b *Bot) scoreBreakdown(ctx context.Context, instanceID, actorDiscordUserID, participantID string, row castaway.LeaderboardRow) (visibleBonusPoints int, secretBonusPoints int, privateView bool, err error) {
+	linkedParticipant, linkErr := b.castaway.GetLinkedParticipant(ctx, instanceID, actorDiscordUserID)
+	if linkErr == nil && linkedParticipant.ID == participantID {
+		ledger, err := b.castaway.GetBonusLedger(ctx, instanceID, participantID, actorDiscordUserID)
+		if err != nil {
+			return 0, 0, false, err
+		}
+		visibleBonusPoints, secretBonusPoints, _ = scoreBreakdownFromLedger(ledger)
+		return visibleBonusPoints, secretBonusPoints, true, nil
+	}
+	if linkErr != nil {
+		var apiErr *castaway.APIError
+		if !errors.As(linkErr, &apiErr) || apiErr.StatusCode != http.StatusNotFound {
+			return 0, 0, false, linkErr
+		}
+	}
+	ledger, err := b.castaway.GetBonusLedger(ctx, instanceID, participantID, actorDiscordUserID)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	visibleBonusPoints, secretBonusPoints, privateView = scoreBreakdownFromLedger(ledger)
+	if row.ParticipantID != "" && row.Bonus() > 0 && ledger.BonusPoints == row.Bonus() && secretBonusPoints == 0 {
+		return row.Bonus(), 0, false, nil
+	}
+	return visibleBonusPoints, secretBonusPoints, privateView, nil
+}
+
+func scoreBreakdownFromLedger(ledger castaway.ParticipantBonusLedger) (visibleBonusPoints int, secretBonusPoints int, privateView bool) {
+	for _, entry := range ledger.Ledger {
+		if entry.Visibility == "secret" {
+			secretBonusPoints += entry.Points
+			privateView = true
+			continue
+		}
+		visibleBonusPoints += entry.Points
+	}
+	if !privateView && len(ledger.Ledger) > 0 && visibleBonusPoints != ledger.BonusPoints {
+		privateView = true
+	}
+	if !privateView {
+		visibleBonusPoints = ledger.BonusPoints
+	}
+	return visibleBonusPoints, secretBonusPoints, privateView
 }
 
 func (b *Bot) decorateLeaderboardRows(interaction *discordgo.InteractionCreate, rows []castaway.LeaderboardRow) []castaway.LeaderboardRow {
