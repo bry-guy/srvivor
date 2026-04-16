@@ -265,6 +265,20 @@ model RecordIndividualPonyImmunityRequest {
   effective_at?: utcDateTime;
 }
 
+model MergeAuctionResultRow {
+  round: int32;
+  contestant: string;
+  winner: string;
+  price: int32;
+}
+
+model RecordMergeAuctionRequest {
+  name?: string;
+  mode?: string;
+  raw_csv?: string;
+  results: MergeAuctionResultRow[];
+}
+
 // --- Activities & Occurrences request/response models ---
 
 model ListActivitiesResponse {
@@ -607,6 +621,13 @@ op repayLoanShark(
 op recordIndividualPonyImmunity(
   @path instanceID: string,
   @body body: RecordIndividualPonyImmunityRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/merge-auction/record")
+@post
+op recordMergeAuctionResults(
+  @path instanceID: string,
+  @body body: RecordMergeAuctionRequest,
 ): JsonObject | ErrorResponse;
 
 @route("/instances/{instanceID}/drafts/{participantID}")

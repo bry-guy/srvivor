@@ -1321,6 +1321,289 @@ func TestStirThePotContributionDoesNotRevealSecretWhenVisibleBalanceCoversSpend(
 	}
 }
 
+func TestRecordMergeAuctionResults_CreatesOwnershipsAndPublicSpends(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	seasons, err := seeddata.LoadFromJSON("../../seeds/verification-merge-gameplay.json")
+	if err != nil {
+		t.Fatalf("load verification seed: %v", err)
+	}
+	if _, err := appinternal.SeedHistorical(ctx, pool, seasons); err != nil {
+		t.Fatalf("seed verification season: %v", err)
+	}
+
+	queries := db.New(pool)
+	instances, err := queries.ListInstances(ctx)
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	var instance db.ListInstancesRow
+	for _, candidate := range instances {
+		if candidate.Name == "Verification Merge Gameplay" {
+			instance = candidate
+			break
+		}
+	}
+	if !instance.ID.Valid {
+		t.Fatalf("verification instance not found")
+	}
+
+	participants, err := queries.ListParticipantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list participants: %v", err)
+	}
+	participantIDByName := make(map[string]pgtype.UUID, len(participants))
+	for _, participant := range participants {
+		participantIDByName[participant.Name] = participant.ID
+	}
+	contestants, err := queries.ListContestantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list contestants: %v", err)
+	}
+	if len(contestants) < 2 {
+		t.Fatalf("expected at least 2 contestants, got %d", len(contestants))
+	}
+	contestantOne := contestants[0]
+	contestantTwo := contestants[1]
+
+	if _, err := queries.SetParticipantDiscordUserID(ctx, db.SetParticipantDiscordUserIDParams{ID: participantIDByName["Alice"], DiscordUserID: pgtype.Text{String: "alice-discord", Valid: true}}); err != nil {
+		t.Fatalf("link alice: %v", err)
+	}
+	if _, err := queries.SetParticipantDiscordUserID(ctx, db.SetParticipantDiscordUserIDParams{ID: participantIDByName["Bob"], DiscordUserID: pgtype.Text{String: "bob-discord", Valid: true}}); err != nil {
+		t.Fatalf("link bob: %v", err)
+	}
+	if _, err := queries.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "admin-discord"}); err != nil {
+		t.Fatalf("create instance admin: %v", err)
+	}
+
+	publicActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-3*time.Hour), nil, "manual_adjustment", "Verification Public Bonus")
+	publicOccurrence := createOccurrenceForTest(t, ctx, queries, publicActivity.ID, "manual_correction", "Verification Public Bonus Grant", time.Now().UTC().Add(-3*time.Hour))
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Alice"], publicOccurrence.ID, pgtype.UUID{}, "award", 3, "public", "Verification public reward", "verification:public:alice")
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Bob"], publicOccurrence.ID, pgtype.UUID{}, "award", 2, "public", "Verification public reward", "verification:public:bob")
+
+	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
+	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", time.Now().UTC().Add(-2*time.Hour))
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Alice"], hiddenOccurrence.ID, pgtype.UUID{}, "award", 2, "secret", "Verification hidden reward", "verification:hidden:alice")
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}))
+	router := server.Router()
+	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
+	aliceID := uuid.UUID(participantIDByName["Alice"].Bytes).String()
+	bobID := uuid.UUID(participantIDByName["Bob"].Bytes).String()
+
+	body := fmt.Sprintf(`{"name":"Merge Auction","mode":"three_round_blind_fallthrough","raw_csv":"test csv","results":[{"round":1,"contestant":%q,"winner":"Alice","price":4},{"round":2,"contestant":%q,"winner":"Bob","price":2}]}`,
+		contestantOne.Name,
+		contestantTwo.Name,
+	)
+	recordReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/merge-auction/record", instanceUUID), body, "verification-token", "admin-discord")
+	recordRecorder := httptest.NewRecorder()
+	router.ServeHTTP(recordRecorder, recordReq)
+	if recordRecorder.Code != http.StatusOK {
+		t.Fatalf("record merge auction status = %d, body = %s", recordRecorder.Code, recordRecorder.Body.String())
+	}
+	var recordResponse struct {
+		Occurrence struct {
+			ID             string          `json:"id"`
+			OccurrenceType string          `json:"occurrence_type"`
+			Name           string          `json:"name"`
+			Metadata       json.RawMessage `json:"metadata"`
+		} `json:"occurrence"`
+		Results []struct {
+			ContestantName       string `json:"contestant_name"`
+			WinnerName           string `json:"winner_name"`
+			Round                int    `json:"round"`
+			Price                int    `json:"price"`
+			RevealedSecretPoints int    `json:"revealed_secret_points"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(recordRecorder.Body.Bytes(), &recordResponse); err != nil {
+		t.Fatalf("unmarshal merge auction response: %v", err)
+	}
+	if recordResponse.Occurrence.OccurrenceType != "merge_auction_result" || recordResponse.Occurrence.Name != "Merge Auction" {
+		t.Fatalf("unexpected merge auction occurrence: %+v", recordResponse.Occurrence)
+	}
+	if len(recordResponse.Results) != 2 {
+		t.Fatalf("expected 2 applied merge auction results, got %+v", recordResponse.Results)
+	}
+	if recordResponse.Results[0].WinnerName != "Alice" || recordResponse.Results[0].ContestantName != contestantOne.Name || recordResponse.Results[0].Price != 4 || recordResponse.Results[0].RevealedSecretPoints != 1 {
+		t.Fatalf("unexpected first merge auction result: %+v", recordResponse.Results[0])
+	}
+	if recordResponse.Results[1].WinnerName != "Bob" || recordResponse.Results[1].ContestantName != contestantTwo.Name || recordResponse.Results[1].Price != 2 || recordResponse.Results[1].RevealedSecretPoints != 0 {
+		t.Fatalf("unexpected second merge auction result: %+v", recordResponse.Results[1])
+	}
+
+	alicePonies, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instance.ID, OwnerParticipantID: participantIDByName["Alice"], At: timestamptz(time.Now().UTC())})
+	if err != nil {
+		t.Fatalf("list alice ponies: %v", err)
+	}
+	if len(alicePonies) != 1 || alicePonies[0].ContestantName != contestantOne.Name {
+		t.Fatalf("unexpected alice ponies: %+v", alicePonies)
+	}
+	bobPonies, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instance.ID, OwnerParticipantID: participantIDByName["Bob"], At: timestamptz(time.Now().UTC())})
+	if err != nil {
+		t.Fatalf("list bob ponies: %v", err)
+	}
+	if len(bobPonies) != 1 || bobPonies[0].ContestantName != contestantTwo.Name {
+		t.Fatalf("unexpected bob ponies: %+v", bobPonies)
+	}
+
+	aliceLedgerReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", instanceUUID, aliceID), "", "verification-token", "alice-discord")
+	aliceLedgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)
+	if aliceLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("alice bonus ledger status = %d, body = %s", aliceLedgerRecorder.Code, aliceLedgerRecorder.Body.String())
+	}
+	var aliceLedger bonusLedgerResponse
+	if err := json.Unmarshal(aliceLedgerRecorder.Body.Bytes(), &aliceLedger); err != nil {
+		t.Fatalf("unmarshal alice ledger: %v", err)
+	}
+	if aliceLedger.BonusPoints != 1 {
+		t.Fatalf("expected alice total bonus to be 1 after merge auction, got %d", aliceLedger.BonusPoints)
+	}
+	foundAliceSpend := false
+	foundAliceReveal := false
+	foundAliceConversion := false
+	for _, entry := range aliceLedger.Ledger {
+		if entry.Reason == fmt.Sprintf("Merge Auction: won %s for %d", contestantOne.Name, 4) && entry.Points == -4 && entry.Visibility == "public" {
+			foundAliceSpend = true
+		}
+		if strings.Contains(entry.Reason, fmt.Sprintf("Merge Auction bid on %s", contestantOne.Name)) && entry.EntryKind == "reveal" && entry.Points == 1 && entry.Visibility == "revealed" {
+			foundAliceReveal = true
+		}
+		if strings.Contains(entry.Reason, fmt.Sprintf("Merge Auction bid on %s", contestantOne.Name)) && entry.EntryKind == "conversion" && entry.Points == -1 && entry.Visibility == "secret" {
+			foundAliceConversion = true
+		}
+	}
+	if !foundAliceSpend || !foundAliceReveal || !foundAliceConversion {
+		t.Fatalf("unexpected alice ledger entries: %+v", aliceLedger.Ledger)
+	}
+
+	bobLedgerReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", instanceUUID, bobID), "", "verification-token", "bob-discord")
+	bobLedgerRecorder := httptest.NewRecorder()
+	router.ServeHTTP(bobLedgerRecorder, bobLedgerReq)
+	if bobLedgerRecorder.Code != http.StatusOK {
+		t.Fatalf("bob bonus ledger status = %d, body = %s", bobLedgerRecorder.Code, bobLedgerRecorder.Body.String())
+	}
+	var bobLedger bonusLedgerResponse
+	if err := json.Unmarshal(bobLedgerRecorder.Body.Bytes(), &bobLedger); err != nil {
+		t.Fatalf("unmarshal bob ledger: %v", err)
+	}
+	if bobLedger.BonusPoints != 0 {
+		t.Fatalf("expected bob total bonus to be 0 after merge auction, got %d", bobLedger.BonusPoints)
+	}
+	foundBobSpend := false
+	for _, entry := range bobLedger.Ledger {
+		if entry.Reason == fmt.Sprintf("Merge Auction: won %s for %d", contestantTwo.Name, 2) && entry.Points == -2 && entry.Visibility == "public" {
+			foundBobSpend = true
+		}
+		if strings.Contains(entry.Reason, fmt.Sprintf("Merge Auction bid on %s", contestantTwo.Name)) && entry.Visibility == "revealed" {
+			t.Fatalf("did not expect bob secret reveal entries: %+v", bobLedger.Ledger)
+		}
+	}
+	if !foundBobSpend {
+		t.Fatalf("unexpected bob ledger entries: %+v", bobLedger.Ledger)
+	}
+
+	leaderboardReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/leaderboard", instanceUUID), "", "verification-token", "admin-discord")
+	leaderboardRecorder := httptest.NewRecorder()
+	router.ServeHTTP(leaderboardRecorder, leaderboardReq)
+	if leaderboardRecorder.Code != http.StatusOK {
+		t.Fatalf("leaderboard status = %d, body = %s", leaderboardRecorder.Code, leaderboardRecorder.Body.String())
+	}
+	var leaderboard leaderboardResponse
+	if err := json.Unmarshal(leaderboardRecorder.Body.Bytes(), &leaderboard); err != nil {
+		t.Fatalf("unmarshal leaderboard: %v", err)
+	}
+	foundAliceLeaderboard := false
+	foundBobLeaderboard := false
+	for _, row := range leaderboard.Leaderboard {
+		switch row.ParticipantName {
+		case "Alice":
+			foundAliceLeaderboard = true
+			if row.BonusPoints != 0 {
+				t.Fatalf("expected alice visible bonus 0 after public spend, got %+v", row)
+			}
+		case "Bob":
+			foundBobLeaderboard = true
+			if row.BonusPoints != 0 {
+				t.Fatalf("expected bob visible bonus 0 after public spend, got %+v", row)
+			}
+		}
+	}
+	if !foundAliceLeaderboard || !foundBobLeaderboard {
+		t.Fatalf("expected alice and bob on leaderboard: %+v", leaderboard.Leaderboard)
+	}
+}
+
+func TestRecordMergeAuctionResults_RejectsDuplicateContestantResult(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	seasons, err := seeddata.LoadFromJSON("../../seeds/verification-merge-gameplay.json")
+	if err != nil {
+		t.Fatalf("load verification seed: %v", err)
+	}
+	if _, err := appinternal.SeedHistorical(ctx, pool, seasons); err != nil {
+		t.Fatalf("seed verification season: %v", err)
+	}
+
+	queries := db.New(pool)
+	instances, err := queries.ListInstances(ctx)
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	var instance db.ListInstancesRow
+	for _, candidate := range instances {
+		if candidate.Name == "Verification Merge Gameplay" {
+			instance = candidate
+			break
+		}
+	}
+	if !instance.ID.Valid {
+		t.Fatalf("verification instance not found")
+	}
+	participants, err := queries.ListParticipantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list participants: %v", err)
+	}
+	participantNames := make([]string, 0, len(participants))
+	for _, participant := range participants {
+		participantNames = append(participantNames, participant.Name)
+	}
+	contestants, err := queries.ListContestantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list contestants: %v", err)
+	}
+	if len(participantNames) < 2 || len(contestants) == 0 {
+		t.Fatalf("expected verification participants and contestants")
+	}
+	if _, err := queries.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "admin-discord"}); err != nil {
+		t.Fatalf("create instance admin: %v", err)
+	}
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}))
+	router := server.Router()
+	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
+	body := fmt.Sprintf(`{"results":[{"round":1,"contestant":%q,"winner":%q,"price":1},{"round":2,"contestant":%q,"winner":%q,"price":2}]}`,
+		contestants[0].Name,
+		participantNames[0],
+		contestants[0].Name,
+		participantNames[1],
+	)
+	req := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/merge-auction/record", instanceUUID), body, "verification-token", "admin-discord")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected duplicate contestant result to fail with 400, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "duplicate contestant result") {
+		t.Fatalf("expected duplicate contestant error, got %s", recorder.Body.String())
+	}
+}
+
 func integrationPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
 	databaseURL := os.Getenv("CASTAWAY_TEST_DATABASE_URL")

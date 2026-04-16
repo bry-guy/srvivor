@@ -23,12 +23,14 @@ const (
 	activityTypeIndividualPonyAuction = "individual_pony_auction"
 	activityTypeIndividualPony        = "individual_pony"
 	activityTypeLoanShark             = "loan_shark"
+	activityTypeMergeAuction          = "merge_auction"
 
-	occurrenceTypeStirThePotRound = "stir_the_pot_round"
-	occurrenceTypeAuctionLot      = "auction_lot"
-	occurrenceTypeIndividualPony  = "immunity_result"
-	occurrenceTypeLoanIssued      = "loan_issued"
-	occurrenceTypeLoanRepayment   = "loan_repayment"
+	occurrenceTypeStirThePotRound    = "stir_the_pot_round"
+	occurrenceTypeAuctionLot         = "auction_lot"
+	occurrenceTypeIndividualPony     = "immunity_result"
+	occurrenceTypeLoanIssued         = "loan_issued"
+	occurrenceTypeLoanRepayment      = "loan_repayment"
+	occurrenceTypeMergeAuctionResult = "merge_auction_result"
 
 	occurrenceRoleStirThePotContributor = "contributor"
 	occurrenceRoleAuctionBidder         = "bidder"
@@ -75,6 +77,28 @@ type auctionBidMetadata struct {
 
 type individualPonyOccurrenceMetadata struct {
 	WinningContestantID string `json:"winning_contestant_id"`
+}
+
+type mergeAuctionResultRow struct {
+	Round      int32  `json:"round" binding:"required"`
+	Contestant string `json:"contestant" binding:"required"`
+	Winner     string `json:"winner" binding:"required"`
+	Price      int32  `json:"price" binding:"required"`
+}
+
+type recordMergeAuctionRequest struct {
+	Name    string                  `json:"name"`
+	Mode    string                  `json:"mode"`
+	RawCSV  string                  `json:"raw_csv"`
+	Results []mergeAuctionResultRow `json:"results" binding:"required"`
+}
+
+type mergeAuctionOccurrenceMetadata struct {
+	Mode       string                  `json:"mode"`
+	RawCSV     string                  `json:"raw_csv,omitempty"`
+	Results    []mergeAuctionResultRow `json:"results"`
+	ImportedBy string                  `json:"imported_by"`
+	ImportedAt string                  `json:"imported_at"`
 }
 
 type startStirThePotRoundRequest struct {
@@ -1393,6 +1417,249 @@ func (s *Server) recordIndividualPonyImmunity(c *gin.Context) {
 		"occurrence_id":   pgUUIDString(occurrence.ID),
 		"created_count":   len(entriesJSON),
 		"created_entries": entriesJSON,
+	})
+}
+
+func (s *Server) recordMergeAuctionResults(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	if !s.requireInstanceAdminRequest(c, instanceID) {
+		return
+	}
+
+	var req recordMergeAuctionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if len(req.Results) == 0 {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "results must not be empty"})
+		return
+	}
+
+	participants, err := s.queries.ListParticipantsByInstance(c.Request.Context(), toPGUUID(instanceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	type participantInfo struct {
+		ID   pgtype.UUID
+		Name string
+	}
+	participantByName := make(map[string]participantInfo, len(participants))
+	for _, participant := range participants {
+		participantByName[strings.ToLower(strings.TrimSpace(participant.Name))] = participantInfo{ID: participant.ID, Name: participant.Name}
+	}
+
+	contestants, err := s.queries.ListContestantsByInstance(c.Request.Context(), toPGUUID(instanceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	type contestantInfo struct {
+		ID   pgtype.UUID
+		Name string
+	}
+	contestantByName := make(map[string]contestantInfo, len(contestants))
+	for _, contestant := range contestants {
+		contestantByName[strings.ToLower(strings.TrimSpace(contestant.Name))] = contestantInfo{ID: contestant.ID, Name: contestant.Name}
+	}
+
+	type resolvedMergeAuctionResult struct {
+		Round           int32
+		ParticipantID   pgtype.UUID
+		ParticipantName string
+		ContestantID    pgtype.UUID
+		ContestantName  string
+		Price           int32
+	}
+	resolved := make([]resolvedMergeAuctionResult, 0, len(req.Results))
+	seenContestants := make(map[string]struct{}, len(req.Results))
+	for _, result := range req.Results {
+		if result.Round <= 0 {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("round must be positive for %s", strings.TrimSpace(result.Contestant))})
+			return
+		}
+		if result.Price <= 0 {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("price must be positive for %s", strings.TrimSpace(result.Contestant))})
+			return
+		}
+		winner, ok := participantByName[strings.ToLower(strings.TrimSpace(result.Winner))]
+		if !ok {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("participant not found: %s", strings.TrimSpace(result.Winner))})
+			return
+		}
+		contestant, ok := contestantByName[strings.ToLower(strings.TrimSpace(result.Contestant))]
+		if !ok {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("contestant not found: %s", strings.TrimSpace(result.Contestant))})
+			return
+		}
+		contestantKey := strings.ToLower(strings.TrimSpace(result.Contestant))
+		if _, exists := seenContestants[contestantKey]; exists {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("duplicate contestant result: %s", strings.TrimSpace(result.Contestant))})
+			return
+		}
+		seenContestants[contestantKey] = struct{}{}
+		resolved = append(resolved, resolvedMergeAuctionResult{
+			Round:           result.Round,
+			ParticipantID:   winner.ID,
+			ParticipantName: winner.Name,
+			ContestantID:    contestant.ID,
+			ContestantName:  contestant.Name,
+			Price:           result.Price,
+		})
+	}
+	sort.SliceStable(resolved, func(i, j int) bool {
+		return resolved[i].Round < resolved[j].Round
+	})
+
+	now := time.Now().UTC()
+	for _, result := range resolved {
+		ownerships, err := s.queries.ListActiveParticipantPonyOwnershipsByContestantAt(c.Request.Context(), db.ListActiveParticipantPonyOwnershipsByContestantAtParams{
+			InstanceID:   toPGUUID(instanceID),
+			ContestantID: result.ContestantID,
+			At:           optionalTime(now),
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		if len(ownerships) > 0 {
+			c.JSON(http.StatusConflict, errorResponse{Error: fmt.Sprintf("contestant %s already has an active pony owner", result.ContestantName)})
+			return
+		}
+	}
+
+	tx, err := s.pool.Begin(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	defer rollbackTx(c, tx)
+	qtx := s.queries.WithTx(tx)
+
+	activityName := strings.TrimSpace(req.Name)
+	if activityName == "" {
+		activityName = "Merge Auction"
+	}
+	mode := strings.TrimSpace(req.Mode)
+	if mode == "" {
+		mode = "three_round_blind_fallthrough"
+	}
+	activity, err := s.ensureSystemActivity(c.Request.Context(), qtx, toPGUUID(instanceID), activityTypeMergeAuction, activityName, now)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	occurrenceMetadata, err := json.Marshal(mergeAuctionOccurrenceMetadata{
+		Mode:       mode,
+		RawCSV:     strings.TrimSpace(req.RawCSV),
+		Results:    req.Results,
+		ImportedBy: strings.TrimSpace(discordUserIDFromRequest(c.Request)),
+		ImportedAt: now.Format(time.RFC3339),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	occurrence, err := qtx.CreateActivityOccurrence(c.Request.Context(), db.CreateActivityOccurrenceParams{
+		ActivityID:     activity.ID,
+		OccurrenceType: occurrenceTypeMergeAuctionResult,
+		Name:           activityName,
+		EffectiveAt:    optionalTime(now),
+		StartsAt:       optionalTime(now),
+		EndsAt:         optionalTime(now),
+		Status:         "resolved",
+		Metadata:       occurrenceMetadata,
+	})
+	if err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+		return
+	}
+
+	type appliedMergeAuctionResult struct {
+		ContestantName       string `json:"contestant_name"`
+		WinnerName           string `json:"winner_name"`
+		Round                int32  `json:"round"`
+		Price                int32  `json:"price"`
+		RevealedSecretPoints int32  `json:"revealed_secret_points"`
+	}
+	applied := make([]appliedMergeAuctionResult, 0, len(resolved))
+	for _, result := range resolved {
+		balance, err := s.currentBonusBalance(c.Request.Context(), qtx, toPGUUID(instanceID), result.ParticipantID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		if balance < result.Price {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: fmt.Sprintf("insufficient balance for %s: have %d, need %d (for %s)", result.ParticipantName, balance, result.Price, result.ContestantName)})
+			return
+		}
+		winnerMetadata, err := json.Marshal(map[string]any{
+			"activity_mode":   mode,
+			"round":           result.Round,
+			"bid_points":      result.Price,
+			"contestant_id":   pgUUIDString(result.ContestantID),
+			"contestant_name": result.ContestantName,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		revealedSecretPoints, err := s.revealSecretPointsOnSpend(c.Request.Context(), qtx, toPGUUID(instanceID), result.ParticipantID, occurrence.ID, pgtype.UUID{}, result.Price, now, fmt.Sprintf("Merge Auction bid on %s", result.ContestantName), winnerMetadata)
+		if err != nil {
+			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+			return
+		}
+		if _, err := qtx.CreateBonusPointLedgerEntry(c.Request.Context(), db.CreateBonusPointLedgerEntryParams{
+			InstanceID:           toPGUUID(instanceID),
+			ParticipantID:        result.ParticipantID,
+			ActivityOccurrenceID: occurrence.ID,
+			EntryKind:            "spend",
+			Points:               -result.Price,
+			Visibility:           "public",
+			Reason:               fmt.Sprintf("Merge Auction: won %s for %d", result.ContestantName, result.Price),
+			EffectiveAt:          optionalTime(now),
+			AwardKey:             optionalText(ptrString("merge-auction:spend:" + uuid.NewString())),
+			Metadata:             winnerMetadata,
+		}); err != nil {
+			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+			return
+		}
+		if _, err := qtx.CreateParticipantPonyOwnership(c.Request.Context(), db.CreateParticipantPonyOwnershipParams{
+			InstanceID:                 toPGUUID(instanceID),
+			OwnerParticipantID:         result.ParticipantID,
+			ContestantID:               result.ContestantID,
+			SourceActivityOccurrenceID: occurrence.ID,
+			AcquiredAt:                 optionalTime(now),
+			ReleasedAt:                 pgtype.Timestamptz{},
+			Status:                     "active",
+			Metadata:                   winnerMetadata,
+		}); err != nil {
+			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+			return
+		}
+		applied = append(applied, appliedMergeAuctionResult{
+			ContestantName:       result.ContestantName,
+			WinnerName:           result.ParticipantName,
+			Round:                result.Round,
+			Price:                result.Price,
+			RevealedSecretPoints: revealedSecretPoints,
+		})
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"activity":   activityToJSON(activity.ID, activity.InstanceID, activity.ActivityType, activity.Name, activity.Status, activity.StartsAt, activity.EndsAt, activity.Metadata, activity.CreatedAt, activity.UpdatedAt),
+		"occurrence": occurrenceToJSON(occurrence.ID, occurrence.ActivityID, occurrence.OccurrenceType, occurrence.Name, occurrence.EffectiveAt, occurrence.StartsAt, occurrence.EndsAt, occurrence.Status, occurrence.SourceRef, occurrence.Metadata, occurrence.CreatedAt, occurrence.UpdatedAt),
+		"results":    applied,
 	})
 }
 

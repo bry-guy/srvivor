@@ -423,6 +423,31 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RecordIndividualPonyImmunityRequest'
+  /instances/{instanceID}/merge-auction/record:
+    post:
+      operationId: recordMergeAuctionResults
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordMergeAuctionRequest'
   /instances/{instanceID}/leaderboard:
     get:
       operationId: leaderboard
@@ -1880,6 +1905,39 @@ components:
         effective_at:
           type: string
           format: date-time
+    RecordMergeAuctionRequest:
+      type: object
+      required:
+        - results
+      properties:
+        name:
+          type: string
+        mode:
+          type: string
+        raw_csv:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MergeAuctionResultRow'
+    MergeAuctionResultRow:
+      type: object
+      required:
+        - round
+        - contestant
+        - winner
+        - price
+      properties:
+        round:
+          type: integer
+          format: int32
+        contestant:
+          type: string
+        winner:
+          type: string
+        price:
+          type: integer
+          format: int32
     ReplaceDraftRequest:
       type: object
       required:

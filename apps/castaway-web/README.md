@@ -171,6 +171,7 @@ The task starts a disposable PostgreSQL container, seeds historical data, runs `
   - `POST /instances/:instanceID/auction/lots/start`
   - `POST /instances/:instanceID/auction/lots/:contestantID/stop`
   - `PUT /instances/:instanceID/auction/contestants/:contestantID/bid/me` (linked self by default; admins may target another participant via `participant_id`)
+  - `POST /instances/:instanceID/merge-auction/record` (admin-only resolved-result recorder for Merge Auction)
   - `GET /instances/:instanceID/ponies/me`
   - `GET /instances/:instanceID/loan-shark/me`
   - `POST /instances/:instanceID/loan-shark/me/borrow`

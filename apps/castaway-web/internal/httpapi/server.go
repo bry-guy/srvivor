@@ -90,6 +90,7 @@ func (s *Server) Router() *gin.Engine {
 	protected.POST("/instances/:instanceID/loan-shark/me/borrow", s.borrowFromLoanShark)
 	protected.POST("/instances/:instanceID/loan-shark/me/repay", s.repayLoanShark)
 	protected.POST("/instances/:instanceID/individual-pony/immunity", s.recordIndividualPonyImmunity)
+	protected.POST("/instances/:instanceID/merge-auction/record", s.recordMergeAuctionResults)
 
 	protected.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
 	protected.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)
