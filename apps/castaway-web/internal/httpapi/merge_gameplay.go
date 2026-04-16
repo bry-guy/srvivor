@@ -1571,7 +1571,7 @@ func (s *Server) recordMergeAuctionResults(c *gin.Context) {
 		Name:           activityName,
 		EffectiveAt:    optionalTime(now),
 		StartsAt:       optionalTime(now),
-		EndsAt:         optionalTime(now),
+		EndsAt:         optionalTime(now.Add(time.Second)),
 		Status:         "resolved",
 		Metadata:       occurrenceMetadata,
 	})
