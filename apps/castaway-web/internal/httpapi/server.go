@@ -91,6 +91,9 @@ func (s *Server) Router() *gin.Engine {
 	protected.POST("/instances/:instanceID/loan-shark/me/repay", s.repayLoanShark)
 	protected.POST("/instances/:instanceID/individual-pony/immunity", s.recordIndividualPonyImmunity)
 	protected.POST("/instances/:instanceID/merge-auction/record", s.recordMergeAuctionResults)
+	protected.POST("/instances/:instanceID/finale-bingo/loan-sharks", s.recordFinaleBingoLoanSharks)
+	protected.POST("/instances/:instanceID/finale-bingo/scores/preview", s.previewFinaleBingoScores)
+	protected.POST("/instances/:instanceID/finale-bingo/scores", s.recordFinaleBingoScores)
 
 	protected.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
 	protected.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)

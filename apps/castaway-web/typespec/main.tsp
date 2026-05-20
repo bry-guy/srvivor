@@ -279,6 +279,31 @@ model RecordMergeAuctionRequest {
   results: MergeAuctionResultRow[];
 }
 
+model FinaleBingoScoreInput {
+  participant_id: string;
+  box_points: int32;
+  bingo_count: int32;
+  notes?: string;
+}
+
+model FinaleBingoLoanSharkInput {
+  shark_participant_id: string;
+  target_participant_id: string;
+}
+
+model RecordFinaleBingoLoanSharksRequest {
+  name?: string;
+  assignments: FinaleBingoLoanSharkInput[];
+  effective_at?: utcDateTime;
+}
+
+model RecordFinaleBingoScoresRequest {
+  name?: string;
+  scores: FinaleBingoScoreInput[];
+  loan_sharks?: FinaleBingoLoanSharkInput[];
+  effective_at?: utcDateTime;
+}
+
 // --- Activities & Occurrences request/response models ---
 
 model ListActivitiesResponse {
@@ -561,6 +586,10 @@ op startStirThePotRound(
   @body body: StartStirThePotRoundRequest,
 ): JsonObject | ErrorResponse;
 
+@route("/instances/{instanceID}/stir-the-pot/close")
+@post
+op closeStirThePotRound(@path instanceID: string): JsonObject | ErrorResponse;
+
 @route("/instances/{instanceID}/stir-the-pot/me/contributions")
 @post
 op addStirThePotContribution(
@@ -628,6 +657,27 @@ op recordIndividualPonyImmunity(
 op recordMergeAuctionResults(
   @path instanceID: string,
   @body body: RecordMergeAuctionRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/finale-bingo/loan-sharks")
+@post
+op recordFinaleBingoLoanSharks(
+  @path instanceID: string,
+  @body body: RecordFinaleBingoLoanSharksRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/finale-bingo/scores/preview")
+@post
+op previewFinaleBingoScores(
+  @path instanceID: string,
+  @body body: RecordFinaleBingoScoresRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/finale-bingo/scores")
+@post
+op recordFinaleBingoScores(
+  @path instanceID: string,
+  @body body: RecordFinaleBingoScoresRequest,
 ): JsonObject | ErrorResponse;
 
 @route("/instances/{instanceID}/drafts/{participantID}")

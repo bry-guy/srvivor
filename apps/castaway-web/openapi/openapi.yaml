@@ -398,6 +398,81 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/GetDraftResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/finale-bingo/loan-sharks:
+    post:
+      operationId: recordFinaleBingoLoanSharks
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordFinaleBingoLoanSharksRequest'
+  /instances/{instanceID}/finale-bingo/scores:
+    post:
+      operationId: recordFinaleBingoScores
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordFinaleBingoScoresRequest'
+  /instances/{instanceID}/finale-bingo/scores/preview:
+    post:
+      operationId: previewFinaleBingoScores
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordFinaleBingoScoresRequest'
   /instances/{instanceID}/individual-pony/immunity:
     post:
       operationId: recordIndividualPonyImmunity
@@ -423,31 +498,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RecordIndividualPonyImmunityRequest'
-  /instances/{instanceID}/merge-auction/record:
-    post:
-      operationId: recordMergeAuctionResults
-      parameters:
-        - name: instanceID
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - type: object
-                    additionalProperties: {}
-                  - $ref: '#/components/schemas/ErrorResponse'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RecordMergeAuctionRequest'
   /instances/{instanceID}/leaderboard:
     get:
       operationId: leaderboard
@@ -541,6 +591,31 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoanSharkRequest'
+  /instances/{instanceID}/merge-auction/record:
+    post:
+      operationId: recordMergeAuctionResults
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordMergeAuctionRequest'
   /instances/{instanceID}/outcomes:
     get:
       operationId: listOutcomes
@@ -768,6 +843,25 @@ paths:
                   - type: object
                     additionalProperties: {}
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/stir-the-pot/close:
+    post:
+      operationId: closeStirThePotRound
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/stir-the-pot/me:
     get:
       operationId: getStirThePotStatus
@@ -837,25 +931,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/StartStirThePotRoundRequest'
-  /instances/{instanceID}/stir-the-pot/close:
-    post:
-      operationId: closeStirThePotRound
-      parameters:
-        - name: instanceID
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - type: object
-                    additionalProperties: {}
-                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/stir-the-pot/tribes/show:
     get:
       operationId: getStirThePotTribeStatus
@@ -1341,6 +1416,33 @@ components:
       properties:
         error:
           type: string
+    FinaleBingoLoanSharkInput:
+      type: object
+      required:
+        - shark_participant_id
+        - target_participant_id
+      properties:
+        shark_participant_id:
+          type: string
+        target_participant_id:
+          type: string
+    FinaleBingoScoreInput:
+      type: object
+      required:
+        - participant_id
+        - box_points
+        - bingo_count
+      properties:
+        participant_id:
+          type: string
+        box_points:
+          type: integer
+          format: int32
+        bingo_count:
+          type: integer
+          format: int32
+        notes:
+          type: string
     GetActivityResponse:
       type: object
       required:
@@ -1567,6 +1669,24 @@ components:
         - points
       properties:
         points:
+          type: integer
+          format: int32
+    MergeAuctionResultRow:
+      type: object
+      required:
+        - round
+        - contestant
+        - winner
+        - price
+      properties:
+        round:
+          type: integer
+          format: int32
+        contestant:
+          type: string
+        winner:
+          type: string
+        price:
           type: integer
           format: int32
     Occurrence:
@@ -1914,6 +2034,38 @@ components:
         created_at:
           type: string
           format: date-time
+    RecordFinaleBingoLoanSharksRequest:
+      type: object
+      required:
+        - assignments
+      properties:
+        name:
+          type: string
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinaleBingoLoanSharkInput'
+        effective_at:
+          type: string
+          format: date-time
+    RecordFinaleBingoScoresRequest:
+      type: object
+      required:
+        - scores
+      properties:
+        name:
+          type: string
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinaleBingoScoreInput'
+        loan_sharks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinaleBingoLoanSharkInput'
+        effective_at:
+          type: string
+          format: date-time
     RecordIndividualPonyImmunityRequest:
       type: object
       required:
@@ -1939,24 +2091,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MergeAuctionResultRow'
-    MergeAuctionResultRow:
-      type: object
-      required:
-        - round
-        - contestant
-        - winner
-        - price
-      properties:
-        round:
-          type: integer
-          format: int32
-        contestant:
-          type: string
-        winner:
-          type: string
-        price:
-          type: integer
-          format: int32
     ReplaceDraftRequest:
       type: object
       required:
