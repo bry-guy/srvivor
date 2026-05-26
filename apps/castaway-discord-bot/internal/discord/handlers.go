@@ -39,6 +39,7 @@ func (b *Bot) handleInteraction(_ *discordgo.Session, interaction *discordgo.Int
 
 func (b *Bot) handleCommand(interaction *discordgo.InteractionCreate) {
 	command := parseCommandSpec(interaction.ApplicationCommandData())
+	start := time.Now()
 	preflightCtx, preflightCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	ephemeral, err := b.commandShouldBeEphemeral(preflightCtx, interaction, command)
 	preflightCancel()
@@ -55,9 +56,12 @@ func (b *Bot) handleCommand(interaction *discordgo.InteractionCreate) {
 	defer cancel()
 
 	content, err := b.executeCommand(ctx, interaction, command)
+	result := observeCommand(command, start, err)
 	if err != nil {
-		b.log.Warn("command failed", "command", command.name, "group", command.group, "error", err)
+		b.log.Warn("command failed", "command", command.name, "group", command.group, "result", result, "duration_ms", time.Since(start).Milliseconds(), "error", err)
 		content = "Error: " + err.Error()
+	} else {
+		b.log.Info("command completed", "command", command.name, "group", command.group, "result", result, "duration_ms", time.Since(start).Milliseconds())
 	}
 
 	if err := b.editResponse(interaction, content); err != nil {

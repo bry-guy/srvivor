@@ -374,8 +374,19 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 			"total_potential_pony_points": 1 + bonus,
 		})
 	}
+	tribeName := func(row gin.H) string {
+		tribe, ok := row["tribe"].(gin.H)
+		if !ok {
+			return ""
+		}
+		name, ok := tribe["name"].(string)
+		if !ok {
+			return ""
+		}
+		return strings.ToLower(name)
+	}
 	sort.Slice(tribes, func(i, j int) bool {
-		return strings.ToLower(tribes[i]["tribe"].(gin.H)["name"].(string)) < strings.ToLower(tribes[j]["tribe"].(gin.H)["name"].(string))
+		return tribeName(tribes[i]) < tribeName(tribes[j])
 	})
 
 	if _, err := s.pool.Exec(c.Request.Context(),

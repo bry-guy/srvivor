@@ -12,6 +12,27 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	apiRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "castaway_bot_api_requests_total",
+			Help: "Total Castaway web API requests made by the Discord bot.",
+		},
+		[]string{"method", "route", "status_class", "result"},
+	)
+	apiRequestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "castaway_bot_api_request_duration_seconds",
+			Help:    "Castaway web API request duration observed by the Discord bot in seconds.",
+			Buckets: []float64{0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
+		},
+		[]string{"method", "route"},
+	)
 )
 
 type Client struct {
@@ -754,12 +775,22 @@ func (c *Client) doJSON(ctx context.Context, method string, requestURL *url.URL,
 }
 
 func (c *Client) doJSONRequest(ctx context.Context, method string, requestURL *url.URL, headers map[string]string, body *bytes.Reader, out any) error {
+	start := time.Now()
+	route := metricRoute(requestURL)
+	statusClass := "unknown"
+	result := "ok"
+	defer func() {
+		apiRequestsTotal.WithLabelValues(method, route, statusClass, result).Inc()
+		apiRequestDuration.WithLabelValues(method, route).Observe(time.Since(start).Seconds())
+	}()
+
 	var requestBody io.Reader
 	if body != nil {
 		requestBody = body
 	}
 	req, err := http.NewRequestWithContext(ctx, method, requestURL.String(), requestBody)
 	if err != nil {
+		result = "internal_error"
 		return fmt.Errorf("create request: %w", err)
 	}
 	if body != nil {
@@ -778,11 +809,14 @@ func (c *Client) doJSONRequest(ctx context.Context, method string, requestURL *u
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		result = "transport_error"
 		return fmt.Errorf("perform request: %w", err)
 	}
 	defer resp.Body.Close()
+	statusClass = metricStatusClass(resp.StatusCode)
 
 	if resp.StatusCode >= http.StatusBadRequest {
+		result = "api_error"
 		var apiErr apiError
 		if err := json.NewDecoder(resp.Body).Decode(&apiErr); err == nil {
 			return &APIError{StatusCode: resp.StatusCode, Message: strings.TrimSpace(apiErr.Error)}
@@ -791,9 +825,47 @@ func (c *Client) doJSONRequest(ctx context.Context, method string, requestURL *u
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		result = "decode_error"
 		return fmt.Errorf("decode response: %w", err)
 	}
 	return nil
+}
+
+func metricStatusClass(status int) string {
+	if status <= 0 {
+		return "unknown"
+	}
+	return strconv.Itoa(status/100) + "xx"
+}
+
+func metricRoute(requestURL *url.URL) string {
+	if requestURL == nil {
+		return "unknown"
+	}
+	segments := strings.Split(strings.Trim(requestURL.Path, "/"), "/")
+	if len(segments) == 1 && segments[0] == "" {
+		return "/"
+	}
+	for i, segment := range segments {
+		if isMetricDynamicSegment(segment) {
+			segments[i] = ":id"
+		}
+	}
+	return "/" + strings.Join(segments, "/")
+}
+
+func isMetricDynamicSegment(segment string) bool {
+	trimmed := strings.TrimSpace(segment)
+	if trimmed == "" {
+		return false
+	}
+	if _, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+		return true
+	}
+	if len(trimmed) == 36 && strings.Count(trimmed, "-") == 4 {
+		return true
+	}
+	return false
 }
 
 func requestHeadersForDiscordUser(discordUserID string) map[string]string {

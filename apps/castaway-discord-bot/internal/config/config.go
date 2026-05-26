@@ -21,6 +21,7 @@ type Config struct {
 
 	CastawayAPIBaseURL   string `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
 	CastawayAPIAuthToken string `envconfig:"CASTAWAY_API_AUTH_TOKEN"`
+	HTTPAddr             string `envconfig:"BOT_HTTP_ADDR" default:":8080"`
 
 	StateBackend     string `envconfig:"BOT_STATE_BACKEND" default:"bolt"`
 	StatePath        string `envconfig:"BOT_STATE_PATH" default:"./data/state.db"`

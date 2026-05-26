@@ -16,6 +16,7 @@ import (
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/config"
 	discordbot "github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/discord"
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/health"
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/state"
 )
 
@@ -93,11 +94,18 @@ func run() error {
 	}
 	defer bot.Close()
 
+	healthServer := health.New(cfg.HTTPAddr, logger)
+	if err := healthServer.Start(ctx); err != nil {
+		return fmt.Errorf("start health server: %w", err)
+	}
+
 	if err := bot.Start(ctx); err != nil {
 		return err
 	}
+	healthServer.SetHealthy(true)
+	defer healthServer.SetHealthy(false)
 
-	logger.Info("castaway-discord-bot running", "version", buildinfo.String())
+	logger.Info("castaway-discord-bot running", "version", buildinfo.String(), "http_addr", cfg.HTTPAddr)
 	<-ctx.Done()
 	logger.Info("castaway-discord-bot shutting down")
 	return nil

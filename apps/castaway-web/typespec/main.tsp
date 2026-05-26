@@ -490,6 +490,10 @@ model ParticipantActivityHistoryResponse {
 @get
 op healthz(): HealthResponse;
 
+@route("/metrics")
+@get
+op metrics(): string;
+
 @route("/instances")
 @get
 op listInstances(@query season?: int32, @query name?: string): ListInstancesResponse;

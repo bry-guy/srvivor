@@ -62,11 +62,13 @@ func (b *Bot) Start(ctx context.Context) error {
 		}
 	}()
 
+	botDiscordGatewayConnected.Set(1)
 	b.log.Info("discord session opened", "command_scope", commandScope)
 	return nil
 }
 
 func (b *Bot) Close() error {
+	botDiscordGatewayConnected.Set(0)
 	if b.session == nil {
 		return nil
 	}

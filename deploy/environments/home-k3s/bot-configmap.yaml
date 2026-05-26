@@ -9,4 +9,7 @@ data:
   CASTAWAY_API_BASE_URL: http://castaway-web:8080
   BOT_STATE_BACKEND: postgres
   LOG_LEVEL: INFO
+  BOT_HTTP_ADDR: ":8080"
+  OTEL_SERVICE_NAME: castaway-discord-bot
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=home-k3s,service.namespace=castaway
   CASTAWAY_ANNOUNCEMENT_CHANNEL_ID: "1330046490785087518"

@@ -956,6 +956,17 @@ paths:
                   - type: object
                     additionalProperties: {}
                   - $ref: '#/components/schemas/ErrorResponse'
+  /metrics:
+    get:
+      operationId: metrics
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            text/plain:
+              schema:
+                type: string
   /occurrences/{occurrenceID}:
     get:
       operationId: getOccurrence

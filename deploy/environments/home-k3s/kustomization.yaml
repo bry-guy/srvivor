@@ -8,6 +8,8 @@ resources:
   - web-configmap.yaml
   - bot-configmap.yaml
   - ingress-web.yaml
+  - web-servicemonitor.yaml
+  - bot-servicemonitor.yaml
 patches:
   - path: web-patch.yaml
   - path: web-placement-patch.yaml

@@ -11,3 +11,5 @@ data:
   MIGRATIONS_DIR: /app/db/migrations
   SERVICE_AUTH_ENABLED: "true"
   SERVICE_AUTH_PRINCIPAL: castaway-discord-bot
+  OTEL_SERVICE_NAME: castaway-web
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=home-k3s,service.namespace=castaway

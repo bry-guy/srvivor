@@ -50,6 +50,7 @@ func New(pool *pgxpool.Pool, options ...Option) *Server {
 		serviceAuth:             normalizeServiceAuthConfig(ServiceAuthConfig{}),
 		serviceAuthBearerTokens: make(map[string]struct{}),
 	}
+	server.registerMetrics()
 	for _, option := range options {
 		option(server)
 	}
@@ -57,9 +58,11 @@ func New(pool *pgxpool.Pool, options ...Option) *Server {
 }
 
 func (s *Server) Router() *gin.Engine {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery(), structuredRequestLogger(), metricsMiddleware())
 
 	r.GET("/healthz", s.health)
+	r.GET("/metrics", metricsHandler())
 
 	protected := r.Group("/")
 	protected.Use(s.requireServiceAuth())
