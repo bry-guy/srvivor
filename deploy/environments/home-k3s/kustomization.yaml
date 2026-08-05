@@ -7,7 +7,6 @@ resources:
   - ../../base/castaway-discord-bot
   - web-configmap.yaml
   - bot-configmap.yaml
-  - ingress-web.yaml
   - web-servicemonitor.yaml
   - bot-servicemonitor.yaml
 patches:
