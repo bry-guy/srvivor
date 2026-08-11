@@ -67,3 +67,92 @@ export OP_SERVICE_ACCOUNT_TOKEN="$(op read 'op://bry-guy/OP_SERVICE_ACCOUNT_TOKE
 exec pi "$@"
 '''
 
+# ==============================================================================
+# Unified Castaway DX: inspect | check | plan | apply
+#
+# Verb is the contract. The shape is: castaway:<area>[:<noun>]:<verb>
+# See ~/dev/infra/docs/plans/selfhost-dx-unify-platform-and-castaway-plan.md.
+# ==============================================================================
+
+[tasks."castaway:check"]
+description = "Verify Castaway app resources on the shared selfhost platform"
+run = "infra/scripts/castaway-verify.sh"
+
+[tasks."castaway:apply"]
+description = "Run the Castaway app-level selfhost deploy sequence against the shared platform"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+mise run "castaway:platform:check"
+mise run "castaway:secrets:apply"
+mise run "castaway:argocd:apply"
+mise run "castaway:check"
+'''
+
+# --- platform-side checks (read-only) ----------------------------------------
+
+[tasks."castaway:platform:check"]
+description = "Check Castaway app selfhost prerequisites against the shared platform"
+run = "infra/scripts/castaway-preflight.sh"
+
+[tasks."castaway:postgres:target:restore"]
+description = "Fresh-backup and restore only Castaway databases into the replacement PostgreSQL target"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+infra_repo="${CASTAWAY_PLATFORM_INFRA_REPO_PATH:-$HOME/dev/infra}"
+target_host="${CASTAWAY_SELFHOST_POSTGRES_TARGET_SSH_HOST:-${CASTAWAY_SELFHOST_POSTGRES_TARGET_HOST:-platform-worker-1.tail9e13b.ts.net}}"
+target_user="${CASTAWAY_SELFHOST_POSTGRES_TARGET_SSH_USER:-fedora}"
+source_host="${CASTAWAY_SELFHOST_POSTGRES_SOURCE_HOST:-us-west-stateful-400}"
+confirmation="${1:-}"
+
+[ "$confirmation" = "restore-castaway-postgres" ] || {
+  echo 'refusing Castaway target restore without confirmation token "restore-castaway-postgres"' >&2
+  exit 2
+}
+[ "$#" -eq 1 ] || {
+  echo 'usage: mise run castaway:postgres:target:restore restore-castaway-postgres' >&2
+  exit 2
+}
+
+[ -d "$infra_repo" ] || {
+  echo "platform infra repo not found: $infra_repo" >&2
+  exit 1
+}
+
+# App passwords come from the castaway-selfhost profile. The nested infra
+# fnox invocation adds platform SSH access while preserving these app values;
+# neither profile writes secrets to command arguments.
+fnox exec -P castaway-selfhost -- bash -lc '
+  set -euo pipefail
+  mise -C "$1" run selfhost:platform:postgres:castaway:backup:run
+  mise -C "$1" run selfhost:platform:postgres:target:restore:castaway \
+    "$2" "$3" "$4" "$5"
+' bash "$infra_repo" "$target_host" "$target_user" "$source_host" "$confirmation"
+'''
+
+# --- secrets -----------------------------------------------------------------
+
+[tasks."castaway:secrets:apply"]
+description = "Sync Castaway Kubernetes secrets into the shared selfhost platform"
+run = "fnox check -P castaway-selfhost && fnox exec -P castaway-selfhost -- infra/scripts/castaway-secrets-sync.sh"
+
+# --- argocd ------------------------------------------------------------------
+
+[tasks."castaway:argocd:apply"]
+description = "Apply Castaway Argo CD project/application manifests to the shared platform"
+run = "infra/scripts/castaway-argocd-app-apply.sh"
+
+[tasks."castaway:argocd:sync"]
+description = "Request an explicit Argo CD sync after a failed Castaway migration hook"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+kubeconfig="${CASTAWAY_SELFHOST_KUBECONFIG_PATH:?CASTAWAY_SELFHOST_KUBECONFIG_PATH is required}"
+KUBECONFIG="$kubeconfig" kubectl -n argocd patch application castaway-home-k3s \
+  --type merge --patch '{"operation":{"sync":{}}}'
+'''
+

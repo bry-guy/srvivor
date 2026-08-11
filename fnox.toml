@@ -19,3 +19,13 @@ DISCORD_PODRACING_SERVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERV
 DISCORD_BRAINLAND_SERVER_ID = { provider = "op", value = "DISCORD_BRAINLAND_SERVER_ID/password", description = "Development guild/server ID for castaway-discord-bot" }
 CASTAWAY_DISCORD_PUBLIC_KEY = { provider = "op", value = "CASTAWAY_DISCORD_PUBLIC_KEY/password", description = "Reserved for future Discord signature verification workflows" }
 DISCORD_TARGET_SEVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERVER_ID/password", description = "Target guild/server ID for castaway-discord-bot" }
+
+[profiles.castaway-selfhost.secrets]
+CASTAWAY_POSTGRES_SUPERUSER_PASSWORD = { provider = "op", value = "CASTAWAY_POSTGRES_SUPERUSER_PASSWORD/password", description = "PostgreSQL superuser password for Castaway selfhost database bootstrap/secrets" }
+CASTAWAY_WEB_DB_PASSWORD = { provider = "op", value = "CASTAWAY_WEB_DB_PASSWORD/password", description = "Database password for castaway-web on selfhost" }
+CASTAWAY_DISCORD_BOT_DB_PASSWORD = { provider = "op", value = "CASTAWAY_DISCORD_BOT_DB_PASSWORD/password", description = "Database password for castaway-discord-bot on selfhost" }
+CASTAWAY_DISCORD_BOT_TOKEN = { provider = "op", value = "CASTAWAY_DISCORD_BOT_TOKEN/password", description = "Discord bot token for selfhost deployment" }
+CASTAWAY_DISCORD_APPLICATION_ID = { provider = "op", value = "CASTAWAY_DISCORD_APPLICATION_ID/password", description = "Discord application ID for selfhost deployment" }
+CASTAWAY_DISCORD_PUBLIC_KEY = { provider = "op", value = "CASTAWAY_DISCORD_PUBLIC_KEY/password", description = "Discord public key for selfhost deployment" }
+DISCORD_TARGET_SEVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERVER_ID/password", description = "Target guild/server ID for selfhost deployment" }
+CASTAWAY_BOT_API_TOKEN = { provider = "op", value = "CASTAWAY_BOT_API_TOKEN/password", description = "Shared service auth token between castaway-web and castaway-discord-bot" }

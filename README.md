@@ -59,6 +59,16 @@ See `apps/castaway-web/README.md` for API + workflow details.
 
 See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord app configuration.
 
+### Selfhost app infra
+
+Castaway-specific selfhost wiring lives in `infra/`. It consumes the shared platform kubeconfig produced by `~/dev/infra` and owns app secrets plus Argo CD app manifests.
+
+```bash
+mise run castaway:apply
+```
+
+See `infra/README.md` for the split between app-owned infra and the shared platform repo.
+
 ## Documentation
 
 - Functional requirements: `functional-requirements.md`
