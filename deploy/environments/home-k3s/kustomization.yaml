@@ -7,7 +7,6 @@ resources:
   - ../../base/castaway-discord-bot
   - web-configmap.yaml
   - bot-configmap.yaml
-  - ingress-web.yaml
   - web-servicemonitor.yaml
   - bot-servicemonitor.yaml
 patches:
@@ -20,7 +19,7 @@ patches:
 images:
   - name: ghcr.io/bry-guy/castaway-web
     newName: ghcr.io/bry-guy/castaway-web
-    digest: sha256:94a755cbca388c157e158da027e6a48c34e6608efe446e58e5456a884ca6d624
+    digest: sha256:0c41165579c27bca1b7387bb8fb64164be1151e8ede81e26adcc566d615c240f
   - name: ghcr.io/bry-guy/castaway-discord-bot
     newName: ghcr.io/bry-guy/castaway-discord-bot
-    digest: sha256:c37f31570e5a6a48365039e51549a1f4ea4537dfd6b9c3de3b66e5f68ed831ef
+    digest: sha256:2298b34a8ce1e65fa1d71c417750bdd7ce1f66f058ac1d0418da680d8f743ddb

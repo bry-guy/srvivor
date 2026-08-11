@@ -108,7 +108,6 @@ deploy/
       bot-configmap.yaml
       bot-patch.yaml
       bot-placement-patch.yaml
-      ingress-web.yaml
       kustomization.yaml
 
   argocd/
@@ -120,6 +119,7 @@ Notes:
 
 - `home-k3s` is the single active self-hosted overlay in this repo
 - there is no in-cluster PostgreSQL base for the active target
+- `castaway-web` is ClusterIP-only; tailnet exposure is a separate platform concern
 - image digests are pinned in the overlay Argo CD watches
 
 ## Workload responsibilities
