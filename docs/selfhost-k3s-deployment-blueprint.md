@@ -76,11 +76,13 @@ Operational constraint:
 
 Castaway stateless workloads should land on service nodes, not the appliance/control-plane node by default.
 
-Current node label contract:
+Current node capability contract:
 
-- `selfhost.bry-guy.net/role=service`
+- `selfhost.bry-guy.net/capability-service=true`
 
-This label is applied by infra to the appropriate cluster node or nodes.
+This capability label is applied by infra to the appropriate cluster node or
+nodes. Replacement workers may retain `selfhost.bry-guy.net/role=worker` at the
+same time; labels are independent key/value capabilities.
 
 ## Repository layout
 

@@ -6,4 +6,4 @@ spec:
   template:
     spec:
       nodeSelector:
-        selfhost.bry-guy.net/role: service
+        selfhost.bry-guy.net/capability-service: "true"

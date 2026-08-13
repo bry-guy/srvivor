@@ -55,7 +55,7 @@ This repo owns:
 - Argo CD installation bootstrap
 - Kubernetes secret materialization from 1Password
 - external PostgreSQL installation, patching, backups, and restore drills
-- node labels such as `selfhost.bry-guy.net/role=service`
+- node capability labels such as `selfhost.bry-guy.net/capability-service=true`
 
 ## Operating model
 
@@ -110,7 +110,7 @@ KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl -n castaway get secrets
 
 Before deploying apps, confirm at least one target node has:
 
-- `selfhost.bry-guy.net/role=service`
+- `selfhost.bry-guy.net/capability-service=true`
 
 ## Argo CD bootstrap for the Castaway app repo
 
@@ -215,7 +215,7 @@ The overlay does **not** contain:
 
 Stateless Castaway workloads should schedule onto nodes labeled:
 
-- `selfhost.bry-guy.net/role=service`
+- `selfhost.bry-guy.net/capability-service=true`
 
 This includes:
 
@@ -278,7 +278,7 @@ Check:
 Check:
 
 ```bash
-KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl get nodes --show-labels | grep selfhost.bry-guy.net/role=service
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl get nodes --show-labels | grep selfhost.bry-guy.net/capability-service=true
 ```
 
 If no node matches, fix infra/node labeling first.
@@ -301,4 +301,4 @@ For the active self-hosted target:
 - this repo owns app manifests and Argo CD app wiring
 - `home-k3s` is the single active overlay
 - CI updates the same overlay Argo CD watches
-- workloads schedule to nodes labeled `selfhost.bry-guy.net/role=service`
+- workloads schedule to nodes labeled `selfhost.bry-guy.net/capability-service=true`

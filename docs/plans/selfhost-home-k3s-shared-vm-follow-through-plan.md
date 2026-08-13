@@ -12,7 +12,7 @@ Completed app-repo follow-through:
 
 - `deploy/environments/home-k3s` now represents the active external-PostgreSQL target
 - in-cluster PostgreSQL Kubernetes manifests were removed from this repo
-- web, bot, and migration workloads are pinned to service-labeled nodes via `selfhost.bry-guy.net/role=service`
+- web, bot, and migration workloads are pinned to service-capable nodes via `selfhost.bry-guy.net/capability-service=true`
 - the existing Argo CD application path remains `deploy/environments/home-k3s`
 - CI now validates the `home-k3s` overlay render so delivery automation stays aligned with the overlay Argo CD watches
 - selfhost docs now describe the external-PostgreSQL/shared-VM contract

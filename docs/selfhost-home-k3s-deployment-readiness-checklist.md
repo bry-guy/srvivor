@@ -17,7 +17,7 @@ It is specifically about whether the self-hosted deployment path is actually wir
 - [ ] the intended self-hosted cluster is reachable through the kubeconfig used for bootstrap
 - [ ] Argo CD is installed in that same cluster
 - [ ] the `castaway` namespace exists or can be created by Argo CD
-- [ ] at least one schedulable node has label `selfhost.bry-guy.net/role=service`
+- [ ] at least one schedulable node has label `selfhost.bry-guy.net/capability-service=true`
 - [ ] service-node placement is acceptable for:
   - [ ] `castaway-web`
   - [ ] `castaway-web-migrate`
@@ -62,7 +62,7 @@ It is specifically about whether the self-hosted deployment path is actually wir
 - [ ] the migration Job completes successfully
 - [ ] `castaway-web` becomes Ready
 - [ ] `castaway-discord-bot` becomes Ready
-- [ ] both workloads land on service-labeled nodes
+- [ ] both workloads land on service-capable nodes
 - [ ] `castaway-web` can reach PostgreSQL successfully
 - [ ] `castaway-discord-bot` can reach PostgreSQL successfully
 - [ ] `castaway-discord-bot` can reach `castaway-web` successfully
