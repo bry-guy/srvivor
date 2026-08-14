@@ -15,10 +15,12 @@ spec:
         app.kubernetes.io/component: migration
         app.kubernetes.io/part-of: castaway
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull
       restartPolicy: OnFailure
       containers:
         - name: castaway-web-migrate
-          image: ghcr.io/bry-guy/castaway-web:latest
+          image: ghcr.io/bry-guy/castaway-web:sha-placeholder
           imagePullPolicy: IfNotPresent
           command:
             - /app/castaway-web-migrate

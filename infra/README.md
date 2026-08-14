@@ -47,6 +47,7 @@ From this repo, using the unified `castaway:*` verb taxonomy:
 ```bash
 mise run castaway:platform:check       # platform prerequisites
 mise run castaway:postgres:target:restore restore-castaway-postgres # restore Castaway DBs
+mise run castaway:registry:pull-secret:apply # private GHCR pull access
 mise run castaway:secrets:apply        # K8s secrets from 1Password
 mise run castaway:argocd:apply         # Argo CD project/application manifests
 mise run castaway:argocd:sync          # explicit retry after a failed migration hook
@@ -93,6 +94,11 @@ through GitOps: update/push the app manifests or image tags consumed by
 `deploy/environments/home-k3s`, and Argo CD reconciles them.
 
 ## Required secrets
+
+The `castaway:registry:pull-secret:apply` task delegates to the platform
+repository. It materializes the shared `ghcr-pull` Secret in `castaway` and
+`pi-web` from the platform's read-only GHCR token. Run it before the first
+Argo rollout and after token rotation.
 
 The `castaway:secrets:apply` task uses the `castaway-selfhost` fnox profile and
 writes these Kubernetes secrets into the `castaway` namespace:

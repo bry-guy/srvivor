@@ -18,9 +18,11 @@ spec:
         app.kubernetes.io/name: castaway-web
         app.kubernetes.io/part-of: castaway
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull
       containers:
         - name: castaway-web
-          image: ghcr.io/bry-guy/castaway-web:latest
+          image: ghcr.io/bry-guy/castaway-web:sha-placeholder
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

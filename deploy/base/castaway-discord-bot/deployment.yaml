@@ -18,9 +18,11 @@ spec:
         app.kubernetes.io/name: castaway-discord-bot
         app.kubernetes.io/part-of: castaway
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull
       containers:
         - name: castaway-discord-bot
-          image: ghcr.io/bry-guy/castaway-discord-bot:latest
+          image: ghcr.io/bry-guy/castaway-discord-bot:sha-placeholder
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

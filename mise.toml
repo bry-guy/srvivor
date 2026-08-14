@@ -85,6 +85,7 @@ run = '''
 set -euo pipefail
 
 mise run "castaway:platform:check"
+mise run "castaway:registry:pull-secret:apply"
 mise run "castaway:secrets:apply"
 mise run "castaway:argocd:apply"
 mise run "castaway:check"
@@ -131,6 +132,23 @@ fnox exec -P castaway-selfhost -- bash -lc '
   mise -C "$1" run selfhost:platform:postgres:target:restore:castaway \
     "$2" "$3" "$4" "$5"
 ' bash "$infra_repo" "$target_host" "$target_user" "$source_host" "$confirmation"
+'''
+
+# --- registry -----------------------------------------------------------------
+
+[tasks."castaway:registry:pull-secret:apply"]
+description = "Materialize private GHCR pull access for Castaway"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+infra_repo="${CASTAWAY_PLATFORM_INFRA_REPO_PATH:-$HOME/dev/infra}"
+[ -d "$infra_repo" ] || {
+  echo "platform infra repo not found: $infra_repo" >&2
+  exit 1
+}
+
+mise -C "$infra_repo" run selfhost:platform:ghcr:pull-secret:apply
 '''
 
 # --- secrets -----------------------------------------------------------------

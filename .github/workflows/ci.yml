@@ -23,3 +23,8 @@ jobs:
           version: latest
       - name: Render home-k3s overlay
         run: kubectl kustomize deploy/environments/home-k3s > /tmp/home-k3s-render.yaml
+      - name: Check owned private-image contract
+        run: |
+          ! grep -Eq 'image: (localhost/|.*:latest|.*:sha-placeholder)' /tmp/home-k3s-render.yaml
+          grep -q 'imagePullSecrets:' /tmp/home-k3s-render.yaml
+          grep -q 'name: ghcr-pull' /tmp/home-k3s-render.yaml
