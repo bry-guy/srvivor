@@ -169,7 +169,7 @@ run = '''
 #!/usr/bin/env bash
 set -euo pipefail
 
-kubeconfig="${CASTAWAY_SELFHOST_KUBECONFIG_PATH:?CASTAWAY_SELFHOST_KUBECONFIG_PATH is required}"
+kubeconfig="${CASTAWAY_SELFHOST_KUBECONFIG_PATH:-${SELFHOST_PLATFORM_MIGRATION_KUBECONFIG_PATH:-$HOME/.kube/selfhost-platform-7049-1.yaml}}"
 KUBECONFIG="$kubeconfig" kubectl -n argocd patch application castaway-home-k3s \
   --type merge --patch '{"operation":{"sync":{}}}'
 '''
