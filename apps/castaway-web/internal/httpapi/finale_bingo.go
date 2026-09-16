@@ -79,6 +79,9 @@ func (s *Server) recordFinaleBingoLoanSharks(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOperation(c, instanceID, "finale bingo") {
+		return
+	}
 	if !s.requireInstanceAdminRequest(c, instanceID) {
 		return
 	}
@@ -153,6 +156,9 @@ func (s *Server) recordFinaleBingoScores(c *gin.Context) {
 func (s *Server) handleFinaleBingoScores(c *gin.Context, write bool) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOperation(c, instanceID, "finale bingo") {
 		return
 	}
 	if !s.requireInstanceAdminRequest(c, instanceID) {

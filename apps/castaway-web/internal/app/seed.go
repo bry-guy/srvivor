@@ -52,6 +52,21 @@ func seedSeasonTx(ctx context.Context, tx pgx.Tx, season seeddata.SeasonSeed, re
 		return fmt.Errorf("convert season number %d: %w", season.Season, err)
 	}
 
+	if err := q.LockInstanceNameSeason(ctx, fmt.Sprintf("%d:%s", seasonNumber, season.InstanceName)); err != nil {
+		return fmt.Errorf("lock instance name and season: %w", err)
+	}
+	lockedInstances, err := q.LockInstancesByNameSeason(ctx, db.LockInstancesByNameSeasonParams{
+		Name:   season.InstanceName,
+		Season: seasonNumber,
+	})
+	if err != nil {
+		return fmt.Errorf("lock existing instances for season %d: %w", season.Season, err)
+	}
+	for _, lockedInstance := range lockedInstances {
+		if lockedInstance.ProgressionMode == "managed" {
+			return fmt.Errorf("cannot seed over managed progression instance for season %d", season.Season)
+		}
+	}
 	if err := q.DeleteInstanceByNameSeason(ctx, db.DeleteInstanceByNameSeasonParams{
 		Name:   season.InstanceName,
 		Season: seasonNumber,

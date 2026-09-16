@@ -248,6 +248,9 @@ func (s *Server) startStirThePotRound(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOperation(c, instanceID, "stir the pot") {
+		return
+	}
 	if !s.requireInstanceAdminRequest(c, instanceID) {
 		return
 	}
@@ -312,6 +315,9 @@ func (s *Server) startStirThePotRound(c *gin.Context) {
 func (s *Server) closeStirThePotRound(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOperation(c, instanceID, "stir the pot") {
 		return
 	}
 	if !s.requireInstanceAdminRequest(c, instanceID) {
@@ -412,6 +418,9 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 func (s *Server) addStirThePotContribution(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOperation(c, instanceID, "stir the pot") {
 		return
 	}
 	var req addStirThePotContributionRequest
@@ -610,6 +619,9 @@ func (s *Server) startAuctionLot(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOperation(c, instanceID, "individual pony auction") {
+		return
+	}
 	if !s.requireInstanceAdminRequest(c, instanceID) {
 		return
 	}
@@ -680,6 +692,9 @@ func (s *Server) startAuctionLot(c *gin.Context) {
 func (s *Server) setAuctionBid(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOperation(c, instanceID, "individual pony auction") {
 		return
 	}
 	contestantID, ok := parseUUIDPath(c, "contestantID")
@@ -839,6 +854,9 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 func (s *Server) stopAuctionLot(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOperation(c, instanceID, "individual pony auction") {
 		return
 	}
 	contestantID, ok := parseUUIDPath(c, "contestantID")
@@ -1046,6 +1064,9 @@ func (s *Server) borrowFromLoanShark(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOperation(c, instanceID, "loan shark") {
+		return
+	}
 	participant, ok := s.requireLinkedParticipant(c, instanceID)
 	if !ok {
 		return
@@ -1199,6 +1220,9 @@ func (s *Server) repayLoanShark(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOperation(c, instanceID, "loan shark") {
+		return
+	}
 	participant, ok := s.requireLinkedParticipant(c, instanceID)
 	if !ok {
 		return
@@ -1336,6 +1360,9 @@ func (s *Server) recordIndividualPonyImmunity(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOperation(c, instanceID, "individual pony immunity") {
+		return
+	}
 	if !s.requireInstanceAdminRequest(c, instanceID) {
 		return
 	}
@@ -1440,6 +1467,9 @@ func (s *Server) recordIndividualPonyImmunity(c *gin.Context) {
 func (s *Server) recordMergeAuctionResults(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOperation(c, instanceID, "merge auction") {
 		return
 	}
 	if !s.requireInstanceAdminRequest(c, instanceID) {

@@ -163,10 +163,18 @@ model ListInstancesResponse {
   instances: Instance[];
 }
 
+model CreateInstanceEpisodeRequest {
+  episode_number: int32;
+  label: string;
+  airs_at: utcDateTime;
+}
+
 model CreateInstanceRequest {
   name: string;
   season: int32;
   contestants?: string[];
+  managed_progression?: boolean;
+  episodes?: CreateInstanceEpisodeRequest[];
 }
 
 model CreateInstanceResponse {
@@ -206,6 +214,9 @@ model ListParticipantsResponse {
 
 model ReplaceDraftRequest {
   contestant_ids: string[];
+  idempotency_key?: string;
+  effective_at?: utcDateTime;
+  reason?: string;
 }
 
 model ReplaceDraftResponse {
@@ -219,6 +230,14 @@ model GetDraftResponse {
 
 model UpsertOutcomeRequest {
   contestant_id?: string;
+  idempotency_key?: string;
+  effective_at?: utcDateTime;
+  reason?: string;
+}
+
+model ProgressionCommandRequest {
+  idempotency_key: string;
+  effective_at: utcDateTime;
 }
 
 model UpsertOutcomeResponse {
@@ -704,6 +723,52 @@ op replaceDraft(
 @route("/instances/{instanceID}/drafts/{participantID}")
 @get
 op getDraft(@path instanceID: string, @path participantID: string): GetDraftResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/drafts/{participantID}/late")
+@post
+op acceptLateDraft(
+  @path instanceID: string,
+  @path participantID: string,
+  @body body: ReplaceDraftRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/progression/draft/open")
+@post
+op openDraft(
+  @path instanceID: string,
+  @body body: ProgressionCommandRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/progression/draft/close")
+@post
+op closeDraft(
+  @path instanceID: string,
+  @body body: ProgressionCommandRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/progression/episodes/{episodeNumber}/start")
+@post
+op startEpisode(
+  @path instanceID: string,
+  @path episodeNumber: int32,
+  @body body: ProgressionCommandRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/progression/episodes/{episodeNumber}/complete")
+@post
+op completeEpisode(
+  @path instanceID: string,
+  @path episodeNumber: int32,
+  @body body: ProgressionCommandRequest,
+): JsonObject | ErrorResponse;
+
+@route("/instances/{instanceID}/progression/episodes/{episodeNumber}/score")
+@post
+op scoreEpisode(
+  @path instanceID: string,
+  @path episodeNumber: int32,
+  @body body: ProgressionCommandRequest,
+): JsonObject | ErrorResponse;
 
 @route("/instances/{instanceID}/outcomes/{position}")
 @put

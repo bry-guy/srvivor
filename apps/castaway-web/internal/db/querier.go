@@ -25,12 +25,15 @@ type Querier interface {
 	CreateInstanceActivity(ctx context.Context, arg CreateInstanceActivityParams) (CreateInstanceActivityRow, error)
 	CreateInstanceAdmin(ctx context.Context, arg CreateInstanceAdminParams) (InstanceAdmin, error)
 	CreateInstanceEpisode(ctx context.Context, arg CreateInstanceEpisodeParams) (CreateInstanceEpisodeRow, error)
+	CreateInstanceScoreRevision(ctx context.Context, arg CreateInstanceScoreRevisionParams) (CreateInstanceScoreRevisionRow, error)
+	CreateInstanceScoreRevisionRow(ctx context.Context, arg CreateInstanceScoreRevisionRowParams) error
 	CreateParticipant(ctx context.Context, arg CreateParticipantParams) (CreateParticipantRow, error)
 	CreateParticipantAdvantage(ctx context.Context, arg CreateParticipantAdvantageParams) (CreateParticipantAdvantageRow, error)
 	CreateParticipantGroup(ctx context.Context, arg CreateParticipantGroupParams) (CreateParticipantGroupRow, error)
 	CreateParticipantGroupMembershipPeriod(ctx context.Context, arg CreateParticipantGroupMembershipPeriodParams) (CreateParticipantGroupMembershipPeriodRow, error)
 	CreateParticipantLoan(ctx context.Context, arg CreateParticipantLoanParams) (CreateParticipantLoanRow, error)
 	CreateParticipantPonyOwnership(ctx context.Context, arg CreateParticipantPonyOwnershipParams) (CreateParticipantPonyOwnershipRow, error)
+	CreateProgressionCommand(ctx context.Context, arg CreateProgressionCommandParams) (CreateProgressionCommandRow, error)
 	DeleteDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) error
 	DeleteInstanceAdmin(ctx context.Context, arg DeleteInstanceAdminParams) error
 	DeleteInstanceByNameSeason(ctx context.Context, arg DeleteInstanceByNameSeasonParams) error
@@ -42,12 +45,22 @@ type Querier interface {
 	GetCurrentEpisodeAt(ctx context.Context, arg GetCurrentEpisodeAtParams) (GetCurrentEpisodeAtRow, error)
 	GetInstance(ctx context.Context, id pgtype.UUID) (GetInstanceRow, error)
 	GetInstanceActivity(ctx context.Context, id pgtype.UUID) (GetInstanceActivityRow, error)
+	GetInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) (GetInstanceDraftProgressRow, error)
+	GetInstanceEpisodeProgress(ctx context.Context, arg GetInstanceEpisodeProgressParams) (GetInstanceEpisodeProgressRow, error)
+	GetInstanceProgressionMode(ctx context.Context, instanceID pgtype.UUID) (string, error)
+	GetLatestInstanceScoreRevision(ctx context.Context, instanceID pgtype.UUID) (GetLatestInstanceScoreRevisionRow, error)
+	GetLatestManagedEpisodeBrief(ctx context.Context, instanceID pgtype.UUID) (GetLatestManagedEpisodeBriefRow, error)
+	GetLatestManagedEpisodeProgress(ctx context.Context, instanceID pgtype.UUID) (GetLatestManagedEpisodeProgressRow, error)
 	GetParticipant(ctx context.Context, id pgtype.UUID) (GetParticipantRow, error)
 	GetParticipantByDiscordUserID(ctx context.Context, arg GetParticipantByDiscordUserIDParams) (GetParticipantByDiscordUserIDRow, error)
 	GetParticipantGroup(ctx context.Context, id pgtype.UUID) (GetParticipantGroupRow, error)
+	GetPreviousInstanceEpisodeProgress(ctx context.Context, arg GetPreviousInstanceEpisodeProgressParams) (GetPreviousInstanceEpisodeProgressRow, error)
+	GetProgressionCommand(ctx context.Context, arg GetProgressionCommandParams) (GetProgressionCommandRow, error)
 	GetSecretBonusTotalByParticipant(ctx context.Context, arg GetSecretBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipant(ctx context.Context, arg GetVisibleBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipantAsOf(ctx context.Context, arg GetVisibleBonusTotalByParticipantAsOfParams) (int32, error)
+	InitializeInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) error
+	InitializeInstanceEpisodeProgress(ctx context.Context, instanceID pgtype.UUID) error
 	InstanceHasContestant(ctx context.Context, arg InstanceHasContestantParams) (bool, error)
 	IsInstanceAdmin(ctx context.Context, arg IsInstanceAdminParams) (bool, error)
 	ListActiveActivityGroupAssignmentsAt(ctx context.Context, arg ListActiveActivityGroupAssignmentsAtParams) ([]ListActiveActivityGroupAssignmentsAtRow, error)
@@ -76,6 +89,7 @@ type Querier interface {
 	ListInstanceAdmins(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceAdminsRow, error)
 	ListInstanceEpisodes(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceEpisodesRow, error)
 	ListInstances(ctx context.Context) ([]ListInstancesRow, error)
+	ListLatestInstanceScoreRevisionRows(ctx context.Context, instanceID pgtype.UUID) ([]ListLatestInstanceScoreRevisionRowsRow, error)
 	ListOutcomePositionsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListOutcomePositionsByInstanceRow, error)
 	ListParticipantGroupMembershipPeriods(ctx context.Context, participantGroupID pgtype.UUID) ([]ListParticipantGroupMembershipPeriodsRow, error)
 	ListParticipantGroupsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantGroupsByInstanceRow, error)
@@ -83,9 +97,18 @@ type Querier interface {
 	ListParticipantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantsByInstanceRow, error)
 	ListVisibleBonusPointLedgerEntriesByOccurrence(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListVisibleBonusPointLedgerEntriesByOccurrenceRow, error)
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
+	LockInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) (LockInstanceDraftProgressRow, error)
+	LockInstanceEpisodeProgress(ctx context.Context, arg LockInstanceEpisodeProgressParams) (LockInstanceEpisodeProgressRow, error)
+	LockInstanceForProgression(ctx context.Context, instanceID pgtype.UUID) (LockInstanceForProgressionRow, error)
+	LockInstanceNameSeason(ctx context.Context, lockKey string) error
+	LockInstancesByNameSeason(ctx context.Context, arg LockInstancesByNameSeasonParams) ([]LockInstancesByNameSeasonRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
+	NextInstanceScoreRevisionNumber(ctx context.Context, instanceID pgtype.UUID) (int32, error)
+	SetInstanceProgressionMode(ctx context.Context, arg SetInstanceProgressionModeParams) error
 	SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error)
 	UpdateActivityOccurrenceStatusAndMetadata(ctx context.Context, arg UpdateActivityOccurrenceStatusAndMetadataParams) (UpdateActivityOccurrenceStatusAndMetadataRow, error)
+	UpdateInstanceDraftProgress(ctx context.Context, arg UpdateInstanceDraftProgressParams) (UpdateInstanceDraftProgressRow, error)
+	UpdateInstanceEpisodeProgress(ctx context.Context, arg UpdateInstanceEpisodeProgressParams) (UpdateInstanceEpisodeProgressRow, error)
 	UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error)
 	UpdateParticipantLoan(ctx context.Context, arg UpdateParticipantLoanParams) (UpdateParticipantLoanRow, error)
 	UpsertActivityOccurrenceParticipant(ctx context.Context, arg UpsertActivityOccurrenceParticipantParams) (UpsertActivityOccurrenceParticipantRow, error)

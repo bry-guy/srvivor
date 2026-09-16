@@ -58,6 +58,30 @@ type EpisodeTemplate struct {
 	AirsAt        time.Time
 }
 
+func ValidateEpisodeSchedule(schedule []EpisodeTemplate) error {
+	if len(schedule) == 0 {
+		return fmt.Errorf("episode schedule cannot be empty")
+	}
+	if schedule[0].EpisodeNumber != 0 && schedule[0].EpisodeNumber != 1 {
+		return fmt.Errorf("episode schedule must start at episode 0 or 1")
+	}
+	for index, episode := range schedule {
+		if int64(episode.EpisodeNumber) != int64(schedule[0].EpisodeNumber)+int64(index) {
+			return fmt.Errorf("episode schedule must use contiguous episode numbers")
+		}
+		if episode.Label == "" {
+			return fmt.Errorf("episode %d label cannot be empty", episode.EpisodeNumber)
+		}
+		if episode.AirsAt.IsZero() {
+			return fmt.Errorf("episode %d air time cannot be zero", episode.EpisodeNumber)
+		}
+		if index > 0 && !episode.AirsAt.After(schedule[index-1].AirsAt) {
+			return fmt.Errorf("episode schedule air times must be strictly chronological")
+		}
+	}
+	return nil
+}
+
 func DefaultEpisodeScheduleForSeason(season int32) []EpisodeTemplate {
 	if season == 50 {
 		location, err := time.LoadLocation("America/New_York")

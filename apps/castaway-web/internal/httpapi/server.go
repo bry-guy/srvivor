@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -109,7 +110,13 @@ func (s *Server) Router() *gin.Engine {
 	protected.POST("/instances/:instanceID/finale-bingo/scores", s.recordFinaleBingoScores)
 
 	protected.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
+	protected.POST("/instances/:instanceID/drafts/:participantID/late", s.acceptLateDraft)
 	protected.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)
+	protected.POST("/instances/:instanceID/progression/draft/open", s.openDraft)
+	protected.POST("/instances/:instanceID/progression/draft/close", s.closeDraft)
+	protected.POST("/instances/:instanceID/progression/episodes/:episodeNumber/start", s.startEpisode)
+	protected.POST("/instances/:instanceID/progression/episodes/:episodeNumber/complete", s.completeEpisode)
+	protected.POST("/instances/:instanceID/progression/episodes/:episodeNumber/score", s.scoreEpisode)
 
 	protected.PUT("/instances/:instanceID/outcomes/:position", s.upsertOutcome)
 	protected.GET("/instances/:instanceID/outcomes", s.listOutcomes)
@@ -198,9 +205,17 @@ func (s *Server) listInstances(c *gin.Context) {
 }
 
 type createInstanceRequest struct {
-	Name        string   `json:"name" binding:"required"`
-	Season      int32    `json:"season" binding:"required"`
-	Contestants []string `json:"contestants"`
+	Name               string                         `json:"name" binding:"required"`
+	Season             int32                          `json:"season" binding:"required"`
+	Contestants        []string                       `json:"contestants"`
+	ManagedProgression bool                           `json:"managed_progression"`
+	Episodes           []createInstanceEpisodeRequest `json:"episodes"`
+}
+
+type createInstanceEpisodeRequest struct {
+	EpisodeNumber int32     `json:"episode_number"`
+	Label         string    `json:"label"`
+	AirsAt        time.Time `json:"airs_at"`
 }
 
 func (s *Server) createInstance(c *gin.Context) {
@@ -208,6 +223,16 @@ func (s *Server) createInstance(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
+	}
+	if req.ManagedProgression {
+		if _, ok := ServicePrincipal(c.Request.Context()); !ok {
+			c.JSON(http.StatusUnauthorized, errorResponse{Error: "managed progression requires service authentication"})
+			return
+		}
+		if discordUserIDFromRequest(c.Request) == "" {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "managed progression requires discord user id"})
+			return
+		}
 	}
 
 	tx, err := s.pool.Begin(c.Request.Context())
@@ -225,6 +250,21 @@ func (s *Server) createInstance(c *gin.Context) {
 	}()
 
 	qtx := s.queries.WithTx(tx)
+	if err := qtx.LockInstanceNameSeason(c.Request.Context(), fmt.Sprintf("%d:%s", req.Season, req.Name)); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if req.ManagedProgression {
+		existing, err := qtx.LockInstancesByNameSeason(c.Request.Context(), db.LockInstancesByNameSeasonParams{Name: req.Name, Season: req.Season})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		if len(existing) > 0 {
+			c.JSON(http.StatusConflict, errorResponse{Error: "an instance with this name and season already exists"})
+			return
+		}
+	}
 	createdInstance, err := qtx.CreateInstance(c.Request.Context(), db.CreateInstanceParams{
 		Name:   req.Name,
 		Season: req.Season,
@@ -248,7 +288,54 @@ func (s *Server) createInstance(c *gin.Context) {
 		}
 	}
 
-	if err := gameplay.NewService(qtx).CopyInstanceSchedule(c.Request.Context(), createdInstance.ID, createdInstance.Season); err != nil {
+	if req.ManagedProgression {
+		schedule := make([]gameplay.EpisodeTemplate, 0, len(req.Episodes))
+		for _, episode := range req.Episodes {
+			schedule = append(schedule, gameplay.EpisodeTemplate{
+				EpisodeNumber: episode.EpisodeNumber,
+				Label:         strings.TrimSpace(episode.Label),
+				AirsAt:        episode.AirsAt,
+			})
+		}
+		if err := gameplay.ValidateEpisodeSchedule(schedule); err != nil {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return
+		}
+		for _, episode := range schedule {
+			if _, err := qtx.CreateInstanceEpisode(c.Request.Context(), db.CreateInstanceEpisodeParams{
+				InstanceID:    createdInstance.ID,
+				EpisodeNumber: episode.EpisodeNumber,
+				Label:         episode.Label,
+				AirsAt:        pgtype.Timestamptz{Time: episode.AirsAt.UTC(), Valid: true},
+				Metadata:      []byte("{}"),
+			}); err != nil {
+				c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+				return
+			}
+		}
+		if err := qtx.SetInstanceProgressionMode(c.Request.Context(), db.SetInstanceProgressionModeParams{
+			InstanceID:      createdInstance.ID,
+			ProgressionMode: "managed",
+		}); err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		if err := qtx.InitializeInstanceDraftProgress(c.Request.Context(), createdInstance.ID); err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		if err := qtx.InitializeInstanceEpisodeProgress(c.Request.Context(), createdInstance.ID); err != nil {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+		if _, err := qtx.CreateInstanceAdmin(c.Request.Context(), db.CreateInstanceAdminParams{
+			InstanceID:    createdInstance.ID,
+			DiscordUserID: discordUserIDFromRequest(c.Request),
+		}); err != nil {
+			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+			return
+		}
+	} else if err := gameplay.NewService(qtx).CopyInstanceSchedule(c.Request.Context(), createdInstance.ID, createdInstance.Season); err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
@@ -306,15 +393,30 @@ func (s *Server) getInstance(c *gin.Context) {
 	}
 
 	instanceJSON := toInstanceResponse(instance.ID, instance.Name, instance.Season, instance.CreatedAt)
-	currentEpisode, err := s.queries.GetCurrentEpisodeAt(c.Request.Context(), db.GetCurrentEpisodeAtParams{
-		InstanceID: instance.ID,
-		At:         pgtype.Timestamptz{Time: s.now(), Valid: true},
-	})
-	if err == nil {
-		instanceJSON.CurrentEpisode = toInstanceEpisodeBrief(currentEpisode)
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+	mode, modeErr := s.queries.GetInstanceProgressionMode(c.Request.Context(), instance.ID)
+	if modeErr != nil && !errors.Is(modeErr, pgx.ErrNoRows) {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: modeErr.Error()})
 		return
+	}
+	if mode == "managed" {
+		currentEpisode, err := s.queries.GetLatestManagedEpisodeBrief(c.Request.Context(), instance.ID)
+		if err == nil {
+			instanceJSON.CurrentEpisode = toInstanceEpisodeBrief(db.GetCurrentEpisodeAtRow(currentEpisode))
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		currentEpisode, err := s.queries.GetCurrentEpisodeAt(c.Request.Context(), db.GetCurrentEpisodeAtParams{
+			InstanceID: instance.ID,
+			At:         pgtype.Timestamptz{Time: s.now(), Valid: true},
+		})
+		if err == nil {
+			instanceJSON.CurrentEpisode = toInstanceEpisodeBrief(currentEpisode)
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+			return
+		}
 	}
 
 	episodeRows, err := s.queries.ListInstanceEpisodes(c.Request.Context(), instance.ID)
@@ -353,6 +455,15 @@ func (s *Server) createContestant(c *gin.Context) {
 	var req createContestantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if s.runManagedSetupWrite(c, instanceID, http.StatusCreated, "contestant", func(ctx context.Context, q *db.Queries) (any, error) {
+		contestant, err := q.CreateContestant(ctx, db.CreateContestantParams{InstanceID: toPGUUID(instanceID), Name: req.Name})
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"contestant": gin.H{"id": uuid.UUID(contestant.ID.Bytes).String(), "name": contestant.Name}}, nil
+	}) {
 		return
 	}
 
@@ -407,6 +518,15 @@ func (s *Server) createParticipant(c *gin.Context) {
 	var req createParticipantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	if s.runManagedSetupWrite(c, instanceID, http.StatusCreated, "participant", func(ctx context.Context, q *db.Queries) (any, error) {
+		participant, err := q.CreateParticipant(ctx, db.CreateParticipantParams{InstanceID: toPGUUID(instanceID), Name: req.Name})
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"participant": gin.H{"id": uuid.UUID(participant.ID.Bytes).String(), "name": participant.Name}}, nil
+	}) {
 		return
 	}
 
@@ -485,6 +605,9 @@ func (s *Server) linkParticipantDiscordUser(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if _, ok := s.requireManagedAdminIfNeeded(c, instanceID); !ok {
+		return
+	}
 	participantID, ok := parseUUIDPath(c, "participantID")
 	if !ok {
 		return
@@ -549,6 +672,9 @@ func (s *Server) linkParticipantDiscordUser(c *gin.Context) {
 func (s *Server) unlinkParticipantDiscordUser(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+	if _, ok := s.requireManagedAdminIfNeeded(c, instanceID); !ok {
 		return
 	}
 	participantID, ok := parseUUIDPath(c, "participantID")
@@ -622,7 +748,10 @@ func (s *Server) currentTribeName(ctx context.Context, participantID pgtype.UUID
 }
 
 type replaceDraftRequest struct {
-	ContestantIDs []string `json:"contestant_ids" binding:"required"`
+	ContestantIDs  []string   `json:"contestant_ids" binding:"required"`
+	IdempotencyKey string     `json:"idempotency_key"`
+	EffectiveAt    *time.Time `json:"effective_at"`
+	Reason         string     `json:"reason"`
 }
 
 func (s *Server) replaceDraft(c *gin.Context) {
@@ -642,6 +771,16 @@ func (s *Server) replaceDraft(c *gin.Context) {
 	}
 	if len(req.ContestantIDs) == 0 {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "contestant_ids cannot be empty"})
+		return
+	}
+
+	mode, err := s.queries.GetInstanceProgressionMode(c.Request.Context(), toPGUUID(instanceID))
+	if err == nil && mode == "managed" {
+		s.replaceManagedDraft(c, instanceID, participantID, req, false)
+		return
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -800,7 +939,10 @@ func (s *Server) getDraft(c *gin.Context) {
 }
 
 type upsertOutcomeRequest struct {
-	ContestantID string `json:"contestant_id"`
+	ContestantID   string     `json:"contestant_id"`
+	IdempotencyKey string     `json:"idempotency_key"`
+	EffectiveAt    *time.Time `json:"effective_at"`
+	Reason         string     `json:"reason"`
 }
 
 func (s *Server) upsertOutcome(c *gin.Context) {
@@ -850,6 +992,16 @@ func (s *Server) upsertOutcome(c *gin.Context) {
 		return
 	}
 
+	mode, modeErr := s.queries.GetInstanceProgressionMode(c.Request.Context(), toPGUUID(instanceID))
+	if modeErr == nil && mode == "managed" {
+		s.upsertManagedOutcome(c, instanceID, positionInt32, req)
+		return
+	}
+	if modeErr != nil && !errors.Is(modeErr, pgx.ErrNoRows) {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: modeErr.Error()})
+		return
+	}
+
 	outcome, err := s.queries.UpsertOutcomePosition(c.Request.Context(), db.UpsertOutcomePositionParams{
 		InstanceID:   toPGUUID(instanceID),
 		Position:     positionInt32,
@@ -874,6 +1026,16 @@ func (s *Server) upsertOutcome(c *gin.Context) {
 func (s *Server) listOutcomes(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
+		return
+	}
+
+	mode, err := s.queries.GetInstanceProgressionMode(c.Request.Context(), toPGUUID(instanceID))
+	if err == nil && mode == "managed" {
+		s.managedOutcomes(c, instanceID)
+		return
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -918,6 +1080,16 @@ func (s *Server) leaderboard(c *gin.Context) {
 
 	participantFilter, ok := parseOptionalParticipantIDQuery(c)
 	if !ok {
+		return
+	}
+
+	mode, err := s.queries.GetInstanceProgressionMode(c.Request.Context(), toPGUUID(instanceID))
+	if err == nil && mode == "managed" {
+		s.managedLeaderboard(c, instanceID, participantFilter)
+		return
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -1426,6 +1598,9 @@ func (s *Server) createActivity(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOperation(c, instanceID, "activity creation") {
+		return
+	}
 
 	var req createActivityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1549,6 +1724,9 @@ func (s *Server) createOccurrence(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedActivityOperation(c, activityID, "activity occurrence creation") {
+		return
+	}
 
 	var req createOccurrenceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1586,6 +1764,9 @@ type createOccurrenceParticipantRequest struct {
 func (s *Server) createOccurrenceParticipant(c *gin.Context) {
 	occurrenceID, ok := parseUUIDPath(c, "occurrenceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOccurrenceOperation(c, occurrenceID, "occurrence participant writes") {
 		return
 	}
 
@@ -1653,6 +1834,9 @@ func (s *Server) createOccurrenceGroup(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if s.rejectManagedOccurrenceOperation(c, occurrenceID, "occurrence group writes") {
+		return
+	}
 
 	var req createOccurrenceGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1697,6 +1881,9 @@ func (s *Server) createOccurrenceGroup(c *gin.Context) {
 func (s *Server) resolveOccurrence(c *gin.Context) {
 	occurrenceID, ok := parseUUIDPath(c, "occurrenceID")
 	if !ok {
+		return
+	}
+	if s.rejectManagedOccurrenceOperation(c, occurrenceID, "occurrence resolution") {
 		return
 	}
 

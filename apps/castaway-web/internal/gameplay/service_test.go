@@ -27,6 +27,28 @@ func TestDefaultEpisodeScheduleForSeason50(t *testing.T) {
 	}
 }
 
+func TestValidateEpisodeScheduleRejectsInvalidDefinitions(t *testing.T) {
+	base := time.Date(2026, time.January, 1, 20, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name     string
+		schedule []EpisodeTemplate
+	}{
+		{name: "empty", schedule: nil},
+		{name: "invalid start", schedule: []EpisodeTemplate{{EpisodeNumber: 2, Label: "Episode 2", AirsAt: base}}},
+		{name: "gap", schedule: []EpisodeTemplate{{EpisodeNumber: 0, Label: "Preseason", AirsAt: base}, {EpisodeNumber: 2, Label: "Episode 2", AirsAt: base.Add(time.Hour)}}},
+		{name: "empty label", schedule: []EpisodeTemplate{{EpisodeNumber: 0, Label: "", AirsAt: base}}},
+		{name: "zero time", schedule: []EpisodeTemplate{{EpisodeNumber: 0, Label: "Preseason"}}},
+		{name: "non chronological", schedule: []EpisodeTemplate{{EpisodeNumber: 0, Label: "Preseason", AirsAt: base}, {EpisodeNumber: 1, Label: "Episode 1", AirsAt: base}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := ValidateEpisodeSchedule(test.schedule); err == nil {
+				t.Fatal("expected invalid schedule to be rejected")
+			}
+		})
+	}
+}
+
 func TestCopyInstanceSchedule(t *testing.T) {
 	fake := &fakeQuerier{}
 	service := NewService(fake)

@@ -43,7 +43,9 @@ func (q *Queries) CreateInstance(ctx context.Context, arg CreateInstanceParams) 
 
 const deleteInstanceByNameSeason = `-- name: DeleteInstanceByNameSeason :exec
 DELETE FROM instances
-WHERE name = $1 AND season = $2
+WHERE name = $1
+  AND season = $2
+  AND progression_mode = 'legacy'
 `
 
 type DeleteInstanceByNameSeasonParams struct {
@@ -109,6 +111,53 @@ func (q *Queries) ListInstances(ctx context.Context) ([]ListInstancesRow, error)
 			&i.Season,
 			&i.CreatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockInstanceNameSeason = `-- name: LockInstanceNameSeason :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
+`
+
+func (q *Queries) LockInstanceNameSeason(ctx context.Context, lockKey string) error {
+	_, err := q.db.Exec(ctx, lockInstanceNameSeason, lockKey)
+	return err
+}
+
+const lockInstancesByNameSeason = `-- name: LockInstancesByNameSeason :many
+SELECT public_id, progression_mode
+FROM instances
+WHERE name = $1
+  AND season = $2
+FOR UPDATE
+`
+
+type LockInstancesByNameSeasonParams struct {
+	Name   string `json:"name"`
+	Season int32  `json:"season"`
+}
+
+type LockInstancesByNameSeasonRow struct {
+	PublicID        pgtype.UUID `json:"public_id"`
+	ProgressionMode string      `json:"progression_mode"`
+}
+
+func (q *Queries) LockInstancesByNameSeason(ctx context.Context, arg LockInstancesByNameSeasonParams) ([]LockInstancesByNameSeasonRow, error) {
+	rows, err := q.db.Query(ctx, lockInstancesByNameSeason, arg.Name, arg.Season)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LockInstancesByNameSeasonRow{}
+	for rows.Next() {
+		var i LockInstancesByNameSeasonRow
+		if err := rows.Scan(&i.PublicID, &i.ProgressionMode); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

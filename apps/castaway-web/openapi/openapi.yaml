@@ -398,6 +398,36 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/GetDraftResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/drafts/{participantID}/late:
+    post:
+      operationId: acceptLateDraft
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceDraftRequest'
   /instances/{instanceID}/finale-bingo/loan-sharks:
     post:
       operationId: recordFinaleBingoLoanSharks
@@ -843,6 +873,149 @@ paths:
                   - type: object
                     additionalProperties: {}
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/progression/draft/close:
+    post:
+      operationId: closeDraft
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressionCommandRequest'
+  /instances/{instanceID}/progression/draft/open:
+    post:
+      operationId: openDraft
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressionCommandRequest'
+  /instances/{instanceID}/progression/episodes/{episodeNumber}/complete:
+    post:
+      operationId: completeEpisode
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: episodeNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressionCommandRequest'
+  /instances/{instanceID}/progression/episodes/{episodeNumber}/score:
+    post:
+      operationId: scoreEpisode
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: episodeNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressionCommandRequest'
+  /instances/{instanceID}/progression/episodes/{episodeNumber}/start:
+    post:
+      operationId: startEpisode
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: episodeNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressionCommandRequest'
   /instances/{instanceID}/stir-the-pot/close:
     post:
       operationId: closeStirThePotRound
@@ -1289,6 +1462,21 @@ components:
       properties:
         contestant:
           $ref: '#/components/schemas/Contestant'
+    CreateInstanceEpisodeRequest:
+      type: object
+      required:
+        - episode_number
+        - label
+        - airs_at
+      properties:
+        episode_number:
+          type: integer
+          format: int32
+        label:
+          type: string
+        airs_at:
+          type: string
+          format: date-time
     CreateInstanceRequest:
       type: object
       required:
@@ -1304,6 +1492,12 @@ components:
           type: array
           items:
             type: string
+        managed_progression:
+          type: boolean
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateInstanceEpisodeRequest'
     CreateInstanceResponse:
       type: object
       required:
@@ -2070,6 +2264,17 @@ components:
         created_at:
           type: string
           format: date-time
+    ProgressionCommandRequest:
+      type: object
+      required:
+        - idempotency_key
+        - effective_at
+      properties:
+        idempotency_key:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
     RecordFinaleBingoLoanSharksRequest:
       type: object
       required:
@@ -2136,6 +2341,13 @@ components:
           type: array
           items:
             type: string
+        idempotency_key:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
     ReplaceDraftResponse:
       type: object
       required:
@@ -2227,6 +2439,13 @@ components:
       type: object
       properties:
         contestant_id:
+          type: string
+        idempotency_key:
+          type: string
+        effective_at:
+          type: string
+          format: date-time
+        reason:
           type: string
     UpsertOutcomeResponse:
       type: object

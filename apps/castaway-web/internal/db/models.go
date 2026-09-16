@@ -116,11 +116,12 @@ type Import struct {
 }
 
 type Instance struct {
-	ID        int64              `json:"id"`
-	PublicID  pgtype.UUID        `json:"public_id"`
-	Name      string             `json:"name"`
-	Season    int32              `json:"season"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID              int64              `json:"id"`
+	PublicID        pgtype.UUID        `json:"public_id"`
+	Name            string             `json:"name"`
+	Season          int32              `json:"season"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ProgressionMode string             `json:"progression_mode"`
 }
 
 type InstanceActivity struct {
@@ -150,6 +151,14 @@ type InstanceContestant struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type InstanceDraftProgress struct {
+	InstanceID int64              `json:"instance_id"`
+	Status     string             `json:"status"`
+	OpenedAt   pgtype.Timestamptz `json:"opened_at"`
+	ClosedAt   pgtype.Timestamptz `json:"closed_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type InstanceEpisode struct {
 	ID            int64              `json:"id"`
 	PublicID      pgtype.UUID        `json:"public_id"`
@@ -160,6 +169,52 @@ type InstanceEpisode struct {
 	Metadata      []byte             `json:"metadata"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InstanceEpisodeProgress struct {
+	InstanceID    int64              `json:"instance_id"`
+	EpisodeNumber int32              `json:"episode_number"`
+	Status        string             `json:"status"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	ScoredAt      pgtype.Timestamptz `json:"scored_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InstanceProgressionCommand struct {
+	ID                 int64              `json:"id"`
+	InstanceID         int64              `json:"instance_id"`
+	CommandKey         string             `json:"command_key"`
+	Operation          string             `json:"operation"`
+	ActorDiscordUserID string             `json:"actor_discord_user_id"`
+	EffectiveAt        pgtype.Timestamptz `json:"effective_at"`
+	PayloadHash        string             `json:"payload_hash"`
+	Payload            []byte             `json:"payload"`
+	Response           []byte             `json:"response"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type InstanceScoreRevision struct {
+	ID             int64              `json:"id"`
+	PublicID       pgtype.UUID        `json:"public_id"`
+	InstanceID     int64              `json:"instance_id"`
+	RevisionNumber int32              `json:"revision_number"`
+	EpisodeNumber  int32              `json:"episode_number"`
+	Reason         string             `json:"reason"`
+	EffectiveAt    pgtype.Timestamptz `json:"effective_at"`
+	InputSnapshot  []byte             `json:"input_snapshot"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type InstanceScoreRevisionRow struct {
+	RevisionID      int64  `json:"revision_id"`
+	ParticipantID   int64  `json:"participant_id"`
+	ParticipantName string `json:"participant_name"`
+	Score           int32  `json:"score"`
+	DraftPoints     int32  `json:"draft_points"`
+	BonusPoints     int32  `json:"bonus_points"`
+	TotalPoints     int32  `json:"total_points"`
+	PointsAvailable int32  `json:"points_available"`
 }
 
 type OutcomePosition struct {

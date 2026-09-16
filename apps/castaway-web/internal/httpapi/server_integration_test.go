@@ -1,12 +1,14 @@
 package httpapi_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/httpapi"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/seeddata"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -218,6 +221,448 @@ func TestServiceAuthProtectsNonHealthRoutes(t *testing.T) {
 	}
 	if !strings.Contains(validRecorder.Body.String(), uuid.UUID(instance.ID.Bytes).String()) {
 		t.Fatalf("expected instances response to include created instance, body = %s", validRecorder.Body.String())
+	}
+}
+
+func TestManagedWritesFailClosedAndImportPreservesInstance(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{
+		Enabled:      true,
+		BearerTokens: []string{"managed-token"},
+	}))
+	router := server.Router()
+	createBody := `{"name":"Managed protection","season":100,"managed_progression":true,"contestants":["Protected C1","Protected C2"],"episodes":[{"episode_number":0,"label":"Preseason","airs_at":"2026-02-01T20:00:00-05:00"},{"episode_number":1,"label":"Episode 1","airs_at":"2026-02-08T20:00:00-05:00"}]}`
+	createReq := authorizedJSONRequest(http.MethodPost, "/instances", createBody, "managed-token", "managed-admin")
+	createRecorder := httptest.NewRecorder()
+	router.ServeHTTP(createRecorder, createReq)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("managed instance creation status = %d, body = %s", createRecorder.Code, createRecorder.Body.String())
+	}
+	var created struct {
+		Instance struct {
+			ID string `json:"id"`
+		} `json:"instance"`
+	}
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode managed instance: %v", err)
+	}
+	instanceID, err := uuid.Parse(created.Instance.ID)
+	if err != nil {
+		t.Fatalf("parse managed instance id: %v", err)
+	}
+	publicID := pgtype.UUID{Bytes: instanceID, Valid: true}
+	queries := db.New(pool)
+
+	noAuthRouter := httpapi.New(pool).Router()
+	forgedProgression := authorizedJSONRequest(http.MethodPost, "/instances/"+created.Instance.ID+"/progression/draft/open", `{"idempotency_key":"forged-open","effective_at":"2026-02-02T20:00:00Z"}`, "", "managed-admin")
+	forgedProgressionRecorder := httptest.NewRecorder()
+	noAuthRouter.ServeHTTP(forgedProgressionRecorder, forgedProgression)
+	if forgedProgressionRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("forged managed progression status = %d, body = %s", forgedProgressionRecorder.Code, forgedProgressionRecorder.Body.String())
+	}
+	draftProgress, err := queries.GetInstanceDraftProgress(ctx, publicID)
+	if err != nil {
+		t.Fatalf("read managed draft state: %v", err)
+	}
+	if draftProgress.Status != "pending" {
+		t.Fatalf("forged request changed draft state to %q", draftProgress.Status)
+	}
+
+	activityReq := authorizedJSONRequest(http.MethodPost, "/instances/"+created.Instance.ID+"/activities", `{"activity_type":"tribe_wordle","name":"forged","status":"active","starts_at":"2026-02-02T20:00:00Z"}`, "", "managed-admin")
+	activityRecorder := httptest.NewRecorder()
+	noAuthRouter.ServeHTTP(activityRecorder, activityReq)
+	if activityRecorder.Code != http.StatusConflict {
+		t.Fatalf("managed activity bypass status = %d, body = %s", activityRecorder.Code, activityRecorder.Body.String())
+	}
+	activities, err := queries.ListInstanceActivitiesByInstance(ctx, publicID)
+	if err != nil {
+		t.Fatalf("list managed activities: %v", err)
+	}
+	if len(activities) != 0 {
+		t.Fatalf("forged activity request created %d activities", len(activities))
+	}
+
+	participantReq := authorizedJSONRequest(http.MethodPost, "/instances/"+created.Instance.ID+"/participants", `{"name":"Protected Alice"}`, "managed-token", "managed-admin")
+	participantRecorder := httptest.NewRecorder()
+	router.ServeHTTP(participantRecorder, participantReq)
+	if participantRecorder.Code != http.StatusCreated {
+		t.Fatalf("managed participant setup status = %d, body = %s", participantRecorder.Code, participantRecorder.Body.String())
+	}
+	participants, err := queries.ListParticipantsByInstance(ctx, publicID)
+	if err != nil {
+		t.Fatalf("list managed participants: %v", err)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("expected one managed participant, got %d", len(participants))
+	}
+	participantID := uuid.UUID(participants[0].ID.Bytes).String()
+	linkReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/participants/%s/discord-link", created.Instance.ID, participantID), `{"discord_user_id":"forged-user"}`, "", "managed-admin")
+	linkRecorder := httptest.NewRecorder()
+	noAuthRouter.ServeHTTP(linkRecorder, linkReq)
+	if linkRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("forged managed link status = %d, body = %s", linkRecorder.Code, linkRecorder.Body.String())
+	}
+	linkedParticipant, err := queries.GetParticipant(ctx, participants[0].ID)
+	if err != nil {
+		t.Fatalf("read managed participant after forged link: %v", err)
+	}
+	if linkedParticipant.DiscordUserID.Valid {
+		t.Fatalf("forged managed link changed discord identity to %q", linkedParticipant.DiscordUserID.String)
+	}
+
+	startReq := authorizedJSONRequest(http.MethodPost, "/instances/"+created.Instance.ID+"/progression/episodes/1/start", `{"idempotency_key":"start-1","effective_at":"2026-02-03T20:00:00Z"}`, "managed-token", "managed-admin")
+	startRecorder := httptest.NewRecorder()
+	router.ServeHTTP(startRecorder, startReq)
+	if startRecorder.Code != http.StatusOK {
+		t.Fatalf("start managed episode status = %d, body = %s", startRecorder.Code, startRecorder.Body.String())
+	}
+	lateParticipantReq := authorizedJSONRequest(http.MethodPost, "/instances/"+created.Instance.ID+"/participants", `{"name":"Too Late"}`, "managed-token", "managed-admin")
+	lateParticipantRecorder := httptest.NewRecorder()
+	router.ServeHTTP(lateParticipantRecorder, lateParticipantReq)
+	if lateParticipantRecorder.Code != http.StatusConflict {
+		t.Fatalf("late participant setup status = %d, body = %s", lateParticipantRecorder.Code, lateParticipantRecorder.Body.String())
+	}
+	participants, err = queries.ListParticipantsByInstance(ctx, publicID)
+	if err != nil {
+		t.Fatalf("relist managed participants: %v", err)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("late setup changed participant count to %d", len(participants))
+	}
+
+	importReq := authorizedJSONRequest(http.MethodPost, "/instances/import", `{"name":"Managed protection","season":100,"submissions":[{"participant_name":"Imported","rankings":["Protected C1","Protected C2"]}]}`, "managed-token", "managed-admin")
+	importRecorder := httptest.NewRecorder()
+	router.ServeHTTP(importRecorder, importReq)
+	if importRecorder.Code != http.StatusConflict {
+		t.Fatalf("managed import protection status = %d, body = %s", importRecorder.Code, importRecorder.Body.String())
+	}
+	instanceAfterImport, err := queries.GetInstance(ctx, publicID)
+	if err != nil {
+		t.Fatalf("managed instance missing after rejected import: %v", err)
+	}
+	if instanceAfterImport.Name != "Managed protection" {
+		t.Fatalf("managed instance changed after rejected import: %+v", instanceAfterImport)
+	}
+}
+
+func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{
+		Enabled:      true,
+		BearerTokens: []string{"managed-token"},
+	}))
+	router := server.Router()
+	createBody := `{"name":"Managed progression","season":99,"managed_progression":true,"contestants":["Managed C1","Managed C2","Managed C3"],"episodes":[{"episode_number":0,"label":"Preseason","airs_at":"2026-01-01T20:00:00-05:00"},{"episode_number":1,"label":"Episode 1","airs_at":"2026-01-08T20:00:00-05:00"},{"episode_number":2,"label":"Episode 2","airs_at":"2026-01-15T20:00:00-05:00"}]}`
+	createReq := authorizedJSONRequest(http.MethodPost, "/instances", createBody, "managed-token", "managed-admin")
+	createRecorder := httptest.NewRecorder()
+	router.ServeHTTP(createRecorder, createReq)
+	if createRecorder.Code != http.StatusCreated {
+		t.Fatalf("managed instance creation status = %d, body = %s", createRecorder.Code, createRecorder.Body.String())
+	}
+	var created struct {
+		Instance struct {
+			ID string `json:"id"`
+		} `json:"instance"`
+	}
+	if err := json.Unmarshal(createRecorder.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode managed instance: %v", err)
+	}
+	instanceUUID, err := uuid.Parse(created.Instance.ID)
+	if err != nil {
+		t.Fatalf("parse managed instance id: %v", err)
+	}
+	instanceID := pgtype.UUID{Bytes: instanceUUID, Valid: true}
+	queries := db.New(pool)
+	participants := []db.CreateParticipantRow{
+		createParticipantForTest(t, ctx, queries, instanceID, "Managed Alice"),
+		createParticipantForTest(t, ctx, queries, instanceID, "Managed Bob"),
+	}
+	contestants, err := queries.ListContestantsByInstance(ctx, instanceID)
+	if err != nil {
+		t.Fatalf("list managed contestants: %v", err)
+	}
+	if len(contestants) != 3 {
+		t.Fatalf("expected 3 managed contestants, got %d", len(contestants))
+	}
+	contestantIDs := make([]string, 0, len(contestants))
+	for _, contestant := range contestants {
+		contestantIDs = append(contestantIDs, uuid.UUID(contestant.ID.Bytes).String())
+	}
+	effective := func(key, at string) string {
+		return fmt.Sprintf(`{"idempotency_key":%q,"effective_at":%q}`, key, at)
+	}
+	progress := func(path, body string) *httptest.ResponseRecorder {
+		req := authorizedJSONRequest(http.MethodPost, path, body, "managed-token", "managed-admin")
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+		return recorder
+	}
+	instancePath := created.Instance.ID
+
+	openBody := effective("draft-open", "2026-01-02T20:00:00Z")
+	openRecorder := progress("/instances/"+instancePath+"/progression/draft/open", openBody)
+	if openRecorder.Code != http.StatusOK {
+		t.Fatalf("open draft status = %d, body = %s", openRecorder.Code, openRecorder.Body.String())
+	}
+	retryRecorder := progress("/instances/"+instancePath+"/progression/draft/open", openBody)
+	var originalResponse, retryResponse map[string]any
+	if err := json.Unmarshal(openRecorder.Body.Bytes(), &originalResponse); err != nil {
+		t.Fatalf("decode original idempotent response: %v", err)
+	}
+	if err := json.Unmarshal(retryRecorder.Body.Bytes(), &retryResponse); err != nil {
+		t.Fatalf("decode retry idempotent response: %v", err)
+	}
+	if retryRecorder.Code != http.StatusOK || !reflect.DeepEqual(retryResponse, originalResponse) {
+		t.Fatalf("idempotent open retry = %d %s, original = %s", retryRecorder.Code, retryRecorder.Body.String(), openRecorder.Body.String())
+	}
+	conflictRecorder := progress("/instances/"+instancePath+"/progression/draft/open", effective("draft-open", "2026-01-03T20:00:00Z"))
+	if conflictRecorder.Code != http.StatusConflict {
+		t.Fatalf("conflicting idempotency retry status = %d, body = %s", conflictRecorder.Code, conflictRecorder.Body.String())
+	}
+
+	startOne := progress("/instances/"+instancePath+"/progression/episodes/1/start", effective("episode-1-start", "2026-01-03T20:00:00Z"))
+	if startOne.Code != http.StatusOK {
+		t.Fatalf("start episode 1 status = %d, body = %s", startOne.Code, startOne.Body.String())
+	}
+	startTwoEarly := progress("/instances/"+instancePath+"/progression/episodes/2/start", effective("episode-2-start-early", "2026-01-03T20:01:00Z"))
+	if startTwoEarly.Code != http.StatusConflict {
+		t.Fatalf("early episode 2 start status = %d, body = %s", startTwoEarly.Code, startTwoEarly.Body.String())
+	}
+
+	draftBody := func(key, at string, order []string) string {
+		return fmt.Sprintf(`{"contestant_ids":[%q,%q,%q],"idempotency_key":%q,"effective_at":%q}`, order[0], order[1], order[2], key, at)
+	}
+	for index, participant := range participants {
+		order := contestantIDs
+		if index == 1 {
+			order = []string{contestantIDs[1], contestantIDs[0], contestantIDs[2]}
+		}
+		req := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/drafts/%s", instancePath, uuid.UUID(participant.ID.Bytes).String()), draftBody(fmt.Sprintf("draft-%d", index), "2026-01-03T20:02:00Z", order), "managed-token", "managed-admin")
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("draft %d status = %d, body = %s", index, recorder.Code, recorder.Body.String())
+		}
+	}
+
+	outcomeBody := fmt.Sprintf(`{"contestant_id":%q,"idempotency_key":"outcome-1","effective_at":"2026-01-04T20:00:00Z"}`, contestantIDs[0])
+	outcomeReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/1", instancePath), outcomeBody, "managed-token", "managed-admin")
+	outcomeRecorder := httptest.NewRecorder()
+	router.ServeHTTP(outcomeRecorder, outcomeReq)
+	if outcomeRecorder.Code != http.StatusOK {
+		t.Fatalf("outcome status = %d, body = %s", outcomeRecorder.Code, outcomeRecorder.Body.String())
+	}
+	completeOne := progress("/instances/"+instancePath+"/progression/episodes/1/complete", effective("episode-1-complete", "2026-01-05T20:00:00Z"))
+	if completeOne.Code != http.StatusOK {
+		t.Fatalf("complete episode 1 status = %d, body = %s", completeOne.Code, completeOne.Body.String())
+	}
+	scoreOne := progress("/instances/"+instancePath+"/progression/episodes/1/score", effective("episode-1-score", "2026-01-06T20:00:00Z"))
+	if scoreOne.Code != http.StatusOK {
+		t.Fatalf("score episode 1 status = %d, body = %s", scoreOne.Code, scoreOne.Body.String())
+	}
+
+	leaderboardReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/leaderboard", "", "managed-token", "managed-admin")
+	leaderboardRecorder := httptest.NewRecorder()
+	router.ServeHTTP(leaderboardRecorder, leaderboardReq)
+	if leaderboardRecorder.Code != http.StatusOK {
+		t.Fatalf("managed leaderboard status = %d, body = %s", leaderboardRecorder.Code, leaderboardRecorder.Body.String())
+	}
+	var leaderboard leaderboardResponse
+	if err := json.Unmarshal(leaderboardRecorder.Body.Bytes(), &leaderboard); err != nil {
+		t.Fatalf("decode managed leaderboard: %v", err)
+	}
+	if len(leaderboard.Leaderboard) != len(participants) {
+		t.Fatalf("expected %d published leaderboard rows, got %d", len(participants), len(leaderboard.Leaderboard))
+	}
+	publishedScores := make(map[string][3]int, len(leaderboard.Leaderboard))
+	for _, row := range leaderboard.Leaderboard {
+		publishedScores[row.ParticipantName] = [3]int{row.DraftPoints, row.BonusPoints, row.TotalPoints}
+	}
+	if publishedScores["Managed Alice"] != [3]int{3, 0, 3} || publishedScores["Managed Bob"] != [3]int{2, 0, 2} {
+		t.Fatalf("unexpected initial published scores: %+v", publishedScores)
+	}
+	var initialSnapshotJSON []byte
+	if err := pool.QueryRow(ctx, `
+		SELECT isr.input_snapshot
+		FROM instance_score_revisions isr
+		JOIN instances i ON i.id = isr.instance_id
+		WHERE i.public_id = $1 AND isr.revision_number = 1`, instanceID).Scan(&initialSnapshotJSON); err != nil {
+		t.Fatalf("read initial score snapshot: %v", err)
+	}
+
+	correctionBody := draftBody("draft-correction", "2026-01-06T20:30:00Z", []string{contestantIDs[2], contestantIDs[1], contestantIDs[0]})
+	correctionReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/drafts/%s", instancePath, uuid.UUID(participants[1].ID.Bytes).String()), correctionBody, "managed-token", "managed-admin")
+	correctionRecorder := httptest.NewRecorder()
+	router.ServeHTTP(correctionRecorder, correctionReq)
+	if correctionRecorder.Code != http.StatusOK || !strings.Contains(correctionRecorder.Body.String(), "revision_number") {
+		t.Fatalf("published draft correction = %d %s", correctionRecorder.Code, correctionRecorder.Body.String())
+	}
+
+	startTwo := progress("/instances/"+instancePath+"/progression/episodes/2/start", effective("episode-2-start", "2026-01-08T20:00:00Z"))
+	if startTwo.Code != http.StatusOK {
+		t.Fatalf("start episode 2 status = %d, body = %s", startTwo.Code, startTwo.Body.String())
+	}
+	activity := createActivityForTest(t, ctx, queries, instanceID, time.Date(2026, time.January, 9, 19, 0, 0, 0, time.UTC), nil, "manual_adjustment", "Pending episode 2 bonus")
+	occurrence := createOccurrenceForTest(t, ctx, queries, activity.ID, "pending_bonus", "Pending episode 2 bonus", time.Date(2026, time.January, 9, 20, 0, 0, 0, time.UTC))
+	if _, err := queries.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
+		InstanceID:           instanceID,
+		ParticipantID:        participants[0].ID,
+		ActivityOccurrenceID: occurrence.ID,
+		SourceGroupID:        pgtype.UUID{},
+		EntryKind:            "award",
+		Points:               4,
+		Visibility:           "public",
+		Reason:               "pending episode 2 bonus",
+		EffectiveAt:          timestamptz(time.Date(2026, time.January, 9, 20, 0, 0, 0, time.UTC)),
+		AwardKey:             pgtype.Text{String: "pending-episode-2-bonus", Valid: true},
+		Metadata:             testEmptyJSONB,
+	}); err != nil {
+		t.Fatalf("create pending bonus: %v", err)
+	}
+	pendingOutcomeBody := fmt.Sprintf(`{"contestant_id":%q,"idempotency_key":"outcome-2","effective_at":"2026-01-09T20:00:00Z"}`, contestantIDs[1])
+	pendingOutcomeReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/2", instancePath), pendingOutcomeBody, "managed-token", "managed-admin")
+	pendingOutcomeRecorder := httptest.NewRecorder()
+	router.ServeHTTP(pendingOutcomeRecorder, pendingOutcomeReq)
+	if pendingOutcomeRecorder.Code != http.StatusOK {
+		t.Fatalf("pending outcome status = %d, body = %s", pendingOutcomeRecorder.Code, pendingOutcomeRecorder.Body.String())
+	}
+	var ledgerBeforeCorrection int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&ledgerBeforeCorrection); err != nil {
+		t.Fatalf("count ledger before late correction: %v", err)
+	}
+	bonusBeforeCorrection, err := queries.GetVisibleBonusTotalByParticipant(ctx, db.GetVisibleBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[0].ID})
+	if err != nil {
+		t.Fatalf("read bonus before late correction: %v", err)
+	}
+
+	closeRecorder := progress("/instances/"+instancePath+"/progression/draft/close", effective("draft-close", "2026-01-10T20:00:00Z"))
+	if closeRecorder.Code != http.StatusOK {
+		t.Fatalf("close draft status = %d, body = %s", closeRecorder.Code, closeRecorder.Body.String())
+	}
+	lateBody := draftBody("draft-late", "2026-01-10T20:30:00Z", []string{contestantIDs[1], contestantIDs[0], contestantIDs[2]})
+	lateReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/drafts/%s/late", instancePath, uuid.UUID(participants[0].ID.Bytes).String()), lateBody, "managed-token", "managed-admin")
+	lateRecorder := httptest.NewRecorder()
+	router.ServeHTTP(lateRecorder, lateReq)
+	if lateRecorder.Code != http.StatusOK || !strings.Contains(lateRecorder.Body.String(), "revision_number") {
+		t.Fatalf("late draft correction = %d %s", lateRecorder.Code, lateRecorder.Body.String())
+	}
+	outcomesReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/outcomes", "", "managed-token", "managed-admin")
+	outcomesRecorder := httptest.NewRecorder()
+	router.ServeHTTP(outcomesRecorder, outcomesReq)
+	if outcomesRecorder.Code != http.StatusOK {
+		t.Fatalf("published outcomes status = %d, body = %s", outcomesRecorder.Code, outcomesRecorder.Body.String())
+	}
+	var publishedOutcomes struct {
+		Outcomes []struct {
+			Position int `json:"position"`
+		} `json:"outcomes"`
+	}
+	if err := json.Unmarshal(outcomesRecorder.Body.Bytes(), &publishedOutcomes); err != nil {
+		t.Fatalf("decode published outcomes: %v", err)
+	}
+	if len(publishedOutcomes.Outcomes) != 1 || publishedOutcomes.Outcomes[0].Position != 1 {
+		t.Fatalf("pending outcome leaked into published outcomes: %s", outcomesRecorder.Body.String())
+	}
+
+	finalLeaderboardReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/leaderboard", "", "managed-token", "managed-admin")
+	finalLeaderboardRecorder := httptest.NewRecorder()
+	router.ServeHTTP(finalLeaderboardRecorder, finalLeaderboardReq)
+	if finalLeaderboardRecorder.Code != http.StatusOK {
+		t.Fatalf("final managed leaderboard status = %d, body = %s", finalLeaderboardRecorder.Code, finalLeaderboardRecorder.Body.String())
+	}
+	var finalLeaderboard leaderboardResponse
+	if err := json.Unmarshal(finalLeaderboardRecorder.Body.Bytes(), &finalLeaderboard); err != nil {
+		t.Fatalf("decode final managed leaderboard: %v", err)
+	}
+	finalScores := make(map[string][3]int, len(finalLeaderboard.Leaderboard))
+	for _, row := range finalLeaderboard.Leaderboard {
+		finalScores[row.ParticipantName] = [3]int{row.DraftPoints, row.BonusPoints, row.TotalPoints}
+	}
+	if finalScores["Managed Alice"] != [3]int{2, 0, 2} || finalScores["Managed Bob"] != [3]int{1, 0, 1} {
+		t.Fatalf("unexpected corrected published scores: %+v", finalScores)
+	}
+	ledgerAfterCorrection := 0
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&ledgerAfterCorrection); err != nil {
+		t.Fatalf("count ledger after late correction: %v", err)
+	}
+	if ledgerAfterCorrection != ledgerBeforeCorrection {
+		t.Fatalf("late correction changed ledger row count from %d to %d", ledgerBeforeCorrection, ledgerAfterCorrection)
+	}
+	bonusAfterCorrection, err := queries.GetVisibleBonusTotalByParticipant(ctx, db.GetVisibleBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[0].ID})
+	if err != nil {
+		t.Fatalf("read bonus after late correction: %v", err)
+	}
+	if bonusAfterCorrection != bonusBeforeCorrection {
+		t.Fatalf("late correction changed visible bonus from %d to %d", bonusBeforeCorrection, bonusAfterCorrection)
+	}
+
+	type snapshot struct {
+		Outcomes map[string]int `json:"outcomes"`
+		Drafts   map[string][]struct {
+			Position     int    `json:"position"`
+			ContestantID string `json:"contestant_id"`
+		} `json:"drafts"`
+		VisibleBonus map[string]int `json:"visible_bonus"`
+	}
+	var revisionRows []struct {
+		number  int
+		rawJSON []byte
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT isr.revision_number, isr.input_snapshot
+		FROM instance_score_revisions isr
+		JOIN instances i ON i.id = isr.instance_id
+		WHERE i.public_id = $1
+		ORDER BY isr.revision_number`, instanceID)
+	if err != nil {
+		t.Fatalf("list score revisions: %v", err)
+	}
+	for rows.Next() {
+		var row struct {
+			number  int
+			rawJSON []byte
+		}
+		if err := rows.Scan(&row.number, &row.rawJSON); err != nil {
+			rows.Close()
+			t.Fatalf("scan score revision: %v", err)
+		}
+		revisionRows = append(revisionRows, row)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		t.Fatalf("read score revisions: %v", err)
+	}
+	rows.Close()
+	if len(revisionRows) != 3 || revisionRows[0].number != 1 || revisionRows[1].number != 2 || revisionRows[2].number != 3 {
+		t.Fatalf("expected three ordered immutable score revisions, got %+v", revisionRows)
+	}
+	if !bytes.Equal(initialSnapshotJSON, revisionRows[0].rawJSON) {
+		t.Fatalf("first score snapshot changed after corrections")
+	}
+	var firstSnapshot, latestSnapshot snapshot
+	if err := json.Unmarshal(revisionRows[0].rawJSON, &firstSnapshot); err != nil {
+		t.Fatalf("decode first score snapshot: %v", err)
+	}
+	if err := json.Unmarshal(revisionRows[2].rawJSON, &latestSnapshot); err != nil {
+		t.Fatalf("decode latest score snapshot: %v", err)
+	}
+	if firstSnapshot.Outcomes[contestantIDs[0]] != 1 || len(firstSnapshot.Outcomes) != 1 {
+		t.Fatalf("first snapshot changed or was incomplete: %+v", firstSnapshot.Outcomes)
+	}
+	if latestSnapshot.Outcomes[contestantIDs[0]] != 1 || len(latestSnapshot.Outcomes) != 1 {
+		t.Fatalf("latest snapshot leaked pending outcomes: %+v", latestSnapshot.Outcomes)
+	}
+	if latestSnapshot.VisibleBonus[uuid.UUID(participants[0].ID.Bytes).String()] != 0 {
+		t.Fatalf("latest snapshot included pending bonus: %+v", latestSnapshot.VisibleBonus)
+	}
+	if len(latestSnapshot.Drafts[uuid.UUID(participants[0].ID.Bytes).String()]) != 3 || latestSnapshot.Drafts[uuid.UUID(participants[0].ID.Bytes).String()][0].ContestantID != contestantIDs[1] {
+		t.Fatalf("latest snapshot did not preserve late draft correction: %+v", latestSnapshot.Drafts)
 	}
 }
 
@@ -1879,7 +2324,8 @@ func integrationPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	}
 
 	databaseName := "castaway_httpapi_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := adminPool.Exec(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, databaseName)); err != nil {
+	quotedDatabaseName := pgx.Identifier{databaseName}.Sanitize()
+	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+quotedDatabaseName); err != nil {
 		adminPool.Close()
 		t.Fatalf("create temp database: %v", err)
 	}
@@ -1892,7 +2338,7 @@ func integrationPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	testConfig.ConnConfig.Database = databaseName
 	pool, err := pgxpool.NewWithConfig(ctx, testConfig)
 	if err != nil {
-		if _, dropErr := adminPool.Exec(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, databaseName)); dropErr != nil {
+		if _, dropErr := adminPool.Exec(ctx, "DROP DATABASE IF EXISTS "+quotedDatabaseName+" WITH (FORCE)"); dropErr != nil {
 			t.Logf("drop temp database after pool creation failure: %v", dropErr)
 		}
 		adminPool.Close()
@@ -1901,7 +2347,7 @@ func integrationPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 
 	t.Cleanup(func() {
 		pool.Close()
-		if _, err := adminPool.Exec(context.Background(), fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, databaseName)); err != nil {
+		if _, err := adminPool.Exec(context.Background(), "DROP DATABASE IF EXISTS "+quotedDatabaseName+" WITH (FORCE)"); err != nil {
 			t.Logf("drop temp database cleanup: %v", err)
 		}
 		adminPool.Close()

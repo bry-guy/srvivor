@@ -38,7 +38,6 @@ func (s *Server) importInstance(c *gin.Context) {
 	if payload.Name == "" {
 		payload.Name = fmt.Sprintf("Season %d", payload.Season)
 	}
-
 	tx, err := s.pool.Begin(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -54,6 +53,24 @@ func (s *Server) importInstance(c *gin.Context) {
 	}()
 
 	qtx := s.queries.WithTx(tx)
+	if err := qtx.LockInstanceNameSeason(c.Request.Context(), fmt.Sprintf("%d:%s", payload.Season, payload.Name)); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	lockedInstances, err := qtx.LockInstancesByNameSeason(c.Request.Context(), db.LockInstancesByNameSeasonParams{
+		Name:   payload.Name,
+		Season: payload.Season,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	for _, lockedInstance := range lockedInstances {
+		if lockedInstance.ProgressionMode == "managed" {
+			c.JSON(http.StatusConflict, errorResponse{Error: "cannot import over a managed progression instance"})
+			return
+		}
+	}
 	if err := qtx.DeleteInstanceByNameSeason(c.Request.Context(), db.DeleteInstanceByNameSeasonParams{
 		Name:   payload.Name,
 		Season: payload.Season,
