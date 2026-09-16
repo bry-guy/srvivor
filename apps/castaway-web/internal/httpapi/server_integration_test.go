@@ -394,6 +394,23 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	for _, contestant := range contestants {
 		contestantIDs = append(contestantIDs, uuid.UUID(contestant.ID.Bytes).String())
 	}
+	postScoreActivity := createActivityForTest(t, ctx, queries, instanceID, time.Date(2026, time.January, 9, 19, 0, 0, 0, time.UTC), nil, "manual_adjustment", "Post-score state")
+	postScoreOccurrence := createOccurrenceForTest(t, ctx, queries, postScoreActivity.ID, "post_score", "Post-score state", time.Date(2026, time.January, 9, 20, 0, 0, 0, time.UTC))
+	if _, err := queries.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
+		InstanceID: instanceID, ParticipantID: participants[0].ID, ActivityOccurrenceID: postScoreOccurrence.ID, EntryKind: "award", Points: 4, Visibility: "public", Reason: "post-score public", EffectiveAt: timestamptz(time.Date(2026, time.January, 9, 20, 0, 0, 0, time.UTC)), AwardKey: pgtype.Text{String: "post-score-public", Valid: true}, Metadata: testEmptyJSONB,
+	}); err != nil {
+		t.Fatalf("create post-score public ledger entry: %v", err)
+	}
+	if _, err := queries.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
+		InstanceID: instanceID, ParticipantID: participants[1].ID, ActivityOccurrenceID: postScoreOccurrence.ID, EntryKind: "award", Points: 3, Visibility: "secret", Reason: "post-score secret", EffectiveAt: timestamptz(time.Date(2026, time.January, 9, 20, 0, 0, 0, time.UTC)), AwardKey: pgtype.Text{String: "post-score-secret", Valid: true}, Metadata: testEmptyJSONB,
+	}); err != nil {
+		t.Fatalf("create post-score secret ledger entry: %v", err)
+	}
+	if _, err := queries.CreateParticipantPonyOwnership(ctx, db.CreateParticipantPonyOwnershipParams{
+		InstanceID: instanceID, OwnerParticipantID: participants[0].ID, ContestantID: contestants[0].ID, SourceActivityOccurrenceID: postScoreOccurrence.ID, AcquiredAt: timestamptz(time.Date(2026, time.January, 9, 20, 0, 0, 0, time.UTC)), Status: "active", Metadata: testEmptyJSONB,
+	}); err != nil {
+		t.Fatalf("create post-score ownership: %v", err)
+	}
 	effective := func(key, at string) string {
 		return fmt.Sprintf(`{"idempotency_key":%q,"effective_at":%q}`, key, at)
 	}
@@ -540,6 +557,14 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	if err != nil {
 		t.Fatalf("read bonus before late correction: %v", err)
 	}
+	secretBeforeCorrection, err := queries.GetSecretBonusTotalByParticipant(ctx, db.GetSecretBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[1].ID})
+	if err != nil {
+		t.Fatalf("read secret bonus before late correction: %v", err)
+	}
+	ownershipBeforeCorrection, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instanceID, OwnerParticipantID: participants[0].ID, At: timestamptz(verificationGameplayNow())})
+	if err != nil {
+		t.Fatalf("read ownership before late correction: %v", err)
+	}
 
 	closeRecorder := progress("/instances/"+instancePath+"/progression/draft/close", effective("draft-close", "2026-01-10T20:00:00Z"))
 	if closeRecorder.Code != http.StatusOK {
@@ -600,6 +625,20 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	}
 	if bonusAfterCorrection != bonusBeforeCorrection {
 		t.Fatalf("late correction changed visible bonus from %d to %d", bonusBeforeCorrection, bonusAfterCorrection)
+	}
+	secretAfterCorrection, err := queries.GetSecretBonusTotalByParticipant(ctx, db.GetSecretBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[1].ID})
+	if err != nil {
+		t.Fatalf("read secret bonus after late correction: %v", err)
+	}
+	if secretAfterCorrection != secretBeforeCorrection {
+		t.Fatalf("late correction changed secret bonus from %d to %d", secretBeforeCorrection, secretAfterCorrection)
+	}
+	ownershipAfterCorrection, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instanceID, OwnerParticipantID: participants[0].ID, At: timestamptz(verificationGameplayNow())})
+	if err != nil {
+		t.Fatalf("read ownership after late correction: %v", err)
+	}
+	if len(ownershipAfterCorrection) != len(ownershipBeforeCorrection) || (len(ownershipBeforeCorrection) > 0 && ownershipAfterCorrection[0].ID != ownershipBeforeCorrection[0].ID) {
+		t.Fatalf("late correction changed ownership state: before=%+v after=%+v", ownershipBeforeCorrection, ownershipAfterCorrection)
 	}
 
 	type snapshot struct {
@@ -663,6 +702,27 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	}
 	if len(latestSnapshot.Drafts[uuid.UUID(participants[0].ID.Bytes).String()]) != 3 || latestSnapshot.Drafts[uuid.UUID(participants[0].ID.Bytes).String()][0].ContestantID != contestantIDs[1] {
 		t.Fatalf("latest snapshot did not preserve late draft correction: %+v", latestSnapshot.Drafts)
+	}
+	earlyServer := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"managed-token"}}), httpapi.WithClock(func() time.Time { return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC) }))
+	lateServer := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"managed-token"}}), httpapi.WithClock(func() time.Time { return time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC) }))
+	var earlyLeaderboard, lateLeaderboard map[string]any
+	for _, server := range []*httpapi.Server{earlyServer, lateServer} {
+		req := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/leaderboard", "", "managed-token", "managed-admin")
+		recorder := httptest.NewRecorder()
+		server.Router().ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("clock-independent leaderboard status = %d, body = %s", recorder.Code, recorder.Body.String())
+		}
+		if server == earlyServer {
+			if err := json.Unmarshal(recorder.Body.Bytes(), &earlyLeaderboard); err != nil {
+				t.Fatalf("decode early leaderboard: %v", err)
+			}
+		} else if err := json.Unmarshal(recorder.Body.Bytes(), &lateLeaderboard); err != nil {
+			t.Fatalf("decode late leaderboard: %v", err)
+		}
+	}
+	if !reflect.DeepEqual(earlyLeaderboard, lateLeaderboard) {
+		t.Fatalf("managed leaderboard changed with wall clock: early=%v late=%v", earlyLeaderboard, lateLeaderboard)
 	}
 }
 

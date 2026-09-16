@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -157,6 +158,38 @@ func TestManagedProgressionCommandsSerializeAndRejectBackdating(t *testing.T) {
 	if backdatedScore.Code != http.StatusConflict {
 		t.Fatalf("backdated score status = %d, body = %s", backdatedScore.Code, backdatedScore.Body.String())
 	}
+	results = make(chan *httptest.ResponseRecorder, 2)
+	for range 2 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			results <- serve(fixture, http.MethodPost, path+"/progression/episodes/1/score", progressionCommand("same-score", "2026-01-06T20:00:00Z"), "progression-token", "progression-admin")
+		}()
+	}
+	wait.Wait()
+	close(results)
+	for result := range results {
+		if result.Code != http.StatusOK {
+			t.Fatalf("identical concurrent score status = %d, body = %s", result.Code, result.Body.String())
+		}
+	}
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM instance_progression_commands WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, fixture.instance.ID).Scan(&commandCount); err != nil {
+		t.Fatalf("count commands after score retries: %v", err)
+	}
+	if commandCount != 5 {
+		t.Fatalf("expected one additional score command after four earlier commands, got %d", commandCount)
+	}
+	var revisionCount int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM instance_score_revisions WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, fixture.instance.ID).Scan(&revisionCount); err != nil {
+		t.Fatalf("count score revisions after retries: %v", err)
+	}
+	if revisionCount != 1 {
+		t.Fatalf("expected one score publication after retries, got %d", revisionCount)
+	}
+	scoreConflict := serve(fixture, http.MethodPost, path+"/progression/episodes/1/score", progressionCommand("same-score", "2026-01-07T20:00:00Z"), "progression-token", "progression-admin")
+	if scoreConflict.Code != http.StatusConflict || !strings.Contains(scoreConflict.Body.String(), "idempotency key was already used with a different payload") {
+		t.Fatalf("specific score idempotency conflict = %d, body = %s", scoreConflict.Code, scoreConflict.Body.String())
+	}
 }
 
 func TestManagedLateDraftBeforePublicationAndGuardedPaths(t *testing.T) {
@@ -211,6 +244,34 @@ func TestManagedLateDraftBeforePublicationAndGuardedPaths(t *testing.T) {
 	if guardedStir.Code != http.StatusConflict {
 		t.Fatalf("managed Stir the Pot bypass status = %d, body = %s", guardedStir.Code, guardedStir.Body.String())
 	}
+	activity := createActivityForTest(t, ctx, fixture.queries, fixture.instance.ID, time.Date(2026, time.January, 8, 20, 0, 0, 0, time.UTC), nil, "manual_adjustment", "blocked activity")
+	occurrence := createOccurrenceForTest(t, ctx, fixture.queries, activity.ID, "blocked", "blocked occurrence", time.Date(2026, time.January, 8, 20, 0, 0, 0, time.UTC))
+	guardedWrites := []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodPost, "/activities/" + uuid.UUID(activity.ID.Bytes).String() + "/occurrences", `{}`},
+		{http.MethodPost, "/occurrences/" + uuid.UUID(occurrence.ID.Bytes).String() + "/participants", `{}`},
+		{http.MethodPost, "/occurrences/" + uuid.UUID(occurrence.ID.Bytes).String() + "/groups", `{}`},
+		{http.MethodPost, "/occurrences/" + uuid.UUID(occurrence.ID.Bytes).String() + "/resolve", `{}`},
+		{http.MethodPost, path + "/auction/lots/start", `{}`},
+		{http.MethodPut, path + "/auction/contestants/" + uuid.NewString() + "/bid/me", `{}`},
+		{http.MethodPost, path + "/auction/lots/" + uuid.NewString() + "/stop", `{}`},
+		{http.MethodPost, path + "/loan-shark/me/borrow", `{}`},
+		{http.MethodPost, path + "/loan-shark/me/repay", `{}`},
+		{http.MethodPost, path + "/individual-pony/immunity", `{}`},
+		{http.MethodPost, path + "/merge-auction/record", `{}`},
+		{http.MethodPost, path + "/finale-bingo/loan-sharks", `{}`},
+		{http.MethodPost, path + "/finale-bingo/scores/preview", `{}`},
+		{http.MethodPost, path + "/finale-bingo/scores", `{}`},
+	}
+	for _, guarded := range guardedWrites {
+		recorder := serve(fixture, guarded.method, guarded.path, guarded.body, "progression-token", "progression-admin")
+		if recorder.Code != http.StatusConflict {
+			t.Fatalf("managed %s %s bypass status = %d, body = %s", guarded.method, guarded.path, recorder.Code, recorder.Body.String())
+		}
+	}
 
 	other := newManagedProgressionFixture(t, ctx, pool, "Cross instance", 106, []string{"Cross C1", "Cross C2"}, 2)
 	otherParticipant := createParticipantForTest(t, ctx, other.queries, other.instance.ID, "Cross Alice")
@@ -229,6 +290,53 @@ func TestManagedLateDraftBeforePublicationAndGuardedPaths(t *testing.T) {
 	}
 	if len(crossDrafts) != 0 {
 		t.Fatalf("cross-instance draft write created %d picks", len(crossDrafts))
+	}
+}
+
+func TestManagedDraftCorrectionCannotPrecedeNextEpisodeCheckpoint(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+	fixture := newManagedProgressionFixture(t, ctx, pool, "Correction checkpoint", 107, []string{"Checkpoint C1", "Checkpoint C2"}, 3)
+	path := "/instances/" + fixture.instanceID
+	participant := createParticipantForTest(t, ctx, fixture.queries, fixture.instance.ID, "Checkpoint Alice")
+	contestants, err := fixture.queries.ListContestantsByInstance(ctx, fixture.instance.ID)
+	if err != nil {
+		t.Fatalf("list checkpoint contestants: %v", err)
+	}
+	first := uuid.UUID(contestants[0].ID.Bytes).String()
+	second := uuid.UUID(contestants[1].ID.Bytes).String()
+	if recorder := serve(fixture, http.MethodPost, path+"/progression/draft/open", progressionCommand("checkpoint-open", "2026-01-02T20:00:00Z"), "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("open checkpoint draft status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder := serve(fixture, http.MethodPost, path+"/progression/episodes/1/start", progressionCommand("checkpoint-start-1", "2026-01-03T20:00:00Z"), "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("start checkpoint episode status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	participantPath := path + "/drafts/" + uuid.UUID(participant.ID.Bytes).String()
+	draft := fmt.Sprintf(`{"contestant_ids":[%q,%q],"idempotency_key":"checkpoint-draft","effective_at":"2026-01-03T20:01:00Z"}`, first, second)
+	if recorder := serve(fixture, http.MethodPut, participantPath, draft, "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("save checkpoint draft status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	outcome := fmt.Sprintf(`{"contestant_id":%q,"idempotency_key":"checkpoint-outcome","effective_at":"2026-01-04T20:00:00Z"}`, first)
+	if recorder := serve(fixture, http.MethodPut, path+"/outcomes/1", outcome, "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("save checkpoint outcome status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder := serve(fixture, http.MethodPost, path+"/progression/episodes/1/complete", progressionCommand("checkpoint-complete-1", "2026-01-05T20:00:00Z"), "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("complete checkpoint episode status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder := serve(fixture, http.MethodPost, path+"/progression/episodes/1/score", progressionCommand("checkpoint-score-1", "2026-01-06T20:00:00Z"), "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("score checkpoint episode status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder := serve(fixture, http.MethodPost, path+"/progression/episodes/2/start", progressionCommand("checkpoint-start-2", "2026-01-08T20:00:00Z"), "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("start next checkpoint episode status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	backdatedCorrection := fmt.Sprintf(`{"contestant_ids":[%q,%q],"idempotency_key":"checkpoint-backdated","effective_at":"2026-01-07T20:00:00Z"}`, second, first)
+	if recorder := serve(fixture, http.MethodPut, participantPath, backdatedCorrection, "progression-token", "progression-admin"); recorder.Code != http.StatusConflict {
+		t.Fatalf("backdated next-episode correction status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	validCorrection := fmt.Sprintf(`{"contestant_ids":[%q,%q],"idempotency_key":"checkpoint-valid","effective_at":"2026-01-08T20:30:00Z"}`, second, first)
+	if recorder := serve(fixture, http.MethodPut, participantPath, validCorrection, "progression-token", "progression-admin"); recorder.Code != http.StatusOK {
+		t.Fatalf("valid next-episode correction status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -294,6 +402,51 @@ func TestManagedDraftCorrectionRollsBackBeforePublication(t *testing.T) {
 	}
 	if commandCount != 6 || revisionCount != 1 {
 		t.Fatalf("forced rollback persisted command/revision state: commands=%d revisions=%d", commandCount, revisionCount)
+	}
+}
+
+func TestManagedRosterSetupAndEpisodeStartSerialize(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+	fixture := newManagedProgressionFixture(t, ctx, pool, "Setup race", 108, []string{"Setup C1"}, 2)
+	path := "/instances/" + fixture.instanceID
+	statuses := make(chan int, 2)
+	var wait sync.WaitGroup
+	wait.Add(2)
+	go func() {
+		defer wait.Done()
+		statuses <- serve(fixture, http.MethodPost, path+"/participants", `{"name":"Racing participant"}`, "progression-token", "progression-admin").Code
+	}()
+	go func() {
+		defer wait.Done()
+		statuses <- serve(fixture, http.MethodPost, path+"/progression/episodes/1/start", progressionCommand("setup-race-start", "2026-01-03T20:00:00Z"), "progression-token", "progression-admin").Code
+	}()
+	wait.Wait()
+	close(statuses)
+	gotStart, gotParticipant := false, false
+	for status := range statuses {
+		if status == http.StatusOK {
+			gotStart = true
+		}
+		if status == http.StatusCreated {
+			gotParticipant = true
+		}
+		if status != http.StatusOK && status != http.StatusCreated && status != http.StatusConflict {
+			t.Fatalf("unexpected setup/start race status %d", status)
+		}
+	}
+	if !gotStart {
+		t.Fatal("episode start did not commit during setup race")
+	}
+	if !gotParticipant {
+		participants, err := fixture.queries.ListParticipantsByInstance(ctx, fixture.instance.ID)
+		if err != nil {
+			t.Fatalf("list setup race participants: %v", err)
+		}
+		if len(participants) != 0 {
+			t.Fatalf("participant setup returned conflict but participant was inserted")
+		}
 	}
 }
 

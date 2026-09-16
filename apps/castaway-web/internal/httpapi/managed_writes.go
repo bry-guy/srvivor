@@ -95,6 +95,20 @@ func (s *Server) replaceManagedDraft(c *gin.Context, instanceID, participantID u
 		if latestErr != nil && !errors.Is(latestErr, pgx.ErrNoRows) {
 			return nil, latestErr
 		}
+		progress, progressErr := q.GetLatestManagedEpisodeProgress(ctx, toPGUUID(instanceID))
+		if progressErr == nil {
+			checkpoint := progress.StartedAt
+			if progress.Status == "completed" {
+				checkpoint = progress.CompletedAt
+			} else if progress.Status == "scored" {
+				checkpoint = progress.ScoredAt
+			}
+			if checkpoint.Valid && req.EffectiveAt.Before(checkpoint.Time) {
+				return nil, progressionError(http.StatusConflict, "draft correction cannot precede the current episode checkpoint")
+			}
+		} else if !errors.Is(progressErr, pgx.ErrNoRows) {
+			return nil, progressErr
+		}
 		if err := replaceDraftInTransaction(ctx, q, instanceID, participantID, req.ContestantIDs); err != nil {
 			return nil, err
 		}
