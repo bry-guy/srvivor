@@ -4,9 +4,23 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+func TestWithClockNormalizesToUTC(t *testing.T) {
+	instant := time.Date(2026, time.March, 5, 7, 0, 0, 0, time.FixedZone("test", -5*60*60))
+	server := New(nil, WithClock(func() time.Time { return instant }))
+
+	got := server.now()
+	if !got.Equal(instant) {
+		t.Fatalf("clock instant = %s, want %s", got, instant)
+	}
+	if got.Location() != time.UTC {
+		t.Fatalf("clock location = %s, want UTC", got.Location())
+	}
+}
 
 func TestRequireServiceAuthRejectsMissingBearerToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)

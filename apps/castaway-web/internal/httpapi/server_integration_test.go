@@ -814,8 +814,8 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	bobID := uuid.UUID(participantIDByName["Bob"].Bytes).String()
 	joeID := contestantIDByName["Joe"].String()
 
-	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
-	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", time.Now().UTC().Add(-2*time.Hour))
+	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, verificationGameplayNow().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
+	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", verificationGameplayNow().Add(-2*time.Hour))
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Alice"], hiddenOccurrence.ID, pgtype.UUID{}, "award", 1, "secret", "Verification hidden reward", "verification:hidden:alice")
 
 	episodes, err := queries.ListInstanceEpisodes(ctx, instance.ID)
@@ -1323,6 +1323,47 @@ func TestStirThePotCloseRollsBackMalformedContribution(t *testing.T) {
 		t.Fatalf("parse round id: %v", err)
 	}
 	roundID := pgtype.UUID{Bytes: roundUUID, Valid: true}
+	createLedgerEntryWithMetadataForTest(t, ctx, queries, instance.ID, aliceID, roundID, pgtype.UUID{}, "conversion", -1, "secret", "Test secret conversion", "test:secret:conversion", []byte(`{"consumes_secret_balance":true}`))
+	createLedgerEntryForTest(t, ctx, queries, instance.ID, aliceID, roundID, pgtype.UUID{}, "reveal", 1, "revealed", "Test secret reveal", "test:secret:reveal")
+	createLedgerEntryWithMetadataForTest(t, ctx, queries, instance.ID, aliceID, roundID, pgtype.UUID{}, "spend", -1, "secret", "Stir the Pot contribution", "test:secret:spend", []byte(`{"consumes_secret_balance":false}`))
+
+	ledgerSnapshot := func() []string {
+		rows, err := pool.Query(ctx, `
+			SELECT bple.entry_kind, bple.points, bple.visibility, bple.reason,
+			       COALESCE(bple.award_key, ''), bple.metadata::text
+			FROM bonus_point_ledger_entries bple
+			JOIN activity_occurrences ao ON ao.id = bple.activity_occurrence_id
+			WHERE ao.public_id = $1
+			ORDER BY bple.id
+		`, roundID)
+		if err != nil {
+			t.Fatalf("list round ledger: %v", err)
+		}
+		defer rows.Close()
+		var snapshot []string
+		for rows.Next() {
+			var entryKind, visibility, reason, awardKey, metadata string
+			var points int32
+			if err := rows.Scan(&entryKind, &points, &visibility, &reason, &awardKey, &metadata); err != nil {
+				t.Fatalf("scan round ledger: %v", err)
+			}
+			snapshot = append(snapshot, fmt.Sprintf("%s|%d|%s|%s|%s|%s", entryKind, points, visibility, reason, awardKey, metadata))
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatalf("read round ledger: %v", err)
+		}
+		return snapshot
+	}
+	beforeLedger := ledgerSnapshot()
+	beforeVisible, err := queries.GetVisibleBonusTotalByParticipant(ctx, db.GetVisibleBonusTotalByParticipantParams{InstanceID: instance.ID, ParticipantID: aliceID})
+	if err != nil {
+		t.Fatalf("get visible balance before close: %v", err)
+	}
+	beforeSecret, err := queries.GetSecretBonusTotalByParticipant(ctx, db.GetSecretBonusTotalByParticipantParams{InstanceID: instance.ID, ParticipantID: aliceID})
+	if err != nil {
+		t.Fatalf("get secret balance before close: %v", err)
+	}
+
 	if _, err := queries.UpsertActivityOccurrenceParticipant(ctx, db.UpsertActivityOccurrenceParticipantParams{
 		ActivityOccurrenceID: roundID,
 		ParticipantID:        aliceID,
@@ -1385,10 +1426,36 @@ func TestStirThePotCloseRollsBackMalformedContribution(t *testing.T) {
 	if closedAt, ok := closedMetadata["closed_at"].(string); !ok || closedAt == "" {
 		t.Fatalf("expected closed_at metadata after successful close: %+v", closedMetadata)
 	}
+	afterLedger := ledgerSnapshot()
+	if fmt.Sprint(afterLedger) != fmt.Sprint(beforeLedger) {
+		t.Fatalf("close changed round ledger rows: before=%v after=%v", beforeLedger, afterLedger)
+	}
+	afterVisible, err := queries.GetVisibleBonusTotalByParticipant(ctx, db.GetVisibleBonusTotalByParticipantParams{InstanceID: instance.ID, ParticipantID: aliceID})
+	if err != nil {
+		t.Fatalf("get visible balance after close: %v", err)
+	}
+	afterSecret, err := queries.GetSecretBonusTotalByParticipant(ctx, db.GetSecretBonusTotalByParticipantParams{InstanceID: instance.ID, ParticipantID: aliceID})
+	if err != nil {
+		t.Fatalf("get secret balance after close: %v", err)
+	}
+	if afterVisible != beforeVisible || afterSecret != beforeSecret {
+		t.Fatalf("close changed balances: before=(%d,%d) after=(%d,%d)", beforeVisible, beforeSecret, afterVisible, afterSecret)
+	}
 
 	retryClose := closePot()
 	if retryClose.Code != http.StatusNotFound {
 		t.Fatalf("repeated close status = %d, body = %s", retryClose.Code, retryClose.Body.String())
+	}
+	retryRound, err := queries.GetActivityOccurrence(ctx, roundID)
+	if err != nil {
+		t.Fatalf("get round after repeated close: %v", err)
+	}
+	if string(retryRound.Metadata) != string(closedRound.Metadata) || !retryRound.EndsAt.Time.Equal(closedRound.EndsAt.Time) || !retryRound.UpdatedAt.Time.Equal(closedRound.UpdatedAt.Time) {
+		t.Fatalf("repeated close mutated persisted round: before=%+v after=%+v", closedRound, retryRound)
+	}
+	retryLedger := ledgerSnapshot()
+	if fmt.Sprint(retryLedger) != fmt.Sprint(afterLedger) {
+		t.Fatalf("repeated close mutated round ledger: before=%v after=%v", afterLedger, retryLedger)
 	}
 }
 
@@ -1444,12 +1511,12 @@ func TestStirThePotContributionDoesNotRevealSecretWhenVisibleBalanceCoversSpend(
 	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
 	bobID := uuid.UUID(participantIDByName["Bob"].Bytes).String()
 
-	publicActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-3*time.Hour), nil, "manual_adjustment", "Verification Public Bonus")
-	publicOccurrence := createOccurrenceForTest(t, ctx, queries, publicActivity.ID, "manual_correction", "Verification Public Bonus Grant", time.Now().UTC().Add(-3*time.Hour))
+	publicActivity := createActivityForTest(t, ctx, queries, instance.ID, verificationGameplayNow().Add(-3*time.Hour), nil, "manual_adjustment", "Verification Public Bonus")
+	publicOccurrence := createOccurrenceForTest(t, ctx, queries, publicActivity.ID, "manual_correction", "Verification Public Bonus Grant", verificationGameplayNow().Add(-3*time.Hour))
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Bob"], publicOccurrence.ID, pgtype.UUID{}, "award", 3, "public", "Verification public reward", "verification:public:bob")
 
-	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
-	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", time.Now().UTC().Add(-2*time.Hour))
+	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, verificationGameplayNow().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
+	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", verificationGameplayNow().Add(-2*time.Hour))
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Bob"], hiddenOccurrence.ID, pgtype.UUID{}, "award", 1, "secret", "Verification hidden reward", "verification:hidden:bob")
 
 	startPotReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/start", instanceUUID), `{}`, "verification-token", "admin-discord")
@@ -1565,13 +1632,13 @@ func TestRecordMergeAuctionResults_CreatesOwnershipsAndPublicSpends(t *testing.T
 		t.Fatalf("create instance admin: %v", err)
 	}
 
-	publicActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-3*time.Hour), nil, "manual_adjustment", "Verification Public Bonus")
-	publicOccurrence := createOccurrenceForTest(t, ctx, queries, publicActivity.ID, "manual_correction", "Verification Public Bonus Grant", time.Now().UTC().Add(-3*time.Hour))
+	publicActivity := createActivityForTest(t, ctx, queries, instance.ID, verificationGameplayNow().Add(-3*time.Hour), nil, "manual_adjustment", "Verification Public Bonus")
+	publicOccurrence := createOccurrenceForTest(t, ctx, queries, publicActivity.ID, "manual_correction", "Verification Public Bonus Grant", verificationGameplayNow().Add(-3*time.Hour))
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Alice"], publicOccurrence.ID, pgtype.UUID{}, "award", 3, "public", "Verification public reward", "verification:public:alice")
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Bob"], publicOccurrence.ID, pgtype.UUID{}, "award", 2, "public", "Verification public reward", "verification:public:bob")
 
-	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, time.Now().UTC().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
-	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", time.Now().UTC().Add(-2*time.Hour))
+	hiddenActivity := createActivityForTest(t, ctx, queries, instance.ID, verificationGameplayNow().Add(-2*time.Hour), nil, "manual_adjustment", "Verification Hidden Bonus")
+	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", verificationGameplayNow().Add(-2*time.Hour))
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Alice"], hiddenOccurrence.ID, pgtype.UUID{}, "award", 2, "secret", "Verification hidden reward", "verification:hidden:alice")
 
 	server := httpapi.New(pool,
@@ -1624,14 +1691,14 @@ func TestRecordMergeAuctionResults_CreatesOwnershipsAndPublicSpends(t *testing.T
 		t.Fatalf("unexpected second merge auction result: %+v", recordResponse.Results[1])
 	}
 
-	alicePonies, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instance.ID, OwnerParticipantID: participantIDByName["Alice"], At: timestamptz(time.Now().UTC())})
+	alicePonies, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instance.ID, OwnerParticipantID: participantIDByName["Alice"], At: timestamptz(verificationGameplayNow())})
 	if err != nil {
 		t.Fatalf("list alice ponies: %v", err)
 	}
 	if len(alicePonies) != 1 || alicePonies[0].ContestantName != contestantOne.Name {
 		t.Fatalf("unexpected alice ponies: %+v", alicePonies)
 	}
-	bobPonies, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instance.ID, OwnerParticipantID: participantIDByName["Bob"], At: timestamptz(time.Now().UTC())})
+	bobPonies, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instance.ID, OwnerParticipantID: participantIDByName["Bob"], At: timestamptz(verificationGameplayNow())})
 	if err != nil {
 		t.Fatalf("list bob ponies: %v", err)
 	}
@@ -1989,7 +2056,7 @@ func createLedgerEntryWithMetadataForTest(t *testing.T, ctx context.Context, que
 		Points:               points,
 		Visibility:           visibility,
 		Reason:               reason,
-		EffectiveAt:          timestamptz(time.Date(2026, time.March, 21, 12, 0, 0, 0, time.UTC)),
+		EffectiveAt:          timestamptz(verificationGameplayNow()),
 		AwardKey:             pgtype.Text{String: awardKey, Valid: true},
 		Metadata:             metadata,
 	}); err != nil {

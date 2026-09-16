@@ -11,8 +11,8 @@ Repair the obviously broken gameplay paths and establish a small, executable bas
 ## Keep
 
 - Narrow HTTP clock injection and fixed test fixtures.
-- Discord entity-routing and season-option corrections.
-- Episode API contract corrections.
+- Discord entity-routing and season-option corrections, pending verification from the unavailable prior branch.
+- Episode API contract corrections, pending verification from the unavailable prior branch.
 - Focused PostgreSQL integration coverage for gameplay flows.
 - Small pure validators where they enforce a concrete schedule invariant.
 
@@ -30,17 +30,17 @@ Repair the obviously broken gameplay paths and establish a small, executable bas
 
 ## Last-season baseline
 
-This is a compact inventory, not a redesign. A mechanic is considered covered when the canonical path and a representative regression agree with the documented or observed rule.
+This is a compact inventory and evidence map, not proof that the historical audit is complete. `Pending comparison` means the implementation must not be treated as the final rule until it is checked against the last-season logs.
 
-| Mechanic | Canonical path | Regression coverage | Disposition |
-| --- | --- | --- | --- |
-| Stir the Pot | `httpapi/merge_gameplay.go`, `gameplay/resolver.go` | `TestMergeGameplayVerificationFlow`, Stir the Pot resolver tests | Repair close transaction and secret visibility; retain |
-| Tribal Pony | `gameplay/resolver.go` | `TestResolveActivityOccurrenceTribalPony*` | Retain |
-| Pony auction and ownership | `httpapi/merge_gameplay.go` | `TestRecordMergeAuctionResults_*`, merge gameplay flow | Retain; keep public-first spending |
-| Secret-point accounting | `httpapi/merge_gameplay.go`, `db/query/bonus_ledger.sql` | secret-risk, contribution, and auction integration tests | Repair only confirmed discrepancies |
-| Loan Shark | `httpapi/merge_gameplay.go` | merge gameplay flow | Defer unless a concrete broken behavior is found |
+| Mechanic | Rule/source reference | Canonical path | Regression coverage | Status |
+| --- | --- | --- | --- | --- |
+| Stir the Pot | `docs/gameplay/stir-the-pot.md`; manual gameplay logs | `httpapi/merge_gameplay.go`, `gameplay/resolver.go` | `TestMergeGameplayVerificationFlow`, Stir the Pot resolver tests | Close and visibility rule settled; historical comparison pending |
+| Tribal Pony | `docs/castaway-manual-gameplay-logs.md` | `gameplay/resolver.go` | `TestResolveActivityOccurrenceTribalPony*` | Implementation covered; historical comparison pending |
+| Pony auction and ownership | `docs/castaway-manual-gameplay-logs.md` | `httpapi/merge_gameplay.go` | `TestRecordMergeAuctionResults_*`, merge gameplay flow | Public-first spending covered; historical comparison pending |
+| Secret-point accounting | `apps/castaway-web/plans/bonus-points-planning.md`; manual gameplay logs | `httpapi/merge_gameplay.go`, `db/query/bonus_ledger.sql` | secret-risk, contribution, and auction integration tests | Core accounting covered; edge-case comparison pending |
+| Loan Shark | Existing gameplay implementation and flow test | `httpapi/merge_gameplay.go` | merge gameplay flow | Deferred unless a concrete broken behavior is found |
 
-Observed rules and historical evidence remain in `docs/gameplay/` and `docs/castaway-manual-gameplay-logs.md`. Material discrepancies must be resolved before adding new behavior.
+Material discrepancies must be resolved before adding new behavior.
 
 ## Defer
 
