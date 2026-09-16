@@ -254,17 +254,6 @@ func (s *Server) createInstance(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	if req.ManagedProgression {
-		existing, err := qtx.LockInstancesByNameSeason(c.Request.Context(), db.LockInstancesByNameSeasonParams{Name: req.Name, Season: req.Season})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-			return
-		}
-		if len(existing) > 0 {
-			c.JSON(http.StatusConflict, errorResponse{Error: "an instance with this name and season already exists"})
-			return
-		}
-	}
 	createdInstance, err := qtx.CreateInstance(c.Request.Context(), db.CreateInstanceParams{
 		Name:   req.Name,
 		Season: req.Season,

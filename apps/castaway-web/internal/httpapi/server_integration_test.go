@@ -312,6 +312,12 @@ func TestManagedWritesFailClosedAndImportPreservesInstance(t *testing.T) {
 	if linkedParticipant.DiscordUserID.Valid {
 		t.Fatalf("forged managed link changed discord identity to %q", linkedParticipant.DiscordUserID.String)
 	}
+	unlinkReq := authorizedJSONRequest(http.MethodDelete, fmt.Sprintf("/instances/%s/participants/%s/discord-link", created.Instance.ID, participantID), "", "", "managed-admin")
+	unlinkRecorder := httptest.NewRecorder()
+	noAuthRouter.ServeHTTP(unlinkRecorder, unlinkReq)
+	if unlinkRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("forged managed unlink status = %d, body = %s", unlinkRecorder.Code, unlinkRecorder.Body.String())
+	}
 
 	startReq := authorizedJSONRequest(http.MethodPost, "/instances/"+created.Instance.ID+"/progression/episodes/1/start", `{"idempotency_key":"start-1","effective_at":"2026-02-03T20:00:00Z"}`, "managed-token", "managed-admin")
 	startRecorder := httptest.NewRecorder()
@@ -549,6 +555,10 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	if pendingOutcomeRecorder.Code != http.StatusOK {
 		t.Fatalf("pending outcome status = %d, body = %s", pendingOutcomeRecorder.Code, pendingOutcomeRecorder.Body.String())
 	}
+	episode2Before, err := queries.GetInstanceEpisodeProgress(ctx, db.GetInstanceEpisodeProgressParams{InstanceID: instanceID, EpisodeNumber: 2})
+	if err != nil {
+		t.Fatalf("read episode 2 before late correction: %v", err)
+	}
 	var ledgerBeforeCorrection int
 	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&ledgerBeforeCorrection); err != nil {
 		t.Fatalf("count ledger before late correction: %v", err)
@@ -564,6 +574,13 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	ownershipBeforeCorrection, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instanceID, OwnerParticipantID: participants[0].ID, At: timestamptz(verificationGameplayNow())})
 	if err != nil {
 		t.Fatalf("read ownership before late correction: %v", err)
+	}
+	var ledgerRowsBefore, ownershipRowsBefore []byte
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, participant_id, activity_occurrence_id, entry_kind, points, visibility, reason, effective_at, award_key, metadata, created_at FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ledgerRowsBefore); err != nil {
+		t.Fatalf("snapshot ledger before late correction: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, owner_participant_id, contestant_id, source_activity_occurrence_id, acquired_at, released_at, status, metadata, created_at, updated_at FROM participant_pony_ownerships WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ownershipRowsBefore); err != nil {
+		t.Fatalf("snapshot ownership before late correction: %v", err)
 	}
 
 	closeRecorder := progress("/instances/"+instancePath+"/progression/draft/close", effective("draft-close", "2026-01-10T20:00:00Z"))
@@ -639,6 +656,23 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	}
 	if len(ownershipAfterCorrection) != len(ownershipBeforeCorrection) || (len(ownershipBeforeCorrection) > 0 && ownershipAfterCorrection[0].ID != ownershipBeforeCorrection[0].ID) {
 		t.Fatalf("late correction changed ownership state: before=%+v after=%+v", ownershipBeforeCorrection, ownershipAfterCorrection)
+	}
+	var ledgerRowsAfter, ownershipRowsAfter []byte
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, participant_id, activity_occurrence_id, entry_kind, points, visibility, reason, effective_at, award_key, metadata, created_at FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ledgerRowsAfter); err != nil {
+		t.Fatalf("snapshot ledger after late correction: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, owner_participant_id, contestant_id, source_activity_occurrence_id, acquired_at, released_at, status, metadata, created_at, updated_at FROM participant_pony_ownerships WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ownershipRowsAfter); err != nil {
+		t.Fatalf("snapshot ownership after late correction: %v", err)
+	}
+	if !bytes.Equal(ledgerRowsBefore, ledgerRowsAfter) || !bytes.Equal(ownershipRowsBefore, ownershipRowsAfter) {
+		t.Fatalf("late correction changed persisted ledger or ownership rows")
+	}
+	episode2After, err := queries.GetInstanceEpisodeProgress(ctx, db.GetInstanceEpisodeProgressParams{InstanceID: instanceID, EpisodeNumber: 2})
+	if err != nil {
+		t.Fatalf("read episode 2 after late correction: %v", err)
+	}
+	if !reflect.DeepEqual(episode2Before, episode2After) {
+		t.Fatalf("late correction changed episode 2 state: before=%+v after=%+v", episode2Before, episode2After)
 	}
 
 	type snapshot struct {

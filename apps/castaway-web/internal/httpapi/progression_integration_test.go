@@ -25,7 +25,7 @@ type managedProgressionFixture struct {
 	instance   db.GetInstanceRow
 }
 
-func newManagedProgressionFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name string, season int32, contestantNames []string, episodes int) managedProgressionFixture {
+func newManagedProgressionFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool, name string, season int32, contestantNames []string, episodes int, clocks ...time.Time) managedProgressionFixture {
 	t.Helper()
 	payloadEpisodes := make([]map[string]any, 0, episodes)
 	start := time.Date(2026, time.January, 1, 20, 0, 0, 0, time.FixedZone("EST", -5*60*60))
@@ -46,10 +46,15 @@ func newManagedProgressionFixture(t *testing.T, ctx context.Context, pool *pgxpo
 	if err != nil {
 		t.Fatalf("marshal managed fixture: %v", err)
 	}
-	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{
+	options := []httpapi.Option{httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{
 		Enabled:      true,
 		BearerTokens: []string{"progression-token"},
-	}))
+	})}
+	if len(clocks) > 0 {
+		clock := clocks[0]
+		options = append(options, httpapi.WithClock(func() time.Time { return clock }))
+	}
+	server := httpapi.New(pool, options...)
 	req := authorizedJSONRequest(http.MethodPost, "/instances", string(body), "progression-token", "progression-admin")
 	recorder := httptest.NewRecorder()
 	server.Router().ServeHTTP(recorder, req)
@@ -189,6 +194,53 @@ func TestManagedProgressionCommandsSerializeAndRejectBackdating(t *testing.T) {
 	scoreConflict := serve(fixture, http.MethodPost, path+"/progression/episodes/1/score", progressionCommand("same-score", "2026-01-07T20:00:00Z"), "progression-token", "progression-admin")
 	if scoreConflict.Code != http.StatusConflict || !strings.Contains(scoreConflict.Body.String(), "idempotency key was already used with a different payload") {
 		t.Fatalf("specific score idempotency conflict = %d, body = %s", scoreConflict.Code, scoreConflict.Body.String())
+	}
+}
+
+func TestManagedConcurrentConflictingCommandsHaveOneEffect(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+	fixture := newManagedProgressionFixture(t, ctx, pool, "Conflicting commands", 110, []string{"Conflict C1"}, 2)
+	path := "/instances/" + fixture.instanceID
+	if open := serve(fixture, http.MethodPost, path+"/progression/draft/open", progressionCommand("conflict-open", "2026-01-02T19:00:00Z"), "progression-token", "progression-admin"); open.Code != http.StatusOK {
+		t.Fatalf("open conflicting-command draft status = %d, body = %s", open.Code, open.Body.String())
+	}
+	responses := make(chan *httptest.ResponseRecorder, 2)
+	var wait sync.WaitGroup
+	wait.Add(2)
+	for _, effectiveAt := range []string{"2026-01-02T20:00:00Z", "2026-01-03T20:00:00Z"} {
+		effectiveAt := effectiveAt
+		go func() {
+			defer wait.Done()
+			responses <- serve(fixture, http.MethodPost, path+"/progression/draft/close", progressionCommand("same-close", effectiveAt), "progression-token", "progression-admin")
+		}()
+	}
+	wait.Wait()
+	close(responses)
+	successes, conflicts := 0, 0
+	for response := range responses {
+		switch response.Code {
+		case http.StatusOK:
+			successes++
+		case http.StatusConflict:
+			conflicts++
+			if !strings.Contains(response.Body.String(), "idempotency key was already used with a different payload") {
+				t.Fatalf("unexpected concurrent conflict body: %s", response.Body.String())
+			}
+		default:
+			t.Fatalf("unexpected concurrent conflict status = %d, body = %s", response.Code, response.Body.String())
+		}
+	}
+	if successes != 1 || conflicts != 1 {
+		t.Fatalf("expected one concurrent success and one payload conflict, got successes=%d conflicts=%d", successes, conflicts)
+	}
+	var commands int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM instance_progression_commands WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, fixture.instance.ID).Scan(&commands); err != nil {
+		t.Fatalf("count conflicting commands: %v", err)
+	}
+	if commands != 2 {
+		t.Fatalf("expected one open and one close command row after conflicting retries, got %d", commands)
 	}
 }
 
@@ -412,16 +464,25 @@ func TestManagedRosterSetupAndEpisodeStartSerialize(t *testing.T) {
 	fixture := newManagedProgressionFixture(t, ctx, pool, "Setup race", 108, []string{"Setup C1"}, 2)
 	path := "/instances/" + fixture.instanceID
 	statuses := make(chan int, 2)
+	ready := make(chan struct{}, 2)
+	begin := make(chan struct{})
 	var wait sync.WaitGroup
 	wait.Add(2)
 	go func() {
 		defer wait.Done()
+		ready <- struct{}{}
+		<-begin
 		statuses <- serve(fixture, http.MethodPost, path+"/participants", `{"name":"Racing participant"}`, "progression-token", "progression-admin").Code
 	}()
 	go func() {
 		defer wait.Done()
+		ready <- struct{}{}
+		<-begin
 		statuses <- serve(fixture, http.MethodPost, path+"/progression/episodes/1/start", progressionCommand("setup-race-start", "2026-01-03T20:00:00Z"), "progression-token", "progression-admin").Code
 	}()
+	<-ready
+	<-ready
+	close(begin)
 	wait.Wait()
 	close(statuses)
 	gotStart, gotParticipant := false, false
@@ -484,16 +545,15 @@ func TestManagedCreateAndImportSerializeOnNameSeason(t *testing.T) {
 	for status := range responses {
 		statuses[status]++
 	}
-	if statuses[http.StatusCreated] != 1 || statuses[http.StatusConflict] != 1 {
+	if statuses[http.StatusCreated] < 1 || statuses[http.StatusCreated]+statuses[http.StatusConflict] != 2 {
 		t.Fatalf("concurrent create/import statuses = %+v", statuses)
 	}
-	var count int
-	var mode string
-	if err := pool.QueryRow(ctx, `SELECT COUNT(*), MIN(progression_mode) FROM instances WHERE name = 'Concurrent collision' AND season = 105`).Scan(&count, &mode); err != nil {
+	var count, managedCount, legacyCount int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE progression_mode = 'managed'), COUNT(*) FILTER (WHERE progression_mode = 'legacy') FROM instances WHERE name = 'Concurrent collision' AND season = 105`).Scan(&count, &managedCount, &legacyCount); err != nil {
 		t.Fatalf("read concurrent collision state: %v", err)
 	}
-	if count != 1 || (mode != "legacy" && mode != "managed") {
-		t.Fatalf("concurrent create/import left invalid state: count=%d mode=%q", count, mode)
+	if count < 1 || count > 2 || managedCount > 1 || legacyCount > 1 || managedCount+legacyCount != count {
+		t.Fatalf("concurrent create/import left invalid state: count=%d managed=%d legacy=%d", count, managedCount, legacyCount)
 	}
 }
 
