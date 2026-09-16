@@ -27,6 +27,7 @@ type Server struct {
 	queries                 *db.Queries
 	serviceAuth             ServiceAuthConfig
 	serviceAuthBearerTokens map[string]struct{}
+	now                     func() time.Time
 }
 
 type Option func(*Server)
@@ -43,12 +44,21 @@ func WithServiceAuth(cfg ServiceAuthConfig) Option {
 	}
 }
 
+func WithClock(clock func() time.Time) Option {
+	return func(s *Server) {
+		if clock != nil {
+			s.now = func() time.Time { return clock().UTC() }
+		}
+	}
+}
+
 func New(pool *pgxpool.Pool, options ...Option) *Server {
 	server := &Server{
 		pool:                    pool,
 		queries:                 db.New(pool),
 		serviceAuth:             normalizeServiceAuthConfig(ServiceAuthConfig{}),
 		serviceAuthBearerTokens: make(map[string]struct{}),
+		now:                     func() time.Time { return time.Now().UTC() },
 	}
 	server.registerMetrics()
 	for _, option := range options {
@@ -298,7 +308,7 @@ func (s *Server) getInstance(c *gin.Context) {
 	instanceJSON := toInstanceResponse(instance.ID, instance.Name, instance.Season, instance.CreatedAt)
 	currentEpisode, err := s.queries.GetCurrentEpisodeAt(c.Request.Context(), db.GetCurrentEpisodeAtParams{
 		InstanceID: instance.ID,
-		At:         pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+		At:         pgtype.Timestamptz{Time: s.now(), Valid: true},
 	})
 	if err == nil {
 		instanceJSON.CurrentEpisode = toInstanceEpisodeBrief(currentEpisode)
@@ -935,7 +945,7 @@ func (s *Server) leaderboard(c *gin.Context) {
 	participantNames := make(map[string]string, len(participants))
 	participantDiscordUserIDs := make(map[string]string, len(participants))
 	currentTribeNames := make(map[string]string, len(participants))
-	leaderboardAt := time.Now().UTC()
+	leaderboardAt := s.now()
 	for _, participant := range participants {
 		participantID := uuid.UUID(participant.ID.Bytes).String()
 		participantNames[participantID] = participant.Name

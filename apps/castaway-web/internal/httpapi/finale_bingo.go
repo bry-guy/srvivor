@@ -87,7 +87,7 @@ func (s *Server) recordFinaleBingoLoanSharks(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
-	now := time.Now().UTC()
+	now := s.now()
 	effectiveAt := now
 	if req.EffectiveAt != nil {
 		effectiveAt = req.EffectiveAt.UTC()
@@ -163,7 +163,7 @@ func (s *Server) handleFinaleBingoScores(c *gin.Context, write bool) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
-	now := time.Now().UTC()
+	now := s.now()
 	effectiveAt := now
 	if req.EffectiveAt != nil {
 		effectiveAt = req.EffectiveAt.UTC()

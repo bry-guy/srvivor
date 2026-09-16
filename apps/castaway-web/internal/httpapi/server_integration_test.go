@@ -22,6 +22,10 @@ import (
 
 var testEmptyJSONB = []byte("{}")
 
+func verificationGameplayNow() time.Time {
+	return time.Date(2026, time.March, 5, 12, 0, 0, 0, time.UTC)
+}
+
 type leaderboardResponse struct {
 	Leaderboard []struct {
 		ParticipantID            string `json:"participant_id"`
@@ -800,7 +804,10 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		t.Fatalf("create instance admin: %v", err)
 	}
 
-	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}))
+	server := httpapi.New(pool,
+		httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}),
+		httpapi.WithClock(verificationGameplayNow),
+	)
 	router := server.Router()
 	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
 	aliceID := uuid.UUID(participantIDByName["Alice"].Bytes).String()
@@ -817,7 +824,7 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	}
 	nextEpisodeLabel := ""
 	nextEpisodeAirsAt := time.Time{}
-	now := time.Now().UTC()
+	now := verificationGameplayNow()
 	for _, episode := range episodes {
 		if episode.AirsAt.Time.After(now) {
 			nextEpisodeLabel = episode.Label
@@ -935,6 +942,13 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		t.Fatalf("expected stir the pot to be closed after admin close: %+v", closedStatusResponse)
 	}
 
+	repeatedCloseReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/close", instanceUUID), "", "verification-token", "admin-discord")
+	repeatedCloseRecorder := httptest.NewRecorder()
+	router.ServeHTTP(repeatedCloseRecorder, repeatedCloseReq)
+	if repeatedCloseRecorder.Code != http.StatusNotFound {
+		t.Fatalf("repeated stir the pot close status = %d, body = %s", repeatedCloseRecorder.Code, repeatedCloseRecorder.Body.String())
+	}
+
 	aliceLedgerReq := authorizedJSONRequest(http.MethodGet, fmt.Sprintf("/instances/%s/participants/%s/bonus-ledger", instanceUUID, aliceID), "", "verification-token", "alice-discord")
 	aliceLedgerRecorder := httptest.NewRecorder()
 	router.ServeHTTP(aliceLedgerRecorder, aliceLedgerReq)
@@ -959,6 +973,13 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	}
 	if !foundContributionSpend {
 		t.Fatalf("expected secret stir the pot spend in alice ledger: %+v", aliceLedger.Ledger)
+	}
+	availableSecret, err := queries.GetAvailableSecretBalanceByParticipant(ctx, db.GetAvailableSecretBalanceByParticipantParams{InstanceID: instance.ID, ParticipantID: participantIDByName["Alice"]})
+	if err != nil {
+		t.Fatalf("get alice available secret balance after close: %v", err)
+	}
+	if availableSecret != 1 {
+		t.Fatalf("expected close to preserve alice's available secret balance, got %d", availableSecret)
 	}
 
 	activities, err := queries.ListInstanceActivitiesByType(ctx, db.ListInstanceActivitiesByTypeParams{InstanceID: instance.ID, ActivityType: "tribal_pony"})
@@ -1160,7 +1181,7 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 		t.Fatalf("unexpected loan status after repay: %+v", loanStatusResponse)
 	}
 
-	individualImmunityAt := time.Now().UTC().Add(2 * time.Hour)
+	individualImmunityAt := verificationGameplayNow().Add(2 * time.Hour)
 	immunityReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/individual-pony/immunity", instanceUUID), fmt.Sprintf(`{"contestant_id":"%s","effective_at":"%s"}`, joeID, individualImmunityAt.Format(time.RFC3339)), "verification-token", "admin-discord")
 	immunityRecorder := httptest.NewRecorder()
 	router.ServeHTTP(immunityRecorder, immunityReq)
@@ -1217,6 +1238,160 @@ func TestMergeGameplayVerificationFlow(t *testing.T) {
 	}
 }
 
+func TestStirThePotCloseRollsBackMalformedContribution(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+
+	seasons, err := seeddata.LoadFromJSON("../../seeds/verification-merge-gameplay.json")
+	if err != nil {
+		t.Fatalf("load verification seed: %v", err)
+	}
+	if _, err := appinternal.SeedHistorical(ctx, pool, seasons); err != nil {
+		t.Fatalf("seed verification season: %v", err)
+	}
+
+	queries := db.New(pool)
+	instances, err := queries.ListInstances(ctx)
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	var instance db.ListInstancesRow
+	for _, candidate := range instances {
+		if candidate.Name == "Verification Merge Gameplay" {
+			instance = candidate
+			break
+		}
+	}
+	if !instance.ID.Valid {
+		t.Fatalf("verification instance not found")
+	}
+	participants, err := queries.ListParticipantsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list participants: %v", err)
+	}
+	var aliceID pgtype.UUID
+	for _, participant := range participants {
+		if participant.Name == "Alice" {
+			aliceID = participant.ID
+			break
+		}
+	}
+	if !aliceID.Valid {
+		t.Fatalf("alice participant not found")
+	}
+	groups, err := queries.ListParticipantGroupsByInstance(ctx, instance.ID)
+	if err != nil {
+		t.Fatalf("list participant groups: %v", err)
+	}
+	var lotusID pgtype.UUID
+	for _, group := range groups {
+		if group.Name == "Lotus" {
+			lotusID = group.ID
+			break
+		}
+	}
+	if !lotusID.Valid {
+		t.Fatalf("lotus group not found")
+	}
+	if _, err := queries.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "admin-discord"}); err != nil {
+		t.Fatalf("create instance admin: %v", err)
+	}
+
+	server := httpapi.New(pool,
+		httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}),
+		httpapi.WithClock(verificationGameplayNow),
+	)
+	router := server.Router()
+	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
+	startReq := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/start", instanceUUID), `{}`, "verification-token", "admin-discord")
+	startRecorder := httptest.NewRecorder()
+	router.ServeHTTP(startRecorder, startReq)
+	if startRecorder.Code != http.StatusCreated {
+		t.Fatalf("start stir the pot status = %d, body = %s", startRecorder.Code, startRecorder.Body.String())
+	}
+	var startResponse struct {
+		Round struct {
+			ID string `json:"id"`
+		} `json:"round"`
+	}
+	if err := json.Unmarshal(startRecorder.Body.Bytes(), &startResponse); err != nil {
+		t.Fatalf("unmarshal start response: %v", err)
+	}
+	roundUUID, err := uuid.Parse(startResponse.Round.ID)
+	if err != nil {
+		t.Fatalf("parse round id: %v", err)
+	}
+	roundID := pgtype.UUID{Bytes: roundUUID, Valid: true}
+	if _, err := queries.UpsertActivityOccurrenceParticipant(ctx, db.UpsertActivityOccurrenceParticipantParams{
+		ActivityOccurrenceID: roundID,
+		ParticipantID:        aliceID,
+		ParticipantGroupID:   lotusID,
+		Role:                 "contributor",
+		Metadata:             []byte(`{"contribution":"invalid"}`),
+	}); err != nil {
+		t.Fatalf("insert malformed contribution: %v", err)
+	}
+
+	closePot := func() *httptest.ResponseRecorder {
+		req := authorizedJSONRequest(http.MethodPost, fmt.Sprintf("/instances/%s/stir-the-pot/close", instanceUUID), "", "verification-token", "admin-discord")
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+		return recorder
+	}
+	failedClose := closePot()
+	if failedClose.Code != http.StatusInternalServerError {
+		t.Fatalf("malformed contribution close status = %d, body = %s", failedClose.Code, failedClose.Body.String())
+	}
+	failedRound, err := queries.GetActivityOccurrence(ctx, roundID)
+	if err != nil {
+		t.Fatalf("get round after failed close: %v", err)
+	}
+	if failedRound.Status != "recorded" || failedRound.EndsAt.Valid {
+		t.Fatalf("close failure partially changed round: %+v", failedRound)
+	}
+	var failedMetadata map[string]any
+	if err := json.Unmarshal(failedRound.Metadata, &failedMetadata); err != nil {
+		t.Fatalf("unmarshal round metadata after failed close: %v", err)
+	}
+	if _, closed := failedMetadata["closed_at"]; closed {
+		t.Fatalf("close failure left closed_at metadata: %+v", failedMetadata)
+	}
+
+	if _, err := queries.UpsertActivityOccurrenceParticipant(ctx, db.UpsertActivityOccurrenceParticipantParams{
+		ActivityOccurrenceID: roundID,
+		ParticipantID:        aliceID,
+		ParticipantGroupID:   lotusID,
+		Role:                 "contributor",
+		Metadata:             []byte(`{"contribution":0}`),
+	}); err != nil {
+		t.Fatalf("repair malformed contribution: %v", err)
+	}
+	successfulClose := closePot()
+	if successfulClose.Code != http.StatusOK {
+		t.Fatalf("repaired close status = %d, body = %s", successfulClose.Code, successfulClose.Body.String())
+	}
+	closedRound, err := queries.GetActivityOccurrence(ctx, roundID)
+	if err != nil {
+		t.Fatalf("get round after successful close: %v", err)
+	}
+	if closedRound.Status != "recorded" || !closedRound.EndsAt.Valid {
+		t.Fatalf("unexpected closed round state: %+v", closedRound)
+	}
+	var closedMetadata map[string]any
+	if err := json.Unmarshal(closedRound.Metadata, &closedMetadata); err != nil {
+		t.Fatalf("unmarshal round metadata after successful close: %v", err)
+	}
+	if closedAt, ok := closedMetadata["closed_at"].(string); !ok || closedAt == "" {
+		t.Fatalf("expected closed_at metadata after successful close: %+v", closedMetadata)
+	}
+
+	retryClose := closePot()
+	if retryClose.Code != http.StatusNotFound {
+		t.Fatalf("repeated close status = %d, body = %s", retryClose.Code, retryClose.Body.String())
+	}
+}
+
 func TestStirThePotContributionDoesNotRevealSecretWhenVisibleBalanceCoversSpend(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	defer pool.Close()
@@ -1261,7 +1436,10 @@ func TestStirThePotContributionDoesNotRevealSecretWhenVisibleBalanceCoversSpend(
 		t.Fatalf("create instance admin: %v", err)
 	}
 
-	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}))
+	server := httpapi.New(pool,
+		httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}),
+		httpapi.WithClock(verificationGameplayNow),
+	)
 	router := server.Router()
 	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
 	bobID := uuid.UUID(participantIDByName["Bob"].Bytes).String()
@@ -1367,6 +1545,15 @@ func TestRecordMergeAuctionResults_CreatesOwnershipsAndPublicSpends(t *testing.T
 	}
 	contestantOne := contestants[0]
 	contestantTwo := contestants[1]
+	if _, err := pool.Exec(ctx, `
+		DELETE FROM bonus_point_ledger_entries b
+		USING instances i
+		WHERE b.instance_id = i.id
+		  AND i.public_id = $1
+		  AND b.award_key LIKE 'verification:starting-bonus:%'
+	`, instance.ID); err != nil {
+		t.Fatalf("remove seeded starting bonuses: %v", err)
+	}
 
 	if _, err := queries.SetParticipantDiscordUserID(ctx, db.SetParticipantDiscordUserIDParams{ID: participantIDByName["Alice"], DiscordUserID: pgtype.Text{String: "alice-discord", Valid: true}}); err != nil {
 		t.Fatalf("link alice: %v", err)
@@ -1387,7 +1574,10 @@ func TestRecordMergeAuctionResults_CreatesOwnershipsAndPublicSpends(t *testing.T
 	hiddenOccurrence := createOccurrenceForTest(t, ctx, queries, hiddenActivity.ID, "manual_correction", "Verification Hidden Bonus Grant", time.Now().UTC().Add(-2*time.Hour))
 	createLedgerEntryForTest(t, ctx, queries, instance.ID, participantIDByName["Alice"], hiddenOccurrence.ID, pgtype.UUID{}, "award", 2, "secret", "Verification hidden reward", "verification:hidden:alice")
 
-	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}))
+	server := httpapi.New(pool,
+		httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"verification-token"}}),
+		httpapi.WithClock(verificationGameplayNow),
+	)
 	router := server.Router()
 	instanceUUID := uuid.UUID(instance.ID.Bytes).String()
 	aliceID := uuid.UUID(participantIDByName["Alice"].Bytes).String()

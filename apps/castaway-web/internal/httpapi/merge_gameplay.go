@@ -145,7 +145,7 @@ func (s *Server) getStirThePotStatus(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	round, _, found, err := s.findOpenStirThePotRound(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -208,7 +208,7 @@ func (s *Server) getStirThePotTribeStatus(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	round, _, roundFound, err := s.findOpenStirThePotRound(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -260,7 +260,7 @@ func (s *Server) startStirThePotRound(c *gin.Context) {
 		}
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	activity, err := s.ensureSystemActivity(c.Request.Context(), s.queries, toPGUUID(instanceID), activityTypeStirThePot, "Stir the Pot", now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -318,8 +318,17 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
-	round, _, found, err := s.findOpenStirThePotRound(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
+	ctx := c.Request.Context()
+	now := s.now()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	defer rollbackTx(c, tx)
+	qtx := s.queries.WithTx(tx)
+
+	round, _, found, err := s.findOpenStirThePotRound(ctx, qtx, toPGUUID(instanceID), now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -340,7 +349,7 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	updatedRound, err := s.queries.UpdateActivityOccurrenceStatusAndMetadata(c.Request.Context(), db.UpdateActivityOccurrenceStatusAndMetadataParams{
+	updatedRound, err := qtx.UpdateActivityOccurrenceStatusAndMetadata(ctx, db.UpdateActivityOccurrenceStatusAndMetadataParams{
 		ID:       round.ID,
 		Status:   round.Status,
 		EndsAt:   optionalTime(now),
@@ -351,7 +360,7 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 		return
 	}
 
-	groups, err := s.queries.ListParticipantGroupsByInstance(c.Request.Context(), toPGUUID(instanceID))
+	groups, err := qtx.ListParticipantGroupsByInstance(ctx, toPGUUID(instanceID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -361,7 +370,7 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 		if !strings.EqualFold(strings.TrimSpace(group.Kind), "tribe") {
 			continue
 		}
-		contributionPoints, err := s.groupContributionPoints(c.Request.Context(), s.queries, round.ID, group.ID)
+		contributionPoints, err := s.groupContributionPoints(ctx, qtx, round.ID, group.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 			return
@@ -389,11 +398,8 @@ func (s *Server) closeStirThePotRound(c *gin.Context) {
 		return tribeName(tribes[i]) < tribeName(tribes[j])
 	})
 
-	if _, err := s.pool.Exec(c.Request.Context(),
-		`UPDATE bonus_point_ledger_entries SET visibility = 'public' WHERE activity_occurrence_id = $1 AND visibility = 'secret'`,
-		round.ID,
-	); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: fmt.Sprintf("convert secret pot spends to public: %s", err.Error())})
+	if err := tx.Commit(ctx); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -422,7 +428,7 @@ func (s *Server) addStirThePotContribution(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	round, _, found, err := s.findOpenStirThePotRound(c.Request.Context(), s.queries, toPGUUID(instanceID), now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -530,7 +536,7 @@ func (s *Server) getAuctionStatus(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	activity, openLots, err := s.listOpenAuctionLots(c.Request.Context(), s.queries, toPGUUID(instanceID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -628,7 +634,7 @@ func (s *Server) startAuctionLot(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	activity, err := s.ensureSystemActivity(c.Request.Context(), s.queries, toPGUUID(instanceID), activityTypeIndividualPonyAuction, "Individual Pony Auction", now)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -754,7 +760,7 @@ func (s *Server) setAuctionBid(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	metadata, err := json.Marshal(auctionBidMetadata{BidPoints: req.Points})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -872,7 +878,7 @@ func (s *Server) stopAuctionLot(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	now := time.Now().UTC()
+	now := s.now()
 
 	tx, err := s.pool.Begin(c.Request.Context())
 	if err != nil {
@@ -990,7 +996,7 @@ func (s *Server) getMyPonies(c *gin.Context) {
 	if !ok {
 		return
 	}
-	now := time.Now().UTC()
+	now := s.now()
 	ownerships, err := s.queries.ListActiveParticipantPonyOwnershipsByOwnerAt(c.Request.Context(), db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{
 		InstanceID:         toPGUUID(instanceID),
 		OwnerParticipantID: participant.ID,
@@ -1024,7 +1030,7 @@ func (s *Server) getLoanSharkStatus(c *gin.Context) {
 	if !ok {
 		return
 	}
-	status, err := s.loanStatusPayload(c.Request.Context(), toPGUUID(instanceID), participant.ID, time.Now().UTC())
+	status, err := s.loanStatusPayload(c.Request.Context(), toPGUUID(instanceID), participant.ID, s.now())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -1055,7 +1061,7 @@ func (s *Server) borrowFromLoanShark(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	auctionActivity, err := s.primarySystemActivity(c.Request.Context(), s.queries, toPGUUID(instanceID), activityTypeIndividualPonyAuction)
 	if err != nil {
 		c.JSON(http.StatusConflict, errorResponse{Error: "individual pony auction is not active"})
@@ -1208,7 +1214,7 @@ func (s *Server) repayLoanShark(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := s.now()
 	activeLoan, hasActiveLoan, err := s.activeLoan(c.Request.Context(), s.queries, toPGUUID(instanceID), participant.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -1353,7 +1359,7 @@ func (s *Server) recordIndividualPonyImmunity(c *gin.Context) {
 		c.JSON(status, errorResponse{Error: err.Error()})
 		return
 	}
-	effectiveAt := time.Now().UTC()
+	effectiveAt := s.now()
 	if req.EffectiveAt != nil {
 		effectiveAt = req.EffectiveAt.UTC()
 	}
@@ -1526,7 +1532,7 @@ func (s *Server) recordMergeAuctionResults(c *gin.Context) {
 		return resolved[i].Round < resolved[j].Round
 	})
 
-	now := time.Now().UTC()
+	now := s.now()
 	for _, result := range resolved {
 		ownerships, err := s.queries.ListActiveParticipantPonyOwnershipsByContestantAt(c.Request.Context(), db.ListActiveParticipantPonyOwnershipsByContestantAtParams{
 			InstanceID:   toPGUUID(instanceID),
