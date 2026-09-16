@@ -14,6 +14,14 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: mise run ci
 
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - name: Run PostgreSQL integration tests
+        run: MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:integration
+
   validate-home-k3s-overlay:
     runs-on: ubuntu-latest
     steps:
