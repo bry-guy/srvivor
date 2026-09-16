@@ -158,7 +158,10 @@ func TestScoreCommandRegression_AdminGetsPrivateSecretBreakdownEphemerally(t *te
 
 func TestScoresCommandRegression_ResolvesSingleSeasonInstance(t *testing.T) {
 	bot, _ := newTestBot(t, testCastawayAPI{
-		instances: []castaway.Instance{{ID: "instance-50", Name: "Historical Season 50", Season: 50}},
+		instances: []castaway.Instance{
+			{ID: "instance-50", Name: "Historical Season 50", Season: 50},
+			{ID: "instance-49", Name: "Historical Season 50", Season: 49},
+		},
 		leaderboardByInstance: map[string][]castaway.LeaderboardRow{"instance-50": {
 			{ParticipantID: "participant-keeling", ParticipantName: "Keeling", ParticipantDiscordUserID: "u-keeling", CurrentTribeName: "Lotus", Score: 6, DraftPoints: 5, BonusPoints: 1, TotalPoints: 6, PointsAvailable: 294},
 			{ParticipantID: "participant-adam", ParticipantName: "Adam", ParticipantDiscordUserID: "u-adam", CurrentTribeName: "Tangerine", Score: 5, DraftPoints: 5, BonusPoints: 0, TotalPoints: 5, PointsAvailable: 292},
@@ -219,6 +222,154 @@ func TestDraftCommandRegression_DefaultsToLinkedParticipant(t *testing.T) {
 	expected := strings.Join([]string{"**Season 50: Bryan Draft**", "1. Emily"}, "\n")
 	if message != expected {
 		t.Fatalf("unexpected draft message:\nexpected: %q\nactual:   %q", expected, message)
+	}
+}
+
+func TestAutocompleteRoutesPlayerAndSurvivorToCorrectEntities(t *testing.T) {
+	bot, _ := newTestBot(t, testCastawayAPI{
+		instances:              []castaway.Instance{{ID: "instance-50", Name: "Season 50", Season: 50}},
+		participantsByInstance: map[string][]castaway.Participant{"instance-50": {{ID: "participant-1", Name: "Player One"}}},
+		contestantsByInstance:  map[string][]castaway.Contestant{"instance-50": {{ID: "contestant-1", Name: "Survivor One"}}},
+	})
+
+	session, err := discordgo.New("Bot test-token")
+	if err != nil {
+		t.Fatalf("new Discord session: %v", err)
+	}
+	var responseBody []byte
+	session.Client = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		responseBody, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+		return &http.Response{
+			StatusCode: http.StatusNoContent,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader("")),
+			Request:    req,
+		}, nil
+	})}
+	bot.session = session
+
+	for _, test := range []struct {
+		name       string
+		group      string
+		subcommand string
+		wantID     string
+	}{
+		{name: "participant", subcommand: "score", wantID: "participant-1"},
+		{name: "player", group: "pot", subcommand: "add", wantID: "participant-1"},
+		{name: "survivor", group: "auction", subcommand: "start", wantID: "contestant-1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			focused := stringOption(test.name, "")
+			focused.Focused = true
+			options := []*discordgo.ApplicationCommandInteractionDataOption{focused, stringOption("instance", "Season 50")}
+			if test.name == "player" {
+				options = []*discordgo.ApplicationCommandInteractionDataOption{intOption("points", 1), focused, stringOption("instance", "Season 50")}
+			}
+			commandOptions := []*discordgo.ApplicationCommandInteractionDataOption{{
+				Type:    discordgo.ApplicationCommandOptionSubCommand,
+				Name:    test.subcommand,
+				Options: options,
+			}}
+			if test.group != "" {
+				commandOptions = []*discordgo.ApplicationCommandInteractionDataOption{{
+					Type:    discordgo.ApplicationCommandOptionSubCommandGroup,
+					Name:    test.group,
+					Options: commandOptions,
+				}}
+			}
+			interaction := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{
+				ID:      "interaction-1",
+				Token:   "interaction-token",
+				Type:    discordgo.InteractionApplicationCommandAutocomplete,
+				GuildID: "guild-1",
+				Member:  &discordgo.Member{User: &discordgo.User{ID: "user-1"}},
+				Data: discordgo.ApplicationCommandInteractionData{
+					Name:    "castaway",
+					Options: commandOptions,
+				},
+			}}
+
+			responseBody = nil
+			bot.handleAutocomplete(interaction)
+			var response struct {
+				Data struct {
+					Choices []struct {
+						Value string `json:"value"`
+					} `json:"choices"`
+				} `json:"data"`
+			}
+			if err := json.Unmarshal(responseBody, &response); err != nil {
+				t.Fatalf("decode autocomplete response for %s: %v", test.name, err)
+			}
+			if len(response.Data.Choices) != 1 || response.Data.Choices[0].Value != test.wantID {
+				t.Fatalf("unexpected %s autocomplete choices: %#v", test.name, response.Data.Choices)
+			}
+		})
+	}
+}
+
+func TestSeasonOptionRegistrationMatchesSeasonAwareCommands(t *testing.T) {
+	expected := map[string]bool{
+		"activities":   true,
+		"activity":     true,
+		"draft":        true,
+		"history":      true,
+		"link":         true,
+		"unlink":       true,
+		"occurrence":   true,
+		"occurrences":  true,
+		"score":        true,
+		"scores":       true,
+		"instances":    true,
+		"instance/set": true,
+	}
+	actual := make(map[string]bool)
+	root := applicationCommands()[0]
+	for _, command := range root.Options {
+		if command.Type == discordgo.ApplicationCommandOptionSubCommand {
+			actual[command.Name] = findOption(command.Options, "season") != nil
+			continue
+		}
+		for _, subcommand := range command.Options {
+			actual[command.Name+"/"+subcommand.Name] = findOption(subcommand.Options, "season") != nil
+		}
+	}
+
+	for name, want := range expected {
+		if actual[name] != want {
+			t.Errorf("season option registration for %s = %v, want %v", name, actual[name], want)
+		}
+	}
+	for name, got := range actual {
+		if got && !expected[name] {
+			t.Errorf("unexpected season option registration for %s", name)
+		}
+	}
+	for name := range expected {
+		command := findCommand(root.Options, name)
+		if command == nil {
+			t.Fatalf("command %s not found", name)
+		}
+		season := findOption(command.Options, "season")
+		if season == nil || season.Type != discordgo.ApplicationCommandOptionInteger || season.Required {
+			t.Errorf("season option for %s is not an optional integer: %#v", name, season)
+		}
+	}
+	for name := range actual {
+		command := findCommand(root.Options, name)
+		optionalSeen := false
+		for _, option := range command.Options {
+			if option.Required {
+				if optionalSeen {
+					t.Errorf("required option follows optional option for %s", name)
+				}
+				continue
+			}
+			optionalSeen = true
+		}
 	}
 }
 
@@ -1166,6 +1317,38 @@ func intOption(name string, value int64) *discordgo.ApplicationCommandInteractio
 
 func userIDOption(name, userID string) *discordgo.ApplicationCommandInteractionDataOption {
 	return &discordgo.ApplicationCommandInteractionDataOption{Name: name, Type: discordgo.ApplicationCommandOptionUser, Value: userID}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func findCommand(commands []*discordgo.ApplicationCommandOption, path string) *discordgo.ApplicationCommandOption {
+	parts := strings.Split(path, "/")
+	for _, command := range commands {
+		if len(parts) == 1 && command.Name == parts[0] {
+			return command
+		}
+		if len(parts) == 2 && command.Name == parts[0] {
+			for _, subcommand := range command.Options {
+				if subcommand.Name == parts[1] {
+					return subcommand
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func findOption(options []*discordgo.ApplicationCommandOption, name string) *discordgo.ApplicationCommandOption {
+	for _, option := range options {
+		if option.Name == name {
+			return option
+		}
+	}
+	return nil
 }
 
 func containsFold(candidate, filter string) bool {

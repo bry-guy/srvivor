@@ -641,9 +641,9 @@ func (b *Bot) handleAutocomplete(interaction *discordgo.InteractionCreate) {
 	switch focused.Name {
 	case "instance":
 		choices = b.instanceChoices(ctx, command, focused.StringValue())
-	case "participant":
+	case "participant", "player":
 		choices = b.participantChoices(ctx, interaction, command, focused.StringValue())
-	case "player":
+	case "survivor":
 		choices = b.contestantChoices(ctx, interaction, command, focused.StringValue())
 	case "activity":
 		choices = b.activityChoices(ctx, interaction, command, focused.StringValue())

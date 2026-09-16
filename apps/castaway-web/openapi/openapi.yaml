@@ -1487,11 +1487,16 @@ components:
       type: object
       required:
         - instance
+        - episodes
         - contestants
         - participants
       properties:
         instance:
           $ref: '#/components/schemas/Instance'
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstanceEpisodeBrief'
         contestants:
           type: array
           items:
@@ -1575,6 +1580,26 @@ components:
           type: integer
           format: int32
         created_at:
+          type: string
+          format: date-time
+        current_episode:
+          $ref: '#/components/schemas/InstanceEpisodeBrief'
+    InstanceEpisodeBrief:
+      type: object
+      required:
+        - id
+        - episode_number
+        - label
+        - airs_at
+      properties:
+        id:
+          type: string
+        episode_number:
+          type: integer
+          format: int32
+        label:
+          type: string
+        airs_at:
           type: string
           format: date-time
     LeaderboardResponse:

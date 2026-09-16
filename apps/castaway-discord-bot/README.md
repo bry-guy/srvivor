@@ -26,7 +26,7 @@ Top-level command: `/castaway`
 - `/castaway bids [instance]`
 - `/castaway ponies [instance]`
 - `/castaway link participant:<name> [instance] [season]`
-- `/castaway unlink [instance] [season]`
+- `/castaway unlink participant:<name> [instance] [season]`
 
 `scores` uses the public weekly-score format: rank, tribe badge, real Discord mention when linked, total points, and public draft/bonus breakdown. `score` uses that same public format for public views, but linked self and admins viewing private score data get an ephemeral detailed breakdown including secret bonus points.
 
@@ -55,10 +55,10 @@ Player and admin write commands default to ephemeral responses.
 When a hidden spend reveals one or more secret bonus points, the bot can also post a public announcement to a configured channel.
 
 ### Context commands
-- `/castaway instance list [season]`
+- `/castaway instances [season]`
 - `/castaway instance set instance:<name> [season] [scope:me|guild]`
 - `/castaway instance show`
-- `/castaway instance clear [scope:me|guild]`
+- `/castaway instance unset [scope:me|guild]`
 
 ## Local development
 

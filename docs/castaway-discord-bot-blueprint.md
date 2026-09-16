@@ -54,10 +54,10 @@ Top-level slash command: `/castaway`
 - `/castaway draft participant:<name> [instance] [season]`
 
 ### Context commands
-- `/castaway instance list [season]`
+- `/castaway instances [season]`
 - `/castaway instance set instance:<name> [season] [scope:me|guild]`
 - `/castaway instance show`
-- `/castaway instance clear [scope:me|guild]`
+- `/castaway instance unset [scope:me|guild]`
 
 ### Resolution order
 When a command needs an instance:

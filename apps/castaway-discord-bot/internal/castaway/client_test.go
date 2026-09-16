@@ -39,6 +39,30 @@ func TestListInstancesSendsFilters(t *testing.T) {
 	}
 }
 
+func TestGetInstanceParsesEpisodeData(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if _, err := w.Write([]byte(`{"instance":{"id":"i1","name":"Season 50","season":50,"created_at":"2026-01-01T00:00:00Z","current_episode":{"id":"e1","episode_number":1,"label":"Episode 1","airs_at":"2026-01-08T00:00:00Z"}},"episodes":[{"id":"e1","episode_number":1,"label":"Episode 1","airs_at":"2026-01-08T00:00:00Z"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	instance, err := client.GetInstance(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("get instance: %v", err)
+	}
+	if instance.CurrentEpisode == nil || instance.CurrentEpisode.ID != "e1" || len(instance.Episodes) != 1 || instance.Episodes[0].Label != "Episode 1" {
+		t.Fatalf("unexpected instance episode data: %#v", instance)
+	}
+}
+
 func TestListParticipantsSendsNameFilter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/instances/i1/participants" {

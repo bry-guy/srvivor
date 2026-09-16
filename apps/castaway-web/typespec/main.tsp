@@ -20,6 +20,14 @@ model Instance {
   name: string;
   season: int32;
   created_at: utcDateTime;
+  current_episode?: InstanceEpisodeBrief;
+}
+
+model InstanceEpisodeBrief {
+  id: string;
+  episode_number: int32;
+  label: string;
+  airs_at: utcDateTime;
 }
 
 model Contestant {
@@ -167,6 +175,7 @@ model CreateInstanceResponse {
 
 model GetInstanceResponse {
   instance: Instance;
+  episodes: InstanceEpisodeBrief[];
   contestants: Contestant[];
   participants: Participant[];
 }
