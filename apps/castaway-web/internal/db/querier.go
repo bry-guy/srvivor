@@ -59,6 +59,7 @@ type Querier interface {
 	GetSecretBonusTotalByParticipant(ctx context.Context, arg GetSecretBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipant(ctx context.Context, arg GetVisibleBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipantAsOf(ctx context.Context, arg GetVisibleBonusTotalByParticipantAsOfParams) (int32, error)
+	HasFutureOutcomeCommand(ctx context.Context, arg HasFutureOutcomeCommandParams) (bool, error)
 	InitializeInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) error
 	InitializeInstanceEpisodeProgress(ctx context.Context, instanceID pgtype.UUID) error
 	InstanceHasContestant(ctx context.Context, arg InstanceHasContestantParams) (bool, error)

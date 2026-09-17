@@ -266,6 +266,16 @@ func (s *Server) runManagedCommand(
 		c.JSON(http.StatusConflict, errorResponse{Error: "instance does not use managed progression"})
 		return
 	}
+	actor := discordUserIDFromRequest(c.Request)
+	isAdmin, err := qtx.IsInstanceAdmin(c.Request.Context(), db.IsInstanceAdminParams{InstanceID: toPGUUID(instanceID), DiscordUserID: actor})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if !isAdmin {
+		c.JSON(http.StatusForbidden, errorResponse{Error: "forbidden"})
+		return
+	}
 
 	existing, err := qtx.GetProgressionCommand(c.Request.Context(), db.GetProgressionCommandParams{
 		InstanceID: toPGUUID(instanceID),
@@ -307,12 +317,11 @@ func (s *Server) runManagedCommand(
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	actor := discordUserIDFromRequest(c.Request)
 	if _, err := qtx.CreateProgressionCommand(c.Request.Context(), db.CreateProgressionCommandParams{
 		InstanceID:         toPGUUID(instanceID),
 		CommandKey:         req.IdempotencyKey,
 		Operation:          operation,
-		ActorDiscordUserID: actor,
+		ActorDiscordUserID: discordUserIDFromRequest(c.Request),
 		EffectiveAt:        progressionTimestamp(req.EffectiveAt),
 		PayloadHash:        payloadHash,
 		Payload:            payloadJSON,
@@ -538,6 +547,16 @@ func (s *Server) scoreEpisode(c *gin.Context) {
 		}
 		if latestErr != nil && !errors.Is(latestErr, pgx.ErrNoRows) {
 			return nil, latestErr
+		}
+		hasFutureOutcome, err := q.HasFutureOutcomeCommand(ctx, db.HasFutureOutcomeCommandParams{
+			InstanceID:  toPGUUID(instanceID),
+			EffectiveAt: progressionTimestamp(req.EffectiveAt),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if hasFutureOutcome {
+			return nil, progressionError(http.StatusConflict, "episode scoring cannot precede an outcome effective time")
 		}
 		revision, err := s.publishScoreRevision(ctx, q, instanceID, episodeNumber, "episode score", req.EffectiveAt)
 		if err != nil {

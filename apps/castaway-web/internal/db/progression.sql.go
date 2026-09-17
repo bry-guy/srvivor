@@ -368,6 +368,29 @@ func (q *Queries) GetProgressionCommand(ctx context.Context, arg GetProgressionC
 	return i, err
 }
 
+const hasFutureOutcomeCommand = `-- name: HasFutureOutcomeCommand :one
+SELECT EXISTS (
+    SELECT 1
+    FROM instance_progression_commands ipc
+    JOIN instances i ON i.id = ipc.instance_id
+    WHERE i.public_id = $1
+      AND ipc.operation IN ('outcome.upsert', 'outcome.correct')
+      AND ipc.effective_at > $2
+) AS has_future_outcome
+`
+
+type HasFutureOutcomeCommandParams struct {
+	InstanceID  pgtype.UUID        `json:"instance_id"`
+	EffectiveAt pgtype.Timestamptz `json:"effective_at"`
+}
+
+func (q *Queries) HasFutureOutcomeCommand(ctx context.Context, arg HasFutureOutcomeCommandParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasFutureOutcomeCommand, arg.InstanceID, arg.EffectiveAt)
+	var has_future_outcome bool
+	err := row.Scan(&has_future_outcome)
+	return has_future_outcome, err
+}
+
 const initializeInstanceDraftProgress = `-- name: InitializeInstanceDraftProgress :exec
 INSERT INTO instance_draft_progress (instance_id)
 SELECT id

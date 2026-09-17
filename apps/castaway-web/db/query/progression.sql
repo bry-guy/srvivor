@@ -14,6 +14,16 @@ UPDATE instances
 SET progression_mode = sqlc.arg(progression_mode)
 WHERE public_id = sqlc.arg(instance_id);
 
+-- name: HasFutureOutcomeCommand :one
+SELECT EXISTS (
+    SELECT 1
+    FROM instance_progression_commands ipc
+    JOIN instances i ON i.id = ipc.instance_id
+    WHERE i.public_id = sqlc.arg(instance_id)
+      AND ipc.operation IN ('outcome.upsert', 'outcome.correct')
+      AND ipc.effective_at > sqlc.arg(effective_at)
+) AS has_future_outcome;
+
 -- name: InitializeInstanceDraftProgress :exec
 INSERT INTO instance_draft_progress (instance_id)
 SELECT id

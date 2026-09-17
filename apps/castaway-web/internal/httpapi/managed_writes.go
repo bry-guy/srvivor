@@ -216,6 +216,46 @@ func replaceDraftInTransaction(ctx context.Context, q *db.Queries, instanceID, p
 	return nil
 }
 
+func ensureNoPendingOutcomeChanges(ctx context.Context, q *db.Queries, instanceID uuid.UUID, snapshot scoreInputSnapshot, position int32, contestantID pgtype.UUID) error {
+	outcomes, err := q.ListOutcomePositionsByInstance(ctx, toPGUUID(instanceID))
+	if err != nil {
+		return err
+	}
+	publishedByPosition := make(map[int]string, len(snapshot.Outcomes))
+	publishedByContestant := make(map[string]int, len(snapshot.Outcomes))
+	for contestant, publishedPosition := range snapshot.Outcomes {
+		publishedByPosition[publishedPosition] = contestant
+		publishedByContestant[contestant] = publishedPosition
+	}
+	liveByPosition := make(map[int]string, len(outcomes))
+	liveByContestant := make(map[string]int, len(outcomes))
+	for _, outcome := range outcomes {
+		contestant := ""
+		if outcome.ContestantID.Valid {
+			contestant = uuid.UUID(outcome.ContestantID.Bytes).String()
+			liveByContestant[contestant] = int(outcome.Position)
+		}
+		liveByPosition[int(outcome.Position)] = contestant
+	}
+	publishedContestant, published := publishedByPosition[int(position)]
+	if liveByPosition[int(position)] != publishedContestant {
+		return progressionError(http.StatusConflict, "outcome correction conflicts with pending outcome changes")
+	}
+	requestedContestant := ""
+	if contestantID.Valid {
+		requestedContestant = uuid.UUID(contestantID.Bytes).String()
+	}
+	for _, contestant := range []string{publishedContestant, requestedContestant} {
+		if contestant != "" && liveByContestant[contestant] != publishedByContestant[contestant] {
+			return progressionError(http.StatusConflict, "outcome correction conflicts with pending outcome changes")
+		}
+	}
+	if !published {
+		return progressionError(http.StatusConflict, "outcome correction must target a published outcome position")
+	}
+	return nil
+}
+
 func (s *Server) upsertManagedOutcome(c *gin.Context, instanceID uuid.UUID, position int32, req upsertOutcomeRequest) {
 	if strings.TrimSpace(req.IdempotencyKey) == "" {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "idempotency_key is required"})
@@ -226,11 +266,15 @@ func (s *Server) upsertManagedOutcome(c *gin.Context, instanceID uuid.UUID, posi
 		return
 	}
 	command := progressionCommandRequest{IdempotencyKey: strings.TrimSpace(req.IdempotencyKey), EffectiveAt: req.EffectiveAt.UTC()}
+	operation := "outcome.upsert"
+	if req.Correction {
+		operation = "outcome.correct"
+	}
 	payload := struct {
 		Position int32                `json:"position"`
 		Request  upsertOutcomeRequest `json:"request"`
 	}{Position: position, Request: req}
-	s.runManagedCommand(c, instanceID, "outcome.upsert", command, payload, func(ctx context.Context, q *db.Queries) (any, error) {
+	s.runManagedCommand(c, instanceID, operation, command, payload, func(ctx context.Context, q *db.Queries) (any, error) {
 		progress, err := q.GetLatestManagedEpisodeProgress(ctx, toPGUUID(instanceID))
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -243,6 +287,9 @@ func (s *Server) upsertManagedOutcome(c *gin.Context, instanceID uuid.UUID, posi
 		}
 		if progress.Status == "started" && progress.StartedAt.Valid && command.EffectiveAt.Before(progress.StartedAt.Time) {
 			return nil, progressionError(http.StatusConflict, "outcome cannot precede episode start")
+		}
+		if !req.Correction && progress.Status == "scored" {
+			return nil, progressionError(http.StatusConflict, "use correction: true to fix published outcomes or start the next episode to record new outcomes")
 		}
 		contestantParam := pgtype.UUID{Valid: false}
 		if strings.TrimSpace(req.ContestantID) != "" {
@@ -262,6 +309,30 @@ func (s *Server) upsertManagedOutcome(c *gin.Context, instanceID uuid.UUID, posi
 			}
 			contestantParam = toPGUUID(contestantID)
 		}
+		publish := req.Correction
+		var latest db.GetLatestInstanceScoreRevisionRow
+		var snapshot scoreInputSnapshot
+		if publish {
+			latest, err = q.GetLatestInstanceScoreRevision(ctx, toPGUUID(instanceID))
+			if err != nil {
+				if req.Correction && errors.Is(err, pgx.ErrNoRows) {
+					return nil, progressionError(http.StatusConflict, "a published score is required before outcome corrections")
+				}
+				return nil, err
+			}
+			if latest.EffectiveAt.Valid && command.EffectiveAt.Before(latest.EffectiveAt.Time) {
+				return nil, progressionError(http.StatusConflict, "outcome correction cannot precede the latest publication")
+			}
+			snapshot, err = scoreSnapshotFromRevision(latest)
+			if err != nil {
+				return nil, err
+			}
+			if req.Correction {
+				if err := ensureNoPendingOutcomeChanges(ctx, q, instanceID, snapshot, position, contestantParam); err != nil {
+					return nil, err
+				}
+			}
+		}
 		outcome, err := q.UpsertOutcomePosition(ctx, db.UpsertOutcomePositionParams{
 			InstanceID:   toPGUUID(instanceID),
 			Position:     position,
@@ -276,18 +347,7 @@ func (s *Server) upsertManagedOutcome(c *gin.Context, instanceID uuid.UUID, posi
 		} else {
 			response["contestant_id"] = nil
 		}
-		if progress.Status == "scored" {
-			latest, err := q.GetLatestInstanceScoreRevision(ctx, toPGUUID(instanceID))
-			if err != nil {
-				return nil, err
-			}
-			if latest.EffectiveAt.Valid && command.EffectiveAt.Before(latest.EffectiveAt.Time) {
-				return nil, progressionError(http.StatusConflict, "outcome correction cannot precede the latest publication")
-			}
-			snapshot, err := scoreSnapshotFromRevision(latest)
-			if err != nil {
-				return nil, err
-			}
+		if publish {
 			if snapshot.Outcomes == nil {
 				snapshot.Outcomes = make(map[string]int)
 			}
@@ -318,7 +378,7 @@ func (s *Server) upsertManagedOutcome(c *gin.Context, instanceID uuid.UUID, posi
 			if reason == "" {
 				reason = "outcome correction"
 			}
-			revision, err := s.publishScoreSnapshot(ctx, q, instanceID, progress.EpisodeNumber, reason, command.EffectiveAt, snapshot)
+			revision, err := s.publishScoreSnapshot(ctx, q, instanceID, latest.EpisodeNumber, reason, command.EffectiveAt, snapshot)
 			if err != nil {
 				return nil, err
 			}

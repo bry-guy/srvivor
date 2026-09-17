@@ -489,6 +489,41 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	if scoreOne.Code != http.StatusOK {
 		t.Fatalf("score episode 1 status = %d, body = %s", scoreOne.Code, scoreOne.Body.String())
 	}
+	outcomesBeforeUnflagged, err := queries.ListOutcomePositionsByInstance(ctx, instanceID)
+	if err != nil {
+		t.Fatalf("read outcomes before unflagged post-score write: %v", err)
+	}
+	var revisionsBeforeUnflagged int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM instance_score_revisions WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&revisionsBeforeUnflagged); err != nil {
+		t.Fatalf("count revisions before unflagged post-score write: %v", err)
+	}
+	unflaggedPostScoreBody := fmt.Sprintf(`{"contestant_id":%q,"idempotency_key":"outcome-after-score-without-correction","effective_at":"2026-01-06T20:15:00Z"}`, contestantIDs[1])
+	unflaggedPostScoreReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/1", instancePath), unflaggedPostScoreBody, "managed-token", "managed-admin")
+	unflaggedPostScoreRecorder := httptest.NewRecorder()
+	router.ServeHTTP(unflaggedPostScoreRecorder, unflaggedPostScoreReq)
+	var unflaggedPostScoreResponse struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(unflaggedPostScoreRecorder.Body.Bytes(), &unflaggedPostScoreResponse); err != nil {
+		t.Fatalf("decode unflagged post-score response: %v", err)
+	}
+	if unflaggedPostScoreRecorder.Code != http.StatusConflict || unflaggedPostScoreResponse.Error != "use correction: true to fix published outcomes or start the next episode to record new outcomes" {
+		t.Fatalf("unflagged post-score write = %d %s", unflaggedPostScoreRecorder.Code, unflaggedPostScoreRecorder.Body.String())
+	}
+	outcomesAfterUnflagged, err := queries.ListOutcomePositionsByInstance(ctx, instanceID)
+	if err != nil {
+		t.Fatalf("read outcomes after unflagged post-score write: %v", err)
+	}
+	if !reflect.DeepEqual(outcomesAfterUnflagged, outcomesBeforeUnflagged) {
+		t.Fatalf("unflagged post-score write changed outcomes: before=%+v after=%+v", outcomesBeforeUnflagged, outcomesAfterUnflagged)
+	}
+	var revisionsAfterUnflagged int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM instance_score_revisions WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&revisionsAfterUnflagged); err != nil {
+		t.Fatalf("count revisions after unflagged post-score write: %v", err)
+	}
+	if revisionsAfterUnflagged != revisionsBeforeUnflagged {
+		t.Fatalf("unflagged post-score write changed revision count from %d to %d", revisionsBeforeUnflagged, revisionsAfterUnflagged)
+	}
 
 	leaderboardReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/leaderboard", "", "managed-token", "managed-admin")
 	leaderboardRecorder := httptest.NewRecorder()
@@ -557,32 +592,168 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	}
 	episode2Before, err := queries.GetInstanceEpisodeProgress(ctx, db.GetInstanceEpisodeProgressParams{InstanceID: instanceID, EpisodeNumber: 2})
 	if err != nil {
-		t.Fatalf("read episode 2 before late correction: %v", err)
+		t.Fatalf("read episode 2 before outcome correction: %v", err)
 	}
 	var ledgerBeforeCorrection int
 	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&ledgerBeforeCorrection); err != nil {
-		t.Fatalf("count ledger before late correction: %v", err)
+		t.Fatalf("count ledger before outcome correction: %v", err)
 	}
 	bonusBeforeCorrection, err := queries.GetVisibleBonusTotalByParticipant(ctx, db.GetVisibleBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[0].ID})
 	if err != nil {
-		t.Fatalf("read bonus before late correction: %v", err)
+		t.Fatalf("read bonus before outcome correction: %v", err)
 	}
 	secretBeforeCorrection, err := queries.GetSecretBonusTotalByParticipant(ctx, db.GetSecretBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[1].ID})
 	if err != nil {
-		t.Fatalf("read secret bonus before late correction: %v", err)
+		t.Fatalf("read secret bonus before outcome correction: %v", err)
 	}
 	ownershipBeforeCorrection, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instanceID, OwnerParticipantID: participants[0].ID, At: timestamptz(verificationGameplayNow())})
 	if err != nil {
-		t.Fatalf("read ownership before late correction: %v", err)
+		t.Fatalf("read ownership before outcome correction: %v", err)
 	}
 	var ledgerRowsBefore, ownershipRowsBefore []byte
 	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, participant_id, activity_occurrence_id, entry_kind, points, visibility, reason, effective_at, award_key, metadata, created_at FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ledgerRowsBefore); err != nil {
-		t.Fatalf("snapshot ledger before late correction: %v", err)
+		t.Fatalf("snapshot ledger before outcome correction: %v", err)
 	}
 	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, owner_participant_id, contestant_id, source_activity_occurrence_id, acquired_at, released_at, status, metadata, created_at, updated_at FROM participant_pony_ownerships WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ownershipRowsBefore); err != nil {
-		t.Fatalf("snapshot ownership before late correction: %v", err)
+		t.Fatalf("snapshot ownership before outcome correction: %v", err)
 	}
 
+	liveBeforeCorrectionConflicts, err := queries.ListOutcomePositionsByInstance(ctx, instanceID)
+	if err != nil {
+		t.Fatalf("read outcomes before correction conflicts: %v", err)
+	}
+	assertCorrectionConflict := func(position, contestantID, key string) {
+		t.Helper()
+		body := fmt.Sprintf(`{"contestant_id":%q,"correction":true,"idempotency_key":%q,"effective_at":"2026-01-09T20:30:00Z"}`, contestantID, key)
+		req := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/%s", instancePath, position), body, "managed-token", "managed-admin")
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, req)
+		var response struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("decode %s correction conflict: %v", key, err)
+		}
+		if recorder.Code != http.StatusConflict || response.Error != "outcome correction conflicts with pending outcome changes" {
+			t.Fatalf("%s correction conflict = %d %s", key, recorder.Code, recorder.Body.String())
+		}
+	}
+	assertCorrectionConflict("1", contestantIDs[1], "outcome-correction-contestant-conflict")
+	assertCorrectionConflict("2", contestantIDs[2], "outcome-correction-position-conflict")
+	liveAfterCorrectionConflicts, err := queries.ListOutcomePositionsByInstance(ctx, instanceID)
+	if err != nil {
+		t.Fatalf("read outcomes after correction conflicts: %v", err)
+	}
+	if !reflect.DeepEqual(liveAfterCorrectionConflicts, liveBeforeCorrectionConflicts) {
+		t.Fatalf("correction conflicts changed live outcomes: before=%+v after=%+v", liveBeforeCorrectionConflicts, liveAfterCorrectionConflicts)
+	}
+	correctionOutcomeBody := fmt.Sprintf(`{"contestant_id":%q,"correction":true,"idempotency_key":"outcome-correction","effective_at":"2026-01-09T21:00:00Z"}`, contestantIDs[2])
+	correctionOutcomeReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/1", instancePath), correctionOutcomeBody, "managed-token", "managed-admin")
+	correctionOutcomeRecorder := httptest.NewRecorder()
+	router.ServeHTTP(correctionOutcomeRecorder, correctionOutcomeReq)
+	if correctionOutcomeRecorder.Code != http.StatusOK || !strings.Contains(correctionOutcomeRecorder.Body.String(), "revision_number") {
+		t.Fatalf("immediate outcome correction = %d %s", correctionOutcomeRecorder.Code, correctionOutcomeRecorder.Body.String())
+	}
+	var correctionResponse map[string]any
+	if err := json.Unmarshal(correctionOutcomeRecorder.Body.Bytes(), &correctionResponse); err != nil {
+		t.Fatalf("decode immediate outcome correction: %v", err)
+	}
+	correctionRetryRecorder := httptest.NewRecorder()
+	router.ServeHTTP(correctionRetryRecorder, authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/1", instancePath), correctionOutcomeBody, "managed-token", "managed-admin"))
+	var correctionRetryResponse map[string]any
+	if err := json.Unmarshal(correctionRetryRecorder.Body.Bytes(), &correctionRetryResponse); err != nil {
+		t.Fatalf("decode immediate correction retry: %v", err)
+	}
+	if correctionRetryRecorder.Code != http.StatusOK || !reflect.DeepEqual(correctionRetryResponse, correctionResponse) {
+		t.Fatalf("immediate correction retry = %d %s, original = %s", correctionRetryRecorder.Code, correctionRetryRecorder.Body.String(), correctionOutcomeRecorder.Body.String())
+	}
+	conflictingRetryBody := fmt.Sprintf(`{"contestant_id":%q,"correction":true,"idempotency_key":"outcome-correction","effective_at":"2026-01-09T21:00:00Z"}`, contestantIDs[0])
+	conflictingRetryReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/1", instancePath), conflictingRetryBody, "managed-token", "managed-admin")
+	conflictingRetryRecorder := httptest.NewRecorder()
+	router.ServeHTTP(conflictingRetryRecorder, conflictingRetryReq)
+	if conflictingRetryRecorder.Code != http.StatusConflict || !strings.Contains(conflictingRetryRecorder.Body.String(), "idempotency key was already used with a different payload") {
+		t.Fatalf("conflicting correction retry = %d %s", conflictingRetryRecorder.Code, conflictingRetryRecorder.Body.String())
+	}
+	correctedOutcomesReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/outcomes", "", "managed-token", "managed-admin")
+	correctedOutcomesRecorder := httptest.NewRecorder()
+	router.ServeHTTP(correctedOutcomesRecorder, correctedOutcomesReq)
+	if correctedOutcomesRecorder.Code != http.StatusOK {
+		t.Fatalf("corrected outcomes status = %d, body = %s", correctedOutcomesRecorder.Code, correctedOutcomesRecorder.Body.String())
+	}
+	var correctedOutcomes struct {
+		Outcomes []struct {
+			Position     int    `json:"position"`
+			ContestantID string `json:"contestant_id"`
+		} `json:"outcomes"`
+	}
+	if err := json.Unmarshal(correctedOutcomesRecorder.Body.Bytes(), &correctedOutcomes); err != nil {
+		t.Fatalf("decode corrected outcomes: %v", err)
+	}
+	if len(correctedOutcomes.Outcomes) != 1 || correctedOutcomes.Outcomes[0].Position != 1 || correctedOutcomes.Outcomes[0].ContestantID != contestantIDs[2] {
+		t.Fatalf("immediate correction did not replace published outcome: %+v", correctedOutcomes.Outcomes)
+	}
+	correctedLeaderboardReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/leaderboard", "", "managed-token", "managed-admin")
+	correctedLeaderboardRecorder := httptest.NewRecorder()
+	router.ServeHTTP(correctedLeaderboardRecorder, correctedLeaderboardReq)
+	if correctedLeaderboardRecorder.Code != http.StatusOK {
+		t.Fatalf("corrected leaderboard status = %d, body = %s", correctedLeaderboardRecorder.Code, correctedLeaderboardRecorder.Body.String())
+	}
+	var correctedLeaderboard leaderboardResponse
+	if err := json.Unmarshal(correctedLeaderboardRecorder.Body.Bytes(), &correctedLeaderboard); err != nil {
+		t.Fatalf("decode corrected leaderboard: %v", err)
+	}
+	correctedScores := make(map[string][3]int, len(correctedLeaderboard.Leaderboard))
+	for _, row := range correctedLeaderboard.Leaderboard {
+		correctedScores[row.ParticipantName] = [3]int{row.DraftPoints, row.BonusPoints, row.TotalPoints}
+	}
+	if correctedScores["Managed Alice"] != [3]int{1, 0, 1} || correctedScores["Managed Bob"] != [3]int{3, 0, 3} {
+		t.Fatalf("unexpected immediately corrected scores: %+v", correctedScores)
+	}
+	var ledgerAfterOutcomeCorrection int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&ledgerAfterOutcomeCorrection); err != nil {
+		t.Fatalf("count ledger after outcome correction: %v", err)
+	}
+	if ledgerAfterOutcomeCorrection != ledgerBeforeCorrection {
+		t.Fatalf("outcome correction changed ledger row count from %d to %d", ledgerBeforeCorrection, ledgerAfterOutcomeCorrection)
+	}
+	bonusAfterOutcomeCorrection, err := queries.GetVisibleBonusTotalByParticipant(ctx, db.GetVisibleBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[0].ID})
+	if err != nil {
+		t.Fatalf("read bonus after outcome correction: %v", err)
+	}
+	if bonusAfterOutcomeCorrection != bonusBeforeCorrection {
+		t.Fatalf("outcome correction changed visible bonus from %d to %d", bonusBeforeCorrection, bonusAfterOutcomeCorrection)
+	}
+	secretAfterOutcomeCorrection, err := queries.GetSecretBonusTotalByParticipant(ctx, db.GetSecretBonusTotalByParticipantParams{InstanceID: instanceID, ParticipantID: participants[1].ID})
+	if err != nil {
+		t.Fatalf("read secret bonus after outcome correction: %v", err)
+	}
+	if secretAfterOutcomeCorrection != secretBeforeCorrection {
+		t.Fatalf("outcome correction changed secret bonus from %d to %d", secretBeforeCorrection, secretAfterOutcomeCorrection)
+	}
+	ownershipAfterOutcomeCorrection, err := queries.ListActiveParticipantPonyOwnershipsByOwnerAt(ctx, db.ListActiveParticipantPonyOwnershipsByOwnerAtParams{InstanceID: instanceID, OwnerParticipantID: participants[0].ID, At: timestamptz(verificationGameplayNow())})
+	if err != nil {
+		t.Fatalf("read ownership after outcome correction: %v", err)
+	}
+	if !reflect.DeepEqual(ownershipAfterOutcomeCorrection, ownershipBeforeCorrection) {
+		t.Fatalf("outcome correction changed ownership state: before=%+v after=%+v", ownershipBeforeCorrection, ownershipAfterOutcomeCorrection)
+	}
+	var ledgerRowsAfterOutcomeCorrection, ownershipRowsAfterOutcomeCorrection []byte
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, participant_id, activity_occurrence_id, entry_kind, points, visibility, reason, effective_at, award_key, metadata, created_at FROM bonus_point_ledger_entries WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ledgerRowsAfterOutcomeCorrection); err != nil {
+		t.Fatalf("snapshot ledger after outcome correction: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(json_agg(row_to_json(rows) ORDER BY rows.id), '[]'::json) FROM (SELECT id, public_id, owner_participant_id, contestant_id, source_activity_occurrence_id, acquired_at, released_at, status, metadata, created_at, updated_at FROM participant_pony_ownerships WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)) rows`, instanceID).Scan(&ownershipRowsAfterOutcomeCorrection); err != nil {
+		t.Fatalf("snapshot ownership after outcome correction: %v", err)
+	}
+	if !bytes.Equal(ledgerRowsBefore, ledgerRowsAfterOutcomeCorrection) || !bytes.Equal(ownershipRowsBefore, ownershipRowsAfterOutcomeCorrection) {
+		t.Fatalf("outcome correction changed persisted ledger or ownership rows")
+	}
+	episode2AfterOutcomeCorrection, err := queries.GetInstanceEpisodeProgress(ctx, db.GetInstanceEpisodeProgressParams{InstanceID: instanceID, EpisodeNumber: 2})
+	if err != nil {
+		t.Fatalf("read episode 2 after outcome correction: %v", err)
+	}
+	if !reflect.DeepEqual(episode2Before, episode2AfterOutcomeCorrection) {
+		t.Fatalf("outcome correction changed episode 2 state: before=%+v after=%+v", episode2Before, episode2AfterOutcomeCorrection)
+	}
 	closeRecorder := progress("/instances/"+instancePath+"/progression/draft/close", effective("draft-close", "2026-01-10T20:00:00Z"))
 	if closeRecorder.Code != http.StatusOK {
 		t.Fatalf("close draft status = %d, body = %s", closeRecorder.Code, closeRecorder.Body.String())
@@ -602,14 +773,15 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	}
 	var publishedOutcomes struct {
 		Outcomes []struct {
-			Position int `json:"position"`
+			Position     int    `json:"position"`
+			ContestantID string `json:"contestant_id"`
 		} `json:"outcomes"`
 	}
 	if err := json.Unmarshal(outcomesRecorder.Body.Bytes(), &publishedOutcomes); err != nil {
 		t.Fatalf("decode published outcomes: %v", err)
 	}
-	if len(publishedOutcomes.Outcomes) != 1 || publishedOutcomes.Outcomes[0].Position != 1 {
-		t.Fatalf("pending outcome leaked into published outcomes: %s", outcomesRecorder.Body.String())
+	if len(publishedOutcomes.Outcomes) != 1 || publishedOutcomes.Outcomes[0].Position != 1 || publishedOutcomes.Outcomes[0].ContestantID != contestantIDs[2] {
+		t.Fatalf("pending outcome leaked or corrected outcome was lost: %s", outcomesRecorder.Body.String())
 	}
 
 	finalLeaderboardReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/leaderboard", "", "managed-token", "managed-admin")
@@ -626,7 +798,7 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	for _, row := range finalLeaderboard.Leaderboard {
 		finalScores[row.ParticipantName] = [3]int{row.DraftPoints, row.BonusPoints, row.TotalPoints}
 	}
-	if finalScores["Managed Alice"] != [3]int{2, 0, 2} || finalScores["Managed Bob"] != [3]int{1, 0, 1} {
+	if finalScores["Managed Alice"] != [3]int{1, 0, 1} || finalScores["Managed Bob"] != [3]int{3, 0, 3} {
 		t.Fatalf("unexpected corrected published scores: %+v", finalScores)
 	}
 	ledgerAfterCorrection := 0
@@ -712,8 +884,8 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 		t.Fatalf("read score revisions: %v", err)
 	}
 	rows.Close()
-	if len(revisionRows) != 3 || revisionRows[0].number != 1 || revisionRows[1].number != 2 || revisionRows[2].number != 3 {
-		t.Fatalf("expected three ordered immutable score revisions, got %+v", revisionRows)
+	if len(revisionRows) != 4 || revisionRows[0].number != 1 || revisionRows[1].number != 2 || revisionRows[2].number != 3 || revisionRows[3].number != 4 {
+		t.Fatalf("expected four ordered immutable score revisions, got %+v", revisionRows)
 	}
 	if !bytes.Equal(initialSnapshotJSON, revisionRows[0].rawJSON) {
 		t.Fatalf("first score snapshot changed after corrections")
@@ -722,20 +894,46 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	if err := json.Unmarshal(revisionRows[0].rawJSON, &firstSnapshot); err != nil {
 		t.Fatalf("decode first score snapshot: %v", err)
 	}
-	if err := json.Unmarshal(revisionRows[2].rawJSON, &latestSnapshot); err != nil {
+	if err := json.Unmarshal(revisionRows[3].rawJSON, &latestSnapshot); err != nil {
 		t.Fatalf("decode latest score snapshot: %v", err)
 	}
 	if firstSnapshot.Outcomes[contestantIDs[0]] != 1 || len(firstSnapshot.Outcomes) != 1 {
 		t.Fatalf("first snapshot changed or was incomplete: %+v", firstSnapshot.Outcomes)
 	}
-	if latestSnapshot.Outcomes[contestantIDs[0]] != 1 || len(latestSnapshot.Outcomes) != 1 {
-		t.Fatalf("latest snapshot leaked pending outcomes: %+v", latestSnapshot.Outcomes)
+	if latestSnapshot.Outcomes[contestantIDs[2]] != 1 || len(latestSnapshot.Outcomes) != 1 {
+		t.Fatalf("latest snapshot leaked pending outcomes or lost correction: %+v", latestSnapshot.Outcomes)
 	}
 	if latestSnapshot.VisibleBonus[uuid.UUID(participants[0].ID.Bytes).String()] != 0 {
 		t.Fatalf("latest snapshot included pending bonus: %+v", latestSnapshot.VisibleBonus)
 	}
 	if len(latestSnapshot.Drafts[uuid.UUID(participants[0].ID.Bytes).String()]) != 3 || latestSnapshot.Drafts[uuid.UUID(participants[0].ID.Bytes).String()][0].ContestantID != contestantIDs[1] {
 		t.Fatalf("latest snapshot did not preserve late draft correction: %+v", latestSnapshot.Drafts)
+	}
+	episode2Complete := progress("/instances/"+instancePath+"/progression/episodes/2/complete", effective("episode-2-complete", "2026-01-11T20:00:00Z"))
+	if episode2Complete.Code != http.StatusOK {
+		t.Fatalf("complete episode 2 status = %d, body = %s", episode2Complete.Code, episode2Complete.Body.String())
+	}
+	episode2Score := progress("/instances/"+instancePath+"/progression/episodes/2/score", effective("episode-2-score", "2026-01-12T20:00:00Z"))
+	if episode2Score.Code != http.StatusOK {
+		t.Fatalf("score episode 2 status = %d, body = %s", episode2Score.Code, episode2Score.Body.String())
+	}
+	afterEpisode2OutcomesReq := authorizedJSONRequest(http.MethodGet, "/instances/"+instancePath+"/outcomes", "", "managed-token", "managed-admin")
+	afterEpisode2OutcomesRecorder := httptest.NewRecorder()
+	router.ServeHTTP(afterEpisode2OutcomesRecorder, afterEpisode2OutcomesReq)
+	if afterEpisode2OutcomesRecorder.Code != http.StatusOK {
+		t.Fatalf("post-score outcomes status = %d, body = %s", afterEpisode2OutcomesRecorder.Code, afterEpisode2OutcomesRecorder.Body.String())
+	}
+	var afterEpisode2Outcomes struct {
+		Outcomes []struct {
+			Position     int    `json:"position"`
+			ContestantID string `json:"contestant_id"`
+		} `json:"outcomes"`
+	}
+	if err := json.Unmarshal(afterEpisode2OutcomesRecorder.Body.Bytes(), &afterEpisode2Outcomes); err != nil {
+		t.Fatalf("decode post-score outcomes: %v", err)
+	}
+	if len(afterEpisode2Outcomes.Outcomes) != 2 || afterEpisode2Outcomes.Outcomes[0].Position != 1 || afterEpisode2Outcomes.Outcomes[0].ContestantID != contestantIDs[2] || afterEpisode2Outcomes.Outcomes[1].Position != 2 || afterEpisode2Outcomes.Outcomes[1].ContestantID != contestantIDs[1] {
+		t.Fatalf("correction did not survive next episode publication: %+v", afterEpisode2Outcomes.Outcomes)
 	}
 	earlyServer := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"managed-token"}}), httpapi.WithClock(func() time.Time { return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC) }))
 	lateServer := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"managed-token"}}), httpapi.WithClock(func() time.Time { return time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC) }))
@@ -757,6 +955,44 @@ func TestManagedProgressionPublishesAndCorrectsWithoutLeakingPendingState(t *tes
 	}
 	if !reflect.DeepEqual(earlyLeaderboard, lateLeaderboard) {
 		t.Fatalf("managed leaderboard changed with wall clock: early=%v late=%v", earlyLeaderboard, lateLeaderboard)
+	}
+	liveBeforeRollback, err := queries.ListOutcomePositionsByInstance(ctx, instanceID)
+	if err != nil {
+		t.Fatalf("read outcomes before rollback correction: %v", err)
+	}
+	var latestSnapshotBeforeRollback []byte
+	if err := pool.QueryRow(ctx, `SELECT input_snapshot FROM instance_score_revisions WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1) AND revision_number = 5`, instanceID).Scan(&latestSnapshotBeforeRollback); err != nil {
+		t.Fatalf("read latest snapshot before rollback correction: %v", err)
+	}
+	invalidSnapshot := fmt.Sprintf(`{"total_positions":3,"outcomes":{"%s":1},"outcome_names":{"%s":"Managed C3"},"drafts":{},"visible_bonus":{},"participant_names":{"00000000-0000-0000-0000-000000000000":"Unknown"},"tribe_names":{}}`, contestantIDs[2], contestantIDs[2])
+	if _, err := pool.Exec(ctx, `UPDATE instance_score_revisions SET input_snapshot = $1 WHERE instance_id = (SELECT id FROM instances WHERE public_id = $2) AND revision_number = 5`, []byte(invalidSnapshot), instanceID); err != nil {
+		t.Fatalf("corrupt snapshot for rollback correction: %v", err)
+	}
+	rollbackCorrectionReq := authorizedJSONRequest(http.MethodPut, fmt.Sprintf("/instances/%s/outcomes/1", instancePath), `{"correction":true,"idempotency_key":"outcome-correction-rollback","effective_at":"2026-01-13T20:00:00Z"}`, "managed-token", "managed-admin")
+	rollbackCorrectionRecorder := httptest.NewRecorder()
+	router.ServeHTTP(rollbackCorrectionRecorder, rollbackCorrectionReq)
+	if _, err := pool.Exec(ctx, `UPDATE instance_score_revisions SET input_snapshot = $1 WHERE instance_id = (SELECT id FROM instances WHERE public_id = $2) AND revision_number = 5`, latestSnapshotBeforeRollback, instanceID); err != nil {
+		t.Fatalf("restore snapshot after rollback correction: %v", err)
+	}
+	if rollbackCorrectionRecorder.Code != http.StatusInternalServerError {
+		t.Fatalf("rollback correction status = %d, body = %s", rollbackCorrectionRecorder.Code, rollbackCorrectionRecorder.Body.String())
+	}
+	liveAfterRollback, err := queries.ListOutcomePositionsByInstance(ctx, instanceID)
+	if err != nil {
+		t.Fatalf("read outcomes after rollback correction: %v", err)
+	}
+	if !reflect.DeepEqual(liveAfterRollback, liveBeforeRollback) {
+		t.Fatalf("failed outcome correction changed live outcomes: before=%+v after=%+v", liveBeforeRollback, liveAfterRollback)
+	}
+	var revisionCount, commandCount int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM instance_score_revisions WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&revisionCount); err != nil {
+		t.Fatalf("count revisions after rollback correction: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM instance_progression_commands WHERE instance_id = (SELECT id FROM instances WHERE public_id = $1)`, instanceID).Scan(&commandCount); err != nil {
+		t.Fatalf("count commands after rollback correction: %v", err)
+	}
+	if revisionCount != 5 || commandCount != 15 {
+		t.Fatalf("failed outcome correction persisted state: revisions=%d commands=%d", revisionCount, commandCount)
 	}
 }
 

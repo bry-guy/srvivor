@@ -233,6 +233,8 @@ model UpsertOutcomeRequest {
   idempotency_key?: string;
   effective_at?: utcDateTime;
   reason?: string;
+  @doc("For managed instances, set true to publish this as a correction to the current public score without including later pending results. The target position must already be published. Without it, writes during an active episode remain pending and corrections after scoring are rejected. Conflicting pending changes are rejected.")
+  correction?: boolean;
 }
 
 model ProgressionCommandRequest {

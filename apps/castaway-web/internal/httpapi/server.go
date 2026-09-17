@@ -932,6 +932,7 @@ type upsertOutcomeRequest struct {
 	IdempotencyKey string     `json:"idempotency_key"`
 	EffectiveAt    *time.Time `json:"effective_at"`
 	Reason         string     `json:"reason"`
+	Correction     bool       `json:"correction,omitempty"`
 }
 
 func (s *Server) upsertOutcome(c *gin.Context) {
