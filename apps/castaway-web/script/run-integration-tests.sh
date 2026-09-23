@@ -51,5 +51,5 @@ wait_for_postgres "$container_id"
   cd "$app_dir"
   DATABASE_URL="$database_url" \
   CASTAWAY_TEST_DATABASE_URL="$database_url" \
-  go test -v ./internal/app ./internal/gameplay ./internal/httpapi
+  go test -v "$@" ./internal/app ./internal/gameplay ./internal/httpapi
 )

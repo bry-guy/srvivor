@@ -311,7 +311,7 @@ func TestAutocompleteRoutesPlayerAndSurvivorToCorrectEntities(t *testing.T) {
 	}
 }
 
-func TestSeasonOptionRegistrationMatchesSeasonAwareCommands(t *testing.T) {
+func TestDeprecatedSeasonOptionsMatchLegacyHandlers(t *testing.T) {
 	expected := map[string]bool{
 		"activities":   true,
 		"activity":     true,
@@ -327,7 +327,12 @@ func TestSeasonOptionRegistrationMatchesSeasonAwareCommands(t *testing.T) {
 		"instance/set": true,
 	}
 	actual := make(map[string]bool)
-	root := applicationCommands()[0]
+	root := &discordgo.ApplicationCommand{Options: []*discordgo.ApplicationCommandOption{
+		activitiesCommand(), activityCommand(), auctionCommandGroup(), bidCommand(), bidsCommand(),
+		draftCommand(), historyCommand(), instanceCommandGroup(), instancesCommand(), linkCommand(),
+		loanCommandGroup(), occurrenceCommand(), occurrencesCommand(), poniesCommand(), potCommandGroup(),
+		scoreCommand(), scoresCommand(), unlinkCommand(),
+	}}
 	for _, command := range root.Options {
 		if command.Type == discordgo.ApplicationCommandOptionSubCommand {
 			actual[command.Name] = findOption(command.Options, "season") != nil

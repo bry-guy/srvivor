@@ -8,21 +8,23 @@ import (
 )
 
 type Config struct {
-	Port                    string
-	DatabaseURL             string
-	AutoMigrate             bool
-	MigrationsDir           string
-	ServiceAuthEnabled      bool
-	ServiceAuthBearerTokens []string
-	ServiceAuthPrincipal    string
+	Port                        string
+	DatabaseURL                 string
+	AutoMigrate                 bool
+	MigrationsDir               string
+	ServiceAuthEnabled          bool
+	ServiceAuthBearerTokens     []string
+	ServiceAuthPrincipal        string
+	BootstrapAdminDiscordUserID string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:                 getEnv("PORT", "8080"),
-		DatabaseURL:          getEnv("DATABASE_URL", "postgres://castaway:castaway@localhost:5432/castaway?sslmode=disable"),
-		MigrationsDir:        getEnv("MIGRATIONS_DIR", "./db/migrations"),
-		ServiceAuthPrincipal: strings.TrimSpace(getEnv("SERVICE_AUTH_PRINCIPAL", "castaway-discord-bot")),
+		BootstrapAdminDiscordUserID: strings.TrimSpace(getEnv("BOOTSTRAP_ADMIN_DISCORD_USER_ID", "")),
+		Port:                        getEnv("PORT", "8080"),
+		DatabaseURL:                 getEnv("DATABASE_URL", "postgres://castaway:castaway@localhost:5432/castaway?sslmode=disable"),
+		MigrationsDir:               getEnv("MIGRATIONS_DIR", "./db/migrations"),
+		ServiceAuthPrincipal:        strings.TrimSpace(getEnv("SERVICE_AUTH_PRINCIPAL", "castaway-discord-bot")),
 	}
 
 	autoMigrate, err := strconv.ParseBool(getEnv("AUTO_MIGRATE", "true"))

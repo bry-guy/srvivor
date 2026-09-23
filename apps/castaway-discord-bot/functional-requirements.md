@@ -2,6 +2,20 @@
 
 `castaway-discord-bot` provides Discord-native access to Castaway draft data by querying `castaway-web`.
 
+## Active player surface
+
+- Register and dispatch only `/castaway score [player]`, `/castaway scores`, and `/castaway draft [player]`.
+- Select players by native Discord user ID, defaulting to the invoker.
+- Resolve the instance exclusively through API channel bindings; threads inherit their parent when unbound.
+- Reject DMs and retired payloads; always reply ephemerally with public-only scoring and mention notifications disabled.
+- Point setup errors to the configured, verified admin contact.
+- Restrict registration and interaction handling to the explicitly configured guild allowlist; never mutate global registrations as a side effect.
+- Admin setup belongs in [Probst](../probst/README.md); season operations are deferred.
+
+## Deprecated legacy capabilities
+
+The requirements below describe retained legacy handlers/state, not the registered or dispatched player surface.
+
 ## Inputs
 
 - Discord slash command interactions

@@ -451,6 +451,21 @@ func (c *Client) ListInstances(ctx context.Context, opts ListInstancesOptions) (
 	return response.Instances, nil
 }
 
+func (c *Client) GetChannelInstance(ctx context.Context, guildID, channelID string) (string, error) {
+	var response struct {
+		Binding struct {
+			InstanceID string `json:"instance_id"`
+		} `json:"binding"`
+	}
+	if err := c.getJSON(ctx, c.endpoint(path.Join("/discord/guilds", guildID, "channels", channelID)), nil, &response); err != nil {
+		return "", err
+	}
+	if response.Binding.InstanceID == "" {
+		return "", fmt.Errorf("channel binding has no instance")
+	}
+	return response.Binding.InstanceID, nil
+}
+
 func (c *Client) GetInstance(ctx context.Context, instanceID string) (Instance, error) {
 	var response struct {
 		Instance Instance          `json:"instance"`

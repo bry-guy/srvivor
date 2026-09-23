@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/state"
@@ -14,10 +15,13 @@ type Config struct {
 	LogLevelStr string `envconfig:"LOG_LEVEL" default:"INFO"`
 	LogLevel    slog.Level
 
-	DiscordBotToken       string `envconfig:"CASTAWAY_DISCORD_BOT_TOKEN" required:"true"`
-	DiscordApplicationID  string `envconfig:"CASTAWAY_DISCORD_APPLICATION_ID" required:"true"`
-	DiscordTargetServerID string `envconfig:"DISCORD_TARGET_SEVER_ID"`
-	AnnouncementChannelID string `envconfig:"CASTAWAY_ANNOUNCEMENT_CHANNEL_ID"`
+	DiscordBotToken           string `envconfig:"CASTAWAY_DISCORD_BOT_TOKEN" required:"true"`
+	DiscordApplicationID      string `envconfig:"CASTAWAY_DISCORD_APPLICATION_ID" required:"true"`
+	DiscordTargetServerID     string `envconfig:"DISCORD_TARGET_SEVER_ID"`
+	DiscordTargetServerIDs    string `envconfig:"DISCORD_TARGET_SERVER_IDS"`
+	targetServerIDs           []string
+	AnnouncementChannelID     string `envconfig:"CASTAWAY_ANNOUNCEMENT_CHANNEL_ID"`
+	AdminContactDiscordUserID string `envconfig:"CASTAWAY_ADMIN_CONTACT_DISCORD_USER_ID" default:"235246238382030849"`
 
 	CastawayAPIBaseURL   string `envconfig:"CASTAWAY_API_BASE_URL" default:"http://localhost:8080"`
 	CastawayAPIAuthToken string `envconfig:"CASTAWAY_API_AUTH_TOKEN"`
@@ -33,12 +37,21 @@ func Load() (*Config, error) {
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
+	targetServerIDs, err := parseTargetServerIDs(cfg.DiscordTargetServerIDs, cfg.DiscordTargetServerID)
+	if err != nil {
+		return nil, err
+	}
+	cfg.targetServerIDs = targetServerIDs
 
 	cfg.StateBackend = strings.ToLower(strings.TrimSpace(cfg.StateBackend))
 	cfg.CastawayAPIAuthToken = strings.TrimSpace(cfg.CastawayAPIAuthToken)
 	cfg.StatePath = strings.TrimSpace(cfg.StatePath)
 	cfg.StateDatabaseURL = strings.TrimSpace(cfg.StateDatabaseURL)
 	cfg.AnnouncementChannelID = strings.TrimSpace(cfg.AnnouncementChannelID)
+	contact, err := strconv.ParseUint(cfg.AdminContactDiscordUserID, 10, 64)
+	if err != nil || contact == 0 {
+		return nil, fmt.Errorf("CASTAWAY_ADMIN_CONTACT_DISCORD_USER_ID must be a Discord user ID")
+	}
 
 	if _, err := url.ParseRequestURI(cfg.CastawayAPIBaseURL); err != nil {
 		return nil, fmt.Errorf("parse CASTAWAY_API_BASE_URL: %w", err)
@@ -74,4 +87,33 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func (c *Config) TargetServerIDs() []string {
+	return append([]string(nil), c.targetServerIDs...)
+}
+
+func parseTargetServerIDs(allowlist, legacy string) ([]string, error) {
+	configured := strings.TrimSpace(allowlist)
+	if configured == "" {
+		configured = strings.TrimSpace(legacy)
+	}
+	if configured == "" {
+		return nil, nil
+	}
+
+	ids := strings.Split(configured, ",")
+	seen := make(map[string]struct{}, len(ids))
+	for i, id := range ids {
+		parsed, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64)
+		if err != nil || parsed == 0 {
+			return nil, fmt.Errorf("DISCORD_TARGET_SERVER_IDS must contain Discord guild IDs")
+		}
+		ids[i] = strconv.FormatUint(parsed, 10)
+		if _, ok := seen[ids[i]]; ok {
+			return nil, fmt.Errorf("DISCORD_TARGET_SERVER_IDS contains duplicate guild IDs")
+		}
+		seen[ids[i]] = struct{}{}
+	}
+	return ids, nil
 }

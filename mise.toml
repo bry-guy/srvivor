@@ -14,7 +14,7 @@ kubectl = 'latest'
 
 [tasks.ci]
 description = "Run all monorepo CI tasks"
-run = "mise run //apps/cli:ci && mise run //apps/castaway-web:ci && mise run //apps/castaway-discord-bot:ci"
+run = "mise run //apps/cli:ci && mise run //apps/castaway-web:ci && mise run //apps/castaway-discord-bot:ci && mise run //apps/probst:ci"
 
 [tasks.start]
 description = "Start the local Castaway stack (db, web, discord bot)"

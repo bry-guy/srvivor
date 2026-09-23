@@ -1,0 +1,14 @@
+[tasks.lint]
+run = "go vet ./..."
+
+[tasks.test]
+run = "go test ./..."
+
+[tasks.build]
+run = "go build -o bin/probst ."
+
+[tasks.run]
+run = "go run ."
+
+[tasks.ci]
+depends = [":lint", ":test", ":build"]

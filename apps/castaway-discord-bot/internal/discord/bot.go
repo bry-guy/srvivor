@@ -2,7 +2,6 @@ package discord
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -14,8 +13,9 @@ import (
 
 type Bot struct {
 	appID                 string
-	targetServerID        string
+	targetServerIDs       []string
 	announcementChannelID string
+	adminContactID        string
 	log                   *slog.Logger
 
 	castaway *castaway.Client
@@ -32,8 +32,9 @@ func New(cfg *config.Config, client *castaway.Client, store state.Store, logger 
 
 	bot := &Bot{
 		appID:                 cfg.DiscordApplicationID,
-		targetServerID:        cfg.DiscordTargetServerID,
+		targetServerIDs:       cfg.TargetServerIDs(),
 		announcementChannelID: cfg.AnnouncementChannelID,
+		adminContactID:        cfg.AdminContactDiscordUserID,
 		log:                   logger,
 		castaway:              client,
 		state:                 store,
@@ -76,31 +77,13 @@ func (b *Bot) Close() error {
 }
 
 func (b *Bot) syncCommands() (string, error) {
-	commands := applicationCommands()
-	if b.targetServerID != "" {
-		if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, b.targetServerID, commands); err == nil {
-			// Guild sync succeeded — clear any stale global registrations.
-			if _, clearErr := b.session.ApplicationCommandBulkOverwrite(b.appID, "", nil); clearErr != nil {
-				b.log.Warn("clear stale global commands after guild sync", "error", clearErr)
-			}
-			return "guild", nil
-		} else if !isDiscordMissingAccess(err) {
-			return "", fmt.Errorf("sync guild application commands: %w", err)
-		} else {
-			b.log.Warn("guild command sync failed; falling back to global commands", "guild_id", b.targetServerID, "error", err)
+	if len(b.targetServerIDs) == 0 {
+		return "", fmt.Errorf("explicit Discord target guilds are required; global registration is disabled")
+	}
+	for _, serverID := range b.targetServerIDs {
+		if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, serverID, applicationCommands()); err != nil {
+			return "", fmt.Errorf("sync guild %s application commands: %w", serverID, err)
 		}
 	}
-
-	if _, err := b.session.ApplicationCommandBulkOverwrite(b.appID, "", commands); err != nil {
-		return "", fmt.Errorf("sync global application commands: %w", err)
-	}
-	return "global", nil
-}
-
-func isDiscordMissingAccess(err error) bool {
-	var restErr *discordgo.RESTError
-	if !errors.As(err, &restErr) {
-		return false
-	}
-	return restErr.Response != nil && restErr.Response.StatusCode == 403 && restErr.Message != nil && restErr.Message.Code == 50001
+	return "guild", nil
 }

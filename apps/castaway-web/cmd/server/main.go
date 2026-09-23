@@ -58,7 +58,7 @@ func run() error {
 		Enabled:      cfg.ServiceAuthEnabled,
 		BearerTokens: cfg.ServiceAuthBearerTokens,
 		Principal:    cfg.ServiceAuthPrincipal,
-	}))
+	}), httpapi.WithBootstrapAdminDiscordUserID(cfg.BootstrapAdminDiscordUserID))
 	router := server.Router()
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,

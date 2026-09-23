@@ -1,0 +1,921 @@
+{
+  "source": {
+    "repository": "https://github.com/doehm/survivoR",
+    "commit": "a6329b609b00021f904312664cc5fefe9241914a",
+    "version": "US",
+    "season": 43,
+    "files": {
+      "dev/json/castaways.json": "8e001492f4771ac89ff941bf54a35b8870f78cbca3a2d14057ece3f40ac96b9a",
+      "dev/json/episodes.json": "55d8f6fe25431ca8054e56011c4d30c5db64f171cbc21ff9dad1ab376318d5ef",
+      "dev/json/boot_order.json": "7ae2ad4030fde6a42f91994fd7efec0e94afff81f10fb16037aadbf2b48fbee2"
+    }
+  },
+  "contestants": [
+    {
+      "id": "US0639",
+      "name": "Morriah Young",
+      "episode": 1,
+      "place": 18
+    },
+    {
+      "id": "US0635",
+      "name": "Justine Brennan",
+      "episode": 2,
+      "place": 17
+    },
+    {
+      "id": "US0640",
+      "name": "Nneka Ejere",
+      "episode": 3,
+      "place": 16
+    },
+    {
+      "id": "US0637",
+      "name": "Lindsay Carmine",
+      "episode": 4,
+      "place": 15
+    },
+    {
+      "id": "US0631",
+      "name": "Geo Bustamante",
+      "episode": 5,
+      "place": 14
+    },
+    {
+      "id": "US0630",
+      "name": "Elie Scott",
+      "episode": 6,
+      "place": 13
+    },
+    {
+      "id": "US0629",
+      "name": "Dwight Moore",
+      "episode": 7,
+      "place": 12
+    },
+    {
+      "id": "US0633",
+      "name": "Jeanine Zheng",
+      "episode": 8,
+      "place": 11
+    },
+    {
+      "id": "US0632",
+      "name": "James Jones",
+      "episode": 9,
+      "place": 10
+    },
+    {
+      "id": "US0643",
+      "name": "Ryan Medrano",
+      "episode": 9,
+      "place": 9
+    },
+    {
+      "id": "US0641",
+      "name": "Noelle Lambert",
+      "episode": 10,
+      "place": 8
+    },
+    {
+      "id": "US0644",
+      "name": "Sami Layadi",
+      "episode": 11,
+      "place": 7
+    },
+    {
+      "id": "US0628",
+      "name": "Cody Assenmacher",
+      "episode": 12,
+      "place": 6
+    },
+    {
+      "id": "US0636",
+      "name": "Karla Cruz Godoy",
+      "episode": 13,
+      "place": 5
+    },
+    {
+      "id": "US0634",
+      "name": "Jesse Lopez",
+      "episode": 13,
+      "place": 4
+    },
+    {
+      "id": "US0642",
+      "name": "Owen Knight",
+      "episode": 13,
+      "place": 3
+    },
+    {
+      "id": "US0627",
+      "name": "Cassidy Clark",
+      "episode": 13,
+      "place": 2
+    },
+    {
+      "id": "US0638",
+      "name": "Mike Gabler",
+      "episode": 13,
+      "place": 1
+    }
+  ],
+  "players": [
+    {
+      "name": "Ada",
+      "tribe": "Ember",
+      "picks": [
+        "US0632",
+        "US0628",
+        "US0636",
+        "US0640",
+        "US0629",
+        "US0637",
+        "US0642",
+        "US0639",
+        "US0627",
+        "US0634",
+        "US0638",
+        "US0644",
+        "US0641",
+        "US0630",
+        "US0633",
+        "US0631",
+        "US0643",
+        "US0635"
+      ]
+    },
+    {
+      "name": "Ben",
+      "tribe": "Ember",
+      "picks": [
+        "US0644",
+        "US0639",
+        "US0627",
+        "US0632",
+        "US0631",
+        "US0637",
+        "US0643",
+        "US0633",
+        "US0641",
+        "US0638",
+        "US0640",
+        "US0629",
+        "US0634",
+        "US0642",
+        "US0636",
+        "US0635",
+        "US0630",
+        "US0628"
+      ]
+    },
+    {
+      "name": "Cora",
+      "tribe": "Ember",
+      "picks": [
+        "US0641",
+        "US0633",
+        "US0637",
+        "US0630",
+        "US0644",
+        "US0629",
+        "US0632",
+        "US0642",
+        "US0634",
+        "US0631",
+        "US0638",
+        "US0636",
+        "US0627",
+        "US0639",
+        "US0643",
+        "US0635",
+        "US0640",
+        "US0628"
+      ]
+    },
+    {
+      "name": "Drew",
+      "tribe": "Tide",
+      "picks": [
+        "US0629",
+        "US0637",
+        "US0636",
+        "US0627",
+        "US0632",
+        "US0628",
+        "US0633",
+        "US0644",
+        "US0631",
+        "US0643",
+        "US0639",
+        "US0630",
+        "US0635",
+        "US0642",
+        "US0640",
+        "US0634",
+        "US0638",
+        "US0641"
+      ]
+    },
+    {
+      "name": "Eli",
+      "tribe": "Tide",
+      "picks": [
+        "US0631",
+        "US0637",
+        "US0640",
+        "US0641",
+        "US0628",
+        "US0634",
+        "US0632",
+        "US0630",
+        "US0635",
+        "US0638",
+        "US0636",
+        "US0633",
+        "US0639",
+        "US0629",
+        "US0627",
+        "US0644",
+        "US0642",
+        "US0643"
+      ]
+    },
+    {
+      "name": "Faye",
+      "tribe": "Tide",
+      "picks": [
+        "US0631",
+        "US0630",
+        "US0642",
+        "US0638",
+        "US0633",
+        "US0632",
+        "US0629",
+        "US0644",
+        "US0628",
+        "US0641",
+        "US0635",
+        "US0627",
+        "US0640",
+        "US0639",
+        "US0643",
+        "US0634",
+        "US0636",
+        "US0637"
+      ]
+    }
+  ],
+  "episodes": [
+    {
+      "number": 1,
+      "date": "2022-09-21",
+      "guesses": [
+        2,
+        3,
+        4,
+        3,
+        4,
+        5
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        },
+        {
+          "player": "Ben",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        },
+        {
+          "player": "Cora",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        },
+        {
+          "player": "Drew",
+          "draft": 0,
+          "bonus": 0,
+          "total": 0
+        },
+        {
+          "player": "Eli",
+          "draft": 0,
+          "bonus": 0,
+          "total": 0
+        },
+        {
+          "player": "Faye",
+          "draft": 0,
+          "bonus": 0,
+          "total": 0
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "date": "2022-09-28",
+      "guesses": [
+        3,
+        4,
+        5,
+        2,
+        3,
+        4
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 1,
+          "bonus": 1,
+          "total": 2
+        },
+        {
+          "player": "Ben",
+          "draft": 1,
+          "bonus": 1,
+          "total": 2
+        },
+        {
+          "player": "Cora",
+          "draft": 1,
+          "bonus": 1,
+          "total": 2
+        },
+        {
+          "player": "Drew",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        },
+        {
+          "player": "Eli",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        },
+        {
+          "player": "Faye",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "date": "2022-10-05",
+      "guesses": [
+        2,
+        3,
+        4,
+        3,
+        4,
+        5
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 1,
+          "bonus": 2,
+          "total": 3
+        },
+        {
+          "player": "Ben",
+          "draft": 1,
+          "bonus": 2,
+          "total": 3
+        },
+        {
+          "player": "Cora",
+          "draft": 3,
+          "bonus": 2,
+          "total": 5
+        },
+        {
+          "player": "Drew",
+          "draft": 2,
+          "bonus": 1,
+          "total": 3
+        },
+        {
+          "player": "Eli",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        },
+        {
+          "player": "Faye",
+          "draft": 0,
+          "bonus": 1,
+          "total": 1
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "date": "2022-10-12",
+      "guesses": [
+        3,
+        4,
+        5,
+        2,
+        3,
+        4
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 1,
+          "bonus": 2,
+          "total": 3
+        },
+        {
+          "player": "Ben",
+          "draft": 1,
+          "bonus": 2,
+          "total": 3
+        },
+        {
+          "player": "Cora",
+          "draft": 3,
+          "bonus": 2,
+          "total": 5
+        },
+        {
+          "player": "Drew",
+          "draft": 2,
+          "bonus": 2,
+          "total": 4
+        },
+        {
+          "player": "Eli",
+          "draft": 0,
+          "bonus": 2,
+          "total": 2
+        },
+        {
+          "player": "Faye",
+          "draft": 1,
+          "bonus": 2,
+          "total": 3
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "date": "2022-10-19",
+      "guesses": [
+        2,
+        3,
+        4,
+        3,
+        4,
+        5
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 4,
+          "bonus": 3,
+          "total": 7
+        },
+        {
+          "player": "Ben",
+          "draft": 1,
+          "bonus": 3,
+          "total": 4
+        },
+        {
+          "player": "Cora",
+          "draft": 4,
+          "bonus": 3,
+          "total": 7
+        },
+        {
+          "player": "Drew",
+          "draft": 2,
+          "bonus": 2,
+          "total": 4
+        },
+        {
+          "player": "Eli",
+          "draft": 0,
+          "bonus": 2,
+          "total": 2
+        },
+        {
+          "player": "Faye",
+          "draft": 1,
+          "bonus": 2,
+          "total": 3
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "date": "2022-10-26",
+      "guesses": [
+        3,
+        4,
+        5,
+        2,
+        3,
+        4
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 9,
+          "bonus": 3,
+          "total": 12
+        },
+        {
+          "player": "Ben",
+          "draft": 3,
+          "bonus": 3,
+          "total": 6
+        },
+        {
+          "player": "Cora",
+          "draft": 4,
+          "bonus": 3,
+          "total": 7
+        },
+        {
+          "player": "Drew",
+          "draft": 7,
+          "bonus": 3,
+          "total": 10
+        },
+        {
+          "player": "Eli",
+          "draft": 1,
+          "bonus": 3,
+          "total": 4
+        },
+        {
+          "player": "Faye",
+          "draft": 1,
+          "bonus": 3,
+          "total": 4
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "date": "2022-11-02",
+      "guesses": [
+        2,
+        3,
+        4,
+        3,
+        4,
+        5
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 9,
+          "bonus": 4,
+          "total": 13
+        },
+        {
+          "player": "Ben",
+          "draft": 10,
+          "bonus": 4,
+          "total": 14
+        },
+        {
+          "player": "Cora",
+          "draft": 5,
+          "bonus": 4,
+          "total": 9
+        },
+        {
+          "player": "Drew",
+          "draft": 7,
+          "bonus": 3,
+          "total": 10
+        },
+        {
+          "player": "Eli",
+          "draft": 6,
+          "bonus": 3,
+          "total": 9
+        },
+        {
+          "player": "Faye",
+          "draft": 3,
+          "bonus": 3,
+          "total": 6
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "date": "2022-11-09",
+      "guesses": [
+        3,
+        4,
+        5,
+        2,
+        3,
+        4
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 13,
+          "bonus": 4,
+          "total": 17
+        },
+        {
+          "player": "Ben",
+          "draft": 15,
+          "bonus": 4,
+          "total": 19
+        },
+        {
+          "player": "Cora",
+          "draft": 5,
+          "bonus": 4,
+          "total": 9
+        },
+        {
+          "player": "Drew",
+          "draft": 11,
+          "bonus": 4,
+          "total": 15
+        },
+        {
+          "player": "Eli",
+          "draft": 13,
+          "bonus": 4,
+          "total": 17
+        },
+        {
+          "player": "Faye",
+          "draft": 5,
+          "bonus": 4,
+          "total": 9
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "date": "2022-11-16",
+      "guesses": [
+        2,
+        3,
+        4,
+        3,
+        4,
+        5
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 15,
+          "bonus": 5,
+          "total": 20
+        },
+        {
+          "player": "Ben",
+          "draft": 26,
+          "bonus": 5,
+          "total": 31
+        },
+        {
+          "player": "Cora",
+          "draft": 15,
+          "bonus": 5,
+          "total": 20
+        },
+        {
+          "player": "Drew",
+          "draft": 24,
+          "bonus": 4,
+          "total": 28
+        },
+        {
+          "player": "Eli",
+          "draft": 20,
+          "bonus": 4,
+          "total": 24
+        },
+        {
+          "player": "Faye",
+          "draft": 14,
+          "bonus": 4,
+          "total": 18
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "date": "2022-11-23",
+      "guesses": [
+        3,
+        4,
+        5,
+        2,
+        3,
+        4
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 21,
+          "bonus": 5,
+          "total": 26
+        },
+        {
+          "player": "Ben",
+          "draft": 36,
+          "bonus": 5,
+          "total": 41
+        },
+        {
+          "player": "Cora",
+          "draft": 19,
+          "bonus": 5,
+          "total": 24
+        },
+        {
+          "player": "Drew",
+          "draft": 25,
+          "bonus": 5,
+          "total": 30
+        },
+        {
+          "player": "Eli",
+          "draft": 27,
+          "bonus": 5,
+          "total": 32
+        },
+        {
+          "player": "Faye",
+          "draft": 23,
+          "bonus": 5,
+          "total": 28
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "date": "2022-11-30",
+      "guesses": [
+        2,
+        3,
+        4,
+        3,
+        4,
+        5
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 28,
+          "bonus": 6,
+          "total": 34
+        },
+        {
+          "player": "Ben",
+          "draft": 42,
+          "bonus": 6,
+          "total": 48
+        },
+        {
+          "player": "Cora",
+          "draft": 29,
+          "bonus": 6,
+          "total": 35
+        },
+        {
+          "player": "Drew",
+          "draft": 36,
+          "bonus": 5,
+          "total": 41
+        },
+        {
+          "player": "Eli",
+          "draft": 30,
+          "bonus": 5,
+          "total": 35
+        },
+        {
+          "player": "Faye",
+          "draft": 34,
+          "bonus": 5,
+          "total": 39
+        }
+      ]
+    },
+    {
+      "number": 12,
+      "date": "2022-12-07",
+      "guesses": [
+        3,
+        4,
+        5,
+        2,
+        3,
+        4
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 37,
+          "bonus": 6,
+          "total": 43
+        },
+        {
+          "player": "Ben",
+          "draft": 43,
+          "bonus": 6,
+          "total": 49
+        },
+        {
+          "player": "Cora",
+          "draft": 30,
+          "bonus": 6,
+          "total": 36
+        },
+        {
+          "player": "Drew",
+          "draft": 49,
+          "bonus": 6,
+          "total": 55
+        },
+        {
+          "player": "Eli",
+          "draft": 42,
+          "bonus": 6,
+          "total": 48
+        },
+        {
+          "player": "Faye",
+          "draft": 44,
+          "bonus": 6,
+          "total": 50
+        }
+      ]
+    },
+    {
+      "number": 13,
+      "date": "2022-12-14",
+      "guesses": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "expected": [
+        {
+          "player": "Ada",
+          "draft": 88,
+          "bonus": 7,
+          "total": 95
+        },
+        {
+          "player": "Ben",
+          "draft": 83,
+          "bonus": 7,
+          "total": 90
+        },
+        {
+          "player": "Cora",
+          "draft": 72,
+          "bonus": 7,
+          "total": 79
+        },
+        {
+          "player": "Drew",
+          "draft": 86,
+          "bonus": 7,
+          "total": 93
+        },
+        {
+          "player": "Eli",
+          "draft": 78,
+          "bonus": 7,
+          "total": 85
+        },
+        {
+          "player": "Faye",
+          "draft": 87,
+          "bonus": 7,
+          "total": 94
+        }
+      ]
+    }
+  ]
+}

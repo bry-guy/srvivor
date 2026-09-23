@@ -221,6 +221,28 @@ This enables:
 - **New mechanic testing**: add a new activity type and validate it doesn't break existing scoring
 - **Season replay**: replay Season 50 from scratch and verify final scores match production
 
+## Minimal Hurl-driven scenario runner
+
+Status: `done`
+
+The first bounded implementation keeps Hurl as the only HTTP executor and uses YAML as the single source of season data. It is intentionally narrower than the full automation roadmap below.
+
+A scenario YAML file declares an instance and explicit episode schedule, named contestants and participants, and an ordered list of supported API steps:
+
+- draft open, submit, late submit, and close
+- episode start, complete, and score
+- outcome submission and explicit published-result correction
+- identical retries by reference to an earlier step
+- leaderboard and published-outcome assertions
+
+Every non-retry mutating step has an explicit effective timestamp and stable idempotency key; retries reuse both from their referenced request. The YAML contains names rather than generated IDs, and does not duplicate scoring formulas or gameplay rules.
+
+A small `castaway-web` command validates the YAML and renders one sequential Hurl file. Hurl performs every API call, captures generated instance, participant, and contestant IDs, and evaluates assertions. Generated request files are temporary; the YAML remains canonical. Whole-file reruns are not resume operations and use a fresh instance/database.
+
+The focused execution task creates a disposable PostgreSQL container, runs migrations, starts a service-authenticated local API, and executes the generated Hurl file. It overrides ambient database settings and removes only resources created by that run. The first scenario covers two episodes, score publication, a pending later outcome, an immediate correction, an identical retry, and final scoring.
+
+This bounded runner does not add API or database behavior, a scheduler, direct SQL gameplay, a generalized workflow framework, rewind/resume semantics, or managed Wordle/Stir the Pot operations. Those remain separate work.
+
 ## Implementation roadmap
 
 ### Short-term (builds on Admin CLI)

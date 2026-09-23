@@ -8,11 +8,13 @@ Documentation requirements and placement rules live in `documentation-standards.
 - `archive-wiki/`: historical project notes and legacy wiki content from the `srvivor` phase.
 - `castaway-bonus-points-blueprint.md`: cross-app bonus-points design and data-model blueprint.
 - `castaway-discord-bot-blueprint.md`: architecture and structure blueprint for the Discord bot app.
+- Probst operator client: [`../apps/probst/README.md`](../apps/probst/README.md).
 - `castaway-manual-gameplay-logs.md`: manual gameplay logs and operational notes used to backfill bonus-point requirements and mechanics.
 - `castaway-web-future-work.md`: deferred and future `castaway-web` ideas that are intentionally out of scope today.
 - `documentation-standards.md`: minimum required documentation and placement rules for the repo and each app.
 - `gameplay/`: gameplay mechanic documentation and player-facing prompts for journeys, twists, and bonus point systems.
 - `guides/`: shared human-oriented guides for operating, deploying, maintaining, or otherwise accomplishing concrete tasks with Castaway.
+- [`guides/season43-rehearsal.md`](guides/season43-rehearsal.md): repeatable historical draft/Wordle rehearsal and bounded BrainLand posting instructions; delivery evidence is under `rehearsals/`.
 - `non-functional-requirements.md`: cross-cutting security, reliability, and operational requirements.
 - `production-readiness-checklist.md`: explicit pre-production checklist across apps.
 - `secrets-and-config.md`: shared 1Password/fnox/mise secret and config conventions.

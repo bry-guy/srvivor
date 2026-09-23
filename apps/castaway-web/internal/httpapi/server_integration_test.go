@@ -1290,8 +1290,12 @@ func TestParticipantDiscordLinkAndPrivateViews(t *testing.T) {
 		}
 	}
 
-	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{}))
-	router := server.Router()
+	server := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"link-test"}}))
+	engine := server.Router()
+	router := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Set("Authorization", "Bearer link-test")
+		engine.ServeHTTP(w, r)
+	})
 
 	linkReq := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/instances/%s/participants/%s/discord-link", uuid.UUID(instance.ID.Bytes).String(), uuid.UUID(alice.ID.Bytes).String()), nil)
 	linkReq.Header.Set("X-Discord-User-ID", "user-1")

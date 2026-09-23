@@ -38,6 +38,14 @@ run = "./script/run-hurl-regression.sh"
 description = "Run integration tests against an ephemeral local Postgres container"
 run = "./script/run-integration-tests.sh"
 
+[tasks.rehearsal-season43]
+description = "Replay Season 43 with fake drafts and public Wordle in disposable PostgreSQL"
+run = "./script/run-integration-tests.sh -run '^TestSeason43Rehearsal$' -count=1"
+
+[tasks.season-scenario]
+description = "Run a YAML-managed season scenario through Hurl against disposable PostgreSQL"
+run = "./script/run-season-scenario.sh"
+
 [tasks.ci]
 description = "Run all tasks for CI pipeline (lint, test, build, openapi-check, regression)"
 depends = [":lint", ":test", ":build", ":openapi-check", ":regression"]

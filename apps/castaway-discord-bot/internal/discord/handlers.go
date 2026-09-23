@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -24,6 +25,12 @@ type commandSpec struct {
 }
 
 func (b *Bot) handleInteraction(_ *discordgo.Session, interaction *discordgo.InteractionCreate) {
+	if interaction.Type != discordgo.InteractionApplicationCommand && interaction.Type != discordgo.InteractionApplicationCommandAutocomplete {
+		return
+	}
+	if interaction.GuildID != "" && !slices.Contains(b.targetServerIDs, interaction.GuildID) {
+		return
+	}
 	data := interaction.ApplicationCommandData()
 	if data.Name != "castaway" {
 		return
@@ -33,21 +40,16 @@ func (b *Bot) handleInteraction(_ *discordgo.Session, interaction *discordgo.Int
 	case discordgo.InteractionApplicationCommand:
 		b.handleCommand(interaction)
 	case discordgo.InteractionApplicationCommandAutocomplete:
-		b.handleAutocomplete(interaction)
+		if err := b.respondAutocomplete(interaction, []*discordgo.ApplicationCommandOptionChoice{}); err != nil {
+			b.log.Warn("reject retired autocomplete", "error", err)
+		}
 	}
 }
 
 func (b *Bot) handleCommand(interaction *discordgo.InteractionCreate) {
 	command := parseCommandSpec(interaction.ApplicationCommandData())
 	start := time.Now()
-	preflightCtx, preflightCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	ephemeral, err := b.commandShouldBeEphemeral(preflightCtx, interaction, command)
-	preflightCancel()
-	if err != nil {
-		b.log.Warn("command preflight failed; defaulting to ephemeral response", "command", command.name, "group", command.group, "error", err)
-		ephemeral = true
-	}
-	if err := b.deferResponse(interaction, ephemeral); err != nil {
+	if err := b.deferResponse(interaction, true); err != nil {
 		b.log.Error("defer interaction response", "error", err)
 		return
 	}
@@ -55,7 +57,7 @@ func (b *Bot) handleCommand(interaction *discordgo.InteractionCreate) {
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 
-	content, err := b.executeCommand(ctx, interaction, command)
+	content, err := b.executePlayerCommand(ctx, interaction, command)
 	result := observeCommand(command, start, err)
 	if err != nil {
 		b.log.Warn("command failed", "command", command.name, "group", command.group, "result", result, "duration_ms", time.Since(start).Milliseconds(), "error", err)
@@ -1016,7 +1018,7 @@ func (b *Bot) deferResponse(interaction *discordgo.InteractionCreate, ephemeral 
 
 func (b *Bot) editResponse(interaction *discordgo.InteractionCreate, content string) error {
 	trimmed := format.TrimMessage(content)
-	_, err := b.session.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{Content: &trimmed})
+	_, err := b.session.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{Content: &trimmed, AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}})
 	return err
 }
 

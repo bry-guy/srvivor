@@ -67,6 +67,119 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateOccurrenceRequest'
+  /activities/{activityID}/wordle-rounds:
+    post:
+      operationId: createWordleRound
+      parameters:
+        - name: activityID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CreateWordleRoundResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWordleRoundResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWordleRoundRequest'
+  /admin/session:
+    get:
+      operationId: adminSession
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSessionResponse'
+  /discord/guilds/{guildID}/channels/{channelID}:
+    get:
+      operationId: getDiscordChannelBinding
+      parameters:
+        - name: guildID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: channelID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscordChannelBindingResponse'
+    put:
+      operationId: setDiscordChannelBinding
+      parameters:
+        - name: guildID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: channelID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscordChannelBindingResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetDiscordChannelBindingRequest'
+    delete:
+      operationId: deleteDiscordChannelBinding
+      parameters:
+        - name: guildID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: channelID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unbound:
+                    type: boolean
+                required:
+                  - unbound
   /healthz:
     get:
       operationId: healthz
@@ -204,6 +317,22 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateActivityRequest'
+  /instances/{instanceID}/admins/bootstrap:
+    post:
+      operationId: bootstrapInstanceAdmin
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BootstrapAdminResponse'
   /instances/{instanceID}/auction/contestants/{contestantID}/bid/me:
     put:
       operationId: setAuctionBid
@@ -1232,6 +1361,89 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/ResolveOccurrenceResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /wordle-rounds/{roundID}:
+    get:
+      operationId: getWordleRound
+      parameters:
+        - name: roundID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetWordleRoundResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /wordle-rounds/{roundID}/close:
+    post:
+      operationId: closeWordleRound
+      parameters:
+        - name: roundID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CloseWordleRoundResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /wordle-rounds/{roundID}/participants/{participantID}:
+    put:
+      operationId: putWordleParticipant
+      parameters:
+        - name: roundID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/PutWordleParticipantResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutWordleParticipantRequest'
+  /wordle-rounds/{roundID}/resolve:
+    post:
+      operationId: resolveWordleRound
+      parameters:
+        - name: roundID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ResolveOccurrenceResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     Activity:
@@ -1356,6 +1568,19 @@ components:
         points:
           type: integer
           format: int32
+    AdminSessionResponse:
+      type: object
+      required:
+        - principal
+        - discord_user_id
+        - authentication
+      properties:
+        principal:
+          type: string
+        discord_user_id:
+          type: string
+        authentication:
+          type: string
     BonusLedgerEntry:
       type: object
       required:
@@ -1408,6 +1633,26 @@ components:
         created_at:
           type: string
           format: date-time
+    BootstrapAdminResponse:
+      type: object
+      required:
+        - instance_id
+        - discord_user_id
+        - admin
+      properties:
+        instance_id:
+          type: string
+        discord_user_id:
+          type: string
+        admin:
+          type: boolean
+    CloseWordleRoundResponse:
+      type: object
+      required:
+        - round
+      properties:
+        round:
+          $ref: '#/components/schemas/WordleRound'
     Contestant:
       type: object
       required:
@@ -1600,6 +1845,53 @@ components:
       properties:
         participant:
           $ref: '#/components/schemas/Participant'
+    CreateWordleRoundRequest:
+      type: object
+      required:
+        - round_key
+        - name
+        - opens_at
+        - cutoff_at
+      properties:
+        round_key:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+        opens_at:
+          type: string
+          format: date-time
+        cutoff_at:
+          type: string
+          format: date-time
+    CreateWordleRoundResponse:
+      type: object
+      required:
+        - round
+      properties:
+        round:
+          $ref: '#/components/schemas/WordleRound'
+    DiscordChannelBinding:
+      type: object
+      required:
+        - guild_id
+        - channel_id
+        - instance_id
+      properties:
+        guild_id:
+          type: string
+        channel_id:
+          type: string
+        instance_id:
+          type: string
+    DiscordChannelBindingResponse:
+      type: object
+      required:
+        - binding
+      properties:
+        binding:
+          $ref: '#/components/schemas/DiscordChannelBinding'
     DraftPick:
       type: object
       required:
@@ -1724,6 +2016,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OccurrenceLedgerEntry'
+    GetWordleRoundResponse:
+      type: object
+      required:
+        - round
+        - participants
+      properties:
+        round:
+          $ref: '#/components/schemas/WordleRound'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/WordleRoundParticipant'
     HealthResponse:
       type: object
       required:
@@ -2275,6 +2579,25 @@ components:
         effective_at:
           type: string
           format: date-time
+    PutWordleParticipantRequest:
+      type: object
+      required:
+        - participant_group_id
+        - guess_count
+      properties:
+        participant_group_id:
+          type: string
+        guess_count:
+          type: integer
+          format: int32
+          minimum: 1
+    PutWordleParticipantResponse:
+      type: object
+      required:
+        - participant_result
+      properties:
+        participant_result:
+          $ref: '#/components/schemas/OccurrenceParticipantResult'
     RecordFinaleBingoLoanSharksRequest:
       type: object
       required:
@@ -2423,6 +2746,15 @@ components:
         points:
           type: integer
           format: int32
+    SetDiscordChannelBindingRequest:
+      type: object
+      required:
+        - instance_id
+      properties:
+        instance_id:
+          type: string
+        replace:
+          type: boolean
     StartAuctionLotRequest:
       type: object
       required:
@@ -2465,6 +2797,115 @@ components:
               type: string
           required:
             - position
+    WordleRound:
+      type: object
+      required:
+        - id
+        - instance_id
+        - activity_id
+        - activity_type
+        - occurrence_type
+        - status
+        - name
+        - round_key
+        - effective_at
+        - opens_at
+        - cutoff_at
+        - closed_at
+        - resolved
+        - resolution
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        instance_id:
+          type: string
+        activity_id:
+          type: string
+        activity_type:
+          type: string
+        occurrence_type:
+          type: string
+        status:
+          type: string
+        name:
+          type: string
+        round_key:
+          type: string
+          minLength: 1
+          maxLength: 64
+        effective_at:
+          type: string
+          format: date-time
+        opens_at:
+          type: string
+          format: date-time
+        cutoff_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved:
+          type: boolean
+        resolution:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/WordleRoundResolution'
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    WordleRoundParticipant:
+      type: object
+      required:
+        - id
+        - participant_id
+        - participant_name
+        - role
+        - result
+        - metadata
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        participant_id:
+          type: string
+        participant_name:
+          type: string
+        participant_group_id:
+          type: string
+        participant_group_name:
+          type: string
+        role:
+          type: string
+        result:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        created_at:
+          type: string
+          format: date-time
+    WordleRoundResolution:
+      type: object
+      required:
+        - created_entries
+        - created_count
+      properties:
+        created_entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolveLedgerEntry'
+        created_count:
+          type: integer
+          format: int32
 servers:
   - url: http://localhost:8080
     description: Local development

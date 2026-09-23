@@ -4,6 +4,7 @@
 
 - Production deployments must define and enforce an authentication model before public exposure.
 - Bot-to-API traffic should use bearer-token service authentication on all routes except `/healthz`.
+- Admin mutations require both a valid service principal and transaction-bound instance-admin identity; bootstrap identity is explicitly configured and disabled by default.
 - Secrets must be supplied through managed environment injection and must never be committed.
 - Logs must avoid leaking secrets, tokens, or sensitive request data.
 

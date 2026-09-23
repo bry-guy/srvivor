@@ -21,6 +21,8 @@ jobs:
       - uses: jdx/mise-action@v2
       - name: Run PostgreSQL integration tests
         run: MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:integration
+      - name: Run YAML-managed Hurl scenario
+        run: MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:season-scenario
 
   validate-home-k3s-overlay:
     runs-on: ubuntu-latest

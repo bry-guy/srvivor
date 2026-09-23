@@ -92,6 +92,12 @@ type Contestant struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type DiscordChannelBinding struct {
+	GuildID    string `json:"guild_id"`
+	ChannelID  string `json:"channel_id"`
+	InstanceID int64  `json:"instance_id"`
+}
+
 type DraftPick struct {
 	InstanceID    int64              `json:"instance_id"`
 	ParticipantID int64              `json:"participant_id"`
@@ -305,4 +311,17 @@ type ParticipantPonyOwnership struct {
 	Metadata                   []byte             `json:"metadata"`
 	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WordleRound struct {
+	ID                   int64              `json:"id"`
+	ActivityID           int64              `json:"activity_id"`
+	ActivityOccurrenceID int64              `json:"activity_occurrence_id"`
+	RoundKey             string             `json:"round_key"`
+	OpensAt              pgtype.Timestamptz `json:"opens_at"`
+	CutoffAt             pgtype.Timestamptz `json:"cutoff_at"`
+	ClosedAt             pgtype.Timestamptz `json:"closed_at"`
+	ResolutionResponse   []byte             `json:"resolution_response"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }

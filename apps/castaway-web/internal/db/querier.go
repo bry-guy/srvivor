@@ -34,6 +34,8 @@ type Querier interface {
 	CreateParticipantLoan(ctx context.Context, arg CreateParticipantLoanParams) (CreateParticipantLoanRow, error)
 	CreateParticipantPonyOwnership(ctx context.Context, arg CreateParticipantPonyOwnershipParams) (CreateParticipantPonyOwnershipRow, error)
 	CreateProgressionCommand(ctx context.Context, arg CreateProgressionCommandParams) (CreateProgressionCommandRow, error)
+	CreateWordleRound(ctx context.Context, arg CreateWordleRoundParams) (pgtype.UUID, error)
+	DeleteDiscordChannelBinding(ctx context.Context, arg DeleteDiscordChannelBindingParams) error
 	DeleteDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) error
 	DeleteInstanceAdmin(ctx context.Context, arg DeleteInstanceAdminParams) error
 	DeleteInstanceByNameSeason(ctx context.Context, arg DeleteInstanceByNameSeasonParams) error
@@ -43,6 +45,7 @@ type Querier interface {
 	GetAvailableSecretBalanceByParticipant(ctx context.Context, arg GetAvailableSecretBalanceByParticipantParams) (int32, error)
 	GetContestant(ctx context.Context, id pgtype.UUID) (GetContestantRow, error)
 	GetCurrentEpisodeAt(ctx context.Context, arg GetCurrentEpisodeAtParams) (GetCurrentEpisodeAtRow, error)
+	GetDiscordChannelBinding(ctx context.Context, arg GetDiscordChannelBindingParams) (GetDiscordChannelBindingRow, error)
 	GetInstance(ctx context.Context, id pgtype.UUID) (GetInstanceRow, error)
 	GetInstanceActivity(ctx context.Context, id pgtype.UUID) (GetInstanceActivityRow, error)
 	GetInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) (GetInstanceDraftProgressRow, error)
@@ -59,6 +62,8 @@ type Querier interface {
 	GetSecretBonusTotalByParticipant(ctx context.Context, arg GetSecretBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipant(ctx context.Context, arg GetVisibleBonusTotalByParticipantParams) (int32, error)
 	GetVisibleBonusTotalByParticipantAsOf(ctx context.Context, arg GetVisibleBonusTotalByParticipantAsOfParams) (int32, error)
+	GetWordleRound(ctx context.Context, id pgtype.UUID) (GetWordleRoundRow, error)
+	GetWordleRoundByActivityAndKey(ctx context.Context, arg GetWordleRoundByActivityAndKeyParams) (GetWordleRoundByActivityAndKeyRow, error)
 	HasFutureOutcomeCommand(ctx context.Context, arg HasFutureOutcomeCommandParams) (bool, error)
 	InitializeInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) error
 	InitializeInstanceEpisodeProgress(ctx context.Context, instanceID pgtype.UUID) error
@@ -98,13 +103,16 @@ type Querier interface {
 	ListParticipantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantsByInstanceRow, error)
 	ListVisibleBonusPointLedgerEntriesByOccurrence(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListVisibleBonusPointLedgerEntriesByOccurrenceRow, error)
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
+	LockDiscordChannel(ctx context.Context, channelKey string) error
 	LockInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) (LockInstanceDraftProgressRow, error)
 	LockInstanceEpisodeProgress(ctx context.Context, arg LockInstanceEpisodeProgressParams) (LockInstanceEpisodeProgressRow, error)
 	LockInstanceForProgression(ctx context.Context, instanceID pgtype.UUID) (LockInstanceForProgressionRow, error)
 	LockInstanceNameSeason(ctx context.Context, lockKey string) error
 	LockInstancesByNameSeason(ctx context.Context, arg LockInstancesByNameSeasonParams) ([]LockInstancesByNameSeasonRow, error)
+	LockWordleRound(ctx context.Context, id pgtype.UUID) (LockWordleRoundRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
 	NextInstanceScoreRevisionNumber(ctx context.Context, instanceID pgtype.UUID) (int32, error)
+	SetDiscordChannelBinding(ctx context.Context, arg SetDiscordChannelBindingParams) error
 	SetInstanceProgressionMode(ctx context.Context, arg SetInstanceProgressionModeParams) error
 	SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error)
 	UpdateActivityOccurrenceStatusAndMetadata(ctx context.Context, arg UpdateActivityOccurrenceStatusAndMetadataParams) (UpdateActivityOccurrenceStatusAndMetadataRow, error)
@@ -112,6 +120,8 @@ type Querier interface {
 	UpdateInstanceEpisodeProgress(ctx context.Context, arg UpdateInstanceEpisodeProgressParams) (UpdateInstanceEpisodeProgressRow, error)
 	UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error)
 	UpdateParticipantLoan(ctx context.Context, arg UpdateParticipantLoanParams) (UpdateParticipantLoanRow, error)
+	UpdateWordleRoundClosedAt(ctx context.Context, arg UpdateWordleRoundClosedAtParams) (UpdateWordleRoundClosedAtRow, error)
+	UpdateWordleRoundResolution(ctx context.Context, arg UpdateWordleRoundResolutionParams) (UpdateWordleRoundResolutionRow, error)
 	UpsertActivityOccurrenceParticipant(ctx context.Context, arg UpsertActivityOccurrenceParticipantParams) (UpsertActivityOccurrenceParticipantRow, error)
 	UpsertOutcomePosition(ctx context.Context, arg UpsertOutcomePositionParams) (UpsertOutcomePositionRow, error)
 }

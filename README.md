@@ -8,7 +8,8 @@ This repo is in transition from a single CLI project into a broader multi-app wo
 
 - `apps/cli` contains the original `srvivor` CLI.
 - `apps/castaway-web` contains the persistent Gin + PostgreSQL web API.
-- `apps/castaway-discord-bot` will host the Discord bot integration that queries `castaway-web`.
+- `apps/castaway-discord-bot` exposes only player score, leaderboard, and draft commands through channel-bound instances.
+- `apps/probst` is the trusted-service HTTP operator client for instances, Discord bindings, player links, drafts, and scores.
 - The `srvivor` command and behavior are intentionally preserved for backwards compatibility.
 - New work should be organized as additional apps/packages under this monorepo.
 
@@ -57,7 +58,11 @@ See `apps/castaway-web/README.md` for API + workflow details.
 
 ### castaway-discord-bot
 
-See `apps/castaway-discord-bot/README.md` for local setup, commands, and Discord app configuration.
+See `apps/castaway-discord-bot/README.md` for the minimized player surface and Discord setup.
+
+### Probst
+
+See `apps/probst/README.md` for operator commands, bootstrap restrictions, and validation.
 
 ### Selfhost app infra
 

@@ -1,0 +1,187 @@
+version: 1
+
+instance:
+  name: Hurl Managed Scenario
+  season: 901
+  episodes:
+    - episode_number: 0
+      label: Preseason
+      airs_at: 2026-01-01T20:00:00Z
+    - episode_number: 1
+      label: Episode 1
+      airs_at: 2026-01-08T20:00:00Z
+    - episode_number: 2
+      label: Episode 2
+      airs_at: 2026-01-15T20:00:00Z
+
+contestants:
+  - Ada
+  - Blaise
+  - Claude
+  - Delta
+
+participants:
+  - Bryan
+  - Amanda
+
+steps:
+  - id: draft-open
+    action: draft.open
+    key: draft-open
+    effective_at: 2026-01-02T20:00:00Z
+
+  - id: bryan-draft
+    action: draft.submit
+    key: bryan-draft
+    effective_at: 2026-01-03T20:00:00Z
+    participant: Bryan
+    picks: [Ada, Blaise, Claude, Delta]
+
+  - id: amanda-draft
+    action: draft.submit
+    key: amanda-draft
+    effective_at: 2026-01-03T20:01:00Z
+    participant: Amanda
+    picks: [Blaise, Ada, Delta, Claude]
+
+  - id: draft-close
+    action: draft.close
+    key: draft-close
+    effective_at: 2026-01-04T20:00:00Z
+
+  - id: episode-1-start
+    action: episode.start
+    key: episode-1-start
+    effective_at: 2026-01-05T20:00:00Z
+    episode: 1
+
+  - id: episode-1-ada
+    action: outcome.upsert
+    key: episode-1-ada
+    effective_at: 2026-01-06T20:00:00Z
+    position: 1
+    contestant: Ada
+
+  - id: episode-1-complete
+    action: episode.complete
+    key: episode-1-complete
+    effective_at: 2026-01-07T20:00:00Z
+    episode: 1
+
+  - id: episode-1-score
+    action: episode.score
+    key: episode-1-score
+    effective_at: 2026-01-08T20:00:00Z
+    episode: 1
+
+  - id: assert-episode-1-score
+    action: assert.leaderboard
+    leaderboard:
+      - participant: Bryan
+        score: 4
+        draft_points: 4
+        bonus_points: 0
+        total_points: 4
+      - participant: Amanda
+        score: 3
+        draft_points: 3
+        bonus_points: 0
+        total_points: 3
+
+  - id: episode-2-start
+    action: episode.start
+    key: episode-2-start
+    effective_at: 2026-01-09T20:00:00Z
+    episode: 2
+
+  - id: episode-2-pending
+    action: outcome.upsert
+    key: episode-2-pending
+    effective_at: 2026-01-10T20:00:00Z
+    position: 3
+    contestant: Delta
+
+  - id: episode-1-correction
+    action: outcome.upsert
+    key: episode-1-correction
+    effective_at: 2026-01-11T20:00:00Z
+    position: 1
+    contestant: Claude
+    correction: true
+    reason: Correct Episode 1 result
+
+  - id: episode-1-correction-retry
+    action: retry
+    retry_of: episode-1-correction
+
+  - id: assert-correction
+    action: assert.leaderboard
+    leaderboard:
+      - participant: Bryan
+        score: 2
+        draft_points: 2
+        bonus_points: 0
+        total_points: 2
+      - participant: Amanda
+        score: 1
+        draft_points: 1
+        bonus_points: 0
+        total_points: 1
+
+  - id: assert-pending-outcome-hidden
+    action: assert.outcomes
+    outcomes:
+      - position: 1
+        contestant: Claude
+
+  - id: episode-2-blaise
+    action: outcome.upsert
+    key: episode-2-blaise
+    effective_at: 2026-01-12T20:00:00Z
+    position: 2
+    contestant: Blaise
+
+  - id: episode-2-ada
+    action: outcome.upsert
+    key: episode-2-ada
+    effective_at: 2026-01-12T20:01:00Z
+    position: 4
+    contestant: Ada
+
+  - id: episode-2-complete
+    action: episode.complete
+    key: episode-2-complete
+    effective_at: 2026-01-13T20:00:00Z
+    episode: 2
+
+  - id: episode-2-score
+    action: episode.score
+    key: episode-2-score
+    effective_at: 2026-01-14T20:00:00Z
+    episode: 2
+
+  - id: assert-final-outcomes
+    action: assert.outcomes
+    outcomes:
+      - position: 1
+        contestant: Claude
+      - position: 2
+        contestant: Blaise
+      - position: 3
+        contestant: Delta
+      - position: 4
+        contestant: Ada
+
+  - id: assert-final-leaderboard
+    action: assert.leaderboard
+    leaderboard:
+      - participant: Bryan
+        score: 6
+        draft_points: 6
+        bonus_points: 0
+        total_points: 6
+      - participant: Amanda
+        score: 5
+        draft_points: 5
+        bonus_points: 0
+        total_points: 5

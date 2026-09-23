@@ -400,6 +400,76 @@ model ResolveOccurrenceResponse {
   created_count: int32;
 }
 
+model WordleRoundResolution {
+  created_entries: ResolveLedgerEntry[];
+  created_count: int32;
+}
+
+model WordleRound {
+  id: string;
+  instance_id: string;
+  activity_id: string;
+  activity_type: string;
+  occurrence_type: string;
+  status: string;
+  name: string;
+  @minLength(1)
+  @maxLength(64)
+  round_key: string;
+  effective_at: utcDateTime;
+  opens_at: utcDateTime;
+  cutoff_at: utcDateTime;
+  closed_at: utcDateTime | null;
+  resolved: boolean;
+  resolution: WordleRoundResolution | null;
+  created_at: utcDateTime;
+  updated_at: utcDateTime;
+}
+
+model WordleRoundParticipant {
+  id: int64;
+  participant_id: string;
+  participant_name: string;
+  participant_group_id?: string;
+  participant_group_name?: string;
+  role: string;
+  result: string;
+  metadata: JsonObject;
+  created_at: utcDateTime;
+}
+
+model CreateWordleRoundRequest {
+  @minLength(1)
+  @maxLength(64)
+  round_key: string;
+  name: string;
+  opens_at: utcDateTime;
+  cutoff_at: utcDateTime;
+}
+
+model CreateWordleRoundResponse {
+  round: WordleRound;
+}
+
+model GetWordleRoundResponse {
+  round: WordleRound;
+  participants: WordleRoundParticipant[];
+}
+
+model PutWordleParticipantRequest {
+  participant_group_id: string;
+  @minValue(1)
+  guess_count: int32;
+}
+
+model PutWordleParticipantResponse {
+  participant_result: OccurrenceParticipantResult;
+}
+
+model CloseWordleRoundResponse {
+  round: WordleRound;
+}
+
 model ActivityGroupAssignment {
   id: int64;
   activity_id: string;
@@ -515,6 +585,53 @@ model ParticipantActivityHistoryResponse {
   instance: Instance;
   activities: ParticipantActivityHistoryActivity[];
 }
+
+model AdminSessionResponse {
+  principal: string;
+  discord_user_id: string;
+  authentication: string;
+}
+
+model BootstrapAdminResponse {
+  instance_id: string;
+  discord_user_id: string;
+  admin: boolean;
+}
+
+model DiscordChannelBinding {
+  guild_id: string;
+  channel_id: string;
+  instance_id: string;
+}
+
+model DiscordChannelBindingResponse {
+  binding: DiscordChannelBinding;
+}
+
+model SetDiscordChannelBindingRequest {
+  instance_id: string;
+  replace?: boolean;
+}
+
+@route("/admin/session")
+@get
+op adminSession(): AdminSessionResponse;
+
+@route("/instances/{instanceID}/admins/bootstrap")
+@post
+op bootstrapInstanceAdmin(@path instanceID: string): BootstrapAdminResponse;
+
+@route("/discord/guilds/{guildID}/channels/{channelID}")
+@get
+op getDiscordChannelBinding(@path guildID: string, @path channelID: string): DiscordChannelBindingResponse;
+
+@route("/discord/guilds/{guildID}/channels/{channelID}")
+@put
+op setDiscordChannelBinding(@path guildID: string, @path channelID: string, @body body: SetDiscordChannelBindingRequest): DiscordChannelBindingResponse;
+
+@route("/discord/guilds/{guildID}/channels/{channelID}")
+@delete
+op deleteDiscordChannelBinding(@path guildID: string, @path channelID: string): { unbound: boolean; };
 
 @route("/healthz")
 @get
@@ -834,6 +951,19 @@ op createOccurrence(
   ...CreateOccurrenceResponse;
 } | ErrorResponse;
 
+@route("/activities/{activityID}/wordle-rounds")
+@post
+op createWordleRound(
+  @path activityID: string,
+  @body body: CreateWordleRoundRequest,
+): {
+  @statusCode statusCode: 201;
+  ...CreateWordleRoundResponse;
+} | {
+  @statusCode statusCode: 200;
+  ...CreateWordleRoundResponse;
+} | ErrorResponse;
+
 // --- Occurrence results ---
 
 @route("/occurrences/{occurrenceID}")
@@ -865,3 +995,23 @@ op createOccurrenceGroup(
 @route("/occurrences/{occurrenceID}/resolve")
 @post
 op resolveOccurrence(@path occurrenceID: string): ResolveOccurrenceResponse | ErrorResponse;
+
+@route("/wordle-rounds/{roundID}")
+@get
+op getWordleRound(@path roundID: string): GetWordleRoundResponse | ErrorResponse;
+
+@route("/wordle-rounds/{roundID}/participants/{participantID}")
+@put
+op putWordleParticipant(
+  @path roundID: string,
+  @path participantID: string,
+  @body body: PutWordleParticipantRequest,
+): PutWordleParticipantResponse | ErrorResponse;
+
+@route("/wordle-rounds/{roundID}/close")
+@post
+op closeWordleRound(@path roundID: string): CloseWordleRoundResponse | ErrorResponse;
+
+@route("/wordle-rounds/{roundID}/resolve")
+@post
+op resolveWordleRound(@path roundID: string): ResolveOccurrenceResponse | ErrorResponse;

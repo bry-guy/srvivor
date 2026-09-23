@@ -8,27 +8,20 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 			Name:        "castaway",
 			Description: "Castaway fantasy draft commands",
 			Options: []*discordgo.ApplicationCommandOption{
-				activitiesCommand(),
-				activityCommand(),
-				auctionCommandGroup(),
-				bidCommand(),
-				bidsCommand(),
-				draftCommand(),
-				historyCommand(),
-				instanceCommandGroup(),
-				instancesCommand(),
-				linkCommand(),
-				loanCommandGroup(),
-				occurrenceCommand(),
-				occurrencesCommand(),
-				poniesCommand(),
-				potCommandGroup(),
-				scoreCommand(),
-				scoresCommand(),
-				unlinkCommand(),
+				playerReadCommand("score", "Show public score (defaults to you)", true),
+				playerReadCommand("scores", "Show the public leaderboard", false),
+				playerReadCommand("draft", "Show draft (defaults to you)", true),
 			},
 		},
 	}
+}
+
+func playerReadCommand(name, description string, selectPlayer bool) *discordgo.ApplicationCommandOption {
+	command := &discordgo.ApplicationCommandOption{Type: discordgo.ApplicationCommandOptionSubCommand, Name: name, Description: description}
+	if selectPlayer {
+		command.Options = []*discordgo.ApplicationCommandOption{{Type: discordgo.ApplicationCommandOptionUser, Name: "player", Description: "Player (defaults to you)"}}
+	}
+	return command
 }
 
 func activitiesCommand() *discordgo.ApplicationCommandOption {

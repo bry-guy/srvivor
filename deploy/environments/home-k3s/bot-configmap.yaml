@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/part-of: castaway
 data:
   CASTAWAY_API_BASE_URL: http://castaway-web:8080
+  DISCORD_TARGET_SERVER_IDS: "1078197143501819915,521073437779689474"
   BOT_STATE_BACKEND: postgres
   LOG_LEVEL: INFO
   BOT_HTTP_ADDR: ":8080"

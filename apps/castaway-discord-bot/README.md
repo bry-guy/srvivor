@@ -14,7 +14,22 @@
 
 Top-level command: `/castaway`
 
-### Query commands
+### Active player commands
+
+- `/castaway score [player]`
+- `/castaway scores`
+- `/castaway draft [player]`
+
+`player` is an optional native Discord user selection and defaults to the invoker. All replies are ephemeral, include the season, and suppress mention notifications. DMs and retired command payloads are rejected. Scores show only public points; historical secret data is preserved but not rendered.
+
+Instance context comes exclusively from API-owned guild/channel bindings, with parent-channel inheritance for threads. There is no personal/guild-default fallback. Operators use [Probst](../probst/README.md) for bindings and player links. Unbound/unmapped errors point to the configured contact (`CASTAWAY_ADMIN_CONTACT_DISCORD_USER_ID`, default verified @brain ID `235246238382030849`).
+
+Registration and dispatch are limited to the explicit `DISCORD_TARGET_SERVER_IDS` allowlist. Commands are bulk-overwritten only in those guilds; global registrations are never changed. `DISCORD_TARGET_SEVER_ID` remains a single-guild fallback when the allowlist is unset.
+
+### Deprecated query commands (not registered or dispatched)
+
+The following legacy handlers, state, and tests remain for compatibility history only. Their options and private-score behavior are not available through the active player surface.
+
 - `/castaway score participant:<name> [instance] [season]`
 - `/castaway scores [instance] [season]`
 - `/castaway draft participant:<name> [instance] [season]`
@@ -32,7 +47,7 @@ Top-level command: `/castaway`
 
 `history` now responds ephemerally. `draft` and `scores` also respond ephemerally so they stay out of the channel.
 
-### Merge gameplay commands
+### Deprecated merge gameplay commands
 - Stir the Pot
   - `/castaway pot status [instance]`
   - `/castaway pot show tribe:<tribe> [instance]` (admin-only current tribe total visibility)
@@ -54,7 +69,7 @@ Player and admin write commands default to ephemeral responses.
 
 When a hidden spend reveals one or more secret bonus points, the bot can also post a public announcement to a configured channel.
 
-### Context commands
+### Deprecated context commands
 - `/castaway instances [season]`
 - `/castaway instance set instance:<name> [season] [scope:me|guild]`
 - `/castaway instance show`
@@ -84,7 +99,7 @@ Secret env vars used by the bot:
 
 - `CASTAWAY_DISCORD_BOT_TOKEN`
 - `CASTAWAY_DISCORD_APPLICATION_ID`
-- `DISCORD_TARGET_SEVER_ID`
+- `DISCORD_TARGET_SEVER_ID` (legacy single-guild fallback)
 - `CASTAWAY_DISCORD_PUBLIC_KEY` (loaded now for future Discord signature verification work; not currently consumed by the gateway bot)
 
 Make sure `fnox` can access 1Password through `op` by doing one of the following:
@@ -112,7 +127,9 @@ Non-secret defaults are provided through `apps/castaway-discord-bot/mise.toml`:
 
 Optional production-oriented config:
 
-- `CASTAWAY_API_AUTH_TOKEN` for bot-to-API bearer authentication
+- `DISCORD_TARGET_SERVER_IDS` is a comma-separated guild allowlist configured outside the secret store
+- `CASTAWAY_API_AUTH_TOKEN` is required for the active channel-binding API
+- `CASTAWAY_ADMIN_CONTACT_DISCORD_USER_ID` selects the setup contact displayed without notification
 - `BOT_STATE_DATABASE_URL` when `BOT_STATE_BACKEND=postgres`
 - `CASTAWAY_ANNOUNCEMENT_CHANNEL_ID` to publish public secret-point reveal messages (for example, `#survivor`); the bot uses real Discord mentions when it knows the linked user id
 
@@ -155,7 +172,7 @@ BOLT_STATE_IMPORT_PATH=./data/state.db mise run import-bolt-state
 
 ## Discord setup notes
 
-- Use a dedicated target guild; the bot reads its guild ID from `DISCORD_TARGET_SEVER_ID`, which can be sourced from whichever 1Password item matches the environment.
+- Set `DISCORD_TARGET_SERVER_IDS` to the explicit comma-separated guild allowlist; each guild receives only the three active player commands. The old `DISCORD_TARGET_SEVER_ID` setting remains a single-guild fallback.
 - Invite the bot with both the `bot` and `applications.commands` scopes.
 - The bot only needs guild slash command support for the MVP; it does not require privileged message content intent.
 
@@ -176,7 +193,7 @@ If the bot cannot resolve secrets, `mise run run` and `mise run check-config` wi
 
 ## Notes
 
-- Guild default instance changes require Discord Manage Server permissions.
+- Guild/personal defaults are deprecated and ignored by active commands; channel bindings are administered through Probst.
 - Production bot-to-API traffic can be authenticated with `CASTAWAY_API_AUTH_TOKEN` as a bearer token.
 - The bot supports both `bolt` and `postgres` state backends. PostgreSQL is the intended production direction and should use its own logical database, `castaway_discord_bot`, with separate credentials from `castaway-web`.
 - BoltDB remains a valid local and compatibility backend, and `import-bolt-state` provides an explicit migration path into PostgreSQL.

@@ -24,11 +24,12 @@ import (
 )
 
 type Server struct {
-	pool                    *pgxpool.Pool
-	queries                 *db.Queries
-	serviceAuth             ServiceAuthConfig
-	serviceAuthBearerTokens map[string]struct{}
-	now                     func() time.Time
+	pool                        *pgxpool.Pool
+	queries                     *db.Queries
+	serviceAuth                 ServiceAuthConfig
+	serviceAuthBearerTokens     map[string]struct{}
+	now                         func() time.Time
+	bootstrapAdminDiscordUserID string
 }
 
 type Option func(*Server)
@@ -78,6 +79,11 @@ func (s *Server) Router() *gin.Engine {
 	protected := r.Group("/")
 	protected.Use(s.requireServiceAuth())
 	protected.GET("/instances", s.listInstances)
+	protected.GET("/admin/session", s.adminSession)
+	protected.POST("/instances/:instanceID/admins/bootstrap", s.bootstrapInstanceAdmin)
+	protected.GET("/discord/guilds/:guildID/channels/:channelID", s.getDiscordChannelBinding)
+	protected.PUT("/discord/guilds/:guildID/channels/:channelID", s.setDiscordChannelBinding)
+	protected.DELETE("/discord/guilds/:guildID/channels/:channelID", s.deleteDiscordChannelBinding)
 	protected.POST("/instances", s.createInstance)
 	protected.POST("/instances/import", s.importInstance)
 	protected.GET("/instances/:instanceID", s.getInstance)
@@ -127,6 +133,11 @@ func (s *Server) Router() *gin.Engine {
 	protected.GET("/activities/:activityID", s.getActivity)
 	protected.GET("/activities/:activityID/occurrences", s.listOccurrences)
 	protected.POST("/activities/:activityID/occurrences", s.createOccurrence)
+	protected.POST("/activities/:activityID/wordle-rounds", s.createWordleRound)
+	protected.GET("/wordle-rounds/:roundID", s.getWordleRound)
+	protected.PUT("/wordle-rounds/:roundID/participants/:participantID", s.putWordleParticipant)
+	protected.POST("/wordle-rounds/:roundID/close", s.closeWordleRound)
+	protected.POST("/wordle-rounds/:roundID/resolve", s.resolveWordleRound)
 	protected.GET("/occurrences/:occurrenceID", s.getOccurrence)
 	protected.POST("/occurrences/:occurrenceID/participants", s.createOccurrenceParticipant)
 	protected.POST("/occurrences/:occurrenceID/groups", s.createOccurrenceGroup)
@@ -589,125 +600,9 @@ type linkParticipantDiscordUserRequest struct {
 	DiscordUserID string `json:"discord_user_id"`
 }
 
-func (s *Server) linkParticipantDiscordUser(c *gin.Context) {
-	instanceID, ok := parseUUIDPath(c, "instanceID")
-	if !ok {
-		return
-	}
-	if _, ok := s.requireManagedAdminIfNeeded(c, instanceID); !ok {
-		return
-	}
-	participantID, ok := parseUUIDPath(c, "participantID")
-	if !ok {
-		return
-	}
-	callerDiscordUserID := discordUserIDFromRequest(c.Request)
-	if callerDiscordUserID == "" {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "missing discord user id"})
-		return
-	}
+func (s *Server) linkParticipantDiscordUser(c *gin.Context) { s.changeDiscordPlayerLink(c, false) }
 
-	isAdmin, err := s.isInstanceAdmin(c.Request.Context(), toPGUUID(instanceID), callerDiscordUserID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
-	if !isAdmin {
-		c.JSON(http.StatusForbidden, errorResponse{Error: "forbidden"})
-		return
-	}
-
-	participant, err := s.queries.GetParticipant(c.Request.Context(), toPGUUID(participantID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
-	if participant.InstanceID != toPGUUID(instanceID) {
-		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
-		return
-	}
-
-	targetDiscordUserID := callerDiscordUserID
-	if queryTarget := strings.TrimSpace(c.Query("discord_user_id")); queryTarget != "" {
-		targetDiscordUserID = queryTarget
-	}
-	if c.Request.ContentLength != 0 {
-		var req linkParticipantDiscordUserRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
-			return
-		}
-		if strings.TrimSpace(req.DiscordUserID) != "" {
-			targetDiscordUserID = strings.TrimSpace(req.DiscordUserID)
-		}
-	}
-
-	updated, err := s.queries.SetParticipantDiscordUserID(c.Request.Context(), db.SetParticipantDiscordUserIDParams{
-		ID:            toPGUUID(participantID),
-		DiscordUserID: pgtype.Text{String: targetDiscordUserID, Valid: true},
-	})
-	if err != nil {
-		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(updated.ID, updated.Name)})
-}
-
-func (s *Server) unlinkParticipantDiscordUser(c *gin.Context) {
-	instanceID, ok := parseUUIDPath(c, "instanceID")
-	if !ok {
-		return
-	}
-	if _, ok := s.requireManagedAdminIfNeeded(c, instanceID); !ok {
-		return
-	}
-	participantID, ok := parseUUIDPath(c, "participantID")
-	if !ok {
-		return
-	}
-	callerDiscordUserID := discordUserIDFromRequest(c.Request)
-	if callerDiscordUserID == "" {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "missing discord user id"})
-		return
-	}
-
-	isAdmin, err := s.isInstanceAdmin(c.Request.Context(), toPGUUID(instanceID), callerDiscordUserID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
-	if !isAdmin {
-		c.JSON(http.StatusForbidden, errorResponse{Error: "forbidden"})
-		return
-	}
-
-	participant, err := s.queries.GetParticipant(c.Request.Context(), toPGUUID(participantID))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
-		return
-	}
-	if participant.InstanceID != toPGUUID(instanceID) {
-		c.JSON(http.StatusNotFound, errorResponse{Error: "participant not found"})
-		return
-	}
-
-	updated, err := s.queries.ClearParticipantDiscordUserID(c.Request.Context(), toPGUUID(participantID))
-	if err != nil {
-		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"participant": participantSummaryToJSON(updated.ID, updated.Name)})
-}
+func (s *Server) unlinkParticipantDiscordUser(c *gin.Context) { s.changeDiscordPlayerLink(c, true) }
 
 func participantSummaryToJSON(id pgtype.UUID, name string, discordUserID ...string) gin.H {
 	participant := gin.H{
@@ -1759,6 +1654,9 @@ func (s *Server) createOccurrenceParticipant(c *gin.Context) {
 	if s.rejectManagedOccurrenceOperation(c, occurrenceID, "occurrence participant writes") {
 		return
 	}
+	if s.rejectWordleRoundOperation(c, occurrenceID, "occurrence participant writes") {
+		return
+	}
 
 	var req createOccurrenceParticipantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1827,6 +1725,9 @@ func (s *Server) createOccurrenceGroup(c *gin.Context) {
 	if s.rejectManagedOccurrenceOperation(c, occurrenceID, "occurrence group writes") {
 		return
 	}
+	if s.rejectWordleRoundOperation(c, occurrenceID, "occurrence group writes") {
+		return
+	}
 
 	var req createOccurrenceGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1874,6 +1775,9 @@ func (s *Server) resolveOccurrence(c *gin.Context) {
 		return
 	}
 	if s.rejectManagedOccurrenceOperation(c, occurrenceID, "occurrence resolution") {
+		return
+	}
+	if s.rejectWordleRoundOperation(c, occurrenceID, "occurrence resolution") {
 		return
 	}
 

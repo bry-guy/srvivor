@@ -29,6 +29,8 @@
   - individual pony auctions and ownership
   - Loan Shark borrowing and repayment
   - individual pony immunity payouts
+- support explicit service-authenticated first-admin bootstrap, API-owned Discord guild/channel-to-instance bindings with instance-admin authorization, and conflict-safe Discord player linking
+- support service-authenticated, instance-admin Wordle round creation, result entry, closure, inspection, and retry-safe public award resolution for legacy instances; enforce cutoff and block generic occurrence-write bypasses
 - support player-context write flows via linked Discord users for merge gameplay actions
 - allow instance admins to submit Stir the Pot contributions and individual pony bids on behalf of named participants
 - allow instance admins to inspect the current Stir the Pot total for a named tribe without exposing other tribes' totals
