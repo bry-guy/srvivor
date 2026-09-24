@@ -63,6 +63,8 @@ func (b *Bot) Start(ctx context.Context) error {
 		}
 	}()
 
+	go b.pollAnnouncements(ctx)
+
 	botDiscordGatewayConnected.Set(1)
 	b.log.Info("discord session opened", "command_scope", commandScope)
 	return nil

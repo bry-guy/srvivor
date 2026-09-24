@@ -189,6 +189,19 @@ func (s *Server) changeDiscordChannelBinding(c *gin.Context, remove bool) {
 		c.JSON(http.StatusConflict, errorResponse{Error: "channel is already bound; confirm replacement"})
 		return
 	}
+	if exists && (remove || old.InstanceID != toPGUUID(target)) {
+		var undelivered bool
+		if err := tx.QueryRow(c.Request.Context(), `SELECT EXISTS (
+			SELECT 1 FROM announcements WHERE guild_id = $1 AND channel_id = $2 AND status IN ('pending', 'sending')
+		)`, p.GuildID, p.ChannelID).Scan(&undelivered); err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		if undelivered {
+			c.JSON(http.StatusConflict, errorResponse{Error: "channel has an undelivered announcement; resolve it before rebinding"})
+			return
+		}
+	}
 	if remove {
 		err = q.DeleteDiscordChannelBinding(c.Request.Context(), db.DeleteDiscordChannelBindingParams(p))
 	} else {

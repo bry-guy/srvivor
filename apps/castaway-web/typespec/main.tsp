@@ -613,6 +613,34 @@ model SetDiscordChannelBindingRequest {
   replace?: boolean;
 }
 
+model Announcement {
+  id: string;
+  instance_id: string;
+  guild_id: string;
+  channel_id: string;
+  request_key: string;
+  body: string;
+  scheduled_at: utcDateTime | null;
+  due_at: utcDateTime;
+  status: string;
+  message_id: string | null;
+}
+
+model CreateAnnouncementRequest {
+  guild_id: string;
+  channel_id: string;
+  request_key: string;
+  body: string;
+  scheduled_at?: utcDateTime;
+}
+
+model AnnouncementResponse { announcement: Announcement; }
+model AnnouncementListResponse { announcements: Announcement[]; }
+model ClaimAnnouncementRequest { guild_ids: string[]; }
+model ClaimAnnouncementResponse { announcement: Announcement | null; }
+model FinishAnnouncementRequest { message_id?: string; failed?: boolean; }
+model FinishAnnouncementResponse { status: string; message_id?: string; }
+
 @route("/admin/session")
 @get
 op adminSession(): AdminSessionResponse;
@@ -632,6 +660,22 @@ op setDiscordChannelBinding(@path guildID: string, @path channelID: string, @bod
 @route("/discord/guilds/{guildID}/channels/{channelID}")
 @delete
 op deleteDiscordChannelBinding(@path guildID: string, @path channelID: string): { unbound: boolean; };
+
+@route("/instances/{instanceID}/announcements")
+@post
+op createAnnouncement(@path instanceID: string, @body body: CreateAnnouncementRequest): AnnouncementResponse;
+
+@route("/instances/{instanceID}/announcements")
+@get
+op listAnnouncements(@path instanceID: string): AnnouncementListResponse;
+
+@route("/announcements/claim")
+@post
+op claimAnnouncement(@body body: ClaimAnnouncementRequest): ClaimAnnouncementResponse;
+
+@route("/announcements/{announcementID}/finish")
+@post
+op finishAnnouncement(@path announcementID: string, @body body: FinishAnnouncementRequest): FinishAnnouncementResponse;
 
 @route("/healthz")
 @get

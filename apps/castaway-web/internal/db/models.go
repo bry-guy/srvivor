@@ -68,6 +68,22 @@ type ActivityParticipantAssignment struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 }
 
+type Announcement struct {
+	ID          pgtype.UUID        `json:"id"`
+	InstanceID  int64              `json:"instance_id"`
+	GuildID     string             `json:"guild_id"`
+	ChannelID   string             `json:"channel_id"`
+	RequestKey  string             `json:"request_key"`
+	Body        string             `json:"body"`
+	ScheduledAt pgtype.Timestamptz `json:"scheduled_at"`
+	DueAt       pgtype.Timestamptz `json:"due_at"`
+	Status      string             `json:"status"`
+	ClaimedAt   pgtype.Timestamptz `json:"claimed_at"`
+	MessageID   pgtype.Text        `json:"message_id"`
+	SentAt      pgtype.Timestamptz `json:"sent_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type BonusPointLedgerEntry struct {
 	ID                   int64              `json:"id"`
 	PublicID             pgtype.UUID        `json:"public_id"`

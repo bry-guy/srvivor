@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -49,7 +52,7 @@ func newCommand() *cobra.Command {
 	root.PersistentFlags().StringVar(&guild, "guild", "", "Discord guild ID")
 	root.PersistentFlags().StringVar(&discordUser, "discord-user", "", "Discord account to link")
 	root.PersistentFlags().BoolVar(&asJSON, "json", false, "Print machine-readable JSON")
-	root.PersistentFlags().BoolVar(&yes, "yes", false, "Confirm rebinding, unlinking or unbinding")
+	root.PersistentFlags().BoolVar(&yes, "yes", false, "Confirm announcement sending or destructive changes")
 	var call apiCall = func(ctx context.Context, method, path string, body, out any) error {
 		if token == "" {
 			return fmt.Errorf("set PROBST_TOKEN through your credential provider")
@@ -336,6 +339,60 @@ func newCommand() *cobra.Command {
 	importCmd.Flags().StringVar(&before, "before", "", "Ignore thread drafts posted after this RFC3339 time")
 	importCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show how every line was matched")
 	drafts.AddCommand(importCmd)
+	announcements := &cobra.Command{Use: "announcement"}
+	root.AddCommand(announcements)
+	var announcementFile, announcementKey string
+	send := &cobra.Command{Use: "send CHANNEL", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
+		p, err := instancePath()
+		if err != nil {
+			return err
+		}
+		bindingPath, err := channelPath(a[0])
+		if err != nil {
+			return err
+		}
+		if announcementFile == "" {
+			return fmt.Errorf("--file is required")
+		}
+		data, err := os.ReadFile(announcementFile)
+		if err != nil {
+			return err
+		}
+		if !utf8.Valid(data) || strings.TrimSpace(string(data)) == "" || utf8.RuneCount(data) > 2000 {
+			return fmt.Errorf("announcement must be nonempty UTF-8, at most 2000 characters")
+		}
+		var bound struct {
+			Binding struct {
+				InstanceID string `json:"instance_id"`
+			} `json:"binding"`
+		}
+		if err := call(c.Context(), "GET", bindingPath, nil, &bound); err != nil {
+			return err
+		}
+		if bound.Binding.InstanceID != instance {
+			return fmt.Errorf("channel is not bound to --instance")
+		}
+		key := announcementKey
+		if key == "" {
+			hash := sha256.Sum256([]byte(instance + "\x00" + guild + "\x00" + a[0] + "\x00" + string(data)))
+			key = hex.EncodeToString(hash[:16])
+		}
+		if !yes {
+			_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — instance %s, guild %s, channel %s, request key %s (mentions will not notify):\n\n%s\n\nRe-run with --yes to enqueue.\n", instance, guild, a[0], key, data)
+			return err
+		}
+		return request(c, "POST", p+"/announcements", map[string]any{"guild_id": guild, "channel_id": a[0], "body": string(data), "request_key": key})
+	}}
+	send.Flags().StringVar(&announcementFile, "file", "", "UTF-8 Markdown file to send verbatim")
+	send.Flags().StringVar(&announcementKey, "key", "", "Stable request key (defaults to a hash of target and content)")
+	announcements.AddCommand(send)
+	add(announcements, "list", 0, func(c *cobra.Command, _ []string) error {
+		p, err := instancePath()
+		if err != nil {
+			return err
+		}
+		return request(c, "GET", p+"/announcements", nil)
+	})
 	add(root, "scores", 0, func(c *cobra.Command, _ []string) error {
 		p, e := instancePath()
 		if e != nil {

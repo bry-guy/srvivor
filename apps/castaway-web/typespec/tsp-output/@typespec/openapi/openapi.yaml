@@ -108,6 +108,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminSessionResponse'
+  /announcements/claim:
+    post:
+      operationId: claimAnnouncement
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimAnnouncementResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimAnnouncementRequest'
+  /announcements/{announcementID}/finish:
+    post:
+      operationId: finishAnnouncement
+      parameters:
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinishAnnouncementResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishAnnouncementRequest'
   /discord/guilds/{guildID}/channels/{channelID}:
     get:
       operationId: getDiscordChannelBinding
@@ -333,6 +372,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BootstrapAdminResponse'
+  /instances/{instanceID}/announcements:
+    post:
+      operationId: createAnnouncement
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnnouncementRequest'
+    get:
+      operationId: listAnnouncements
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnouncementListResponse'
   /instances/{instanceID}/auction/contestants/{contestantID}/bid/me:
     put:
       operationId: setAuctionBid
@@ -1581,6 +1657,60 @@ components:
           type: string
         authentication:
           type: string
+    Announcement:
+      type: object
+      required:
+        - id
+        - instance_id
+        - guild_id
+        - channel_id
+        - request_key
+        - body
+        - scheduled_at
+        - due_at
+        - status
+        - message_id
+      properties:
+        id:
+          type: string
+        instance_id:
+          type: string
+        guild_id:
+          type: string
+        channel_id:
+          type: string
+        request_key:
+          type: string
+        body:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        due_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        message_id:
+          type: string
+          nullable: true
+    AnnouncementListResponse:
+      type: object
+      required:
+        - announcements
+      properties:
+        announcements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Announcement'
+    AnnouncementResponse:
+      type: object
+      required:
+        - announcement
+      properties:
+        announcement:
+          $ref: '#/components/schemas/Announcement'
     BonusLedgerEntry:
       type: object
       required:
@@ -1646,6 +1776,25 @@ components:
           type: string
         admin:
           type: boolean
+    ClaimAnnouncementRequest:
+      type: object
+      required:
+        - guild_ids
+      properties:
+        guild_ids:
+          type: array
+          items:
+            type: string
+    ClaimAnnouncementResponse:
+      type: object
+      required:
+        - announcement
+      properties:
+        announcement:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Announcement'
+          nullable: true
     CloseWordleRoundResponse:
       type: object
       required:
@@ -1693,6 +1842,25 @@ components:
       properties:
         activity:
           $ref: '#/components/schemas/Activity'
+    CreateAnnouncementRequest:
+      type: object
+      required:
+        - guild_id
+        - channel_id
+        - request_key
+        - body
+      properties:
+        guild_id:
+          type: string
+        channel_id:
+          type: string
+        request_key:
+          type: string
+        body:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
     CreateContestantRequest:
       type: object
       required:
@@ -1939,6 +2107,22 @@ components:
           type: integer
           format: int32
         notes:
+          type: string
+    FinishAnnouncementRequest:
+      type: object
+      properties:
+        message_id:
+          type: string
+        failed:
+          type: boolean
+    FinishAnnouncementResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+        message_id:
           type: string
     GetActivityResponse:
       type: object
