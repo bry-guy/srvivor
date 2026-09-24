@@ -97,4 +97,4 @@ MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:integration -- -run TestProbstC
 
 The integration task uses a fresh disposable PostgreSQL container and invokes the built Probst binary against a local test API. It does not use production databases.
 
-See [requirements](functional-requirements.md), [security requirements](non-functional-requirements.md), [readiness](production-readiness-checklist.md), [plan](plans/player-administration.md), and [changelog](CHANGELOG.md).
+See [requirements](functional-requirements.md), [security requirements](non-functional-requirements.md), [readiness](production-readiness-checklist.md), [administration plan](plans/player-administration.md), [private-endpoint proposal](plans/private-api-endpoint.md), and [changelog](CHANGELOG.md).
