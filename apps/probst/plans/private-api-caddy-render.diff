@@ -1,0 +1,16 @@
+--- generated-baseline/Caddyfile
++++ generated-candidate/Caddyfile
+@@ -48,6 +48,13 @@
+ 
+     # pi-syncd is the private conversation synchronization authority.
+     reverse_proxy 10.43.231.208:8080
++}
++
++castaway.bry-guy.net {
++    bind 100.107.223.109
++    encode gzip zstd
++    import cloudflare_dns_tls
++    reverse_proxy 10.43.169.252:8080
+ }
+ 
+ pi.preview.bry-guy.net {

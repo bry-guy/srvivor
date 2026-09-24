@@ -1,0 +1,90 @@
+--- a/scripts/selfhost-homepage-caddy-apply.sh
++++ b/scripts/selfhost-homepage-caddy-apply.sh
+@@ -38,6 +38,9 @@
+ 
+ homepage_ip="$(kubectl -n homepage get svc homepage -o jsonpath='{.spec.clusterIP}')"
+ grafana_ip="$(kubectl -n observability get svc kube-prometheus-stack-grafana -o jsonpath='{.spec.clusterIP}')"
++castaway_ip="$(kubectl -n castaway get svc castaway-web -o jsonpath='{.spec.clusterIP}')"
++castaway_port="$(kubectl -n castaway get svc castaway-web -o jsonpath='{.spec.ports[0].port}')"
++[ -n "$castaway_ip" ] && [ -n "$castaway_port" ] || { echo "castaway-web Service has no IP or port" >&2; exit 1; }
+ pi_web_ip=""
+ if kubectl -n pi-web get svc pi-ez-web >/dev/null 2>&1; then
+   pi_web_ip="$(kubectl -n pi-web get svc pi-ez-web -o jsonpath='{.spec.clusterIP}')"
+@@ -183,6 +186,16 @@
+ 
+ append_tailnet_proxy "$PI_SYNC_HOST" "$pi_sync_ip" "${pi_sync_port:-8080}" "pi-syncd is the private conversation synchronization authority."
+ 
++cat >> "$tmp" <<EOF_CASTAWAY_CADDY
++
++castaway.bry-guy.net {
++    bind $TAILSCALE_IP
++    encode gzip zstd
++    import cloudflare_dns_tls
++    reverse_proxy $castaway_ip:$castaway_port
++}
++EOF_CASTAWAY_CADDY
++
+ for preview_route in "${preview_routes[@]}"; do
+   IFS='|' read -r preview_app preview_hostname preview_ip preview_port preview_api_mode preview_api_ip preview_api_port <<<"$preview_route"
+   cat >> "$tmp" <<EOF_PREVIEW_CADDY
+@@ -289,6 +302,7 @@
+ routes=(home admin)
+ [ -n "$pi_web_ip" ] && routes+=(pi)
+ [ -n "$pi_sync_ip" ] && routes+=(pi-sync)
++routes+=(castaway)
+ for preview_route in "${preview_routes[@]}"; do
+   IFS='|' read -r preview_app preview_hostname preview_ip preview_port preview_api_mode preview_api_ip preview_api_port <<<"$preview_route"
+   routes+=("$preview_app.preview")
+--- a/cloudflare/dns/main.tf
++++ b/cloudflare/dns/main.tf
+@@ -76,6 +76,16 @@
+   ttl     = 1
+   proxied = false
+   comment = "Tailnet-only pi-sync API on the platform Caddy. Managed by infra/cloudflare/dns."
++}
++
++resource "cloudflare_record" "castaway" {
++  zone_id = data.cloudflare_zone.bry_guy_net.id
++  name    = "castaway"
++  type    = "CNAME"
++  content = var.castaway_target
++  ttl     = 1
++  proxied = false
++  comment = "Tailnet-only Castaway web API on the platform Caddy. Managed by infra/cloudflare/dns."
+ }
+ 
+ resource "cloudflare_record" "preview" {
+--- a/cloudflare/dns/variables.tf
++++ b/cloudflare/dns/variables.tf
+@@ -30,6 +30,12 @@
+ 
+ variable "pi_sync_target" {
+   description = "Tailnet MagicDNS FQDN for the platform Caddy pi-sync CNAME target."
++  type        = string
++  default     = "platform-control-0.tail9e13b.ts.net"
++}
++
++variable "castaway_target" {
++  description = "Tailnet MagicDNS FQDN for the platform Caddy Castaway web API CNAME target."
+   type        = string
+   default     = "platform-control-0.tail9e13b.ts.net"
+ }
+--- a/cloudflare/dns/README.md
++++ b/cloudflare/dns/README.md
+@@ -9,6 +9,7 @@
+ - `home.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
+ - `pi.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
+ - `pi-sync.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
++- `castaway.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
+ - `pi.preview.bry-guy.net` A -> `100.107.223.109`, DNS-only/gray-cloud
+ - `plex.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
+ - `ersatztv.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
+@@ -19,7 +20,7 @@
+ - `prowlarr.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
+ - `sab.bry-guy.net` CNAME -> `platform-control-0.tail9e13b.ts.net`, DNS-only/gray-cloud
+ 
+-The targets and preview address are only reachable by clients on the Tailscale tailnet. Do not enable Cloudflare proxying for these records. `pi.bry-guy.net` serves the single-replica, tailnet-only `pi-ez-web` deployment; `pi-sync.bry-guy.net` serves the unauthenticated single-user sync API behind the same tailnet boundary; `pi.preview.bry-guy.net` serves the single replaceable preview slot. `plex.bry-guy.net` serves the single-replica Plex movie-club pilot. `ersatztv.bry-guy.net` serves the tailnet-only ErsatzTV UI and IPTV/HDHomeRun feeds. `llm.bry-guy.net` serves the tailnet-only local llama.cpp OpenAI-compatible endpoint. `requests.bry-guy.net` is the Plex-authenticated Seerr request UI; the remaining acquisition records are administrator-only UIs and still require application authentication.
++The targets and preview address are only reachable by clients on the Tailscale tailnet. Do not enable Cloudflare proxying for these records. `pi.bry-guy.net` serves the single-replica, tailnet-only `pi-ez-web` deployment; `pi-sync.bry-guy.net` serves the unauthenticated single-user sync API behind the same tailnet boundary; `castaway.bry-guy.net` is the Probst HTTPS endpoint for the service-authenticated Castaway web API, not the Discord bot; `pi.preview.bry-guy.net` serves the single replaceable preview slot. `plex.bry-guy.net` serves the single-replica Plex movie-club pilot. `ersatztv.bry-guy.net` serves the tailnet-only ErsatzTV UI and IPTV/HDHomeRun feeds. `llm.bry-guy.net` serves the tailnet-only local llama.cpp OpenAI-compatible endpoint. `requests.bry-guy.net` is the Plex-authenticated Seerr request UI; the remaining acquisition records are administrator-only UIs and still require application authentication.
+ 
+ The migration-specific wrapper remains available for explicit review and
+ applies the same replacement Caddy targets:
