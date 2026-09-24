@@ -8,7 +8,7 @@ go = "1.24"
 golangci-lint = '1.64.5'
 golangci-lint-langserver = '0.0.10'
 sqlc = '1.30.0'
-hurl = 'latest'
+hurl = '7.1.0'
 fnox = '1.15.1'
 kubectl = 'latest'
 
