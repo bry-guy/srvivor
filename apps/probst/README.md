@@ -43,7 +43,7 @@ Player commands use API-owned guild/channel bindings; threads inherit a parent b
 
 ## Season setup
 
-Every step is a Probst command against the API and safe to re-run.
+These steps use Probst against the API. Check for an existing instance before `instance create`: repeating it creates another instance with the same name and season. Bootstrap retries for the same authorized admin and unchanged draft imports are safe; `player add` reuses a same-name player on a sequential retry but is not concurrency-safe idempotency.
 
 ```sh
 # Production access (operator machine with the selfhost kubeconfig):

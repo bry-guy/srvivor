@@ -1,6 +1,6 @@
 # Draft import and Season 51 setup
 
-Status: in-progress (BrainLand instance, binding, and file draft live; thread import and Discord check pending)
+Status: in-progress (BrainLand file and thread imports verified; Discord command confirmation and Podracing mapping pending)
 
 ## Goal
 
@@ -52,6 +52,13 @@ Season setup (instance, contestants, players, channel binding) is done through t
   messy file draft, verify with `/castaway draft`; then import from a BrainLand thread mixing chat
   and drafts, verify via `probst draft show` and `/castaway draft`.
 - Podracing Season 51 instance is created the same way once the player list is confirmed.
+
+## BrainLand verification
+
+- Created legacy Season 51 instance `605699c6-1f21-4741-8e0f-4864d5e62018` with 21 contestants; bootstrapped admin `235246238382030849`, linked Brain, and bound BrainLand #general (`1078197143501819918`).
+- Parsed the messy file draft and submitted it; a repeat import returned `UNCHANGED`.
+- Read real thread `1552530452596789319`: one linked Brain draft, 21 unique exact matches, no ambiguous picks. Submitted the reviewed order, verified all 21 ordered contestant IDs from `probst draft show`, and confirmed a repeated import returned `UNCHANGED`.
+- Genuine `/castaway draft` and `/castaway scores` interactions still need user confirmation; no Discord-command result is claimed here. Podracing setup awaits its confirmed player list, Discord IDs, and exact channel-to-instance mapping.
 
 ## Out of scope
 
