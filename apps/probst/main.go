@@ -14,6 +14,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+	_ "time/tzdata"
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
@@ -341,7 +342,7 @@ func newCommand() *cobra.Command {
 	drafts.AddCommand(importCmd)
 	announcements := &cobra.Command{Use: "announcement"}
 	root.AddCommand(announcements)
-	var announcementFile, announcementKey string
+	var announcementFile, announcementKey, announcementAt string
 	send := &cobra.Command{Use: "send CHANNEL", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
 		p, err := instancePath()
 		if err != nil {
@@ -372,19 +373,31 @@ func newCommand() *cobra.Command {
 		if bound.Binding.InstanceID != instance {
 			return fmt.Errorf("channel is not bound to --instance")
 		}
+		body := map[string]any{"guild_id": guild, "channel_id": a[0], "body": string(data)}
+		when := "now"
+		if announcementAt != "" {
+			at, err := parseAnnouncementTime(announcementAt)
+			if err != nil {
+				return err
+			}
+			body["scheduled_at"] = at.UTC().Format(time.RFC3339)
+			when = at.Format("Mon 2006-01-02 15:04 MST")
+		}
 		key := announcementKey
 		if key == "" {
-			hash := sha256.Sum256([]byte(instance + "\x00" + guild + "\x00" + a[0] + "\x00" + string(data)))
+			hash := sha256.Sum256([]byte(instance + "\x00" + guild + "\x00" + a[0] + "\x00" + announcementAt + "\x00" + string(data)))
 			key = hex.EncodeToString(hash[:16])
 		}
+		body["request_key"] = key
 		if !yes {
-			_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — instance %s, guild %s, channel %s, request key %s (mentions will not notify):\n\n%s\n\nRe-run with --yes to enqueue.\n", instance, guild, a[0], key, data)
+			_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — instance %s, guild %s, channel %s, send %s, request key %s (mentions will not notify):\n\n%s\n\nRe-run with --yes to enqueue.\n", instance, guild, a[0], when, key, data)
 			return err
 		}
-		return request(c, "POST", p+"/announcements", map[string]any{"guild_id": guild, "channel_id": a[0], "body": string(data), "request_key": key})
+		return request(c, "POST", p+"/announcements", body)
 	}}
 	send.Flags().StringVar(&announcementFile, "file", "", "UTF-8 Markdown file to send verbatim")
-	send.Flags().StringVar(&announcementKey, "key", "", "Stable request key (defaults to a hash of target and content)")
+	send.Flags().StringVar(&announcementKey, "key", "", "Stable request key (defaults to a hash of target, time, and content)")
+	send.Flags().StringVar(&announcementAt, "at", "", `Send later: "2006-01-02 15:04" in America/New_York, or RFC3339`)
 	announcements.AddCommand(send)
 	add(announcements, "list", 0, func(c *cobra.Command, _ []string) error {
 		p, err := instancePath()
@@ -447,4 +460,20 @@ func printResult(out io.Writer, result map[string]any, asJSON bool) error {
 		encoder.SetIndent("", "  ")
 	}
 	return encoder.Encode(result)
+}
+
+// parseAnnouncementTime accepts RFC3339 or a wall-clock time in America/New_York.
+func parseAnnouncementTime(value string) (time.Time, error) {
+	if at, err := time.Parse(time.RFC3339, value); err == nil {
+		return at, nil
+	}
+	eastern, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		return time.Time{}, err
+	}
+	at, err := time.ParseInLocation("2006-01-02 15:04", value, eastern)
+	if err != nil {
+		return time.Time{}, fmt.Errorf(`--at must be "2006-01-02 15:04" (America/New_York) or RFC3339`)
+	}
+	return at, nil
 }

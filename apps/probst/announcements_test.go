@@ -42,12 +42,12 @@ func TestAnnouncementPreviewAndConfirmedSubmission(t *testing.T) {
 	if err := os.WriteFile(file, []byte(text), 0600); err != nil {
 		t.Fatal(err)
 	}
-	run := func(confirmed bool) (string, error) {
+	run := func(confirmed bool, extra ...string) (string, error) {
 		t.Helper()
 		cmd := newCommand()
 		var out bytes.Buffer
 		cmd.SetOut(&out)
-		args := []string{"announcement", "send", "201", "--instance", "instance-1", "--guild", "101", "--file", file}
+		args := append([]string{"announcement", "send", "201", "--instance", "instance-1", "--guild", "101", "--file", file}, extra...)
 		if confirmed {
 			args = append(args, "--yes")
 		}
@@ -65,9 +65,19 @@ func TestAnnouncementPreviewAndConfirmedSubmission(t *testing.T) {
 	if _, err := run(true); err != nil {
 		t.Fatal(err)
 	}
-	if len(posted) != 2 || posted[0]["body"] != text || posted[0]["request_key"] != posted[1]["request_key"] {
+	if len(posted) != 2 || posted[0]["body"] != text || posted[0]["request_key"] != posted[1]["request_key"] || posted[0]["scheduled_at"] != nil {
 		t.Fatalf("submission was altered or not retry stable: %v", posted)
 	}
+	if _, err := run(true, "--at", "2026-10-01 20:00"); err != nil {
+		t.Fatal(err)
+	}
+	if posted[2]["scheduled_at"] != "2026-10-02T00:00:00Z" || posted[2]["request_key"] == posted[0]["request_key"] {
+		t.Fatalf("Eastern time was not scheduled as a distinct UTC request: %v", posted[2])
+	}
+	if _, err := run(true, "--at", "tomorrow"); err == nil || len(posted) != 3 {
+		t.Fatalf("bad --at accepted: %v", err)
+	}
+	posted = posted[:2]
 	boundInstance = "other-instance"
 	if _, err := run(true); err == nil || !strings.Contains(err.Error(), "not bound") || len(posted) != 2 {
 		t.Fatalf("unbound channel accepted: %v; sent=%d", err, len(posted))
