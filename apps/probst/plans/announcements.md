@@ -1,6 +1,6 @@
 # Season 51 announcements via Probst
 
-Status: in-progress (manual delivery slice under development; no live delivery enabled)
+Status: in-progress (manual and scheduled delivery deployed and verified in BrainLand; Podracing not started)
 
 ## Current state and boundaries
 
@@ -22,7 +22,7 @@ Status: in-progress (manual delivery slice under development; no live delivery e
 
 - Disposable-PostgreSQL tests cover service auth, admin/binding checks, idempotent creation (including nanosecond `scheduled_at`, normalized to microseconds), claim concurrency, held-channel-lock claim/rebind and create/rebind contention, stale claims becoming `failed`, and persisted statuses. Fake-Discord tests cover suppressed mentions, success, library-handled 429, lost response and 502 each sent once then `failed`, guild rejection, and a failed recording call without resend. Web lint/test/build, bot CI, Probst CI, and the full disposable integration suite pass; TypeSpec, OpenAPI, and sqlc output are regenerated.
 - Failure handling is deliberately simple (operator decision): a send error, a lost Discord response, or a claim stuck in `sending` for over ten minutes becomes `failed`, is logged with the announcement ID, and is never retried. Only `pending`/`sending` announcements block channel rebinding. discordgo REST retries are disabled so a 5xx cannot double-post; 429s still use the library's own wait-and-retry.
-- Scheduled cancellation and episode-relative timing remain deferred. No live BrainLand or Podracing operations have occurred; deploying requires migration 015 before the new bot image.
+- Scheduled cancellation and episode-relative timing remain deferred. Deployed from `main` at `97a4e67` on 2026-09-24: migration 015 applied through the PreSync job with existing row counts unchanged. In BrainLand `#general` a manual send was delivered in about 1.4 s (message `1552801047091740692`), a send scheduled with `--at "2026-09-24 18:00"` stayed pending until 22:00:00Z and posted at 22:00:04Z (message `1552801821498675231`), and re-running the manual send returned the existing record without a second post. Podracing has received nothing.
 
 ## Decisions and remaining inputs
 
