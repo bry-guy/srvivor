@@ -91,8 +91,7 @@ func threadChannelID(ref string) (string, error) {
 }
 
 // fetchThread reads every message in a channel or thread, oldest first.
-func fetchThread(ctx context.Context, channelID string) ([]discordMessage, error) {
-	token := os.Getenv("CASTAWAY_DISCORD_BOT_TOKEN")
+func fetchThread(ctx context.Context, channelID, token string) ([]discordMessage, error) {
 	if token == "" {
 		return nil, fmt.Errorf("set CASTAWAY_DISCORD_BOT_TOKEN through your credential provider to read Discord")
 	}

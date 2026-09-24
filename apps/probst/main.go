@@ -27,15 +27,30 @@ func newCommand() *cobra.Command {
 	var server, actor, instance, guild, discordUser string
 	var asJSON, yes bool
 	root := &cobra.Command{Use: "probst", Short: "Castaway operator client", SilenceUsage: true, SilenceErrors: true}
-	root.PersistentFlags().StringVar(&server, "server", os.Getenv("PROBST_API_URL"), "Castaway API URL (PROBST_API_URL)")
-	root.PersistentFlags().StringVar(&actor, "actor", os.Getenv("PROBST_DISCORD_USER_ID"), "Admin Discord ID asserted by the trusted service")
+	var token, discordBotToken string
+	root.PersistentFlags().StringVar(&server, "server", "", "Castaway API URL (PROBST_API_URL)")
+	root.PersistentFlags().StringVar(&actor, "actor", "", "Admin Discord ID asserted by the trusted service")
+	root.PersistentPreRunE = func(*cobra.Command, []string) error {
+		cfg, err := loadConfig()
+		if err != nil {
+			return err
+		}
+		if !root.PersistentFlags().Changed("server") {
+			server = envOrFile("PROBST_API_URL", cfg.APIURL)
+		}
+		if !root.PersistentFlags().Changed("actor") {
+			actor = envOrFile("PROBST_DISCORD_USER_ID", cfg.DiscordUserID)
+		}
+		token = envOrFile("PROBST_TOKEN", cfg.Token)
+		discordBotToken = envOrFile("CASTAWAY_DISCORD_BOT_TOKEN", cfg.DiscordBotToken)
+		return nil
+	}
 	root.PersistentFlags().StringVar(&instance, "instance", "", "Instance UUID")
 	root.PersistentFlags().StringVar(&guild, "guild", "", "Discord guild ID")
 	root.PersistentFlags().StringVar(&discordUser, "discord-user", "", "Discord account to link")
 	root.PersistentFlags().BoolVar(&asJSON, "json", false, "Print machine-readable JSON")
 	root.PersistentFlags().BoolVar(&yes, "yes", false, "Confirm rebinding, unlinking or unbinding")
 	var call apiCall = func(ctx context.Context, method, path string, body, out any) error {
-		token := os.Getenv("PROBST_TOKEN")
 		if token == "" {
 			return fmt.Errorf("set PROBST_TOKEN through your credential provider")
 		}
@@ -298,7 +313,7 @@ func newCommand() *cobra.Command {
 					}
 					cutoff = &t
 				}
-				messages, err := fetchThread(ctx, channelID)
+				messages, err := fetchThread(ctx, channelID, discordBotToken)
 				if err != nil {
 					return err
 				}

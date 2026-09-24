@@ -11,7 +11,18 @@ MISE_EXPERIMENTAL=1 mise run //apps/probst:build
 apps/probst/bin/probst --help
 ```
 
-Configure `PROBST_API_URL`, `PROBST_DISCORD_USER_ID` (admin actor), and inject `PROBST_TOKEN` through your credential provider. Never print the token. HTTPS is required except on loopback. Redirects are rejected. `auth status` verifies service access and reports the asserted actor; it does not authenticate a human or prove admin access to every instance.
+For one-time local setup, create `~/.config/probst/config.json` with owner-only permissions (`mkdir -p ~/.config/probst && chmod 700 ~/.config/probst`; create the file with `umask 077` and verify `chmod 600 ~/.config/probst/config.json`). Do not commit the file or print its credentials:
+
+```json
+{
+  "api_url": "https://private-castaway.example.ts.net",
+  "discord_user_id": "YOUR_DISCORD_USER_ID",
+  "token": "YOUR_CASTAWAY_SERVICE_TOKEN",
+  "discord_bot_token": "YOUR_DISCORD_BOT_TOKEN"
+}
+```
+
+The example URL is a placeholder: **a private Castaway HTTPS endpoint has not been configured yet**. Until it exists, use the documented loopback port-forward and `PROBST_API_URL=http://127.0.0.1:18081` instead. Probst does not fetch Kubernetes secrets or configure Tailscale for you. Obtain credentials through your approved secret provider; the JSON file stores them as plaintext on your machine, so prefer environment injection if that is unsuitable. Missing config files preserve the environment-only workflow. Explicit flags (`--server`, `--actor`) override environment variables, which override config fields; an explicitly empty environment value also overrides the file. HTTPS is required except on loopback. Redirects are rejected. `auth status` verifies service access and reports the asserted actor; it does not authenticate a human or prove admin access to every instance.
 
 ## Commands
 
@@ -64,6 +75,8 @@ Contestant files list one name per line; write nicknames in quotes (`Danny "Kilb
 Limits: `bootstrap-admin` works only on an instance with no admins and only for the API's configured `BOOTSTRAP_ADMIN_DISCORD_USER_ID`. There is no command to add a second admin.
 
 ## Loading drafts
+
+After one-time configuration and private HTTPS routing, the usual dry run is `probst draft import THREAD_URL --instance INSTANCE --verbose`. Review it, then repeat with `--yes` to submit only READY drafts. Keep `--instance` explicit to avoid writing to the wrong season.
 
 `draft import` is a dry run unless `--yes`. It prints one row per player: `READY`, `UNCHANGED`, `NEEDS REVIEW` (with reasons), `UNLINKED` (a Discord author with no player link), or `NO DRAFT`. `-v` shows how every line matched. `--yes` writes only `READY` drafts; everything else needs a repost or a `--file` import.
 
