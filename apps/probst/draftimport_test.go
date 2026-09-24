@@ -190,3 +190,34 @@ func TestDraftImportFromFileNeverSubmitsBrokenDraft(t *testing.T) {
 		t.Fatalf("broken draft handled wrongly (writes=%d):\n%s", writes, out.String())
 	}
 }
+
+func TestPlayerAddReusesExistingPlayer(t *testing.T) {
+	creates, links := 0, 0
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/instances/inst/participants":
+			_ = json.NewEncoder(w).Encode(map[string]any{"participants": []map[string]string{{"id": "p-brain", "name": "Brain"}}})
+		case r.Method == "POST":
+			creates++
+			_ = json.NewEncoder(w).Encode(map[string]any{"participant": map[string]string{"id": "p-new", "name": "New"}})
+		case r.Method == "PUT" && r.URL.Path == "/instances/inst/participants/p-brain/discord-link":
+			links++
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+		default:
+			t.Errorf("unexpected API call %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer api.Close()
+	t.Setenv("PROBST_TOKEN", "api-secret")
+	t.Setenv("PROBST_DISCORD_USER_ID", "123")
+	t.Setenv("PROBST_API_URL", api.URL)
+	cmd := newCommand()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetArgs([]string{"player", "add", "brain", "--discord-user", "999", "--instance", "inst"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if creates != 0 || links != 1 {
+		t.Fatalf("retry should link the existing player: creates=%d links=%d", creates, links)
+	}
+}

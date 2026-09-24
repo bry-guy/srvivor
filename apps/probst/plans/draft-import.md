@@ -1,6 +1,6 @@
 # Draft import and Season 51 setup
 
-Status: in-progress (code done; live BrainLand verification pending)
+Status: in-progress (BrainLand instance, binding, and file draft live; thread import and Discord check pending)
 
 ## Goal
 

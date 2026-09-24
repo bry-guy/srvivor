@@ -43,9 +43,25 @@ Player commands use API-owned guild/channel bindings; threads inherit a parent b
 
 ## Season setup
 
-1. `probst instance create` (legacy mode) with a contestant file, one name per line. Write nicknames in quotes (`Danny "Kilby" Kilby`); first names, surnames, and nicknames all become draft aliases.
-2. `probst instance bootstrap-admin INSTANCE`, then `probst channel bind`.
-3. `probst player add NAME --discord-user USER` for each player.
+Every step is a Probst command against the API and safe to re-run.
+
+```sh
+# Production access (operator machine with the selfhost kubeconfig):
+kubectl port-forward -n castaway svc/castaway-web 18081:8080 &
+export PROBST_API_URL=http://127.0.0.1:18081 PROBST_DISCORD_USER_ID=235246238382030849
+export PROBST_TOKEN="$(kubectl get secret -n castaway castaway-web-secrets \
+  -o jsonpath='{.data.SERVICE_AUTH_BEARER_TOKENS}' | base64 -d | cut -d, -f1)"
+
+probst instance create --name "Season 51 (BrainLand)" --season 51 --contestants-file seasons/51-contestants.txt
+probst instance bootstrap-admin INSTANCE              # makes PROBST_DISCORD_USER_ID the first admin
+probst channel bind CHANNEL --guild GUILD --instance INSTANCE
+probst player add NAME --discord-user USER --instance INSTANCE   # reuses a same-name player
+probst draft import THREAD_URL --instance INSTANCE --before CUTOFF   # review, then add --yes
+```
+
+Contestant files list one name per line; write nicknames in quotes (`Danny "Kilby" Kilby`). First names, surnames, and nicknames all become draft aliases.
+
+Limits: `bootstrap-admin` works only on an instance with no admins and only for the API's configured `BOOTSTRAP_ADMIN_DISCORD_USER_ID`. There is no command to add a second admin.
 
 ## Loading drafts
 

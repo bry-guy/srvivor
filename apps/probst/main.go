@@ -197,7 +197,16 @@ func newCommand() *cobra.Command {
 		var created struct {
 			Participant participant `json:"participant"`
 		}
-		if err := call(c.Context(), "POST", p+"/participants", map[string]string{"name": a[0]}, &created); err != nil {
+		// Reuse a same-name player so a retry after a failed link does not create a duplicate.
+		existing, err := loadParticipants(c.Context(), call, p)
+		if err != nil {
+			return err
+		}
+		if found, err := findParticipant(existing, a[0]); err == nil {
+			created.Participant = *found
+		} else if !strings.Contains(err.Error(), "matched 0") {
+			return err
+		} else if err := call(c.Context(), "POST", p+"/participants", map[string]string{"name": a[0]}, &created); err != nil {
 			return err
 		}
 		if discordUser == "" {
