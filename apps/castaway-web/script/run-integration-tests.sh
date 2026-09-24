@@ -16,7 +16,7 @@ PY
 wait_for_postgres() {
   local container_id="$1"
   for _ in $(seq 1 120); do
-    if docker exec "$container_id" pg_isready -U postgres -d postgres >/dev/null 2>&1; then
+    if docker exec "$container_id" pg_isready -h 127.0.0.1 -U postgres -d postgres >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.25
