@@ -5,7 +5,7 @@ Status: planning
 ## Current state and boundaries
 
 - The last recorded BrainLand check found Season 51 instance `605699c6-1f21-4741-8e0f-4864d5e62018`, a `#general` channel binding, and one imported draft. This is test data on production infrastructure, not an isolated dev database. Live state has not been rechecked for this plan.
-- Podracing Season 51 instance and channel binding are unconfirmed. Do not use completed Season 50 as the new season's target.
+- The operator reports no separate Podracing Season 51 instance exists yet and selects Podracing `#survivor` for production announcements. Verify both facts read-only before creating or binding anything; do not use completed Season 50 as the new season's target.
 - `DefaultEpisodeScheduleForSeason` in castaway-web supplies a real schedule only for Season 50; Season 51 receives a January 2000 placeholder. No authoritative Season 51 episode times can be inferred from the API yet.
 - Probst has no announcement send command. The deployed bot can send as its bot account, but neither an announcement queue nor a live scheduler exists. The YAML/Hurl season runner is not a scheduler.
 - This document authorizes no message, schedule, production write, credential retrieval, or deployment. The recap/kickoff examples must not be silently sent or rescheduled from their historical wording.
@@ -18,8 +18,9 @@ Status: planning
 4. **BrainLand verification, then Podracing activation.** Test the manual and scheduled paths on disposable infrastructure first. Send a clearly labeled BrainLand test message only after the exact content, destination, and timing are approved; verify the account is @JeffProbst and read back the message ID. Confirm Podracing's separate Season 51 mapping before explicitly approving any production announcements. No automatic migration of draft/test messages to Podracing.
 5. **Season-relative times after the schedule is real.** Once an authoritative Season 51 schedule is written and checked, allow an episode time plus offset to resolve to a concrete UTC due time when enqueued. Later edits to episode dates must not silently move queued announcements: cancel and recreate after preview and approval.
 
-## Next decisions
+## Decisions and remaining inputs
 
-- Was a separate Podracing Season 51 instance created elsewhere? Is Podracing `#survivor` the intended production channel?
-- Should episode and announcement times use `America/New_York`? What are the next few confirmed dates and send times?
-- Should the example user mentions render without notifications (default), or should selected IDs receive pings after explicit review?
+- Use a separate Podracing Season 51 instance (not yet created, per operator) and Podracing `#survivor` as the intended announcement channel. Confirm its exact channel ID and binding before any write.
+- Use `America/New_York` for episode and announcement times; store resolved due times in UTC.
+- Still needed: the next few confirmed episode dates and desired announcement send times. Do not reuse relative wording such as “tonight” from the old examples.
+- Decide whether the example user mentions should notify selected IDs; default to rendering them without notifications.
