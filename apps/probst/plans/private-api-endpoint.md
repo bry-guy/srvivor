@@ -1,27 +1,18 @@
 # Private HTTPS endpoint for Probst
 
-Status: planning (infra patch prepared locally; no deployment approved)
+Status: in-progress (endpoint operational; effective ACL and off-tailnet access unverified)
 
-## Why
+## Deployed
 
-Probst currently needs `kubectl port-forward` because `castaway-web` is a `ClusterIP` service. Probst accepts HTTPS API URLs (HTTP only for loopback); local JSON configuration alone does not provide a network route.
+- `https://castaway.bry-guy.net` routes through Caddy on `platform-control-0` to the `castaway/castaway-web` ClusterIP Service. The Discord bot still reaches the API internally; this route is for Probst.
+- Infra `main` at `0e879e565cb3b6adc54016e211b8a4404c0145ff` declares the Caddy site and a DNS-only CNAME to `platform-control-0.tail9e13b.ts.net`. The Caddy generator resolves the Service IP and port at apply time. Its apply path validates the staged configuration before replacing the active file and retains a backup for rollback.
+- Before deployment, the full generated Caddyfile matched the then-live file byte-for-byte except for the new Castaway site. The comparison is saved in `private-api-caddy-render.diff`; `private-api-infra.patch` records the original review-only patch. The active Caddyfile reached the expected candidate hash after apply.
+- The Cloudflare plan and apply reported one CNAME added, zero changed, zero destroyed. Ordinary DNS resolves the hostname; trusted HTTPS (no address override or certificate bypass) returns `/healthz` 200 and unauthenticated `/admin/session` 401. Authenticated `probst auth status` succeeds through this URL without port-forwarding, using an existing service token injected into the process environment. Existing home, admin, and pi-sync sites remained healthy after the Caddy change.
 
-## Read-only findings
+## Remaining access review
 
-- `castaway/castaway-web` exposes port 8080 internally as a `ClusterIP` service, with no external IP or Tailscale service annotation.
-- The cluster has Ingress, Gateway/HTTPRoute, and Traefik IngressRoute APIs, but no instances of these resources were found. Traefik has no assigned LoadBalancer address. Tailscale `ProxyClass` and `Connector` resource types are not installed.
-- Infra documents steady-state administration as `fedora@platform-control-0.tail9e13b.ts.net`. A read-only check there found `tailscale serve status --json` empty; Caddy is active and bound to the node's Tailscale address on 80/443.
-- A filtered elevated read of the live Caddyfile found private HTTPS routes for `admin.bry-guy.net`, `home.bry-guy.net`, `pi.bry-guy.net`, and other apps, but no Castaway route. The infra generator `scripts/selfhost-homepage-caddy-apply.sh` already routes other ClusterIP services through Caddy, with Cloudflare DNS-01 TLS and DNS-only tailnet hostnames.
-- The control node reached the current Castaway ClusterIP at `http://10.43.169.252:8080/healthz` with HTTP 200. This verifies node-to-service connectivity, not database readiness. `castaway.bry-guy.net` returned no CNAME or A record in the read-only lookup; naming and ACL ownership still need confirmation.
-- `private-api-infra.patch` is a review-only patch against infra's Caddy generator, DNS resource/variable, and DNS README; it has **not** been applied to infra. `private-api-caddy-render.diff` compares complete baseline and candidate Caddyfiles rendered locally from the same read-only, 44-service discovery snapshot. Removing the single new site from the candidate reproduces the baseline byte-for-byte. The generated baseline SHA-256 (`148b805cc7fe3fae169f93185448023b6f89bab031349417d3950c66e70249ad`) matched the live Caddyfile hash at inspection time. This does not guarantee live state remains unchanged at a future apply.
+The active listener is bound to the node's Tailscale address; DNS-only does not itself enforce authorization. Effective tailnet ACL policy and off-tailnet denial were not verified in this session because ACL-file reading was blocked by the host workspace boundary. Shared-IP port-443 ACLs cannot restrict this hostname separately from Caddy's other sites. Service bearer authentication remains enabled. No local Probst credential file was created or modified.
 
-## Proposed smallest safe route (requires separate approval)
+## Rollback
 
-1. In infra's existing Caddy generator, add one `castaway.bry-guy.net` site following the existing tailnet-bound, Cloudflare DNS-01 TLS proxy pattern. Resolve the `castaway-web` Service IP and port at apply time, as the generator does for other services; never hardcode today's ClusterIP. Review the *entire generated Caddyfile* before applying because the task replaces that file, not just one site.
-2. Add a DNS-only CNAME for the agreed hostname pointing to `platform-control-0.tail9e13b.ts.net`, following the existing private site pattern. No Tailscale Serve, new proxy, Kubernetes operator, public ingress, or Funnel is needed. Check the effective tailnet ACLs and intended access: shared-IP port-443 ACLs cannot restrict this hostname separately from the other Caddy sites. DNS-only by itself is not authorization.
-3. Keep the API service bearer authentication enabled and Probst's HTTPS certificate validation and redirect refusal. Verify tailnet TLS from the operator laptop, unauthenticated admin/session rejection, authenticated admin/session success without exposing credentials, and no off-tailnet reachability before setting `api_url` in the local config. `/healthz` alone does not prove the database works.
-4. Roll back by reverting only the proposed infra Caddy/DNS additions, reviewing the resulting full Caddyfile against the captured baseline, and restoring the previous Caddyfile if the generator diverges. Return Probst to loopback port-forwarding. Preserve existing sites, bot-to-service traffic, and production database state.
-
-The route serves **castaway-web for Probst**, not the Discord bot; the bot continues to reach the API internally. Patch application to temporary copies, `bash -n`, Terraform formatting, and generated baseline/candidate comparison passed. Local Caddy semantic validation was unavailable (no local Caddy binary); certificate issuance, effective ACLs, and end-to-end API authentication require separate deployment-time verification. No Caddy apply/reload, DNS change, token resolution, or Kubernetes mutation has occurred.
-
-**Open prerequisites:** confirm the hostname and shared-port access policy, then review the patch, full generated diff, TLS behavior, and rollback before any infra apply.
+Revert only the Castaway route and DNS record through the reviewed infra tasks, checking the full generated Caddyfile and DNS plan for unrelated changes. If needed, restore the Caddy backup created before replacement. Probst can temporarily use loopback port-forwarding without changing the bot or database.

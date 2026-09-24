@@ -15,14 +15,14 @@ For one-time local setup, create `~/.config/probst/config.json` with owner-only 
 
 ```json
 {
-  "api_url": "https://private-castaway.example.ts.net",
+  "api_url": "https://castaway.bry-guy.net",
   "discord_user_id": "YOUR_DISCORD_USER_ID",
   "token": "YOUR_CASTAWAY_SERVICE_TOKEN",
   "discord_bot_token": "YOUR_DISCORD_BOT_TOKEN"
 }
 ```
 
-The example URL is a placeholder: **a private Castaway HTTPS endpoint has not been configured yet**. Until it exists, use the documented loopback port-forward and `PROBST_API_URL=http://127.0.0.1:18081` instead. Probst does not fetch Kubernetes secrets or configure Tailscale for you. Obtain credentials through your approved secret provider; the JSON file stores them as plaintext on your machine, so prefer environment injection if that is unsuitable. Missing config files preserve the environment-only workflow. Explicit flags (`--server`, `--actor`) override environment variables, which override config fields; an explicitly empty environment value also overrides the file. HTTPS is required except on loopback. Redirects are rejected. `auth status` verifies service access and reports the asserted actor; it does not authenticate a human or prove admin access to every instance.
+`https://castaway.bry-guy.net` is the tailnet HTTPS endpoint for the Castaway web API; routine Probst calls no longer need a port-forward. Probst does not fetch Kubernetes secrets or configure Tailscale for you. Obtain credentials through your approved secret provider; the JSON file stores them as plaintext on your machine, so prefer environment injection if that is unsuitable. Missing config files preserve the environment-only workflow. Explicit flags (`--server`, `--actor`) override environment variables, which override config fields; an explicitly empty environment value also overrides the file. HTTPS is required except on loopback. Redirects are rejected. `auth status` verifies service access and reports the asserted actor; it does not authenticate a human or prove admin access to every instance.
 
 ## Commands
 
@@ -57,9 +57,8 @@ Player commands use API-owned guild/channel bindings; threads inherit a parent b
 These steps use Probst against the API. Check for an existing instance before `instance create`: repeating it creates another instance with the same name and season. Bootstrap retries for the same authorized admin and unchanged draft imports are safe; `player add` reuses a same-name player on a sequential retry but is not concurrency-safe idempotency.
 
 ```sh
-# Production access (operator machine with the selfhost kubeconfig):
-kubectl port-forward -n castaway svc/castaway-web 18081:8080 &
-export PROBST_API_URL=http://127.0.0.1:18081 PROBST_DISCORD_USER_ID=235246238382030849
+# Production access (operator machine on the tailnet with the selfhost kubeconfig):
+export PROBST_API_URL=https://castaway.bry-guy.net PROBST_DISCORD_USER_ID=235246238382030849
 export PROBST_TOKEN="$(kubectl get secret -n castaway castaway-web-secrets \
   -o jsonpath='{.data.SERVICE_AUTH_BEARER_TOKENS}' | base64 -d | cut -d, -f1)"
 
