@@ -4,3 +4,10 @@ metadata:
   name: castaway-web
 spec:
   replicas: 1
+  template:
+    spec:
+      containers:
+        - name: castaway-web
+          env:
+            - name: BOOTSTRAP_ADMIN_DISCORD_USER_ID
+              value: "235246238382030849"

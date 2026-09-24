@@ -5,4 +5,6 @@
 - Bootstrap the first instance admin only through the API's configured bootstrap identity.
 - Require `--yes` for channel replacement, unbinding, and unlinking.
 - Support readable output and `--json`; propagate HTTP failures as nonzero exits.
-- Defer season operations, scheduling, and gameplay CRUD.
+- Create legacy instances with contestants, list contestants, and add players with optional Discord links.
+- Import drafts from a Discord thread or text file: ignore chat, keep each author's latest draft before a cutoff, report unlinked authors, missing drafts, and unmatched or ambiguous names, and write only complete drafts when confirmed with `--yes`.
+- Defer scheduling and gameplay CRUD.
