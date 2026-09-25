@@ -399,40 +399,25 @@ func newCommand() *cobra.Command {
 	send.Flags().StringVar(&announcementKey, "key", "", "Stable request key (defaults to a hash of target, time, and content)")
 	send.Flags().StringVar(&announcementAt, "at", "", `Send later: "2006-01-02 15:04" in America/New_York, or RFC3339`)
 	announcements.AddCommand(send)
-	var rescheduleAt string
-	reschedule := &cobra.Command{Use: "reschedule ANNOUNCEMENT", Short: "Move an announcement that hasn't been sent yet", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
-		p, err := instancePath()
+	addAnnouncementDraftCommands(announcements, call, instancePath, func(ctx context.Context, channel string) error {
+		bindingPath, err := channelPath(channel)
 		if err != nil {
 			return err
 		}
-		if rescheduleAt == "" {
-			return fmt.Errorf("--at is required")
+		var bound struct {
+			Binding struct {
+				InstanceID string `json:"instance_id"`
+			} `json:"binding"`
 		}
-		at, err := parseAnnouncementTime(rescheduleAt)
-		if err != nil {
+		if err := call(ctx, "GET", bindingPath, nil, &bound); err != nil {
 			return err
 		}
-		return request(c, "PUT", p+"/announcements/"+url.PathEscape(a[0])+"/schedule", map[string]string{"scheduled_at": at.UTC().Format(time.RFC3339)})
-	}}
-	reschedule.Flags().StringVar(&rescheduleAt, "at", "", `New time: "2006-01-02 15:04" in America/New_York, or RFC3339`)
-	announcements.AddCommand(reschedule)
-	add(announcements, "unschedule ANNOUNCEMENT", 1, func(c *cobra.Command, a []string) error {
-		if !yes {
-			return fmt.Errorf("removing an announcement from the schedule requires --yes")
+		if bound.Binding.InstanceID != instance {
+			return fmt.Errorf("channel is not bound to --instance")
 		}
-		p, err := instancePath()
-		if err != nil {
-			return err
-		}
-		return request(c, "DELETE", p+"/announcements/"+url.PathEscape(a[0]), nil)
-	})
-	add(announcements, "list", 0, func(c *cobra.Command, _ []string) error {
-		p, err := instancePath()
-		if err != nil {
-			return err
-		}
-		return request(c, "GET", p+"/announcements", nil)
-	})
+		return nil
+	}, &guild, &yes)
+	addMessageCommand(root, &discordBotToken, &yes)
 	add(root, "scores", 0, func(c *cobra.Command, _ []string) error {
 		p, e := instancePath()
 		if e != nil {

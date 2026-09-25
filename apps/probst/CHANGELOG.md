@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Add `announcement reschedule`/`unschedule` for announcements that haven't been sent yet.
+- Add draft announcements: `announcement save`/`show`/`edit`/`schedule`/`unschedule`/`delete` by name, with a readable `list`.
+- Add `message` for one-off, unsaved bot posts (optionally as a reply).
+- `wordle import --file` reads hand-scored results.
 - Add the weekly loop: `tribes set`/`show`, `challenge immunity|reward`, and `wordle open`/`import`/`submit`/`resolve`.
 - Add `announcement send`/`list`: queue verbatim Discord announcements (now or `--at` a scheduled time) that the Castaway bot posts with mentions disabled.
 - Add optional owner-only local JSON configuration for Probst API and Discord credentials, with environment and flag overrides.

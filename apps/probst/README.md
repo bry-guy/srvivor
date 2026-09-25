@@ -46,13 +46,22 @@ probst draft import --file FILE --participant PLAYER --instance INSTANCE [--yes]
 probst scores --instance INSTANCE
 probst announcement send CHANNEL --guild GUILD --instance INSTANCE --file FILE [--at "2026-10-01 20:00"] [--yes]
 probst announcement list --instance INSTANCE
-probst announcement reschedule ID --at "2026-10-07 19:00" --instance INSTANCE
-probst announcement unschedule ID --instance INSTANCE --yes
+
+# Drafts: save once, edit freely, schedule when ready. NAME is yours to pick (e.g. week-2-results).
+probst announcement save NAME CHANNEL --guild GUILD --instance INSTANCE --file FILE --yes
+probst announcement show NAME --instance INSTANCE
+probst announcement edit NAME --instance INSTANCE --file FILE --yes
+probst announcement schedule NAME --instance INSTANCE --at "2026-10-07 19:00"   # or --yes to send now
+probst announcement unschedule NAME --instance INSTANCE                          # back to a draft
+probst announcement delete NAME --instance INSTANCE --yes
+
+# One-off reply as the bot, sent right away and not saved.
+probst message CHANNEL "The tribe has spoken." [--reply-to MESSAGE_ID] --yes
 ```
 
 Use `--json` for machine-readable output. `--server` and `--actor` override configuration. A channel rebind requires `--yes` and API admin authorization over both instances. Player identity replacement requires explicit unlinking first; conflicts never silently transfer identities.
 
-`announcement send` previews the file verbatim; `--yes` queues it and the Discord bot posts it as itself (mentions never notify). Without `--at` it is sent within seconds; `--at` takes America/New_York wall time or RFC3339. Re-running the same send is a no-op. A failed send is marked `failed` in `announcement list` and in bot logs and is not retried; to send it again, re-run with a new `--key`. `reschedule` and `unschedule` change announcements that are still pending (IDs come from `announcement list`).
+`announcement send` previews the file verbatim; `--yes` queues it and the Discord bot posts it as itself (mentions never notify). Without `--at` it is sent within seconds; `--at` takes America/New_York wall time or RFC3339. Re-running the same send is a no-op. A failed send is marked `failed` in `announcement list` and in bot logs and is not retried; to send it again, re-run with a new `--key`. Saved announcements live in the instance, so `announcement list` is where to find them. Anything not yet sent can be edited, rescheduled, unscheduled, or deleted; the bot uses whatever the text is when it sends. `message` posts directly with the bot token in your config and keeps no record; if it errors, check the channel before resending.
 
 Bootstrap is disabled unless the API has `BOOTSTRAP_ADMIN_DISCORD_USER_ID` configured. The service-authenticated actor must match that ID, and the instance must have no admins. An already-authorized matching retry succeeds. This does not grant access to existing administered instances.
 
@@ -111,12 +120,14 @@ probst challenge reward Toka --episode 2 --key ep2-reward-2 --instance INSTANCE 
 
 # Wordle: opens at the episode's start and closes at the next episode's start.
 probst wordle open --episode 2 --instance INSTANCE
-probst wordle import THREAD_URL --episode 2 --instance INSTANCE --yes   # before the next episode starts
+probst wordle import --file week2.txt --episode 2 --instance INSTANCE --yes   # before the next episode starts
+probst wordle import THREAD_URL --episode 2 --instance INSTANCE --yes        # or read text shares from a thread
 probst wordle submit Kate 3 --episode 2 --instance INSTANCE             # by hand; X = failed (counts as 7)
 probst wordle resolve --episode 2 --instance INSTANCE --yes             # after it closes
 ```
 
-- `wordle import` reads Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected once the next episode starts, so import just before then.
+- `wordle import --file` reads one `Player: 3` per line (`X` = failed; `#` comments and blank lines ignored; names as in `player list`). Bad lines, unknown names, and duplicates are shown as SKIP and not saved.
+- `wordle import THREAD_URL` reads text Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected once the next episode starts, so import just before then.
 - Wordle scoring: the best individual result gets +2 (ties share). The tribe with the best average among its submitters gets +1 for every member. Players who don't submit aren't counted.
 - Challenges count the tribes as they are during the episode (an hour after it starts). Record a swap with the episode it takes effect in; changes must be made in episode order.
 

@@ -411,7 +411,7 @@ paths:
                 $ref: '#/components/schemas/AnnouncementListResponse'
   /instances/{instanceID}/announcements/{announcementID}:
     delete:
-      operationId: unscheduleAnnouncement
+      operationId: deleteAnnouncement
       parameters:
         - name: instanceID
           in: path
@@ -430,11 +430,16 @@ paths:
             application/json:
               schema:
                 anyOf:
-                  - $ref: '#/components/schemas/AnnouncementScheduleChange'
+                  - type: object
+                    properties:
+                      deleted:
+                        type: string
+                    required:
+                      - deleted
                   - $ref: '#/components/schemas/ErrorResponse'
-  /instances/{instanceID}/announcements/{announcementID}/schedule:
+  /instances/{instanceID}/announcements/{announcementID}/body:
     put:
-      operationId: rescheduleAnnouncement
+      operationId: editAnnouncement
       parameters:
         - name: instanceID
           in: path
@@ -453,14 +458,66 @@ paths:
             application/json:
               schema:
                 anyOf:
-                  - $ref: '#/components/schemas/AnnouncementScheduleChange'
+                  - $ref: '#/components/schemas/AnnouncementResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RescheduleAnnouncementRequest'
+              $ref: '#/components/schemas/EditAnnouncementRequest'
+  /instances/{instanceID}/announcements/{announcementID}/schedule:
+    put:
+      operationId: scheduleAnnouncement
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AnnouncementResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleAnnouncementRequest'
+    delete:
+      operationId: unscheduleAnnouncement
+      description: Turn a scheduled announcement back into a draft.
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AnnouncementResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/auction/contestants/{contestantID}/bid/me:
     put:
       operationId: setAuctionBid
@@ -1841,18 +1898,6 @@ components:
       properties:
         announcement:
           $ref: '#/components/schemas/Announcement'
-    AnnouncementScheduleChange:
-      type: object
-      required:
-        - id
-        - scheduled_at
-      properties:
-        id:
-          type: string
-        scheduled_at:
-          type: string
-          format: date-time
-          nullable: true
     BonusLedgerEntry:
       type: object
       required:
@@ -2003,6 +2048,9 @@ components:
         scheduled_at:
           type: string
           format: date-time
+        draft:
+          type: boolean
+          description: Save without sending; schedule it later. Cannot be combined with scheduled_at.
     CreateContestantRequest:
       type: object
       required:
@@ -2215,6 +2263,13 @@ components:
         contestant_id:
           type: string
         contestant_name:
+          type: string
+    EditAnnouncementRequest:
+      type: object
+      required:
+        - body
+      properties:
+        body:
           type: string
     ErrorResponse:
       type: object
@@ -3039,14 +3094,6 @@ components:
       properties:
         status:
           type: string
-    RescheduleAnnouncementRequest:
-      type: object
-      required:
-        - scheduled_at
-      properties:
-        scheduled_at:
-          type: string
-          format: date-time
     ResolveLedgerEntry:
       type: object
       required:
@@ -3105,6 +3152,13 @@ components:
         created_count:
           type: integer
           format: int32
+    ScheduleAnnouncementRequest:
+      type: object
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
+      description: Omit scheduled_at to send now. The bot reads the current text when it sends.
     SetAuctionBidRequest:
       type: object
       required:

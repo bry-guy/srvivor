@@ -389,3 +389,80 @@ func TestAnnouncementScheduleChanges(t *testing.T) {
 	wordleRequireStatus(t, wordleServe(router, "PUT", path+"/"+moved+"/schedule", schedule, "schedule-test", "999"), 409)
 	wordleRequireStatus(t, wordleServe(router, "DELETE", path+"/"+moved, "", "schedule-test", "999"), 409)
 }
+
+func TestAnnouncementDraftEditAndSchedule(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+	q := db.New(pool)
+	instance := createInstanceForTest(t, ctx, q, "Draft announcements", 51)
+	instanceID := uuid.UUID(instance.ID.Bytes).String()
+	if _, err := q.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "999"}); err != nil {
+		t.Fatal(err)
+	}
+	router := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"draft-test"}})).Router()
+	type result struct {
+		Announcement *struct {
+			ID     string `json:"id"`
+			Body   string `json:"body"`
+			Status string `json:"status"`
+		} `json:"announcement"`
+	}
+	serve := func(method, path, body string, want int) result {
+		t.Helper()
+		response := wordleServe(router, method, path, body, "draft-test", "999")
+		wordleRequireStatus(t, response, want)
+		var decoded result
+		if err := json.Unmarshal(response.Body.Bytes(), &decoded); err != nil {
+			t.Fatalf("decode %s %s: %v", method, path, err)
+		}
+		return decoded
+	}
+	claimedBody := func() string {
+		t.Helper()
+		claim := serve("POST", "/announcements/claim", `{"guild_ids":["7791"]}`, 200)
+		if claim.Announcement == nil {
+			return ""
+		}
+		return claim.Announcement.Body
+	}
+	serve("PUT", "/discord/guilds/7791/channels/7792", fmt.Sprintf(`{"instance_id":%q}`, instanceID), 200)
+	path := "/instances/" + instanceID + "/announcements"
+
+	serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"kickoff","body":"v1","draft":true,"scheduled_at":"2030-01-01T00:00:00Z"}`, 400)
+	created := serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"kickoff","body":"v1","draft":true}`, 200)
+	id := created.Announcement.ID
+	if created.Announcement.Status != "draft" {
+		t.Fatalf("created status = %v", created.Announcement.Status)
+	}
+	serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"kickoff","body":"v1","draft":true}`, 200)
+	serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"kickoff","body":"v1"}`, 409)
+	if body := claimedBody(); body != "" {
+		t.Fatalf("draft was claimed: %v", body)
+	}
+	// Drafts don't block moving the channel, but can't be scheduled onto a channel that no longer belongs to the instance.
+	serve("DELETE", "/discord/guilds/7791/channels/7792", "", 200)
+	serve("PUT", path+"/"+id+"/schedule", `{}`, 409)
+	serve("PUT", "/discord/guilds/7791/channels/7792", fmt.Sprintf(`{"instance_id":%q}`, instanceID), 200)
+
+	serve("PUT", path+"/"+id+"/body", `{"body":"  "}`, 400)
+	serve("PUT", path+"/"+id+"/body", `{"body":"v2"}`, 200)
+	scheduled := serve("PUT", path+"/"+id+"/schedule", `{"scheduled_at":"2030-01-01T00:00:00Z"}`, 200)
+	if a := scheduled.Announcement; a.Status != "pending" || a.Body != "v2" {
+		t.Fatalf("scheduled = %+v", a)
+	}
+	serve("PUT", path+"/"+id+"/body", `{"body":"v3"}`, 200)
+	serve("DELETE", path+"/"+id+"/schedule", "", 200)
+	if body := claimedBody(); body != "" {
+		t.Fatalf("unscheduled draft was claimed: %v", body)
+	}
+	serve("PUT", path+"/"+id+"/schedule", `{}`, 200)
+	if body := claimedBody(); body != "v3" {
+		t.Fatalf("sent body = %v, want latest edit v3", body)
+	}
+	serve("PUT", path+"/"+id+"/body", `{"body":"too late"}`, 409)
+	serve("DELETE", path+"/"+id+"/schedule", "", 409)
+	serve("DELETE", path+"/"+id, "", 409)
+	serve("PUT", "/instances/"+instanceID+"/announcements/"+id+"/body", `{"body":"x"}`, 409)
+	wordleRequireStatus(t, wordleServe(router, "PUT", path+"/"+id+"/body", `{"body":"x"}`, "draft-test", "stranger"), 403)
+}

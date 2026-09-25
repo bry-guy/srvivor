@@ -672,6 +672,8 @@ model CreateAnnouncementRequest {
   request_key: string;
   body: string;
   scheduled_at?: utcDateTime;
+  /** Save without sending; schedule it later. Cannot be combined with scheduled_at. */
+  draft?: boolean;
 }
 
 model AnnouncementResponse { announcement: Announcement; }
@@ -709,26 +711,39 @@ op createAnnouncement(@path instanceID: string, @body body: CreateAnnouncementRe
 @get
 op listAnnouncements(@path instanceID: string): AnnouncementListResponse;
 
-model RescheduleAnnouncementRequest {
-  scheduled_at: utcDateTime;
+/** Omit scheduled_at to send now. The bot reads the current text when it sends. */
+model ScheduleAnnouncementRequest {
+  scheduled_at?: utcDateTime;
 }
 
-model AnnouncementScheduleChange {
-  id: string;
-  scheduled_at: utcDateTime | null;
+model EditAnnouncementRequest {
+  body: string;
 }
+
+@route("/instances/{instanceID}/announcements/{announcementID}/body")
+@put
+op editAnnouncement(
+  @path instanceID: string,
+  @path announcementID: string,
+  @body body: EditAnnouncementRequest,
+): AnnouncementResponse | ErrorResponse;
 
 @route("/instances/{instanceID}/announcements/{announcementID}/schedule")
 @put
-op rescheduleAnnouncement(
+op scheduleAnnouncement(
   @path instanceID: string,
   @path announcementID: string,
-  @body body: RescheduleAnnouncementRequest,
-): AnnouncementScheduleChange | ErrorResponse;
+  @body body: ScheduleAnnouncementRequest,
+): AnnouncementResponse | ErrorResponse;
+
+/** Turn a scheduled announcement back into a draft. */
+@route("/instances/{instanceID}/announcements/{announcementID}/schedule")
+@delete
+op unscheduleAnnouncement(@path instanceID: string, @path announcementID: string): AnnouncementResponse | ErrorResponse;
 
 @route("/instances/{instanceID}/announcements/{announcementID}")
 @delete
-op unscheduleAnnouncement(@path instanceID: string, @path announcementID: string): AnnouncementScheduleChange | ErrorResponse;
+op deleteAnnouncement(@path instanceID: string, @path announcementID: string): { deleted: string } | ErrorResponse;
 
 @route("/announcements/claim")
 @post

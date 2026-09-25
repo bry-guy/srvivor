@@ -22,12 +22,14 @@ type episode struct {
 }
 
 type tribe struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Members []struct {
-		ParticipantID string `json:"participant_id"`
-		Name          string `json:"name"`
-	} `json:"members"`
+	ID      string        `json:"id"`
+	Name    string        `json:"name"`
+	Members []tribeMember `json:"members"`
+}
+
+type tribeMember struct {
+	ParticipantID string `json:"participant_id"`
+	Name          string `json:"name"`
 }
 
 func loadEpisodes(ctx context.Context, call apiCall, instancePath string) ([]episode, error) {
@@ -157,6 +159,47 @@ func reviewWordle(messages []discordMessage, players []participant, tribes []tri
 			continue
 		}
 		rows = append(rows, wordleRow{Player: p.Name, Tribe: t.Name, Guesses: guesses, Status: "READY", target: p, tribeID: t.ID})
+	}
+	return rows
+}
+
+var wordleLine = regexp.MustCompile(`^(.+?)\s*[:=,-]?\s+([1-6xX])(?:/6)?$`)
+
+// reviewWordleFile reads "Player: 3" lines (X = failed; blank lines and # comments ignored).
+func reviewWordleFile(data string, players []participant, tribes []tribe) []wordleRow {
+	tribeOf := map[string]tribe{}
+	for _, t := range tribes {
+		for _, m := range t.Members {
+			tribeOf[m.ParticipantID] = t
+		}
+	}
+	seen := map[string]bool{}
+	var rows []wordleRow
+	for _, line := range strings.Split(data, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		match := wordleLine.FindStringSubmatch(line)
+		if match == nil {
+			rows = append(rows, wordleRow{Player: line, Status: "SKIP: expected \"Player: 1-6 or X\""})
+			continue
+		}
+		guesses, _ := parseWordle("Wordle 0 " + match[2] + "/6")
+		p, err := findParticipant(players, match[1])
+		switch {
+		case err != nil:
+			rows = append(rows, wordleRow{Player: match[1], Guesses: guesses, Status: "SKIP: " + err.Error()})
+		case seen[p.ID]:
+			rows = append(rows, wordleRow{Player: p.Name, Guesses: guesses, Status: "SKIP: player listed twice"})
+		default:
+			seen[p.ID] = true
+			if t, ok := tribeOf[p.ID]; ok {
+				rows = append(rows, wordleRow{Player: p.Name, Tribe: t.Name, Guesses: guesses, Status: "READY", target: p, tribeID: t.ID})
+			} else {
+				rows = append(rows, wordleRow{Player: p.Name, Guesses: guesses, Status: "SKIP: player is not on a tribe"})
+			}
+		}
 	}
 	return rows
 }
@@ -381,15 +424,15 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 		return err
 	}})
 
-	wordle.AddCommand(&cobra.Command{
-		Use:   "import THREAD_URL",
-		Short: "Read Wordle shares from a Discord thread and save them; dry run unless --yes (must run before the cutoff)",
-		Args:  cobra.ExactArgs(1),
+	var wordleFile string
+	wordleImport := &cobra.Command{
+		Use:   "import [THREAD_URL]",
+		Short: "Save results from --file or a Discord thread's Wordle shares; dry run unless --yes (must run before the cutoff)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, a []string) error {
 			ctx := c.Context()
-			channelID, err := threadChannelID(a[0])
-			if err != nil {
-				return err
+			if (len(a) == 1) == (wordleFile != "") {
+				return fmt.Errorf("give either a THREAD_URL or --file")
 			}
 			p, roundID, opens, cutoff, err := round(ctx)
 			if err != nil {
@@ -403,11 +446,24 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 			if err != nil {
 				return err
 			}
-			messages, err := fetchThread(ctx, channelID, *discordBotToken)
-			if err != nil {
-				return err
+			var rows []wordleRow
+			if wordleFile != "" {
+				data, err := os.ReadFile(wordleFile)
+				if err != nil {
+					return err
+				}
+				rows = reviewWordleFile(string(data), players, current)
+			} else {
+				channelID, err := threadChannelID(a[0])
+				if err != nil {
+					return err
+				}
+				messages, err := fetchThread(ctx, channelID, *discordBotToken)
+				if err != nil {
+					return err
+				}
+				rows = reviewWordle(messages, players, current, opens, cutoff)
 			}
-			rows := reviewWordle(messages, players, current, opens, cutoff)
 			if *yes {
 				for i, row := range rows {
 					if row.target == nil {
@@ -438,7 +494,9 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 			}
 			return err
 		},
-	})
+	}
+	wordleImport.Flags().StringVar(&wordleFile, "file", "", `Results file, one "Player: 3" per line (X = failed)`)
+	wordle.AddCommand(wordleImport)
 
 	wordle.AddCommand(&cobra.Command{Use: "submit PLAYER GUESSES", Short: "Save one player's result by hand (X = failed)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, a []string) error {
 		ctx := c.Context()

@@ -64,8 +64,9 @@ func (s *Server) createAnnouncement(c *gin.Context) {
 		RequestKey  string     `json:"request_key"`
 		Body        string     `json:"body"`
 		ScheduledAt *time.Time `json:"scheduled_at"`
+		Draft       bool       `json:"draft"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || !validAnnouncementID(req.GuildID) || !validAnnouncementID(req.ChannelID) || len(req.RequestKey) == 0 || len(req.RequestKey) > 128 || utf8.RuneCountInString(req.Body) > 2000 || strings.TrimSpace(req.Body) == "" {
+	if err := c.ShouldBindJSON(&req); err != nil || (req.Draft && req.ScheduledAt != nil) || !validAnnouncementID(req.GuildID) || !validAnnouncementID(req.ChannelID) || len(req.RequestKey) == 0 || len(req.RequestKey) > 128 || utf8.RuneCountInString(req.Body) > 2000 || strings.TrimSpace(req.Body) == "" {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid announcement"})
 		return
 	}
@@ -108,9 +109,9 @@ func (s *Server) createAnnouncement(c *gin.Context) {
 			return
 		}
 		_, err = tx.Exec(c.Request.Context(), `
-			INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, scheduled_at, due_at)
-			SELECT id, $2, $3, $4, $5, $6::timestamptz, COALESCE($6::timestamptz, $7::timestamptz) FROM instances WHERE public_id = $1
-			ON CONFLICT (instance_id, request_key) DO NOTHING`, toPGUUID(instanceID), req.GuildID, req.ChannelID, req.RequestKey, req.Body, req.ScheduledAt, s.now())
+			INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, scheduled_at, due_at, status)
+			SELECT id, $2, $3, $4, $5, $6::timestamptz, COALESCE($6::timestamptz, $7::timestamptz), CASE WHEN $8::boolean THEN 'draft' ELSE 'pending' END FROM instances WHERE public_id = $1
+			ON CONFLICT (instance_id, request_key) DO NOTHING`, toPGUUID(instanceID), req.GuildID, req.ChannelID, req.RequestKey, req.Body, req.ScheduledAt, s.now(), req.Draft)
 		if err == nil {
 			a, err = scanAnnouncement(tx.QueryRow(c.Request.Context(), `SELECT `+announcementColumns+` FROM announcements a JOIN instances i ON i.id = a.instance_id WHERE i.public_id = $1 AND a.request_key = $2`, toPGUUID(instanceID), req.RequestKey))
 		}
@@ -119,7 +120,7 @@ func (s *Server) createAnnouncement(c *gin.Context) {
 		writeAnnouncementError(c, err)
 		return
 	}
-	if a.GuildID != req.GuildID || a.ChannelID != req.ChannelID || a.Body != req.Body || (a.ScheduledAt == nil) != (req.ScheduledAt == nil) || (a.ScheduledAt != nil && !a.ScheduledAt.Equal(*req.ScheduledAt)) {
+	if a.GuildID != req.GuildID || a.ChannelID != req.ChannelID || a.Body != req.Body || (a.Status == "draft") != req.Draft || (a.ScheduledAt == nil) != (req.ScheduledAt == nil) || (a.ScheduledAt != nil && !a.ScheduledAt.Equal(*req.ScheduledAt)) {
 		c.JSON(http.StatusConflict, errorResponse{Error: "request_key already used with different announcement"})
 		return
 	}
@@ -298,29 +299,57 @@ func writeAnnouncementError(c *gin.Context, err error) {
 	c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 }
 
-// rescheduleAnnouncement moves a not-yet-sent announcement to a new future time.
-func (s *Server) rescheduleAnnouncement(c *gin.Context) {
+// scheduleAnnouncement queues a draft or pending announcement for scheduled_at, or now when omitted.
+// The bot reads the text when it sends, so later edits still apply.
+func (s *Server) scheduleAnnouncement(c *gin.Context) {
 	var req struct {
-		ScheduledAt time.Time `json:"scheduled_at" binding:"required"`
+		ScheduledAt *time.Time `json:"scheduled_at"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled_at is required"})
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid schedule"})
 		return
 	}
-	at := req.ScheduledAt.UTC().Truncate(time.Microsecond)
-	if at.Before(s.now()) {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled_at must be in the future"})
-		return
+	var at *time.Time
+	due := s.now()
+	if req.ScheduledAt != nil {
+		v := req.ScheduledAt.UTC().Truncate(time.Microsecond)
+		if v.Before(s.now()) {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled_at must be in the future"})
+			return
+		}
+		at, due = &v, v
 	}
-	s.changePendingAnnouncement(c, `UPDATE announcements SET scheduled_at = $3, due_at = $3`, at)
+	// A draft may have outlived its channel binding; the bot only sends to bound channels, so refuse rather than queue forever.
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'pending', scheduled_at = $3, due_at = $4`,
+		` AND EXISTS (SELECT 1 FROM discord_channel_bindings b WHERE b.instance_id = announcements.instance_id AND b.guild_id = announcements.guild_id AND b.channel_id = announcements.channel_id)`,
+		"no unsent announcement with that id whose channel is still bound to this instance", at, due)
 }
 
-// unscheduleAnnouncement removes a not-yet-sent announcement from the schedule.
+// unscheduleAnnouncement turns a scheduled announcement back into a draft.
 func (s *Server) unscheduleAnnouncement(c *gin.Context) {
-	s.changePendingAnnouncement(c, `DELETE FROM announcements`, nil)
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'draft', scheduled_at = NULL`, "", "")
 }
 
-func (s *Server) changePendingAnnouncement(c *gin.Context, statement string, at any) {
+// editAnnouncement replaces the text of an announcement that hasn't been sent.
+func (s *Server) editAnnouncement(c *gin.Context) {
+	var req struct {
+		Body string `json:"body"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || utf8.RuneCountInString(req.Body) > 2000 || strings.TrimSpace(req.Body) == "" {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "body must be nonblank and at most 2000 characters"})
+		return
+	}
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET body = $3`, "", "", req.Body)
+}
+
+// deleteAnnouncement removes an announcement that hasn't been sent.
+func (s *Server) deleteAnnouncement(c *gin.Context) {
+	s.changeUnsentAnnouncement(c, `DELETE FROM announcements`, "", "")
+}
+
+// changeUnsentAnnouncement runs statement (with $1 = announcement, $2 = instance, $3... = args) against a
+// draft or pending announcement. Once the bot has claimed it (sending) the row no longer matches.
+func (s *Server) changeUnsentAnnouncement(c *gin.Context, statement, extraWhere, conflict string, args ...any) {
 	if !requireAdminService(c) {
 		return
 	}
@@ -348,23 +377,35 @@ func (s *Server) changePendingAnnouncement(c *gin.Context, statement string, at 
 		writeAnnouncementError(c, err)
 		return
 	}
-	args := []any{toPGUUID(id), toPGUUID(instanceID)}
-	if at != nil {
-		args = append(args, at)
-	}
-	// The status guard makes this a no-op once the bot has claimed the row, so a send can't be changed mid-flight.
-	result, err := tx.Exec(c.Request.Context(), statement+` WHERE id = $1 AND instance_id = (SELECT id FROM instances WHERE public_id = $2) AND status = 'pending'`, args...)
+	result, err := tx.Exec(c.Request.Context(), statement+` WHERE id = $1 AND instance_id = (SELECT id FROM instances WHERE public_id = $2) AND status IN ('draft', 'pending')`+extraWhere,
+		append([]any{toPGUUID(id), toPGUUID(instanceID)}, args...)...)
 	if err != nil {
 		writeAnnouncementError(c, err)
 		return
 	}
 	if result.RowsAffected() == 0 {
-		c.JSON(http.StatusConflict, errorResponse{Error: "no pending announcement with that id in this instance (already sending or sent?)"})
+		if conflict == "" {
+			conflict = "no unsent announcement with that id in this instance (already sending or sent?)"
+		}
+		c.JSON(http.StatusConflict, errorResponse{Error: conflict})
+		return
+	}
+	if strings.HasPrefix(statement, "DELETE") {
+		if err := tx.Commit(c.Request.Context()); err != nil {
+			writeAnnouncementError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"deleted": id})
+		return
+	}
+	a, err := scanAnnouncement(tx.QueryRow(c.Request.Context(), `SELECT `+announcementColumns+` FROM announcements a JOIN instances i ON i.id = a.instance_id WHERE a.id = $1`, toPGUUID(id)))
+	if err != nil {
+		writeAnnouncementError(c, err)
 		return
 	}
 	if err := tx.Commit(c.Request.Context()); err != nil {
 		writeAnnouncementError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": id, "scheduled_at": at})
+	c.JSON(http.StatusOK, gin.H{"announcement": a})
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -8,10 +9,10 @@ import (
 func TestParseWordle(t *testing.T) {
 	for content, want := range map[string]int{
 		"Wordle 1,561 3/6\n\n⬛🟨⬛⬛⬛": 3,
-		"wordle 1561 X/6*":            7,
-		"got it! Wordle 1.561 6/6":    6,
-		"no score here":               0,
-		"Wordle 1561 0/6":             0,
+		"wordle 1561 X/6*":          7,
+		"got it! Wordle 1.561 6/6":  6,
+		"no score here":             0,
+		"Wordle 1561 0/6":           0,
 	} {
 		got, ok := parseWordle(content)
 		if got != want || ok != (want != 0) {
@@ -61,5 +62,28 @@ func TestParseTribesFile(t *testing.T) {
 	}
 	if _, err := parseTribesFile("Savu: Nobody", players); err == nil {
 		t.Fatal("unknown player should fail")
+	}
+}
+
+func TestReviewWordleFile(t *testing.T) {
+	players := []participant{{ID: "a", Name: "Adam"}, {ID: "k", Name: "Kate"}, {ID: "m", Name: "Mooney"}, {ID: "z", Name: "Zed"}}
+	tribes := []tribe{{ID: "t1", Name: "Savu", Members: []tribeMember{{ParticipantID: "a"}, {ParticipantID: "k"}, {ParticipantID: "m"}}}}
+	rows := reviewWordleFile("# week 2\nAdam: 3\nkate X\nMooney - 4/6\n\nAdam: 2\nZed: 5\nNobody: 4\nKate seven\n", players, tribes)
+	want := []struct {
+		player  string
+		guesses int
+		status  string
+	}{
+		{"Adam", 3, "READY"}, {"Kate", 7, "READY"}, {"Mooney", 4, "READY"},
+		{"Adam", 2, "SKIP: player listed twice"}, {"Zed", 5, "SKIP: player is not on a tribe"},
+		{"Nobody", 4, "SKIP"}, {"Kate seven", 0, "SKIP"},
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("got %d rows: %+v", len(rows), rows)
+	}
+	for i, w := range want {
+		if rows[i].Player != w.player || rows[i].Guesses != w.guesses || !strings.HasPrefix(rows[i].Status, w.status) {
+			t.Fatalf("row %d = %+v, want %+v", i, rows[i], w)
+		}
 	}
 }
