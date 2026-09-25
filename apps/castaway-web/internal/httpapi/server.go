@@ -86,6 +86,8 @@ func (s *Server) Router() *gin.Engine {
 	protected.DELETE("/discord/guilds/:guildID/channels/:channelID", s.deleteDiscordChannelBinding)
 	protected.POST("/instances/:instanceID/announcements", s.createAnnouncement)
 	protected.GET("/instances/:instanceID/announcements", s.listAnnouncements)
+	protected.PUT("/instances/:instanceID/announcements/:announcementID/schedule", s.rescheduleAnnouncement)
+	protected.DELETE("/instances/:instanceID/announcements/:announcementID", s.unscheduleAnnouncement)
 	protected.POST("/announcements/claim", s.claimAnnouncement)
 	protected.POST("/announcements/:announcementID/finish", s.finishAnnouncement)
 	protected.POST("/instances", s.createInstance)

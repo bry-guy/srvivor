@@ -297,3 +297,74 @@ func writeAnnouncementError(c *gin.Context, err error) {
 	}
 	c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 }
+
+// rescheduleAnnouncement moves a not-yet-sent announcement to a new future time.
+func (s *Server) rescheduleAnnouncement(c *gin.Context) {
+	var req struct {
+		ScheduledAt time.Time `json:"scheduled_at" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled_at is required"})
+		return
+	}
+	at := req.ScheduledAt.UTC().Truncate(time.Microsecond)
+	if at.Before(s.now()) {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled_at must be in the future"})
+		return
+	}
+	s.changePendingAnnouncement(c, `UPDATE announcements SET scheduled_at = $3, due_at = $3`, at)
+}
+
+// unscheduleAnnouncement removes a not-yet-sent announcement from the schedule.
+func (s *Server) unscheduleAnnouncement(c *gin.Context) {
+	s.changePendingAnnouncement(c, `DELETE FROM announcements`, nil)
+}
+
+func (s *Server) changePendingAnnouncement(c *gin.Context, statement string, at any) {
+	if !requireAdminService(c) {
+		return
+	}
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	id, err := uuid.Parse(c.Param("announcementID"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid announcement id"})
+		return
+	}
+	tx, err := s.pool.Begin(c.Request.Context())
+	if err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	defer rollbackTx(c, tx)
+	q := s.queries.WithTx(tx)
+	if _, err := q.LockInstanceForProgression(c.Request.Context(), toPGUUID(instanceID)); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	if err := requireWordleInstanceAdmin(c.Request.Context(), q, toPGUUID(instanceID), c.Request); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	args := []any{toPGUUID(id), toPGUUID(instanceID)}
+	if at != nil {
+		args = append(args, at)
+	}
+	// The status guard makes this a no-op once the bot has claimed the row, so a send can't be changed mid-flight.
+	result, err := tx.Exec(c.Request.Context(), statement+` WHERE id = $1 AND instance_id = (SELECT id FROM instances WHERE public_id = $2) AND status = 'pending'`, args...)
+	if err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	if result.RowsAffected() == 0 {
+		c.JSON(http.StatusConflict, errorResponse{Error: "no pending announcement with that id in this instance (already sending or sent?)"})
+		return
+	}
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": id, "scheduled_at": at})
+}

@@ -185,7 +185,7 @@ func TestRenderUsesHurlCapturesAndExactRetries(t *testing.T) {
 	checks := []string{
 		`POST {{base_url}}/instances`,
 		`Authorization: Bearer {{service_token}}`,
-		`contestant_1_id: jsonpath "$.contestants[?(@.name == 'Coach O\\'Brien')].id" first`,
+		`contestant_1_id: jsonpath "$.contestants[?(@.name == 'Coach O\\'Brien')].id"`,
 		`PUT {{base_url}}/instances/{{instance_id}}/outcomes/1`,
 		`"reason": "draft correction"`,
 		`"correction": true`,

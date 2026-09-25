@@ -157,9 +157,9 @@ func Render(scenario Scenario) ([]byte, error) {
 		lookup.captures = append(lookup.captures, hurlCapture{
 			name:  contestantVars[canonical],
 			query: contestantQuery(canonical, "id"),
-			first: true,
 		})
-		lookup.asserts = append(lookup.asserts, fmt.Sprintf(`jsonpath "%s" count == 1`, hurlString(contestantQuery(canonical, "name"))))
+		// Hurl 8 returns a single filter match as a scalar, so a list here means a missing or duplicate name.
+		lookup.asserts = append(lookup.asserts, fmt.Sprintf(`jsonpath "%s" isString`, hurlString(contestantQuery(canonical, "name"))))
 	}
 	appendEntry(&output, lookup)
 
@@ -533,7 +533,6 @@ type hurlEntry struct {
 type hurlCapture struct {
 	name  string
 	query string
-	first bool
 }
 
 func appendEntry(output *strings.Builder, entry hurlEntry) {
@@ -549,11 +548,7 @@ func appendEntry(output *strings.Builder, entry hurlEntry) {
 	if len(entry.captures) > 0 {
 		output.WriteString("[Captures]\n")
 		for _, capture := range entry.captures {
-			fmt.Fprintf(output, "%s: jsonpath \"%s\"", capture.name, hurlString(capture.query))
-			if capture.first {
-				output.WriteString(" first")
-			}
-			output.WriteByte('\n')
+			fmt.Fprintf(output, "%s: jsonpath \"%s\"\n", capture.name, hurlString(capture.query))
 		}
 	}
 	if len(entry.asserts) > 0 {

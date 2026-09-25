@@ -339,3 +339,53 @@ func TestAnnouncementBindingLockContention(t *testing.T) {
 		t.Fatalf("claim state diverged: status=%s error=%v", status, err)
 	}
 }
+
+func TestAnnouncementScheduleChanges(t *testing.T) {
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+	q := db.New(pool)
+	instance := createInstanceForTest(t, ctx, q, "Rescheduled announcements", 51)
+	instanceID := uuid.UUID(instance.ID.Bytes).String()
+	if _, err := q.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "999"}); err != nil {
+		t.Fatal(err)
+	}
+	router := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"schedule-test"}})).Router()
+	wordleRequireStatus(t, wordleServe(router, "PUT", "/discord/guilds/7781/channels/7782", fmt.Sprintf(`{"instance_id":%q}`, instanceID), "schedule-test", "999"), 200)
+	path := "/instances/" + instanceID + "/announcements"
+	later := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Second)
+	create := func(key string) string {
+		body := fmt.Sprintf(`{"guild_id":"7781","channel_id":"7782","request_key":%q,"body":"Hi","scheduled_at":%q}`, key, later.Format(time.RFC3339))
+		response := wordleServe(router, "POST", path, body, "schedule-test", "999")
+		wordleRequireStatus(t, response, 200)
+		var created struct {
+			Announcement struct {
+				ID string `json:"id"`
+			} `json:"announcement"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+			t.Fatal(err)
+		}
+		return created.Announcement.ID
+	}
+	moved, removed := create("move"), create("remove")
+
+	newTime := later.Add(time.Hour)
+	schedule := fmt.Sprintf(`{"scheduled_at":%q}`, newTime.Format(time.RFC3339))
+	wordleRequireStatus(t, wordleServe(router, "PUT", path+"/"+moved+"/schedule", schedule, "schedule-test", "stranger"), 403)
+	wordleRequireStatus(t, wordleServe(router, "PUT", path+"/"+moved+"/schedule", `{"scheduled_at":"2000-01-01T00:00:00Z"}`, "schedule-test", "999"), 400)
+	wordleRequireStatus(t, wordleServe(router, "PUT", path+"/"+moved+"/schedule", schedule, "schedule-test", "999"), 200)
+	var dueAt time.Time
+	if err := pool.QueryRow(ctx, `SELECT due_at FROM announcements WHERE id = $1`, moved).Scan(&dueAt); err != nil || !dueAt.Equal(newTime) {
+		t.Fatalf("due_at = %s (%v), want %s", dueAt, err, newTime)
+	}
+
+	wordleRequireStatus(t, wordleServe(router, "DELETE", path+"/"+removed, "", "schedule-test", "999"), 200)
+	wordleRequireStatus(t, wordleServe(router, "DELETE", path+"/"+removed, "", "schedule-test", "999"), 409)
+
+	if _, err := pool.Exec(ctx, `UPDATE announcements SET status = 'sending' WHERE id = $1`, moved); err != nil {
+		t.Fatal(err)
+	}
+	wordleRequireStatus(t, wordleServe(router, "PUT", path+"/"+moved+"/schedule", schedule, "schedule-test", "999"), 409)
+	wordleRequireStatus(t, wordleServe(router, "DELETE", path+"/"+moved, "", "schedule-test", "999"), 409)
+}

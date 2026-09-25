@@ -178,7 +178,7 @@ func TestSeason43Rehearsal(t *testing.T) {
 		if ep.Number == 13 {
 			awards = 6
 		}
-		assertion := fmt.Sprintf("[Asserts]\njsonpath \"$.created_count\" == %d\njsonpath \"$.created_entries[*].visibility\" includes \"public\"\n", awards)
+		assertion := fmt.Sprintf("[Asserts]\njsonpath \"$.created_count\" == %d\njsonpath \"$.created_entries[*].visibility\" contains \"public\"\n", awards)
 		entries.WriteString(rehearsalHurl("POST", roundPath+"/resolve", nil, 200, assertion))
 		entries.WriteString(rehearsalHurl("POST", roundPath+"/resolve", nil, 200, assertion))
 		for _, c := range fixture.Contestants {
@@ -190,7 +190,7 @@ func TestSeason43Rehearsal(t *testing.T) {
 		assertions := fmt.Sprintf("[Asserts]\njsonpath \"$.outcomes\" count == %d\n", outcomeCount)
 		for _, c := range fixture.Contestants {
 			if c.Episode <= int(ep.Number) {
-				assertions += fmt.Sprintf("jsonpath \"$.outcomes[?(@.position == %d)].contestant_id\" includes \"%s\"\n", c.Place, contestantIDs[c.ID])
+				assertions += fmt.Sprintf("jsonpath \"$.outcomes[?(@.position == %d)].contestant_id\" == \"%s\"\n", c.Place, contestantIDs[c.ID])
 			}
 		}
 		entries.WriteString(rehearsalHurl("GET", path+"/outcomes", nil, 200, assertions))
@@ -200,7 +200,7 @@ func TestSeason43Rehearsal(t *testing.T) {
 				name  string
 				value int
 			}{{"draft_points", e.Draft}, {"bonus_points", e.Bonus}, {"total_points", e.Total}} {
-				assertions += fmt.Sprintf("jsonpath \"$.leaderboard[?(@.participant_name == '%s')].%s\" includes %d\n", e.Player, field.name, field.value)
+				assertions += fmt.Sprintf("jsonpath \"$.leaderboard[?(@.participant_name == '%s')].%s\" == %d\n", e.Player, field.name, field.value)
 			}
 		}
 		entries.WriteString(rehearsalHurl("GET", path+"/leaderboard", nil, 200, assertions))

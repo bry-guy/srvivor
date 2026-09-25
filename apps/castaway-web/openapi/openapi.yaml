@@ -409,6 +409,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnnouncementListResponse'
+  /instances/{instanceID}/announcements/{announcementID}:
+    delete:
+      operationId: unscheduleAnnouncement
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AnnouncementScheduleChange'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/announcements/{announcementID}/schedule:
+    put:
+      operationId: rescheduleAnnouncement
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AnnouncementScheduleChange'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RescheduleAnnouncementRequest'
   /instances/{instanceID}/auction/contestants/{contestantID}/bid/me:
     put:
       operationId: setAuctionBid
@@ -1789,6 +1841,18 @@ components:
       properties:
         announcement:
           $ref: '#/components/schemas/Announcement'
+    AnnouncementScheduleChange:
+      type: object
+      required:
+        - id
+        - scheduled_at
+      properties:
+        id:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
     BonusLedgerEntry:
       type: object
       required:
@@ -2975,6 +3039,14 @@ components:
       properties:
         status:
           type: string
+    RescheduleAnnouncementRequest:
+      type: object
+      required:
+        - scheduled_at
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
     ResolveLedgerEntry:
       type: object
       required:

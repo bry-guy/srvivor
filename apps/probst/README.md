@@ -46,11 +46,13 @@ probst draft import --file FILE --participant PLAYER --instance INSTANCE [--yes]
 probst scores --instance INSTANCE
 probst announcement send CHANNEL --guild GUILD --instance INSTANCE --file FILE [--at "2026-10-01 20:00"] [--yes]
 probst announcement list --instance INSTANCE
+probst announcement reschedule ID --at "2026-10-07 19:00" --instance INSTANCE
+probst announcement unschedule ID --instance INSTANCE --yes
 ```
 
 Use `--json` for machine-readable output. `--server` and `--actor` override configuration. A channel rebind requires `--yes` and API admin authorization over both instances. Player identity replacement requires explicit unlinking first; conflicts never silently transfer identities.
 
-`announcement send` previews the file verbatim; `--yes` queues it and the Discord bot posts it as itself (mentions never notify). Without `--at` it is sent within seconds; `--at` takes America/New_York wall time or RFC3339. Re-running the same send is a no-op. A failed send is marked `failed` in `announcement list` and in bot logs and is not retried; to send it again, re-run with a new `--key`.
+`announcement send` previews the file verbatim; `--yes` queues it and the Discord bot posts it as itself (mentions never notify). Without `--at` it is sent within seconds; `--at` takes America/New_York wall time or RFC3339. Re-running the same send is a no-op. A failed send is marked `failed` in `announcement list` and in bot logs and is not retried; to send it again, re-run with a new `--key`. `reschedule` and `unschedule` change announcements that are still pending (IDs come from `announcement list`).
 
 Bootstrap is disabled unless the API has `BOOTSTRAP_ADMIN_DISCORD_USER_ID` configured. The service-authenticated actor must match that ID, and the instance must have no admins. An already-authorized matching retry succeeds. This does not grant access to existing administered instances.
 

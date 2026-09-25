@@ -709,6 +709,27 @@ op createAnnouncement(@path instanceID: string, @body body: CreateAnnouncementRe
 @get
 op listAnnouncements(@path instanceID: string): AnnouncementListResponse;
 
+model RescheduleAnnouncementRequest {
+  scheduled_at: utcDateTime;
+}
+
+model AnnouncementScheduleChange {
+  id: string;
+  scheduled_at: utcDateTime | null;
+}
+
+@route("/instances/{instanceID}/announcements/{announcementID}/schedule")
+@put
+op rescheduleAnnouncement(
+  @path instanceID: string,
+  @path announcementID: string,
+  @body body: RescheduleAnnouncementRequest,
+): AnnouncementScheduleChange | ErrorResponse;
+
+@route("/instances/{instanceID}/announcements/{announcementID}")
+@delete
+op unscheduleAnnouncement(@path instanceID: string, @path announcementID: string): AnnouncementScheduleChange | ErrorResponse;
+
 @route("/announcements/claim")
 @post
 op claimAnnouncement(@body body: ClaimAnnouncementRequest): ClaimAnnouncementResponse;
