@@ -27,6 +27,23 @@ func TestDefaultEpisodeScheduleForSeason50(t *testing.T) {
 	}
 }
 
+func TestDefaultEpisodeScheduleForSeason51MatchesCBSAirtimes(t *testing.T) {
+	schedule := DefaultEpisodeScheduleForSeason(51)
+	if err := ValidateEpisodeSchedule(schedule); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(schedule); got != 14 {
+		t.Fatalf("expected 14 schedule entries, got %d", got)
+	}
+	// 8pm EDT premiere and 8pm EST finale (after the DST change).
+	if got, want := schedule[1].AirsAt.UTC(), time.Date(2026, time.September, 24, 0, 0, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("episode 1 airs %s, want %s", got, want)
+	}
+	if got, want := schedule[13].AirsAt.UTC(), time.Date(2026, time.December, 17, 1, 0, 0, 0, time.UTC); !got.Equal(want) {
+		t.Fatalf("episode 13 airs %s, want %s", got, want)
+	}
+}
+
 func TestValidateEpisodeScheduleRejectsInvalidDefinitions(t *testing.T) {
 	base := time.Date(2026, time.January, 1, 20, 0, 0, 0, time.UTC)
 	tests := []struct {

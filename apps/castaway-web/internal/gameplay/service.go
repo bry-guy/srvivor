@@ -106,6 +106,29 @@ func DefaultEpisodeScheduleForSeason(season int32) []EpisodeTemplate {
 		return schedule
 	}
 
+	if season == 51 {
+		location, err := time.LoadLocation("America/New_York")
+		if err != nil {
+			location = time.UTC
+		}
+
+		// CBS airs Wednesdays at 8pm ET: premiere 2026-09-23, finale (episode 13) 2026-12-16.
+		premiere := time.Date(2026, time.September, 23, 20, 0, 0, 0, location)
+		schedule := []EpisodeTemplate{{
+			EpisodeNumber: 0,
+			Label:         "Preseason",
+			AirsAt:        premiere.AddDate(0, 0, -7),
+		}}
+		for episodeNumber := int32(1); episodeNumber <= 13; episodeNumber++ {
+			schedule = append(schedule, EpisodeTemplate{
+				EpisodeNumber: episodeNumber,
+				Label:         fmt.Sprintf("Episode %d", episodeNumber),
+				AirsAt:        premiere.AddDate(0, 0, int(7*(episodeNumber-1))),
+			})
+		}
+		return schedule
+	}
+
 	return []EpisodeTemplate{{
 		EpisodeNumber: 0,
 		Label:         "Preseason",
