@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	ClearParticipantDiscordUserID(ctx context.Context, id pgtype.UUID) (ClearParticipantDiscordUserIDRow, error)
 	CountInstanceAdmins(ctx context.Context, instanceID pgtype.UUID) (int64, error)
+	CountInstanceTribeMembershipsStartingAtOrAfter(ctx context.Context, arg CountInstanceTribeMembershipsStartingAtOrAfterParams) (int64, error)
 	CreateActivityGroupAssignment(ctx context.Context, arg CreateActivityGroupAssignmentParams) (CreateActivityGroupAssignmentRow, error)
 	CreateActivityOccurrence(ctx context.Context, arg CreateActivityOccurrenceParams) (CreateActivityOccurrenceRow, error)
 	CreateActivityOccurrenceGroup(ctx context.Context, arg CreateActivityOccurrenceGroupParams) (CreateActivityOccurrenceGroupRow, error)
@@ -39,8 +40,10 @@ type Querier interface {
 	DeleteDraftPicksForParticipant(ctx context.Context, participantID pgtype.UUID) error
 	DeleteInstanceAdmin(ctx context.Context, arg DeleteInstanceAdminParams) error
 	DeleteInstanceByNameSeason(ctx context.Context, arg DeleteInstanceByNameSeasonParams) error
+	EndInstanceTribeMembershipsAt(ctx context.Context, arg EndInstanceTribeMembershipsAtParams) error
 	GetActiveParticipantLoanByParticipant(ctx context.Context, arg GetActiveParticipantLoanByParticipantParams) (GetActiveParticipantLoanByParticipantRow, error)
 	GetActivityOccurrence(ctx context.Context, id pgtype.UUID) (GetActivityOccurrenceRow, error)
+	GetActivityOccurrenceBySourceRef(ctx context.Context, arg GetActivityOccurrenceBySourceRefParams) (GetActivityOccurrenceBySourceRefRow, error)
 	GetActivityOccurrenceParticipant(ctx context.Context, arg GetActivityOccurrenceParticipantParams) (GetActivityOccurrenceParticipantRow, error)
 	GetAvailableSecretBalanceByParticipant(ctx context.Context, arg GetAvailableSecretBalanceByParticipantParams) (int32, error)
 	GetContestant(ctx context.Context, id pgtype.UUID) (GetContestantRow, error)
@@ -94,6 +97,7 @@ type Querier interface {
 	ListInstanceActivitiesByType(ctx context.Context, arg ListInstanceActivitiesByTypeParams) ([]ListInstanceActivitiesByTypeRow, error)
 	ListInstanceAdmins(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceAdminsRow, error)
 	ListInstanceEpisodes(ctx context.Context, instanceID pgtype.UUID) ([]ListInstanceEpisodesRow, error)
+	ListInstanceTribeMembershipsAt(ctx context.Context, arg ListInstanceTribeMembershipsAtParams) ([]ListInstanceTribeMembershipsAtRow, error)
 	ListInstances(ctx context.Context) ([]ListInstancesRow, error)
 	ListLatestInstanceScoreRevisionRows(ctx context.Context, instanceID pgtype.UUID) ([]ListLatestInstanceScoreRevisionRowsRow, error)
 	ListOutcomePositionsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListOutcomePositionsByInstanceRow, error)

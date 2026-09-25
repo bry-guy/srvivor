@@ -145,6 +145,8 @@ func (s *Service) ResolveActivityOccurrence(ctx context.Context, occurrenceID pg
 		entries, err = s.resolveStirThePot(ctx, resolverCtx)
 	case "individual_pony":
 		entries, err = s.resolveIndividualPony(ctx, resolverCtx)
+	case TribeChallengeActivityType:
+		entries, err = s.resolveTribeChallenge(ctx, resolverCtx)
 	default:
 		return nil, fmt.Errorf("unsupported activity type %q", activity.ActivityType)
 	}
@@ -280,6 +282,16 @@ func (s *Service) resolveTribeWordle(ctx context.Context, resolverCtx resolverCo
 		}
 		guessCountsByGroup[participantRow.ParticipantGroupID] = append(guessCountsByGroup[participantRow.ParticipantGroupID], guessCount)
 		groupNames[participantRow.ParticipantGroupID] = participantRow.ParticipantGroupName.String
+	}
+
+	var activityMetadata struct {
+		Scoring string `json:"scoring"`
+	}
+	if err := parseJSON(resolverCtx.activity.Metadata, &activityMetadata); err != nil {
+		return nil, fmt.Errorf("parse tribe_wordle activity metadata: %w", err)
+	}
+	if activityMetadata.Scoring == WordleScoringIndividualAndTribeAverage {
+		return s.resolveWordleIndividualAndTribeAverage(ctx, resolverCtx, guessCountsByGroup, groupNames)
 	}
 
 	groupScores := make([]wordleGroupScore, 0, len(guessCountsByGroup))

@@ -132,6 +132,9 @@ func (s *Server) Router() *gin.Engine {
 	protected.GET("/instances/:instanceID/outcomes", s.listOutcomes)
 
 	protected.GET("/instances/:instanceID/leaderboard", s.leaderboard)
+	protected.GET("/instances/:instanceID/tribes", s.getTribes)
+	protected.PUT("/instances/:instanceID/tribes", s.setTribes)
+	protected.POST("/instances/:instanceID/tribe-challenges", s.recordTribeChallenge)
 	protected.GET("/instances/:instanceID/activities", s.listActivities)
 	protected.POST("/instances/:instanceID/activities", s.createActivity)
 	protected.GET("/activities/:activityID", s.getActivity)

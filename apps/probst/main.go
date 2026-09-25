@@ -413,6 +413,7 @@ func newCommand() *cobra.Command {
 		}
 		return request(c, "GET", p+"/leaderboard", nil)
 	})
+	addSeasonCommands(root, call, instancePath, &yes, &discordBotToken)
 	return root
 }
 

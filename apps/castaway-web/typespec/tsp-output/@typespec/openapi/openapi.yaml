@@ -1334,6 +1334,84 @@ paths:
                   - type: object
                     additionalProperties: {}
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/tribe-challenges:
+    post:
+      operationId: recordTribeChallenge
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/RecordTribeChallengeResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordTribeChallengeResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordTribeChallengeRequest'
+  /instances/{instanceID}/tribes:
+    get:
+      operationId: getTribes
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: at
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/TribesResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: setTribes
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/TribesResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetTribesRequest'
   /metrics:
     get:
       operationId: metrics
@@ -2839,6 +2917,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MergeAuctionResultRow'
+    RecordTribeChallengeRequest:
+      type: object
+      required:
+        - key
+        - kind
+        - winning_tribes
+        - effective_at
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 64
+        kind:
+          type: string
+          enum:
+            - immunity
+            - reward
+        winning_tribes:
+          type: array
+          items:
+            type: string
+        effective_at:
+          type: string
+          format: date-time
+    RecordTribeChallengeResponse:
+      type: object
+      required:
+        - occurrence_id
+        - awarded_count
+      properties:
+        occurrence_id:
+          type: string
+        awarded_count:
+          type: integer
+          format: int32
     ReplaceDraftRequest:
       type: object
       required:
@@ -2939,6 +3052,19 @@ components:
           type: string
         replace:
           type: boolean
+    SetTribesRequest:
+      type: object
+      required:
+        - effective_at
+        - tribes
+      properties:
+        effective_at:
+          type: string
+          format: date-time
+        tribes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TribeAssignment'
     StartAuctionLotRequest:
       type: object
       required:
@@ -2951,6 +3077,56 @@ components:
       properties:
         name:
           type: string
+    Tribe:
+      type: object
+      required:
+        - id
+        - name
+        - members
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/TribeMember'
+    TribeAssignment:
+      type: object
+      required:
+        - name
+        - participant_ids
+      properties:
+        name:
+          type: string
+        participant_ids:
+          type: array
+          items:
+            type: string
+    TribeMember:
+      type: object
+      required:
+        - participant_id
+        - name
+      properties:
+        participant_id:
+          type: string
+        name:
+          type: string
+    TribesResponse:
+      type: object
+      required:
+        - at
+        - tribes
+      properties:
+        at:
+          type: string
+          format: date-time
+        tribes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tribe'
     UpsertOutcomeRequest:
       type: object
       properties:

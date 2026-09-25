@@ -438,6 +438,46 @@ model WordleRoundParticipant {
   created_at: utcDateTime;
 }
 
+model TribeMember {
+  participant_id: string;
+  name: string;
+}
+
+model Tribe {
+  id: string;
+  name: string;
+  members: TribeMember[];
+}
+
+model TribesResponse {
+  at: utcDateTime;
+  tribes: Tribe[];
+}
+
+model TribeAssignment {
+  name: string;
+  participant_ids: string[];
+}
+
+model SetTribesRequest {
+  effective_at: utcDateTime;
+  tribes: TribeAssignment[];
+}
+
+model RecordTribeChallengeRequest {
+  @minLength(1)
+  @maxLength(64)
+  key: string;
+  kind: "immunity" | "reward";
+  winning_tribes: string[];
+  effective_at: utcDateTime;
+}
+
+model RecordTribeChallengeResponse {
+  occurrence_id: string;
+  awarded_count: int32;
+}
+
 model CreateWordleRoundRequest {
   @minLength(1)
   @maxLength(64)
@@ -1006,6 +1046,29 @@ op createWordleRound(
 } | {
   @statusCode statusCode: 200;
   ...CreateWordleRoundResponse;
+} | ErrorResponse;
+
+// --- Tribes ---
+
+@route("/instances/{instanceID}/tribes")
+@get
+op getTribes(@path instanceID: string, @query at?: utcDateTime): TribesResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/tribes")
+@put
+op setTribes(@path instanceID: string, @body body: SetTribesRequest): TribesResponse | ErrorResponse;
+
+@route("/instances/{instanceID}/tribe-challenges")
+@post
+op recordTribeChallenge(
+  @path instanceID: string,
+  @body body: RecordTribeChallengeRequest,
+): {
+  @statusCode statusCode: 201;
+  ...RecordTribeChallengeResponse;
+} | {
+  @statusCode statusCode: 200;
+  ...RecordTribeChallengeResponse;
 } | ErrorResponse;
 
 // --- Occurrence results ---

@@ -31,6 +31,8 @@
   - individual pony immunity payouts
 - support explicit service-authenticated first-admin bootstrap, API-owned Discord guild/channel-to-instance bindings with instance-admin authorization, and conflict-safe Discord player linking
 - support service-authenticated, instance-admin Wordle round creation, result entry, closure, inspection, and retry-safe public award resolution for legacy instances; enforce cutoff and block generic occurrence-write bypasses
+- let instance admins replace an instance's tribe arrangement from a point in time (start, swap, merge, split) chronologically, and award tribe immunity (+2) and reward (+1) wins to members at that time, retry-safe by key
+- support opt-in Wordle scoring of +2 for the best individual result and +1 to every member of the tribe with the best submitter average
 - support player-context write flows via linked Discord users for merge gameplay actions
 - allow instance admins to submit Stir the Pot contributions and individual pony bids on behalf of named participants
 - allow instance admins to inspect the current Stir the Pot total for a named tribe without exposing other tribes' totals

@@ -91,6 +91,33 @@ Thread reading needs `CASTAWAY_DISCORD_BOT_TOKEN` (fnox profile `castaway-discor
 - Names match exactly on full name, nickname, first name, or surname, or fuzzily when the winner is clear. Close calls (for example `An`: Ana or Thien An) are reported, never guessed.
 - The API still rejects any draft that is not every contestant exactly once.
 
+## Weekly loop
+
+Episode times come from the instance schedule (Season 51: CBS Wednesdays 8pm ET, episodes 1–13). Every write below is a dry run unless `--yes`, and repeating a `--yes` run is safe.
+
+```sh
+# Tribes: one line per tribe. The whole arrangement is replaced a minute after the episode starts,
+# so starting tribes, swaps, merges, and splits are all the same command. Players left out lose their tribe.
+printf 'Savu: Adam, Kate, Mooney\nToka: Kyle, Riley, Sarah\n' > tribes.txt
+probst tribes set --file tribes.txt --episode 2 --instance INSTANCE --yes
+probst tribes show --instance INSTANCE [--at "2026-10-07 21:00"]
+
+# Challenges: every player on a winning tribe gets +2 (immunity) or +1 (reward).
+probst challenge immunity Savu --episode 2 --instance INSTANCE --yes
+probst challenge reward Savu Toka --episode 2 --instance INSTANCE --yes   # several winners
+probst challenge reward Toka --episode 2 --key ep2-reward-2 --instance INSTANCE --yes   # second reward
+
+# Wordle: opens at the episode's start and closes at the next episode's start.
+probst wordle open --episode 2 --instance INSTANCE
+probst wordle import THREAD_URL --episode 2 --instance INSTANCE --yes   # before the next episode starts
+probst wordle submit Kate 3 --episode 2 --instance INSTANCE             # by hand; X = failed (counts as 7)
+probst wordle resolve --episode 2 --instance INSTANCE --yes             # after it closes
+```
+
+- `wordle import` reads Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected once the next episode starts, so import just before then.
+- Wordle scoring: the best individual result gets +2 (ties share). The tribe with the best average among its submitters gets +1 for every member. Players who don't submit aren't counted.
+- Challenges count the tribes as they are during the episode (an hour after it starts). Record a swap with the episode it takes effect in; changes must be made in episode order.
+
 ## Validation
 
 ```sh

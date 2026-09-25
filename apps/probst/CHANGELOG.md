@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add the weekly loop: `tribes set`/`show`, `challenge immunity|reward`, and `wordle open`/`import`/`submit`/`resolve`.
 - Add `announcement send`/`list`: queue verbatim Discord announcements (now or `--at` a scheduled time) that the Castaway bot posts with mentions disabled.
 - Add optional owner-only local JSON configuration for Probst API and Discord credentials, with environment and flag overrides.
 - Add season setup (`instance create`, `contestant list`, `player add`) and `draft import` from Discord threads or text files, with chat-tolerant parsing and dry-run review.
