@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -167,7 +168,7 @@ func TestConfigFileValidation(t *testing.T) {
 	t.Run("missing", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		cfg, err := loadConfig()
-		if err != nil || cfg != (config{}) {
+		if err != nil || !reflect.DeepEqual(cfg, config{}) {
 			t.Fatalf("optional config: %v %+v", err, cfg)
 		}
 	})
@@ -195,4 +196,29 @@ func TestConfigFileValidation(t *testing.T) {
 			t.Fatal("directory accepted")
 		}
 	})
+}
+
+func TestConfigAliases(t *testing.T) {
+	var calls []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]any{"binding": map[string]any{"instance_id": "inst-uuid"}, "leaderboard": []any{}})
+	}))
+	defer server.Close()
+	writeTestConfig(t, `{"api_url":"`+server.URL+`","discord_user_id":"1","token":"t",
+		"aliases":{"podracing":{"instance":"inst-uuid","guild":"521","channel":"1330"}}}`)
+	for _, args := range [][]string{
+		{"scores", "--instance", "podracing"},
+		{"channel", "show", "podracing", "--instance", "podracing"},
+		{"channel", "show", "999", "--guild", "7"},
+		{"scores", "--instance", "raw-uuid"},
+	} {
+		if out, err := runConfigCommand(args...); err != nil {
+			t.Fatalf("%v: %q %v", args, out, err)
+		}
+	}
+	want := "GET /instances/inst-uuid/leaderboard\nGET /discord/guilds/521/channels/1330\nGET /discord/guilds/7/channels/999\nGET /instances/raw-uuid/leaderboard"
+	if got := strings.Join(calls, "\n"); got != want {
+		t.Fatalf("calls:\n%s", got)
+	}
 }

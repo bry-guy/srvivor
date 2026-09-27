@@ -57,13 +57,14 @@ func findAnnouncement(ctx context.Context, call apiCall, instancePath, ref strin
 
 // addAnnouncementDraftCommands adds the save → edit → schedule workflow. The bot reads the text when it
 // sends, so edits apply until the moment it goes out.
-func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instancePath func() (string, error), checkBinding func(ctx context.Context, channel string) error, guild *string, yes *bool) {
+func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instancePath func() (string, error), checkBinding func(ctx context.Context, channel string) error, guild *string, yes *bool, resolveChannel func(string) string) {
 	out := func(c *cobra.Command, format string, args ...any) error {
 		_, err := fmt.Fprintf(c.OutOrStdout(), format, args...)
 		return err
 	}
 	var file string
 	save := &cobra.Command{Use: "save NAME CHANNEL", Short: "Save a draft announcement (not sent until scheduled)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, a []string) error {
+		a[1] = resolveChannel(a[1])
 		p, err := instancePath()
 		if err != nil {
 			return err
@@ -258,13 +259,14 @@ func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo str
 	return sent.ID, json.Unmarshal(body, &sent)
 }
 
-func addMessageCommand(root *cobra.Command, token *string, yes *bool) {
+func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveChannel func(string) string) {
 	var file, replyTo string
 	message := &cobra.Command{
 		Use:   "message CHANNEL [TEXT]",
 		Short: "Post a one-off message as the bot right now (not saved); dry run unless --yes",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(c *cobra.Command, a []string) error {
+			a[0] = resolveChannel(a[0])
 			var text string
 			switch {
 			case len(a) == 2 && file == "":

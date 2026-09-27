@@ -18,9 +18,14 @@ For one-time local setup, create `~/.config/probst/config.json` with owner-only 
   "api_url": "https://castaway.bry-guy.net",
   "discord_user_id": "YOUR_DISCORD_USER_ID",
   "token": "YOUR_CASTAWAY_SERVICE_TOKEN",
-  "discord_bot_token": "YOUR_DISCORD_BOT_TOKEN"
+  "discord_bot_token": "YOUR_DISCORD_BOT_TOKEN",
+  "aliases": {
+    "podracing": {"instance": "INSTANCE_UUID", "guild": "GUILD_ID", "channel": "CHANNEL_ID"}
+  }
 }
 ```
+
+An alias works anywhere `--instance` or a `CHANNEL` argument goes, and fills in `--guild` when you leave it off: `probst scores --instance podracing`, `probst message podracing "hi" --yes`.
 
 `https://castaway.bry-guy.net` is the tailnet HTTPS endpoint for the Castaway web API; routine Probst calls no longer need a port-forward. Probst does not fetch Kubernetes secrets or configure Tailscale for you. Obtain credentials through your approved secret provider; the JSON file stores them as plaintext on your machine, so prefer environment injection if that is unsuitable. Missing config files preserve the environment-only workflow. Explicit flags (`--server`, `--actor`) override environment variables, which override config fields; an explicitly empty environment value also overrides the file. HTTPS is required except on loopback. Redirects are rejected. `auth status` verifies service access and reports the asserted actor; it does not authenticate a human or prove admin access to every instance.
 

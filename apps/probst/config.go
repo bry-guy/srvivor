@@ -13,6 +13,14 @@ type config struct {
 	DiscordUserID   string `json:"discord_user_id"`
 	Token           string `json:"token"`
 	DiscordBotToken string `json:"discord_bot_token"`
+	// Aliases are friendly names usable for --instance and CHANNEL, e.g. "podracing".
+	Aliases map[string]alias `json:"aliases"`
+}
+
+type alias struct {
+	Instance string `json:"instance"`
+	Guild    string `json:"guild"`
+	Channel  string `json:"channel"`
 }
 
 func loadConfig() (config, error) {

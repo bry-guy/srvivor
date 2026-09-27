@@ -32,6 +32,17 @@ func newCommand() *cobra.Command {
 	var asJSON, yes bool
 	root := &cobra.Command{Use: "probst", Short: "Castaway operator client", SilenceUsage: true, SilenceErrors: true}
 	var token, discordBotToken string
+	var aliases map[string]alias
+	// resolveChannel turns an alias name into its channel ID (filling --guild if unset); IDs pass through.
+	resolveChannel := func(channel string) string {
+		if a, ok := aliases[channel]; ok && a.Channel != "" {
+			if guild == "" {
+				guild = a.Guild
+			}
+			return a.Channel
+		}
+		return channel
+	}
 	root.PersistentFlags().StringVar(&server, "server", "", "Castaway API URL (PROBST_API_URL)")
 	root.PersistentFlags().StringVar(&actor, "actor", "", "Admin Discord ID asserted by the trusted service")
 	root.PersistentPreRunE = func(*cobra.Command, []string) error {
@@ -47,9 +58,19 @@ func newCommand() *cobra.Command {
 		}
 		token = envOrFile("PROBST_TOKEN", cfg.Token)
 		discordBotToken = envOrFile("CASTAWAY_DISCORD_BOT_TOKEN", cfg.DiscordBotToken)
+		aliases = cfg.Aliases
+		if a, ok := aliases[instance]; ok {
+			if a.Instance == "" {
+				return fmt.Errorf("alias %q has no instance", instance)
+			}
+			instance = a.Instance
+			if guild == "" {
+				guild = a.Guild
+			}
+		}
 		return nil
 	}
-	root.PersistentFlags().StringVar(&instance, "instance", "", "Instance UUID")
+	root.PersistentFlags().StringVar(&instance, "instance", "", "Instance UUID or alias from the config file")
 	root.PersistentFlags().StringVar(&guild, "guild", "", "Discord guild ID")
 	root.PersistentFlags().StringVar(&discordUser, "discord-user", "", "Discord account to link")
 	root.PersistentFlags().BoolVar(&asJSON, "json", false, "Print machine-readable JSON")
@@ -116,6 +137,7 @@ func newCommand() *cobra.Command {
 		return "/instances/" + url.PathEscape(instance), nil
 	}
 	channelPath := func(channel string) (string, error) {
+		channel = resolveChannel(channel)
 		if guild == "" {
 			return "", fmt.Errorf("--guild is required")
 		}
@@ -344,6 +366,7 @@ func newCommand() *cobra.Command {
 	root.AddCommand(announcements)
 	var announcementFile, announcementKey, announcementAt string
 	send := &cobra.Command{Use: "send CHANNEL", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
+		a[0] = resolveChannel(a[0])
 		p, err := instancePath()
 		if err != nil {
 			return err
@@ -416,8 +439,8 @@ func newCommand() *cobra.Command {
 			return fmt.Errorf("channel is not bound to --instance")
 		}
 		return nil
-	}, &guild, &yes)
-	addMessageCommand(root, &discordBotToken, &yes)
+	}, &guild, &yes, resolveChannel)
+	addMessageCommand(root, &discordBotToken, &yes, resolveChannel)
 	add(root, "scores", 0, func(c *cobra.Command, _ []string) error {
 		p, e := instancePath()
 		if e != nil {
