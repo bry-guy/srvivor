@@ -7,6 +7,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- `/castaway scores` and `score` hide players who have not drafted.
 ### Changed
 - Restrict `/castaway` to `score [player]`, `scores`, and `draft [player]`, using API channel bindings, ephemeral public-only replies, and explicit BrainLand/Podracing guild registration.
 - Restrict registration and dispatch to the configured multi-guild allowlist without clearing globals or falling back to global registration.

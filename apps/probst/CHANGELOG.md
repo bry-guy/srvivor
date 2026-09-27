@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `episode sync --season S --episode E` pulls survivoR data for an episode and records boots and tribal challenge wins.
+- `buff PLAYER` assigns a drafted player a tribe on a balanced schedule and posts a pinged Jeff message.
+- `announcement mark-sent` records announcements you posted yourself.
+- `scores` hides players without a draft.
 - `--notify` on `message` and `announcement save`/`send` lets `<@user>` mentions ping.
 - Config `aliases` give instances and channels friendly names (`--instance podracing`); with an instance alias, `CHANNEL` defaults to its channel for `message` and `announcement save`/`send`.
 - Add draft announcements: `announcement save`/`show`/`edit`/`schedule`/`unschedule`/`delete` by name, with a readable `list`.

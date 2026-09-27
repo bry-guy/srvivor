@@ -469,5 +469,16 @@ func TestAnnouncementDraftEditAndSchedule(t *testing.T) {
 	serve("DELETE", path+"/"+id+"/schedule", "", 409)
 	serve("DELETE", path+"/"+id, "", 409)
 	serve("PUT", "/instances/"+instanceID+"/announcements/"+id+"/body", `{"body":"x"}`, 409)
+
+	// Something posted by hand can be recorded as sent so the bot never posts it.
+	manual := serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"by-hand","body":"posted myself","draft":true}`, 200).Announcement.ID
+	serve("POST", path+"/"+manual+"/sent", `{"message_id":"nope"}`, 400)
+	serve("POST", path+"/"+manual+"/sent", `{"message_id":"1552521406137372833"}`, 200)
+	serve("POST", path+"/"+manual+"/sent", `{}`, 409)
+	serve("PUT", path+"/"+manual+"/schedule", `{}`, 409)
+	var status, messageID string
+	if err := pool.QueryRow(ctx, `SELECT status, message_id FROM announcements WHERE id = $1`, manual).Scan(&status, &messageID); err != nil || status != "sent" || messageID != "1552521406137372833" {
+		t.Fatalf("marked sent: %s %s %v", status, messageID, err)
+	}
 	wordleRequireStatus(t, wordleServe(router, "PUT", path+"/"+id+"/body", `{"body":"x"}`, "draft-test", "stranger"), 403)
 }

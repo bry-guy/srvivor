@@ -1,0 +1,410 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"text/tabwriter"
+	"time"
+
+	"github.com/spf13/cobra"
+)
+
+// survivorFiles are the survivoR datasets episode sync keeps; each row carries version_season and episode.
+var survivorFiles = []string{"castaways", "boot_order", "challenge_results", "challenge_description", "episodes", "vote_history", "tribe_colours", "advantage_movement", "journeys"}
+
+type survivorEpisode struct {
+	Season  int                         `json:"season"`
+	Episode int                         `json:"episode"`
+	Fetched time.Time                   `json:"fetched_at"`
+	Tables  map[string][]map[string]any `json:"tables"`
+}
+
+// fetchSurvivorEpisode downloads survivoR's JSON and keeps the rows for one US season episode.
+// Rows with no episode (e.g. tribe_colours) are kept for the whole season.
+func fetchSurvivorEpisode(ctx context.Context, season, episode int) (survivorEpisode, error) {
+	base := os.Getenv("PROBST_SURVIVOR_URL")
+	if base == "" {
+		base = "https://raw.githubusercontent.com/doehm/survivoR/master/dev/json"
+	}
+	result := survivorEpisode{Season: season, Episode: episode, Fetched: time.Now().UTC(), Tables: map[string][]map[string]any{}}
+	client := &http.Client{Timeout: 60 * time.Second}
+	want := fmt.Sprintf("US%d", season)
+	for _, name := range survivorFiles {
+		req, err := http.NewRequestWithContext(ctx, "GET", base+"/"+name+".json", nil)
+		if err != nil {
+			return result, err
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return result, fmt.Errorf("download survivoR %s: %w", name, err)
+		}
+		var rows []map[string]any
+		err = json.NewDecoder(io.LimitReader(resp.Body, 256<<20)).Decode(&rows)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || err != nil {
+			return result, fmt.Errorf("download survivoR %s: HTTP %d %v", name, resp.StatusCode, err)
+		}
+		kept := []map[string]any{}
+		for _, row := range rows {
+			if row["version_season"] != want {
+				continue
+			}
+			if ep, ok := row["episode"].(float64); ok && int(ep) != episode {
+				continue
+			}
+			kept = append(kept, row)
+		}
+		result.Tables[name] = kept
+	}
+	return result, nil
+}
+
+type bootRow struct {
+	Name     string
+	Place    int
+	Result   string
+	Match    *contestant
+	Status   string
+	Existing string
+}
+
+type challengeRow struct {
+	ID       int
+	Kind     string // Immunity, Reward, Immunity and Reward
+	Outcome  string // Tribal, Individual, Team
+	Winners  []string
+	Awards   []string // immunity/reward kinds we score
+	Name     string
+	Existing bool
+}
+
+// bootsFromEpisode reads who left this episode and their final place (21 = first out).
+func bootsFromEpisode(data survivorEpisode, roster []*contestant) []bootRow {
+	var rows []bootRow
+	for _, c := range data.Tables["castaways"] {
+		place, _ := c["place"].(float64)
+		if place == 0 {
+			continue
+		}
+		name, _ := c["full_name"].(string)
+		result, _ := c["result"].(string)
+		row := bootRow{Name: name, Place: int(place), Result: result}
+		if match, method, note := matchName(normalize(name), roster); match != nil && method == "exact" {
+			row.Match, row.Status = match, "READY"
+		} else {
+			row.Status = strings.TrimSpace("SKIP: " + method + " " + note)
+		}
+		rows = append(rows, row)
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Place > rows[j].Place })
+	return rows
+}
+
+// challengesFromEpisode groups winners per challenge; only tribal wins are scored (+2 immunity, +1 reward).
+func challengesFromEpisode(data survivorEpisode) []challengeRow {
+	byID := map[int]*challengeRow{}
+	names := map[int]string{}
+	for _, d := range data.Tables["challenge_description"] {
+		id, _ := d["challenge_id"].(float64)
+		names[int(id)], _ = d["name"].(string)
+	}
+	for _, r := range data.Tables["challenge_results"] {
+		idf, _ := r["challenge_id"].(float64)
+		id := int(idf)
+		row := byID[id]
+		if row == nil {
+			kind, _ := r["challenge_type"].(string)
+			outcome, _ := r["outcome_type"].(string)
+			row = &challengeRow{ID: id, Kind: kind, Outcome: outcome, Name: names[id]}
+			byID[id] = row
+		}
+		if won, _ := r["won"].(float64); won == 0 {
+			continue
+		}
+		winner, _ := r["castaway"].(string)
+		if row.Outcome == "Tribal" {
+			winner, _ = r["tribe"].(string)
+		}
+		if !contains(row.Winners, winner) {
+			row.Winners = append(row.Winners, winner)
+		}
+	}
+	var rows []challengeRow
+	for _, row := range byID {
+		if row.Outcome == "Tribal" && len(row.Winners) > 0 {
+			kind := strings.ToLower(row.Kind)
+			if strings.Contains(kind, "immunity") {
+				row.Awards = append(row.Awards, "immunity")
+			}
+			if strings.Contains(kind, "reward") {
+				row.Awards = append(row.Awards, "reward")
+			}
+		}
+		rows = append(rows, *row)
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
+	return rows
+}
+
+func contains(list []string, v string) bool {
+	for _, x := range list {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
+func addEpisodeSync(root *cobra.Command, call apiCall, instancePath func() (string, error), yes *bool) {
+	episodeCmd := &cobra.Command{Use: "episode", Short: "Episode results from survivoR"}
+	root.AddCommand(episodeCmd)
+	var season, number int
+	sync := &cobra.Command{
+		Use:   "sync",
+		Short: "Download survivoR's data for an episode, save it, and record boots and tribal challenge wins; dry run unless --yes",
+		Args:  cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			if season <= 0 || number <= 0 {
+				return fmt.Errorf("--season and --episode are required")
+			}
+			p, err := instancePath()
+			if err != nil {
+				return err
+			}
+			ctx := c.Context()
+			data, err := fetchSurvivorEpisode(ctx, season, number)
+			if err != nil {
+				return err
+			}
+			if len(data.Tables["challenge_results"]) == 0 && len(data.Tables["boot_order"]) == 0 {
+				return fmt.Errorf("survivoR has no US%d episode %d data yet; try later or enter results by hand", season, number)
+			}
+			saved, err := saveSurvivorEpisode(data)
+			if err != nil {
+				return err
+			}
+			roster, err := loadRoster(ctx, call, p)
+			if err != nil {
+				return err
+			}
+			episodes, err := loadEpisodes(ctx, call, p)
+			if err != nil {
+				return err
+			}
+			ep, err := findEpisode(episodes, number)
+			if err != nil {
+				return err
+			}
+			var outcomes struct {
+				Outcomes []struct {
+					Position     int    `json:"position"`
+					ContestantID string `json:"contestant_id"`
+				} `json:"outcomes"`
+			}
+			if err := call(ctx, "GET", p+"/outcomes", nil, &outcomes); err != nil {
+				return err
+			}
+			placed := map[int]string{}
+			for _, o := range outcomes.Outcomes {
+				placed[o.Position] = o.ContestantID
+			}
+			boots := bootsFromEpisode(data, roster)
+			challenges := challengesFromEpisode(data)
+			out := c.OutOrStdout()
+			if _, err := fmt.Fprintf(out, "survivoR US%d episode %d saved to %s\n\n", season, number, saved); err != nil {
+				return err
+			}
+			table := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+			fmt.Fprintln(table, "BOOT\tPLACE\tRESULT\tSTATUS")
+			for i, b := range boots {
+				if b.Match != nil && placed[b.Place] == b.Match.ID {
+					boots[i].Status = "ALREADY RECORDED"
+				} else if b.Match != nil && placed[b.Place] != "" {
+					boots[i].Status = "SKIP: place already holds someone else; fix by hand"
+				}
+				fmt.Fprintf(table, "%s\t%d\t%s\t%s\n", b.Name, b.Place, b.Result, boots[i].Status)
+			}
+			fmt.Fprintln(table, "\nCHALLENGE\tTYPE\tWINNERS\tPOINTS")
+			for _, ch := range challenges {
+				points := "none (not a tribal win)"
+				if len(ch.Awards) > 0 {
+					points = strings.Join(ch.Awards, " + ")
+				}
+				fmt.Fprintf(table, "%d %s\t%s %s\t%s\t%s\n", ch.ID, ch.Name, ch.Outcome, ch.Kind, strings.Join(ch.Winners, ", "), points)
+			}
+			if err := table.Flush(); err != nil {
+				return err
+			}
+			if !*yes {
+				_, err := fmt.Fprintln(out, "\nDry run: nothing was recorded. Re-run with --yes to record READY boots and tribal wins.")
+				return err
+			}
+			for _, b := range boots {
+				if b.Status != "READY" {
+					continue
+				}
+				body := map[string]any{"contestant_id": b.Match.ID, "reason": fmt.Sprintf("survivoR US%d E%d", season, number)}
+				if err := call(ctx, "PUT", p+"/outcomes/"+fmt.Sprint(b.Place), body, nil); err != nil {
+					return fmt.Errorf("record %s at place %d: %w", b.Name, b.Place, err)
+				}
+				fmt.Fprintf(out, "Recorded %s at place %d.\n", b.Name, b.Place)
+			}
+			for _, ch := range challenges {
+				for _, kind := range ch.Awards {
+					key := fmt.Sprintf("survivor-ep%d-c%d-%s", number, ch.ID, kind)
+					body := map[string]any{"key": key, "kind": kind, "winning_tribes": ch.Winners, "effective_at": ep.AirsAt.Add(challengeOffset).UTC().Format(time.RFC3339)}
+					var res struct {
+						AwardedCount int `json:"awarded_count"`
+					}
+					if err := call(ctx, "POST", p+"/tribe-challenges", body, &res); err != nil {
+						return fmt.Errorf("record challenge %d %s: %w", ch.ID, kind, err)
+					}
+					fmt.Fprintf(out, "Challenge %d %s (%s): awarded %d players.\n", ch.ID, kind, strings.Join(ch.Winners, ", "), res.AwardedCount)
+				}
+			}
+			return nil
+		},
+	}
+	sync.Flags().IntVar(&season, "season", 0, "US season number, e.g. 51")
+	sync.Flags().IntVar(&number, "episode", 0, "Episode number")
+	episodeCmd.AddCommand(sync)
+}
+
+func saveSurvivorEpisode(data survivorEpisode) (string, error) {
+	dir := os.Getenv("PROBST_DATA_DIR")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		dir = filepath.Join(home, ".local", "share", "probst")
+	}
+	path := filepath.Join(dir, "survivor", fmt.Sprintf("US%d", data.Season), fmt.Sprintf("episode-%02d.json", data.Episode))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
+	}
+	encoded, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return path, os.WriteFile(path, encoded, 0o644)
+}
+
+// buffSchedule assigns tribes by draft order: uneven early (so it doesn't read as alternating) but equal
+// at every even count from 4 players on. Past 12 it continues in balanced pairs.
+var buffSchedule = []string{"Savu", "Savu", "Toka", "Toka", "Toka", "Savu", "Savu", "Toka", "Toka", "Savu", "Savu", "Toka"}
+
+func buffTribe(n int) string { // n is 1-based
+	if n <= len(buffSchedule) {
+		return buffSchedule[n-1]
+	}
+	if n%4 == 1 || n%4 == 0 {
+		return "Toka"
+	}
+	return "Savu"
+}
+
+var tribeEmoji = map[string]string{"Savu": "🟣", "Toka": "🟡"}
+
+// buffLines vary so the buff posts don't all read the same; picked by draft order, not by tribe.
+var buffLines = []string{
+	"<@%s> Your draft is in. And for that, you've earned yourself something every castaway wants: a %s **%s** buff. Wear it well.",
+	"<@%s> You made it into the game. Tonight, you join a tribe. Take this %s **%s** buff. Your new family is waiting.",
+	"<@%s> Draft received. Welcome to the Open Era. Reach in, grab a buff... it's %s **%s**.",
+	"<@%s> You've put your rankings on the line. That earns you a spot on %s **%s**. Go meet your tribe.",
+}
+
+func addBuffCommand(root *cobra.Command, call apiCall, instancePath func() (string, error), yes *bool, token *string, channel func() string) {
+	root.AddCommand(&cobra.Command{
+		Use:   "buff PLAYER",
+		Short: "Give a drafted player their tribe buff: join the next tribe in the schedule and announce it; dry run unless --yes",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, a []string) error {
+			p, err := instancePath()
+			if err != nil {
+				return err
+			}
+			ctx := c.Context()
+			players, err := loadParticipants(ctx, call, p)
+			if err != nil {
+				return err
+			}
+			target, err := findParticipant(players, a[0])
+			if err != nil {
+				return err
+			}
+			var board struct {
+				Leaderboard []struct {
+					HasDraft bool `json:"has_draft"`
+				} `json:"leaderboard"`
+			}
+			if err := call(ctx, "GET", p+"/leaderboard?participant_id="+target.ID, nil, &board); err != nil {
+				return err
+			}
+			if len(board.Leaderboard) != 1 || !board.Leaderboard[0].HasDraft {
+				return fmt.Errorf("%s hasn't submitted a draft yet; import it first", target.Name)
+			}
+			now := time.Now().UTC()
+			current, err := loadTribes(ctx, call, p, now)
+			if err != nil {
+				return err
+			}
+			count := 0
+			for _, t := range current {
+				for _, m := range t.Members {
+					if m.ParticipantID == target.ID {
+						return fmt.Errorf("%s already wears the %s buff", target.Name, t.Name)
+					}
+					count++
+				}
+			}
+			tribe := buffTribe(count + 1)
+			line := buffLines[count%len(buffLines)]
+			mention := target.DiscordUserID
+			text := fmt.Sprintf(line, mention, tribeEmoji[tribe], tribe)
+			if mention == "" {
+				text = strings.Replace(fmt.Sprintf(line, "", tribeEmoji[tribe], tribe), "<@>", "**"+target.Name+"**", 1)
+			}
+			dest := channel()
+			if dest == "" {
+				return fmt.Errorf("use an --instance alias with a channel so the buff can be announced")
+			}
+			out := c.OutOrStdout()
+			if !*yes {
+				_, err := fmt.Fprintf(out, "Dry run — %s would be player #%d on a tribe and join %s %s, then this is posted (pinging them):\n\n%s\n\nRe-run with --yes.\n", target.Name, count+1, tribeEmoji[tribe], tribe, text)
+				return err
+			}
+			assignments := []map[string]any{}
+			joined := false
+			for _, t := range current {
+				ids := []string{}
+				for _, m := range t.Members {
+					ids = append(ids, m.ParticipantID)
+				}
+				if strings.EqualFold(t.Name, tribe) {
+					ids, joined = append(ids, target.ID), true
+				}
+				assignments = append(assignments, map[string]any{"name": t.Name, "participant_ids": ids})
+			}
+			if !joined {
+				assignments = append(assignments, map[string]any{"name": tribe, "participant_ids": []string{target.ID}})
+			}
+			if err := call(ctx, "PUT", p+"/tribes", map[string]any{"effective_at": now.Format(time.RFC3339Nano), "tribes": assignments}, nil); err != nil {
+				return err
+			}
+			id, err := sendDiscordMessage(ctx, *token, dest, text, "", true)
+			if err != nil {
+				return fmt.Errorf("%s joined %s, but the announcement failed (post it by hand): %w", target.Name, tribe, err)
+			}
+			_, err = fmt.Fprintf(out, "%s joined %s %s; announced as message %s.\n", target.Name, tribeEmoji[tribe], tribe, id)
+			return err
+		},
+	})
+}

@@ -744,6 +744,15 @@ op scheduleAnnouncement(
 @delete
 op unscheduleAnnouncement(@path instanceID: string, @path announcementID: string): AnnouncementResponse | ErrorResponse;
 
+/** Record an unsent announcement as already posted (by hand) so the bot never sends it. */
+@route("/instances/{instanceID}/announcements/{announcementID}/sent")
+@post
+op markAnnouncementSent(
+  @path instanceID: string,
+  @path announcementID: string,
+  @body body: { message_id?: string },
+): AnnouncementResponse | ErrorResponse;
+
 @route("/instances/{instanceID}/announcements/{announcementID}")
 @delete
 op deleteAnnouncement(@path instanceID: string, @path announcementID: string): { deleted: string } | ErrorResponse;

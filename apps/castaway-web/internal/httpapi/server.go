@@ -90,6 +90,7 @@ func (s *Server) Router() *gin.Engine {
 	protected.PUT("/instances/:instanceID/announcements/:announcementID/schedule", s.scheduleAnnouncement)
 	protected.DELETE("/instances/:instanceID/announcements/:announcementID/schedule", s.unscheduleAnnouncement)
 	protected.DELETE("/instances/:instanceID/announcements/:announcementID", s.deleteAnnouncement)
+	protected.POST("/instances/:instanceID/announcements/:announcementID/sent", s.markAnnouncementSent)
 	protected.POST("/announcements/claim", s.claimAnnouncement)
 	protected.POST("/announcements/:announcementID/finish", s.finishAnnouncement)
 	protected.POST("/instances", s.createInstance)
@@ -1079,6 +1080,7 @@ func (s *Server) leaderboard(c *gin.Context) {
 			"bonus_points":                row.BonusPoints,
 			"total_points":                row.TotalPoints,
 			"points_available":            row.PointsAvailable,
+			"has_draft":                   len(draftsByParticipant[row.ParticipantID]) > 0,
 		})
 	}
 

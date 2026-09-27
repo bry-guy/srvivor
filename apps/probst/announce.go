@@ -180,6 +180,23 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 		}})
 	}
 	simple("unschedule NAME", "Take an announcement off the schedule and keep it as a draft", "DELETE", "/schedule", "is a draft again", false)
+	var sentMessage string
+	markSent := &cobra.Command{Use: "mark-sent NAME", Short: "Record that you posted an announcement yourself, so the bot never sends it", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
+		p, err := instancePath()
+		if err != nil {
+			return err
+		}
+		found, err := findAnnouncement(c.Context(), call, p, a[0])
+		if err != nil {
+			return err
+		}
+		if err := call(c.Context(), "POST", p+"/announcements/"+url.PathEscape(found.ID)+"/sent", map[string]string{"message_id": sentMessage}, nil); err != nil {
+			return err
+		}
+		return out(c, "%q marked sent.\n", a[0])
+	}}
+	markSent.Flags().StringVar(&sentMessage, "message", "", "Discord message ID of the post, if you have it")
+	parent.AddCommand(markSent)
 	simple("delete NAME", "Delete an unsent announcement", "DELETE", "", "deleted", true)
 
 	parent.AddCommand(&cobra.Command{Use: "list", Short: "List this instance's announcements", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {

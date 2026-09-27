@@ -94,6 +94,19 @@ type LeaderboardRow struct {
 	BonusPoints              int    `json:"bonus_points"`
 	TotalPoints              int    `json:"total_points"`
 	PointsAvailable          int    `json:"points_available"`
+	// HasDraft is nil from API versions that predate it.
+	HasDraft *bool `json:"has_draft"`
+}
+
+// Drafted drops players who haven't submitted a draft; they reappear once they do.
+func Drafted(rows []LeaderboardRow) []LeaderboardRow {
+	kept := rows[:0:0]
+	for _, row := range rows {
+		if row.HasDraft == nil || *row.HasDraft {
+			kept = append(kept, row)
+		}
+	}
+	return kept
 }
 
 func (r LeaderboardRow) Total() int {

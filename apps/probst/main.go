@@ -456,9 +456,25 @@ func newCommand() *cobra.Command {
 		if e != nil {
 			return e
 		}
-		return request(c, "GET", p+"/leaderboard", nil)
+		var result map[string]any
+		if err := call(c.Context(), "GET", p+"/leaderboard", nil, &result); err != nil {
+			return err
+		}
+		// Players who haven't drafted are hidden; they appear once they submit.
+		if rows, ok := result["leaderboard"].([]any); ok {
+			kept := []any{}
+			for _, row := range rows {
+				if r, ok := row.(map[string]any); !ok || r["has_draft"] != false {
+					kept = append(kept, row)
+				}
+			}
+			result["leaderboard"] = kept
+		}
+		return printResult(c.OutOrStdout(), result, asJSON)
 	})
 	addSeasonCommands(root, call, instancePath, &yes, &discordBotToken)
+	addEpisodeSync(root, call, instancePath, &yes)
+	addBuffCommand(root, call, instancePath, &yes, &discordBotToken, func() string { return resolveChannel("") })
 	return root
 }
 

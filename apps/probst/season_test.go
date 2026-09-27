@@ -87,3 +87,40 @@ func TestReviewWordleFile(t *testing.T) {
 		}
 	}
 }
+
+func TestBuffScheduleBalances(t *testing.T) {
+	savu := 0
+	for n := 1; n <= 40; n++ {
+		if buffTribe(n) == "Savu" {
+			savu++
+		}
+		if n%2 == 0 && n >= 4 && savu != n/2 {
+			t.Fatalf("after %d buffs Savu has %d", n, savu)
+		}
+	}
+}
+
+func TestEpisodeParsing(t *testing.T) {
+	data := survivorEpisode{Tables: map[string][]map[string]any{
+		"castaways": {
+			{"full_name": "Aaliyah Puglia", "place": 21.0, "result": "1st voted out"},
+			{"full_name": "Alexis Levine"},
+		},
+		"challenge_description": {{"challenge_id": 1.0, "name": "A Crate Wide Open"}},
+		"challenge_results": {
+			{"challenge_id": 1.0, "challenge_type": "Immunity", "outcome_type": "Tribal", "tribe": "Savu", "castaway": "Alexis", "won": 1.0},
+			{"challenge_id": 1.0, "challenge_type": "Immunity", "outcome_type": "Tribal", "tribe": "Savu", "castaway": "Ana", "won": 1.0},
+			{"challenge_id": 1.0, "challenge_type": "Immunity", "outcome_type": "Tribal", "tribe": "Toka", "castaway": "Rob", "won": 0.0},
+			{"challenge_id": 2.0, "challenge_type": "Reward", "outcome_type": "Individual", "tribe": "Toka", "castaway": "Rob", "won": 1.0},
+		},
+	}}
+	roster := newRoster([]contestant{{ID: "c1", Name: "Aaliyah Puglia"}, {ID: "c2", Name: "Alexis Levine"}})
+	boots := bootsFromEpisode(data, roster)
+	if len(boots) != 1 || boots[0].Match == nil || boots[0].Match.ID != "c1" || boots[0].Place != 21 || boots[0].Status != "READY" {
+		t.Fatalf("boots = %+v", boots)
+	}
+	ch := challengesFromEpisode(data)
+	if len(ch) != 2 || strings.Join(ch[0].Winners, ",") != "Savu" || strings.Join(ch[0].Awards, ",") != "immunity" || len(ch[1].Awards) != 0 || ch[1].Winners[0] != "Rob" {
+		t.Fatalf("challenges = %+v", ch)
+	}
+}

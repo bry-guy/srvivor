@@ -344,6 +344,18 @@ func (s *Server) editAnnouncement(c *gin.Context) {
 	s.changeUnsentAnnouncement(c, `UPDATE announcements SET body = $3`, "", "", req.Body)
 }
 
+// markAnnouncementSent records an announcement the operator posted some other way, so the bot never sends it.
+func (s *Server) markAnnouncementSent(c *gin.Context) {
+	var req struct {
+		MessageID string `json:"message_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || (req.MessageID != "" && !validAnnouncementID(req.MessageID)) {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "message_id must be a Discord message ID when given"})
+		return
+	}
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'sent', sent_at = $4, message_id = NULLIF($3, '')`, "", "", req.MessageID, s.now())
+}
+
 // deleteAnnouncement removes an announcement that hasn't been sent.
 func (s *Server) deleteAnnouncement(c *gin.Context) {
 	s.changeUnsentAnnouncement(c, `DELETE FROM announcements`, "", "")

@@ -1,9 +1,9 @@
+//go:build tools
 // +build tools
 
 package tools
 
 import (
-    _ "github.com/rakyll/gotest"
-    // other tools can be added here
+	_ "github.com/rakyll/gotest"
+	// other tools can be added here
 )
-

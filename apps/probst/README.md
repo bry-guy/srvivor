@@ -59,6 +59,7 @@ probst announcement edit NAME --instance INSTANCE --file FILE --yes
 probst announcement schedule NAME --instance INSTANCE --at "2026-10-07 19:00"   # or --yes to send now
 probst announcement unschedule NAME --instance INSTANCE                          # back to a draft
 probst announcement delete NAME --instance INSTANCE --yes
+probst announcement mark-sent NAME --instance INSTANCE [--message MESSAGE_ID]   # you posted it yourself
 
 # One-off reply as the bot, sent right away and not saved.
 probst message [CHANNEL] "The tribe has spoken." --instance INSTANCE [--reply-to MESSAGE_ID] --yes
@@ -123,6 +124,13 @@ probst challenge immunity Savu --episode 2 --instance INSTANCE --yes
 probst challenge reward Savu Toka --episode 2 --instance INSTANCE --yes   # several winners
 probst challenge reward Toka --episode 2 --key ep2-reward-2 --instance INSTANCE --yes   # second reward
 
+# After each episode: pull survivoR (usually up 2-4 days after airing), review, then record.
+probst episode sync --season 51 --episode 2 --instance INSTANCE          # preview; saves the raw data locally
+probst episode sync --season 51 --episode 2 --instance INSTANCE --yes    # records boots + tribal immunity/reward
+
+# When a player's draft is in: give them their tribe buff (join + a pinged Jeff post).
+probst buff Kate --instance INSTANCE --yes
+
 # Wordle: opens at the episode's start and closes at the next episode's start.
 probst wordle open --episode 2 --instance INSTANCE
 probst wordle import --file week2.txt --episode 2 --instance INSTANCE --yes   # before the next episode starts
@@ -133,6 +141,9 @@ probst wordle resolve --episode 2 --instance INSTANCE --yes             # after 
 
 - `wordle import --file` reads one `Player: 3` per line (`X` = failed; `#` comments and blank lines ignored; names as in `player list`). Bad lines, unknown names, and duplicates are shown as SKIP and not saved.
 - `wordle import THREAD_URL` reads text Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected once the next episode starts, so import just before then.
+- `episode sync` downloads survivoR's JSON for that episode into `~/.local/share/probst/survivor/US<season>/episode-NN.json` (castaways, boots, challenges, votes, advantages, journeys) and records each boot at its final place (21 = first out) plus +2/+1 for tribal immunity/reward wins. Individual challenges are shown but not scored. Re-running is safe; if survivoR is late, record by hand with `challenge` and the outcomes API.
+- `buff` only works for players with a draft. Tribes follow a fixed schedule by buff order (Savu, Savu, Toka, Toka, Toka, Savu, Savu, Toka, Toka, Savu, Savu, Toka, then balanced pairs), so the tribes are even at every even count from 4 players on. The message rotates between four wordings. The player joins immediately.
+- `scores` (and the bot's `/castaway scores`) hide players who haven't drafted.
 - Wordle scoring: the best individual result gets +2 (ties share). The tribe with the best average among its submitters gets +1 for every member. Players who don't submit aren't counted.
 - Challenges count the tribes as they are during the episode (an hour after it starts). Record a swap with the episode it takes effect in; changes must be made in episode order.
 

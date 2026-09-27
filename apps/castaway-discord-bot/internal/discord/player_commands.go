@@ -48,7 +48,7 @@ func (b *Bot) executePlayerCommand(ctx context.Context, interaction *discordgo.I
 		if err != nil {
 			return "", err
 		}
-		return format.Leaderboard(instance, rows), nil
+		return format.Leaderboard(instance, castaway.Drafted(rows)), nil
 	}
 	participant, err := b.castaway.GetLinkedParticipant(ctx, instance.ID, selected)
 	if err != nil {
@@ -69,12 +69,12 @@ func (b *Bot) executePlayerCommand(ctx context.Context, interaction *discordgo.I
 	if err != nil {
 		return "", err
 	}
-	for i, row := range rows {
+	for i, row := range castaway.Drafted(rows) {
 		if row.ParticipantID == participant.ID {
 			return format.SingleScore(instance, row, i+1), nil
 		}
 	}
-	return "", fmt.Errorf("no published score for this player in Season %d", instance.Season)
+	return "", fmt.Errorf("no draft submitted yet for this player in Season %d", instance.Season)
 }
 
 func (b *Bot) channelInstance(ctx context.Context, interaction *discordgo.InteractionCreate) (string, error) {

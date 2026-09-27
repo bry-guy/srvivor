@@ -528,3 +528,12 @@ func TestGetJSONReturnsTypedAPIError(t *testing.T) {
 		t.Fatalf("unexpected api error: %#v", apiErr)
 	}
 }
+
+func TestDraftedHidesPlayersWithoutDrafts(t *testing.T) {
+	yes, no := true, false
+	rows := []LeaderboardRow{{ParticipantName: "A", HasDraft: &yes}, {ParticipantName: "B", HasDraft: &no}, {ParticipantName: "C"}}
+	got := Drafted(rows)
+	if len(got) != 2 || got[0].ParticipantName != "A" || got[1].ParticipantName != "C" || len(rows) != 3 {
+		t.Fatalf("Drafted = %+v", got)
+	}
+}
