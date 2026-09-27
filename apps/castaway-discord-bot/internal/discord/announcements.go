@@ -52,7 +52,7 @@ func (b *Bot) deliverNextAnnouncement(ctx context.Context) error {
 	// 429s are retried by discordgo; other failures are not, so a lost 5xx cannot post twice.
 	message, err := b.session.ChannelMessageSendComplex(a.ChannelID, &discordgo.MessageSend{
 		Content:         a.Body,
-		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
+		AllowedMentions: allowedMentions(a.NotifyUsers),
 	}, discordgo.WithRestRetries(0))
 	if err != nil {
 		return fail(err)
@@ -62,4 +62,11 @@ func (b *Bot) deliverNextAnnouncement(ctx context.Context) error {
 	}
 	b.log.Info("announcement sent", "announcement_id", a.ID, "message_id", message.ID, "guild_id", a.GuildID, "channel_id", a.ChannelID)
 	return nil
+}
+
+func allowedMentions(notifyUsers bool) *discordgo.MessageAllowedMentions {
+	if notifyUsers {
+		return &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers}}
+	}
+	return &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
 }

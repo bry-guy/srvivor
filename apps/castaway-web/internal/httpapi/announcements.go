@@ -26,6 +26,7 @@ type announcementRecord struct {
 	DueAt       time.Time  `json:"due_at"`
 	Status      string     `json:"status"`
 	MessageID   *string    `json:"message_id"`
+	NotifyUsers bool       `json:"notify_users"`
 }
 
 func validAnnouncementID(id string) bool {
@@ -36,7 +37,7 @@ func validAnnouncementID(id string) bool {
 func scanAnnouncement(row pgx.Row) (announcementRecord, error) {
 	var a announcementRecord
 	var id, instanceID pgtype.UUID
-	err := row.Scan(&id, &instanceID, &a.GuildID, &a.ChannelID, &a.RequestKey, &a.Body, &a.ScheduledAt, &a.DueAt, &a.Status, &a.MessageID)
+	err := row.Scan(&id, &instanceID, &a.GuildID, &a.ChannelID, &a.RequestKey, &a.Body, &a.ScheduledAt, &a.DueAt, &a.Status, &a.MessageID, &a.NotifyUsers)
 	if err == nil {
 		a.ID, a.InstanceID = uuid.UUID(id.Bytes), uuid.UUID(instanceID.Bytes)
 		a.DueAt = a.DueAt.UTC()
@@ -48,7 +49,7 @@ func scanAnnouncement(row pgx.Row) (announcementRecord, error) {
 	return a, err
 }
 
-const announcementColumns = `a.id, i.public_id, a.guild_id, a.channel_id, a.request_key, a.body, a.scheduled_at, a.due_at, a.status, a.message_id`
+const announcementColumns = `a.id, i.public_id, a.guild_id, a.channel_id, a.request_key, a.body, a.scheduled_at, a.due_at, a.status, a.message_id, a.notify_users`
 
 func (s *Server) createAnnouncement(c *gin.Context) {
 	if !requireAdminService(c) {
@@ -65,6 +66,7 @@ func (s *Server) createAnnouncement(c *gin.Context) {
 		Body        string     `json:"body"`
 		ScheduledAt *time.Time `json:"scheduled_at"`
 		Draft       bool       `json:"draft"`
+		NotifyUsers bool       `json:"notify_users"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || (req.Draft && req.ScheduledAt != nil) || !validAnnouncementID(req.GuildID) || !validAnnouncementID(req.ChannelID) || len(req.RequestKey) == 0 || len(req.RequestKey) > 128 || utf8.RuneCountInString(req.Body) > 2000 || strings.TrimSpace(req.Body) == "" {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid announcement"})
@@ -109,9 +111,9 @@ func (s *Server) createAnnouncement(c *gin.Context) {
 			return
 		}
 		_, err = tx.Exec(c.Request.Context(), `
-			INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, scheduled_at, due_at, status)
-			SELECT id, $2, $3, $4, $5, $6::timestamptz, COALESCE($6::timestamptz, $7::timestamptz), CASE WHEN $8::boolean THEN 'draft' ELSE 'pending' END FROM instances WHERE public_id = $1
-			ON CONFLICT (instance_id, request_key) DO NOTHING`, toPGUUID(instanceID), req.GuildID, req.ChannelID, req.RequestKey, req.Body, req.ScheduledAt, s.now(), req.Draft)
+			INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, scheduled_at, due_at, status, notify_users)
+			SELECT id, $2, $3, $4, $5, $6::timestamptz, COALESCE($6::timestamptz, $7::timestamptz), CASE WHEN $8::boolean THEN 'draft' ELSE 'pending' END, $9 FROM instances WHERE public_id = $1
+			ON CONFLICT (instance_id, request_key) DO NOTHING`, toPGUUID(instanceID), req.GuildID, req.ChannelID, req.RequestKey, req.Body, req.ScheduledAt, s.now(), req.Draft, req.NotifyUsers)
 		if err == nil {
 			a, err = scanAnnouncement(tx.QueryRow(c.Request.Context(), `SELECT `+announcementColumns+` FROM announcements a JOIN instances i ON i.id = a.instance_id WHERE i.public_id = $1 AND a.request_key = $2`, toPGUUID(instanceID), req.RequestKey))
 		}
@@ -120,7 +122,7 @@ func (s *Server) createAnnouncement(c *gin.Context) {
 		writeAnnouncementError(c, err)
 		return
 	}
-	if a.GuildID != req.GuildID || a.ChannelID != req.ChannelID || a.Body != req.Body || (a.Status == "draft") != req.Draft || (a.ScheduledAt == nil) != (req.ScheduledAt == nil) || (a.ScheduledAt != nil && !a.ScheduledAt.Equal(*req.ScheduledAt)) {
+	if a.GuildID != req.GuildID || a.ChannelID != req.ChannelID || a.Body != req.Body || (a.Status == "draft") != req.Draft || a.NotifyUsers != req.NotifyUsers || (a.ScheduledAt == nil) != (req.ScheduledAt == nil) || (a.ScheduledAt != nil && !a.ScheduledAt.Equal(*req.ScheduledAt)) {
 		c.JSON(http.StatusConflict, errorResponse{Error: "request_key already used with different announcement"})
 		return
 	}

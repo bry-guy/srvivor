@@ -11,6 +11,8 @@ type Announcement struct {
 	GuildID    string `json:"guild_id"`
 	ChannelID  string `json:"channel_id"`
 	Body       string `json:"body"`
+	// NotifyUsers lets <@user> mentions ping; @everyone and roles never do.
+	NotifyUsers bool `json:"notify_users"`
 }
 
 func (c *Client) ClaimAnnouncement(ctx context.Context, guildIDs []string) (*Announcement, error) {

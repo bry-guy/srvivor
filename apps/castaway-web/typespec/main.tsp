@@ -664,6 +664,7 @@ model Announcement {
   due_at: utcDateTime;
   status: string;
   message_id: string | null;
+  notify_users: boolean;
 }
 
 model CreateAnnouncementRequest {
@@ -674,6 +675,8 @@ model CreateAnnouncementRequest {
   scheduled_at?: utcDateTime;
   /** Save without sending; schedule it later. Cannot be combined with scheduled_at. */
   draft?: boolean;
+  /** Let <@user> mentions notify (never @everyone or roles). Defaults to false. */
+  notify_users?: boolean;
 }
 
 model AnnouncementResponse { announcement: Announcement; }

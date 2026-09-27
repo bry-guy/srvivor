@@ -63,6 +63,7 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 		return err
 	}
 	var file string
+	var notify bool
 	save := &cobra.Command{Use: "save NAME [CHANNEL]", Short: "Save a draft announcement (not sent until scheduled)", Args: cobra.RangeArgs(1, 2), RunE: func(c *cobra.Command, a []string) error {
 		a = []string{a[0], resolveChannel(strings.Join(a[1:], ""))}
 		if a[1] == "" {
@@ -80,15 +81,16 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 			return err
 		}
 		if !*yes {
-			return out(c, "Dry run — draft %q for channel %s:\n\n%s\n\nRe-run with --yes to save it.\n", a[0], a[1], text)
+			return out(c, "Dry run — draft %q for channel %s (%s):\n\n%s\n\nRe-run with --yes to save it.\n", a[0], a[1], mentionNote(notify), text)
 		}
-		body := map[string]any{"guild_id": *guild, "channel_id": a[1], "request_key": a[0], "body": text, "draft": true}
+		body := map[string]any{"guild_id": *guild, "channel_id": a[1], "request_key": a[0], "body": text, "draft": true, "notify_users": notify}
 		if err := call(c.Context(), "POST", p+"/announcements", body, nil); err != nil {
 			return fmt.Errorf("%w (to change a saved draft, use `announcement edit`)", err)
 		}
 		return out(c, "Saved draft %q. Schedule it with `probst announcement schedule %s --at ...`.\n", a[0], a[0])
 	}}
 	save.Flags().StringVar(&file, "file", "", "UTF-8 Markdown file with the announcement text")
+	save.Flags().BoolVar(&notify, "notify", false, "Let <@user> mentions ping those players (never @everyone or roles)")
 	parent.AddCommand(save)
 
 	edit := &cobra.Command{Use: "edit NAME", Short: "Replace an unsent announcement's text", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
@@ -221,7 +223,14 @@ func describeStatus(a announcement) string {
 }
 
 // sendDiscordMessage posts text as the bot straight to Discord, without saving it. Mentions render but never notify.
-func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo string) (string, error) {
+func mentionNote(notify bool) string {
+	if notify {
+		return "<@user> mentions WILL ping those players"
+	}
+	return "mentions will not notify"
+}
+
+func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo string, notify bool) (string, error) {
 	if token == "" {
 		return "", fmt.Errorf("set CASTAWAY_DISCORD_BOT_TOKEN (or discord_bot_token in the config file) to post to Discord")
 	}
@@ -229,7 +238,11 @@ func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo str
 	if base == "" {
 		base = "https://discord.com/api/v10"
 	}
-	payload := map[string]any{"content": text, "allowed_mentions": map[string]any{"parse": []string{}}}
+	parse := []string{}
+	if notify {
+		parse = []string{"users"}
+	}
+	payload := map[string]any{"content": text, "allowed_mentions": map[string]any{"parse": parse}}
 	if replyTo != "" {
 		payload["message_reference"] = map[string]any{"message_id": replyTo, "fail_if_not_exists": false}
 	}
@@ -264,6 +277,7 @@ func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo str
 
 func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveChannel func(string) string) {
 	var file, replyTo string
+	var notify bool
 	message := &cobra.Command{
 		Use:   "message [CHANNEL] [TEXT]",
 		Short: "Post a one-off message as the bot right now (not saved); dry run unless --yes. CHANNEL defaults to the --instance alias's channel",
@@ -293,10 +307,10 @@ func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveCha
 				return fmt.Errorf("message must be nonblank and at most 2000 characters")
 			}
 			if !*yes {
-				_, err := fmt.Fprintf(c.OutOrStdout(), "Dry run — channel %s (mentions will not notify):\n\n%s\n\nRe-run with --yes to post it.\n", a[0], text)
+				_, err := fmt.Fprintf(c.OutOrStdout(), "Dry run — channel %s (%s):\n\n%s\n\nRe-run with --yes to post it.\n", a[0], mentionNote(notify), text)
 				return err
 			}
-			id, err := sendDiscordMessage(c.Context(), *token, a[0], text, replyTo)
+			id, err := sendDiscordMessage(c.Context(), *token, a[0], text, replyTo, notify)
 			if err != nil {
 				return err
 			}
@@ -305,6 +319,7 @@ func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveCha
 		},
 	}
 	message.Flags().StringVar(&file, "file", "", "UTF-8 Markdown file to post")
+	message.Flags().BoolVar(&notify, "notify", false, "Let <@user> mentions ping those players (never @everyone or roles)")
 	message.Flags().StringVar(&replyTo, "reply-to", "", "Discord message ID to reply to")
 	root.AddCommand(message)
 }

@@ -33,8 +33,10 @@ func TestAnnouncementBotDelivery(t *testing.T) {
 		wantFailed  bool
 		wantSends   int
 		wantMessage string
+		notifyUsers bool
 	}{
 		{name: "sent with mentions suppressed", guild: "101", discord: []int{200}, wantSends: 1, wantMessage: "123456"},
+		{name: "notify_users lets user mentions ping", guild: "101", discord: []int{200}, wantSends: 1, wantMessage: "123456", notifyUsers: true},
 		{name: "rate limit is retried by discordgo", guild: "101", discord: []int{429, 200}, wantSends: 2, wantMessage: "123456"},
 		{name: "lost response fails without resend", guild: "101", discord: []int{0}, wantErr: true, wantFailed: true, wantSends: 1},
 		{name: "bad gateway fails without resend", guild: "101", discord: []int{502}, wantErr: true, wantFailed: true, wantSends: 1},
@@ -57,7 +59,7 @@ func TestAnnouncementBotDelivery(t *testing.T) {
 					claims++
 					var announcement any
 					if claims == 1 {
-						announcement = map[string]any{"id": "a", "instance_id": "i", "guild_id": tc.guild, "channel_id": "201", "body": "Hi <@456>"}
+						announcement = map[string]any{"id": "a", "instance_id": "i", "guild_id": tc.guild, "channel_id": "201", "body": "Hi <@456>", "notify_users": tc.notifyUsers}
 					}
 					err = json.NewEncoder(w).Encode(map[string]any{"announcement": announcement})
 				case "/discord/guilds/101/channels/201":
@@ -98,7 +100,7 @@ func TestAnnouncementBotDelivery(t *testing.T) {
 						Parse []string `json:"parse"`
 					} `json:"allowed_mentions"`
 				}
-				if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Content != "Hi <@456>" || body.AllowedMentions.Parse == nil || len(body.AllowedMentions.Parse) != 0 {
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Content != "Hi <@456>" || body.AllowedMentions.Parse == nil || strings.Join(body.AllowedMentions.Parse, ",") != map[bool]string{true: "users"}[tc.notifyUsers] {
 					t.Errorf("unsafe Discord payload: %+v %v", body, err)
 				}
 				status := tc.discord[sends]

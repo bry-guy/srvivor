@@ -403,9 +403,10 @@ func TestAnnouncementDraftEditAndSchedule(t *testing.T) {
 	router := httpapi.New(pool, httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"draft-test"}})).Router()
 	type result struct {
 		Announcement *struct {
-			ID     string `json:"id"`
-			Body   string `json:"body"`
-			Status string `json:"status"`
+			ID          string `json:"id"`
+			Body        string `json:"body"`
+			Status      string `json:"status"`
+			NotifyUsers bool   `json:"notify_users"`
 		} `json:"announcement"`
 	}
 	serve := func(method, path, body string, want int) result {
@@ -437,6 +438,10 @@ func TestAnnouncementDraftEditAndSchedule(t *testing.T) {
 	}
 	serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"kickoff","body":"v1","draft":true}`, 200)
 	serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"kickoff","body":"v1"}`, 409)
+	serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"kickoff","body":"v1","draft":true,"notify_users":true}`, 409)
+	if pinged := serve("POST", path, `{"guild_id":"7791","channel_id":"7792","request_key":"ping","body":"<@1>","draft":true,"notify_users":true}`, 200); !pinged.Announcement.NotifyUsers || created.Announcement.NotifyUsers {
+		t.Fatalf("notify_users not stored: %+v / %+v", pinged.Announcement, created.Announcement)
+	}
 	if body := claimedBody(); body != "" {
 		t.Fatalf("draft was claimed: %v", body)
 	}

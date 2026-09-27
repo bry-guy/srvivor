@@ -370,6 +370,7 @@ func newCommand() *cobra.Command {
 	announcements := &cobra.Command{Use: "announcement"}
 	root.AddCommand(announcements)
 	var announcementFile, announcementKey, announcementAt string
+	var notify bool
 	send := &cobra.Command{Use: "send [CHANNEL]", Args: cobra.MaximumNArgs(1), RunE: func(c *cobra.Command, a []string) error {
 		a = []string{resolveChannel(strings.Join(a, ""))}
 		if a[0] == "" {
@@ -404,7 +405,7 @@ func newCommand() *cobra.Command {
 		if bound.Binding.InstanceID != instance {
 			return fmt.Errorf("channel is not bound to --instance")
 		}
-		body := map[string]any{"guild_id": guild, "channel_id": a[0], "body": string(data)}
+		body := map[string]any{"guild_id": guild, "channel_id": a[0], "body": string(data), "notify_users": notify}
 		when := "now"
 		if announcementAt != "" {
 			at, err := parseAnnouncementTime(announcementAt)
@@ -421,13 +422,14 @@ func newCommand() *cobra.Command {
 		}
 		body["request_key"] = key
 		if !yes {
-			_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — instance %s, guild %s, channel %s, send %s, request key %s (mentions will not notify):\n\n%s\n\nRe-run with --yes to enqueue.\n", instance, guild, a[0], when, key, data)
+			_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — instance %s, guild %s, channel %s, send %s, request key %s (%s):\n\n%s\n\nRe-run with --yes to enqueue.\n", instance, guild, a[0], when, key, mentionNote(notify), data)
 			return err
 		}
 		return request(c, "POST", p+"/announcements", body)
 	}}
 	send.Flags().StringVar(&announcementFile, "file", "", "UTF-8 Markdown file to send verbatim")
 	send.Flags().StringVar(&announcementKey, "key", "", "Stable request key (defaults to a hash of target, time, and content)")
+	send.Flags().BoolVar(&notify, "notify", false, "Let <@user> mentions ping those players (never @everyone or roles)")
 	send.Flags().StringVar(&announcementAt, "at", "", `Send later: "2006-01-02 15:04" in America/New_York, or RFC3339`)
 	announcements.AddCommand(send)
 	addAnnouncementDraftCommands(announcements, call, instancePath, func(ctx context.Context, channel string) error {

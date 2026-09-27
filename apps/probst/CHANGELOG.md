@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `--notify` on `message` and `announcement save`/`send` lets `<@user>` mentions ping.
 - Config `aliases` give instances and channels friendly names (`--instance podracing`); with an instance alias, `CHANNEL` defaults to its channel for `message` and `announcement save`/`send`.
 - Add draft announcements: `announcement save`/`show`/`edit`/`schedule`/`unschedule`/`delete` by name, with a readable `list`.
 - Add `message` for one-off, unsaved bot posts (optionally as a reply).

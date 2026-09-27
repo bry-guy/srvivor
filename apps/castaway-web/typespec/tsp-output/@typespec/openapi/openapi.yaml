@@ -1857,6 +1857,7 @@ components:
         - due_at
         - status
         - message_id
+        - notify_users
       properties:
         id:
           type: string
@@ -1882,6 +1883,8 @@ components:
         message_id:
           type: string
           nullable: true
+        notify_users:
+          type: boolean
     AnnouncementListResponse:
       type: object
       required:
@@ -2051,6 +2054,9 @@ components:
         draft:
           type: boolean
           description: Save without sending; schedule it later. Cannot be combined with scheduled_at.
+        notify_users:
+          type: boolean
+          description: Let <
     CreateContestantRequest:
       type: object
       required:
