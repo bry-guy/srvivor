@@ -63,8 +63,11 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 		return err
 	}
 	var file string
-	save := &cobra.Command{Use: "save NAME CHANNEL", Short: "Save a draft announcement (not sent until scheduled)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, a []string) error {
-		a[1] = resolveChannel(a[1])
+	save := &cobra.Command{Use: "save NAME [CHANNEL]", Short: "Save a draft announcement (not sent until scheduled)", Args: cobra.RangeArgs(1, 2), RunE: func(c *cobra.Command, a []string) error {
+		a = []string{a[0], resolveChannel(strings.Join(a[1:], ""))}
+		if a[1] == "" {
+			return fmt.Errorf("give a CHANNEL, or an --instance alias that has one")
+		}
 		p, err := instancePath()
 		if err != nil {
 			return err
@@ -262,16 +265,18 @@ func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo str
 func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveChannel func(string) string) {
 	var file, replyTo string
 	message := &cobra.Command{
-		Use:   "message CHANNEL [TEXT]",
-		Short: "Post a one-off message as the bot right now (not saved); dry run unless --yes",
-		Args:  cobra.RangeArgs(1, 2),
+		Use:   "message [CHANNEL] [TEXT]",
+		Short: "Post a one-off message as the bot right now (not saved); dry run unless --yes. CHANNEL defaults to the --instance alias's channel",
+		Args:  cobra.MaximumNArgs(2),
 		RunE: func(c *cobra.Command, a []string) error {
-			a[0] = resolveChannel(a[0])
-			var text string
+			var channel, text string
 			switch {
 			case len(a) == 2 && file == "":
-				text = a[1]
-			case len(a) == 1 && file != "":
+				channel, text = a[0], a[1]
+			case len(a) == 1 && file == "":
+				text = a[0]
+			case len(a) <= 1 && file != "":
+				channel = strings.Join(a, "")
 				var err error
 				if text, err = readMessageFile(file); err != nil {
 					return err
@@ -279,6 +284,11 @@ func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveCha
 			default:
 				return fmt.Errorf("give the TEXT or --file, not both")
 			}
+			channel = resolveChannel(channel)
+			if channel == "" {
+				return fmt.Errorf("give a CHANNEL, or an --instance alias that has one")
+			}
+			a = []string{channel}
 			if strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > 2000 {
 				return fmt.Errorf("message must be nonblank and at most 2000 characters")
 			}

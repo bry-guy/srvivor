@@ -222,3 +222,44 @@ func TestConfigAliases(t *testing.T) {
 		t.Fatalf("calls:\n%s", got)
 	}
 }
+
+func TestInstanceAliasSuppliesChannel(t *testing.T) {
+	var calls []string
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]any{"binding": map[string]any{"instance_id": "inst-uuid"}, "announcement": map[string]any{"id": "a"}})
+	}))
+	defer api.Close()
+	discord := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, "discord "+r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "9"})
+	}))
+	defer discord.Close()
+	t.Setenv("PROBST_DISCORD_API_URL", discord.URL)
+	writeTestConfig(t, `{"api_url":"`+api.URL+`","discord_user_id":"1","token":"t","discord_bot_token":"b",
+		"aliases":{"podracing":{"instance":"inst-uuid","guild":"521","channel":"1330"}}}`)
+	file := filepath.Join(t.TempDir(), "a.md")
+	if err := os.WriteFile(file, []byte("hello"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"message", "hi", "--instance", "podracing", "--yes"},
+		{"message", "777", "hi", "--instance", "podracing", "--yes"},
+		{"message", "--file", file, "--instance", "podracing", "--yes"},
+		{"announcement", "save", "week-2", "--file", file, "--instance", "podracing", "--yes"},
+		{"announcement", "send", "--file", file, "--instance", "podracing", "--yes"},
+	} {
+		if out, err := runConfigCommand(args...); err != nil {
+			t.Fatalf("%v: %q %v", args, out, err)
+		}
+	}
+	want := "discord /channels/1330/messages\ndiscord /channels/777/messages\ndiscord /channels/1330/messages\n" +
+		"GET /discord/guilds/521/channels/1330\nPOST /instances/inst-uuid/announcements\n" +
+		"GET /discord/guilds/521/channels/1330\nPOST /instances/inst-uuid/announcements"
+	if got := strings.Join(calls, "\n"); got != want {
+		t.Fatalf("calls:\n%s", got)
+	}
+	if _, err := runConfigCommand("message", "hi", "--instance", "raw-uuid", "--yes"); err == nil || !strings.Contains(err.Error(), "CHANNEL") {
+		t.Fatalf("no channel should be an error: %v", err)
+	}
+}

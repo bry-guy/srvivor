@@ -33,8 +33,12 @@ func newCommand() *cobra.Command {
 	root := &cobra.Command{Use: "probst", Short: "Castaway operator client", SilenceUsage: true, SilenceErrors: true}
 	var token, discordBotToken string
 	var aliases map[string]alias
+	var defaultChannel string // the --instance alias's channel, used when CHANNEL is omitted
 	// resolveChannel turns an alias name into its channel ID (filling --guild if unset); IDs pass through.
 	resolveChannel := func(channel string) string {
+		if channel == "" {
+			return defaultChannel
+		}
 		if a, ok := aliases[channel]; ok && a.Channel != "" {
 			if guild == "" {
 				guild = a.Guild
@@ -64,6 +68,7 @@ func newCommand() *cobra.Command {
 				return fmt.Errorf("alias %q has no instance", instance)
 			}
 			instance = a.Instance
+			defaultChannel = a.Channel
 			if guild == "" {
 				guild = a.Guild
 			}
@@ -365,8 +370,11 @@ func newCommand() *cobra.Command {
 	announcements := &cobra.Command{Use: "announcement"}
 	root.AddCommand(announcements)
 	var announcementFile, announcementKey, announcementAt string
-	send := &cobra.Command{Use: "send CHANNEL", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
-		a[0] = resolveChannel(a[0])
+	send := &cobra.Command{Use: "send [CHANNEL]", Args: cobra.MaximumNArgs(1), RunE: func(c *cobra.Command, a []string) error {
+		a = []string{resolveChannel(strings.Join(a, ""))}
+		if a[0] == "" {
+			return fmt.Errorf("give a CHANNEL, or an --instance alias that has one")
+		}
 		p, err := instancePath()
 		if err != nil {
 			return err

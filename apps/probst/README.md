@@ -25,7 +25,7 @@ For one-time local setup, create `~/.config/probst/config.json` with owner-only 
 }
 ```
 
-An alias works anywhere `--instance` or a `CHANNEL` argument goes, and fills in `--guild` when you leave it off: `probst scores --instance podracing`, `probst message podracing "hi" --yes`.
+An alias works anywhere `--instance` or a `CHANNEL` argument goes and fills in `--guild`. With an `--instance` alias, `CHANNEL` is optional and defaults to the alias's channel: `probst message "hi" --instance podracing --yes`, `probst announcement save week-2 --file week2.md --instance podracing --yes`.
 
 `https://castaway.bry-guy.net` is the tailnet HTTPS endpoint for the Castaway web API; routine Probst calls no longer need a port-forward. Probst does not fetch Kubernetes secrets or configure Tailscale for you. Obtain credentials through your approved secret provider; the JSON file stores them as plaintext on your machine, so prefer environment injection if that is unsuitable. Missing config files preserve the environment-only workflow. Explicit flags (`--server`, `--actor`) override environment variables, which override config fields; an explicitly empty environment value also overrides the file. HTTPS is required except on loopback. Redirects are rejected. `auth status` verifies service access and reports the asserted actor; it does not authenticate a human or prove admin access to every instance.
 
@@ -53,7 +53,7 @@ probst announcement send CHANNEL --guild GUILD --instance INSTANCE --file FILE [
 probst announcement list --instance INSTANCE
 
 # Drafts: save once, edit freely, schedule when ready. NAME is yours to pick (e.g. week-2-results).
-probst announcement save NAME CHANNEL --guild GUILD --instance INSTANCE --file FILE --yes
+probst announcement save NAME [CHANNEL] --instance INSTANCE --file FILE --yes
 probst announcement show NAME --instance INSTANCE
 probst announcement edit NAME --instance INSTANCE --file FILE --yes
 probst announcement schedule NAME --instance INSTANCE --at "2026-10-07 19:00"   # or --yes to send now
@@ -61,7 +61,7 @@ probst announcement unschedule NAME --instance INSTANCE                         
 probst announcement delete NAME --instance INSTANCE --yes
 
 # One-off reply as the bot, sent right away and not saved.
-probst message CHANNEL "The tribe has spoken." [--reply-to MESSAGE_ID] --yes
+probst message [CHANNEL] "The tribe has spoken." --instance INSTANCE [--reply-to MESSAGE_ID] --yes
 ```
 
 Use `--json` for machine-readable output. `--server` and `--actor` override configuration. A channel rebind requires `--yes` and API admin authorization over both instances. Player identity replacement requires explicit unlinking first; conflicts never silently transfer identities.
