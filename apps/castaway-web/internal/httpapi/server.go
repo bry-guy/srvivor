@@ -127,6 +127,10 @@ func (s *Server) Router() *gin.Engine {
 	protected.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
 	protected.POST("/instances/:instanceID/draft-submissions", s.openDraftSubmissions)
 	protected.POST("/instances/:instanceID/draft-submissions/close", s.closeDraftSubmissions)
+	protected.PUT("/instances/:instanceID/draft-submissions/thread", s.watchDraftThread)
+	protected.POST("/instances/:instanceID/draft-submissions/:participantID/reject", s.rejectDraftSubmission)
+	protected.GET("/draft-threads", s.listDraftThreads)
+	protected.POST("/draft-threads/:threadID/messages", s.receiveDraftThreadMessage)
 	protected.POST("/instances/:instanceID/drafts/:participantID/late", s.acceptLateDraft)
 	protected.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)
 	protected.POST("/instances/:instanceID/progression/draft/open", s.openDraft)
@@ -750,27 +754,9 @@ func (s *Server) replaceDraft(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
-	if err := qtx.DeleteDraftPicksForParticipant(c.Request.Context(), toPGUUID(participantID)); err != nil {
-		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+	if _, err := saveDraftPicks(c.Request.Context(), qtx, instanceID, toPGUUID(participantID), contestantUUIDs); err != nil {
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
 		return
-	}
-
-	for i, contestantID := range contestantUUIDs {
-		position, err := conv.ToInt32(i + 1)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
-			return
-		}
-		_, err = qtx.CreateDraftPick(c.Request.Context(), db.CreateDraftPickParams{
-			InstanceID:    toPGUUID(instanceID),
-			ParticipantID: toPGUUID(participantID),
-			ContestantID:  toPGUUID(contestantID),
-			Position:      position,
-		})
-		if err != nil {
-			c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
-			return
-		}
 	}
 
 	submission, err := s.recordDraftSubmission(c.Request.Context(), tx, qtx, instanceID, toPGUUID(participantID))
@@ -2120,4 +2106,32 @@ func statusFromPg(err error) int {
 		}
 	}
 	return http.StatusInternalServerError
+}
+
+// saveDraftPicks replaces a participant's picks and reports whether they changed.
+func saveDraftPicks(ctx context.Context, q *db.Queries, instanceID uuid.UUID, participantID pgtype.UUID, contestantIDs []uuid.UUID) (bool, error) {
+	existing, err := q.ListDraftPicksForParticipant(ctx, participantID)
+	if err != nil {
+		return false, err
+	}
+	changed := len(existing) != len(contestantIDs)
+	for i := 0; !changed && i < len(existing); i++ {
+		changed = uuid.UUID(existing[i].ContestantID.Bytes) != contestantIDs[i] || int(existing[i].Position) != i+1
+	}
+	if !changed {
+		return false, nil
+	}
+	if err := q.DeleteDraftPicksForParticipant(ctx, participantID); err != nil {
+		return false, err
+	}
+	for i, contestantID := range contestantIDs {
+		position, err := conv.ToInt32(i + 1)
+		if err != nil {
+			return false, err
+		}
+		if _, err := q.CreateDraftPick(ctx, db.CreateDraftPickParams{InstanceID: toPGUUID(instanceID), ParticipantID: participantID, ContestantID: toPGUUID(contestantID), Position: position}); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }

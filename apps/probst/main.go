@@ -328,6 +328,50 @@ func newCommand() *cobra.Command {
 			return request(c, "POST", p+"/draft-submissions/close", nil)
 		},
 	})
+	drafts.AddCommand(&cobra.Command{
+		Use:   "watch THREAD_URL",
+		Short: "Have the bot read drafts posted in a thread: complete drafts save, problems DM the admin",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, a []string) error {
+			p, e := instancePath()
+			if e != nil {
+				return e
+			}
+			thread, e := threadChannelID(a[0])
+			if e != nil {
+				return e
+			}
+			if !yes {
+				_, e = fmt.Fprintf(c.OutOrStdout(), "Dry run — the bot would watch thread %s: new drafts there save (and post) automatically. Re-run with --yes.\n", thread)
+				return e
+			}
+			return request(c, "PUT", p+"/draft-submissions/thread", map[string]string{"thread_id": thread})
+		},
+	})
+	drafts.AddCommand(&cobra.Command{
+		Use:   "reject PLAYER",
+		Short: "Drop a player's incomplete draft submission; they lose their submission order",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, a []string) error {
+			p, e := instancePath()
+			if e != nil {
+				return e
+			}
+			players, e := loadParticipants(c.Context(), call, p)
+			if e != nil {
+				return e
+			}
+			target, e := findParticipant(players, a[0])
+			if e != nil {
+				return e
+			}
+			if !yes {
+				_, e = fmt.Fprintf(c.OutOrStdout(), "Dry run — would reject %s's pending draft; their next draft goes to the back of the line. Re-run with --yes.\n", target.Name)
+				return e
+			}
+			return request(c, "POST", p+"/draft-submissions/"+url.PathEscape(target.ID)+"/reject", nil)
+		},
+	})
 	var draftFile, draftParticipant, before string
 	var verbose bool
 	importCmd := &cobra.Command{

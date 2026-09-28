@@ -21,6 +21,7 @@ type Bot struct {
 	castaway *castaway.Client
 	state    state.Store
 	session  *discordgo.Session
+	drafts   draftThreads
 }
 
 func New(cfg *config.Config, client *castaway.Client, store state.Store, logger *slog.Logger) (*Bot, error) {
@@ -28,7 +29,7 @@ func New(cfg *config.Config, client *castaway.Client, store state.Store, logger 
 	if err != nil {
 		return nil, fmt.Errorf("create discord session: %w", err)
 	}
-	session.Identify.Intents = discordgo.IntentsGuilds
+	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 
 	bot := &Bot{
 		appID:                 cfg.DiscordApplicationID,
@@ -42,6 +43,8 @@ func New(cfg *config.Config, client *castaway.Client, store state.Store, logger 
 	}
 
 	session.AddHandler(bot.handleInteraction)
+	session.AddHandler(bot.onMessageCreate)
+	session.AddHandler(bot.onMessageUpdate)
 	return bot, nil
 }
 
@@ -64,6 +67,7 @@ func (b *Bot) Start(ctx context.Context) error {
 	}()
 
 	go b.pollAnnouncements(ctx)
+	go b.watchDraftThreads(ctx)
 
 	botDiscordGatewayConnected.Set(1)
 	b.log.Info("discord session opened", "command_scope", commandScope)

@@ -219,6 +219,93 @@ paths:
                     type: boolean
                 required:
                   - unbound
+  /draft-threads:
+    get:
+      operationId: listDraftThreads
+      description: Threads the bot watches for draft posts.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      threads:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            instance_id:
+                              type: string
+                            thread_id:
+                              type: string
+                          required:
+                            - instance_id
+                            - thread_id
+                    required:
+                      - threads
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /draft-threads/{threadID}/messages:
+    post:
+      operationId: receiveDraftThreadMessage
+      description: 'One post (version) from a watched thread: ignored, duplicate, saved, unchanged, or problem (DM the admin).'
+      parameters:
+        - name: threadID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                      instance_id:
+                        type: string
+                      player:
+                        type: string
+                      participant_id:
+                        type: string
+                      problems:
+                        type: array
+                        items:
+                          type: string
+                      submission:
+                        type: object
+                        additionalProperties: {}
+                    required:
+                      - status
+                      - instance_id
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_id:
+                  type: string
+                version:
+                  type: string
+                author_discord_user_id:
+                  type: string
+                content:
+                  type: string
+              required:
+                - message_id
+                - version
+                - author_discord_user_id
+                - content
   /healthz:
     get:
       operationId: healthz
@@ -772,6 +859,74 @@ paths:
                         additionalProperties: {}
                     required:
                       - status
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/draft-submissions/thread:
+    put:
+      operationId: watchDraftThread
+      description: Watch a Discord thread for draft posts (requires draft submissions to be open).
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      thread_id:
+                        type: string
+                    required:
+                      - thread_id
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                thread_id:
+                  type: string
+              required:
+                - thread_id
+  /instances/{instanceID}/draft-submissions/{participantID}/reject:
+    post:
+      operationId: rejectDraftSubmission
+      description: Drop a player's pending (incomplete) draft submission; they lose their submission order.
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                      order:
+                        type: integer
+                        format: int32
+                    required:
+                      - status
+                      - order
                   - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/drafts/{participantID}:
     put:

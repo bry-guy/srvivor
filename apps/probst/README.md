@@ -130,6 +130,9 @@ probst episode sync --season 51 --episode 2 --instance INSTANCE --yes    # recor
 
 # Draft events: open once before the first import, close when drafts are due.
 probst draft open --tribes Savu,Toka --instance INSTANCE --yes
+probst draft watch THREAD_URL --instance INSTANCE --yes   # bot reads drafts posted there
+probst draft import --file fixed.txt --participant Kate --instance INSTANCE --yes   # fix a problem draft for a player
+probst draft reject Kate --instance INSTANCE --yes        # or drop it; they lose their spot
 probst draft close --instance INSTANCE --yes
 
 # Wordle: opens at the episode's start and closes at the next episode's start.
@@ -144,6 +147,7 @@ probst wordle resolve --episode 2 --instance INSTANCE --yes             # after 
 - `wordle import THREAD_URL` reads text Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected once the next episode starts, so import just before then.
 - `episode sync` downloads survivoR's JSON for that episode into `~/.local/share/probst/survivor/US<season>/episode-NN.json` (castaways, boots, challenges, votes, advantages, journeys) and records each boot at its final place (21 = first out) plus +2/+1 for tribal immunity/reward wins. Individual challenges are shown but not scored. Re-running is safe; if survivoR is late, record by hand with `challenge` and the outcomes API.
 - After `draft open`, each player's first saved draft is a stored event (order, tribe, bonus) in the same transaction as the picks. 1st gets +2, 2nd +1. Each gets a tribe drawn at random from the smallest tribes (never more than one apart) and a pinged Jeff post queued in the alias channel. Resubmitting only changes picks. `draft close` ends bonuses and posts a light rib for the last submitter; later drafts still get a tribe and post, but no bonus (and they miss earlier tribe points). Copy lives in `castaway-web/internal/httpapi/draft_submissions.go`.
+- With `draft watch`, the bot reads every post and edit in the thread (and replays the thread on startup; each message version is handled once). Chat is ignored; a post naming most of the cast is a draft. A complete draft from a linked player — all castaways once, each name matched exactly or unambiguously (first name, last name, or nickname) — is saved. Anything else DMs the admin contact a link and the problems, every time, and the player hears nothing. A player's first draft post, even with problems, holds their submission order: fixing it with `draft import --participant` completes that spot; `draft reject` drops it and their next draft goes to the back of the line. Only complete drafts get the bonus, tribe, and post.
 - `scores` (and the bot's `/castaway scores`) hide players who haven't drafted.
 - Wordle scoring: the best individual result gets +2 (ties share). The tribe with the best average among its submitters gets +1 for every member. Players who don't submit aren't counted.
 - Challenges count the tribes as they are during the episode (an hour after it starts). Record a swap with the episode it takes effect in; changes must be made in episode order.

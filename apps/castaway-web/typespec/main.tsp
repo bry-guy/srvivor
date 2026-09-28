@@ -1183,3 +1183,33 @@ op openDraftSubmissions(
 @route("/instances/{instanceID}/draft-submissions/close")
 @post
 op closeDraftSubmissions(@path instanceID: string): { status: string; last?: Record<unknown> } | ErrorResponse;
+
+/** Watch a Discord thread for draft posts (requires draft submissions to be open). */
+@route("/instances/{instanceID}/draft-submissions/thread")
+@put
+op watchDraftThread(@path instanceID: string, @body body: { thread_id: string }): { thread_id: string } | ErrorResponse;
+
+/** Drop a player's pending (incomplete) draft submission; they lose their submission order. */
+@route("/instances/{instanceID}/draft-submissions/{participantID}/reject")
+@post
+op rejectDraftSubmission(@path instanceID: string, @path participantID: string): { status: string; order: int32 } | ErrorResponse;
+
+/** Threads the bot watches for draft posts. */
+@route("/draft-threads")
+@get
+op listDraftThreads(): { threads: { instance_id: string; thread_id: string }[] } | ErrorResponse;
+
+/** One post (version) from a watched thread: ignored, duplicate, saved, unchanged, or problem (DM the admin). */
+@route("/draft-threads/{threadID}/messages")
+@post
+op receiveDraftThreadMessage(
+  @path threadID: string,
+  @body body: { message_id: string; version: string; author_discord_user_id: string; content: string },
+): {
+  status: string;
+  instance_id: string;
+  player?: string;
+  participant_id?: string;
+  problems?: string[];
+  submission?: Record<unknown>;
+} | ErrorResponse;

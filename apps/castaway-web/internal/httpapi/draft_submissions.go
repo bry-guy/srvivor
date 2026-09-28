@@ -27,12 +27,14 @@ type draftSubmissionConfig struct {
 	Tribes    []string `json:"tribes"`
 	GuildID   string   `json:"guild_id"`
 	ChannelID string   `json:"channel_id"`
+	ThreadID  string   `json:"thread_id,omitempty"` // watched by the bot for draft posts
 }
 
 type draftSubmissionResult struct {
-	Order  int    `json:"order"`
-	Tribe  string `json:"tribe"`
-	Points int32  `json:"bonus_points"`
+	Order    int    `json:"order"`
+	Tribe    string `json:"tribe,omitempty"`
+	Points   int32  `json:"bonus_points"`
+	Eligible bool   `json:"bonus_eligible"`
 }
 
 // Approved copy. %[1]s is the player (mention or bold name), %[2]s the tribe emoji, %[3]s the tribe.
@@ -156,7 +158,7 @@ func (s *Server) closeDraftSubmissions(c *gin.Context) {
 	var result draftSubmissionResult
 	var raw []byte
 	err = tx.QueryRow(ctx, `SELECT ao.source_ref::uuid, ao.metadata FROM activity_occurrences ao JOIN instance_activities ia ON ia.id = ao.activity_id
-		WHERE ia.public_id = $1 ORDER BY (ao.metadata->>'order')::int DESC LIMIT 1`, activity.ID).Scan(&participantID, &raw)
+		WHERE ia.public_id = $1 AND ao.status = 'resolved' ORDER BY (ao.metadata->>'order')::int DESC LIMIT 1`, activity.ID).Scan(&participantID, &raw)
 	last := gin.H(nil)
 	if err == nil {
 		if err = json.Unmarshal(raw, &result); err == nil && result.Order > 2 {
@@ -189,22 +191,16 @@ func draftSubmissionActivity(ctx context.Context, q *db.Queries, instanceID pgty
 	return &rows[0], config, json.Unmarshal(rows[0].Metadata, &config)
 }
 
-// recordDraftSubmission runs inside the draft-save transaction with the instance locked. It does nothing
-// when submissions aren't open or the player already has a submission, so resubmitting only changes picks.
+// recordDraftSubmission runs inside the draft-save transaction with the instance locked. A player's first
+// draft post claims their submission order (a pending claim if it had problems); the claim resolves, with
+// bonus, tribe, and post, when a complete draft is saved. Later saves only change picks.
 func (s *Server) recordDraftSubmission(ctx context.Context, tx pgx.Tx, q *db.Queries, instanceID uuid.UUID, participantID pgtype.UUID) (*draftSubmissionResult, error) {
 	activity, config, err := draftSubmissionActivity(ctx, q, toPGUUID(instanceID))
 	if err != nil || activity == nil {
 		return nil, err
 	}
-	_, err = q.GetActivityOccurrenceBySourceRef(ctx, db.GetActivityOccurrenceBySourceRefParams{ActivityID: activity.ID, SourceRef: pgtype.Text{String: pgUUIDString(participantID), Valid: true}})
-	if err == nil {
-		return nil, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
-	}
-	occurrences, err := q.ListActivityOccurrencesByActivity(ctx, activity.ID)
-	if err != nil {
+	claim, result, err := s.claimDraftOrder(ctx, q, activity, participantID)
+	if err != nil || claim == nil || claim.Status == "resolved" {
 		return nil, err
 	}
 	at := s.now()
@@ -219,19 +215,15 @@ func (s *Server) recordDraftSubmission(ctx context.Context, tx pgx.Tx, q *db.Que
 			return nil, progressionError(http.StatusConflict, "player is already on tribe "+row.ParticipantGroupName)
 		}
 	}
-	result := draftSubmissionResult{Order: len(occurrences) + 1, Tribe: pickDraftTribe(config.Tribes, counts, rand.IntN)}
-	if activity.Status == "active" {
+	result.Tribe = pickDraftTribe(config.Tribes, counts, rand.IntN)
+	if result.Eligible {
 		result.Points = draftSubmissionBonus[result.Order]
 	}
 	metadata, err := json.Marshal(result)
 	if err != nil {
 		return nil, err
 	}
-	occurrence, err := q.CreateActivityOccurrence(ctx, db.CreateActivityOccurrenceParams{
-		ActivityID: activity.ID, OccurrenceType: "submission", Name: fmt.Sprintf("Draft #%d", result.Order),
-		EffectiveAt: wordleTimestamp(at), Status: "resolved", SourceRef: pgtype.Text{String: pgUUIDString(participantID), Valid: true}, Metadata: metadata,
-	})
-	if err != nil {
+	if _, err := q.UpdateActivityOccurrenceStatusAndMetadata(ctx, db.UpdateActivityOccurrenceStatusAndMetadataParams{ID: claim.ID, Status: "resolved", Metadata: metadata}); err != nil {
 		return nil, err
 	}
 	groupID, err := draftTribeGroup(ctx, q, instanceID, result.Tribe)
@@ -243,14 +235,14 @@ func (s *Server) recordDraftSubmission(ctx context.Context, tx pgx.Tx, q *db.Que
 	}
 	if result.Points > 0 {
 		if _, err := q.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
-			InstanceID: toPGUUID(instanceID), ParticipantID: participantID, ActivityOccurrenceID: occurrence.ID,
+			InstanceID: toPGUUID(instanceID), ParticipantID: participantID, ActivityOccurrenceID: claim.ID,
 			EntryKind: "award", Points: result.Points, Visibility: "public", Reason: fmt.Sprintf("Draft submitted #%d", result.Order),
 			EffectiveAt: wordleTimestamp(at), AwardKey: pgtype.Text{String: "draft-submission", Valid: true}, Metadata: []byte(`{}`),
 		}); err != nil {
 			return nil, err
 		}
 	}
-	template := draftRestCopy[(result.Order-3+len(draftRestCopy))%len(draftRestCopy)]
+	template := draftRestCopy[(result.Order-3+len(draftRestCopy)*8)%len(draftRestCopy)]
 	switch {
 	case result.Points == 2:
 		template = draftFirstCopy
@@ -258,6 +250,49 @@ func (s *Server) recordDraftSubmission(ctx context.Context, tx pgx.Tx, q *db.Que
 		template = draftSecondCopy
 	}
 	return &result, s.queueDraftAnnouncement(ctx, tx, instanceID, config, participantID, "draft-submission", template, result.Tribe)
+}
+
+type draftClaim struct {
+	ID     pgtype.UUID
+	Status string
+}
+
+// claimDraftOrder returns the player's submission claim, creating a pending one with the next order if
+// they have none: one past the highest existing order, so a rejected player goes to the back of the line
+// and nobody else moves up.
+func (s *Server) claimDraftOrder(ctx context.Context, q *db.Queries, activity *db.ListInstanceActivitiesByTypeRow, participantID pgtype.UUID) (*draftClaim, draftSubmissionResult, error) {
+	var result draftSubmissionResult
+	existing, err := q.GetActivityOccurrenceBySourceRef(ctx, db.GetActivityOccurrenceBySourceRefParams{ActivityID: activity.ID, SourceRef: pgtype.Text{String: pgUUIDString(participantID), Valid: true}})
+	if err == nil {
+		return &draftClaim{ID: existing.ID, Status: existing.Status}, result, json.Unmarshal(existing.Metadata, &result)
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, result, err
+	}
+	occurrences, err := q.ListActivityOccurrencesByActivity(ctx, activity.ID)
+	if err != nil {
+		return nil, result, err
+	}
+	for _, o := range occurrences {
+		var prior draftSubmissionResult
+		if json.Unmarshal(o.Metadata, &prior) == nil && prior.Order > result.Order {
+			result.Order = prior.Order
+		}
+	}
+	result.Order++
+	result.Eligible = activity.Status == "active"
+	metadata, err := json.Marshal(result)
+	if err != nil {
+		return nil, result, err
+	}
+	created, err := q.CreateActivityOccurrence(ctx, db.CreateActivityOccurrenceParams{
+		ActivityID: activity.ID, OccurrenceType: "submission", Name: fmt.Sprintf("Draft #%d", result.Order),
+		EffectiveAt: wordleTimestamp(s.now()), Status: "recorded", SourceRef: pgtype.Text{String: pgUUIDString(participantID), Valid: true}, Metadata: metadata,
+	})
+	if err != nil {
+		return nil, result, err
+	}
+	return &draftClaim{ID: created.ID, Status: created.Status}, result, nil
 }
 
 func draftTribeGroup(ctx context.Context, q *db.Queries, instanceID uuid.UUID, tribe string) (pgtype.UUID, error) {

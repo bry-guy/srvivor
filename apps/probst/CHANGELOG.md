@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `draft watch THREAD_URL` and `draft reject PLAYER` for bot-read draft threads.
 - `episode sync --season S --episode E` pulls survivoR data for an episode and records boots and tribal challenge wins.
 - `draft open --tribes` / `draft close` run draft-submission events (+2/+1, balanced random tribes, pinged posts).
 - `announcement mark-sent` records announcements you posted yourself.
