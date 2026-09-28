@@ -32,6 +32,12 @@ An alias works anywhere `--instance` or a `CHANNEL` argument goes and fills in `
 ## Commands
 
 ```sh
+probst login                      # Discord login in your browser; saves a session to the config file
+probst logout
+probst admin add DISCORD_USER --instance INSTANCE
+probst access list                # website access requests (the bot also DMs you)
+probst access approve DISCORD_USER NAME --instance INSTANCE   # = player add NAME --discord-user USER
+probst access deny DISCORD_USER
 probst auth status
 probst instance list
 probst instance show INSTANCE

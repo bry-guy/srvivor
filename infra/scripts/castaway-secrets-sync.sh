@@ -64,4 +64,11 @@ kubectl create secret generic castaway-discord-bot-secrets \
   --from-literal=BOT_STATE_DATABASE_URL="$bot_database_url" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+if [ -n "${CASTAWAY_CLOUDFLARED_TOKEN:-}" ]; then
+  kubectl create secret generic castaway-cloudflared \
+    -n "$namespace" \
+    --from-literal=TUNNEL_TOKEN="$CASTAWAY_CLOUDFLARED_TOKEN" \
+    --dry-run=client -o yaml | kubectl apply -f -
+fi
+
 printf 'Synchronized Castaway Kubernetes secrets into namespace %s using kubeconfig %s\n' "$namespace" "$KUBECONFIG"

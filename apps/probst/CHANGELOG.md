@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `login`/`logout` (Discord login for the public `/api`), `admin add`, and `access list|approve|deny`.
 - `draft watch THREAD_URL` and `draft reject PLAYER` for bot-read draft threads.
 - `recap --episode N` prints the weekly scores post (spoilered boots, biggest gainer/loser, leaderboard with tribes) and diffs against last week's local snapshot.
 - Wordle rounds now run 1pm ET on an episode's air day to noon on the next one's.

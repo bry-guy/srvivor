@@ -99,7 +99,9 @@ Go-live steps (need you; nothing applied yet):
 
 1. Discord developer portal → Jeff Probst application → OAuth2: add redirect `https://castaway.bry-guy.net/auth/callback` and copy the client secret into 1Password as `CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET` (plus an fnox entry). Run `castaway:secrets:apply`.
 2. Add to `web-configmap.yaml`: `PUBLIC_PORT: "8090"`, `PUBLIC_BASE_URL: https://castaway.bry-guy.net`, `DISCORD_OAUTH_CLIENT_ID: <application id>`, `PUBLIC_INSTANCE_ID: <Season 51 instance id>`. Deploy. The pod refuses to start if the secret is missing.
-3. In `~/dev/infra`: tunnel Terraform, a `cloudflared` Deployment with NetworkPolicy to `castaway-web:8090`, edge rules, swap the `castaway` record to proxied, and remove the Caddy site. Review `tofu plan` before apply.
-4. `probst login` with `api_url: https://castaway.bry-guy.net/api`. The service token and `discord_user_id` then come out of the probst config.
+3. Infra (`~/dev/infra`, commit `76aa05f`, off by default): give the Cloudflare API token Account → Cloudflare Tunnel → Edit, set `castaway_public = true`, and run `mise run selfhost:cloudflare-dns:plan`. Review the plan: it should create the tunnel and its config and change the castaway record to proxied. Apply. Store `tofu output -raw castaway_tunnel_token` as `CASTAWAY_CLOUDFLARED_TOKEN` (1Password + fnox), then run `castaway:secrets:apply`.
+4. Add `- public` to the home-k3s kustomization resources (`deploy/environments/home-k3s/public/`: cloudflared with 2 replicas, plus NetworkPolicies limiting cloudflared egress and castaway-web's 8090 ingress). Argo syncs it.
+5. Cloudflare dashboard (free): Always Use HTTPS, WAF managed rules, a rate-limit rule on `/auth/*` and `/api/*`, Bot Fight Mode. Remove the Castaway site from the platform Caddy (`scripts/selfhost-homepage-caddy-apply.sh`).
+6. `probst login` with `api_url: https://castaway.bry-guy.net/api`. The service token and `discord_user_id` then come out of the probst config.
 
 Not done yet: HTMX and web components (the page is a plain server-rendered table for now), my-draft and tribes pages, rate limiting inside the app (Cloudflare handles it at the edge), session cleanup job.

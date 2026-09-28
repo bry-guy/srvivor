@@ -139,6 +139,8 @@ Recommended production defaults for the web Deployment:
 - `SERVICE_AUTH_ENABLED=true`
 - `SERVICE_AUTH_BEARER_TOKENS` populated from managed secrets
 - `SERVICE_AUTH_PRINCIPAL=castaway-discord-bot`
+
+Public listener (off unless `PUBLIC_PORT` is set): serves the website, Discord login (`/auth/*`), and the API under `/api` with session auth only. It never honors the service token or `X-Discord-User-ID`. Requires `PUBLIC_BASE_URL`, `DISCORD_OAUTH_CLIENT_ID`, and `DISCORD_OAUTH_CLIENT_SECRET`; `PUBLIC_INSTANCE_ID` picks the season shown. See `plans/public-website-planning.md`.
 - leave `BOOTSTRAP_ADMIN_DISCORD_USER_ID` empty after explicit first-admin bootstrap
 
 `/healthz` remains unauthenticated for cluster health checks.
