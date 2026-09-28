@@ -30,6 +30,8 @@ type Server struct {
 	serviceAuthBearerTokens     map[string]struct{}
 	now                         func() time.Time
 	bootstrapAdminDiscordUserID string
+	public                      PublicConfig
+	publicEngine                *gin.Engine
 }
 
 type Option func(*Server)
@@ -78,9 +80,18 @@ func (s *Server) Router() *gin.Engine {
 
 	protected := r.Group("/")
 	protected.Use(s.requireServiceAuth())
+	s.registerAPI(protected)
+
+	return r
+}
+
+// registerAPI mounts every API route; the internal router trusts the service token, the public
+// router mounts the same routes under /api behind session auth (see public.go).
+func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.GET("/instances", s.listInstances)
 	protected.GET("/admin/session", s.adminSession)
 	protected.POST("/instances/:instanceID/admins/bootstrap", s.bootstrapInstanceAdmin)
+	protected.POST("/instances/:instanceID/admins", s.addInstanceAdmin)
 	protected.GET("/discord/guilds/:guildID/channels/:channelID", s.getDiscordChannelBinding)
 	protected.PUT("/discord/guilds/:guildID/channels/:channelID", s.setDiscordChannelBinding)
 	protected.DELETE("/discord/guilds/:guildID/channels/:channelID", s.deleteDiscordChannelBinding)
@@ -92,6 +103,9 @@ func (s *Server) Router() *gin.Engine {
 	protected.DELETE("/instances/:instanceID/announcements/:announcementID", s.deleteAnnouncement)
 	protected.POST("/instances/:instanceID/announcements/:announcementID/sent", s.markAnnouncementSent)
 	protected.POST("/announcements/claim", s.claimAnnouncement)
+	protected.POST("/access-requests/claim", s.claimAccessRequest)
+	protected.GET("/access-requests", s.listAccessRequests)
+	protected.DELETE("/access-requests/:discordUserID", s.deleteAccessRequest)
 	protected.POST("/announcements/:announcementID/finish", s.finishAnnouncement)
 	protected.POST("/instances", s.createInstance)
 	protected.POST("/instances/import", s.importInstance)
@@ -161,8 +175,6 @@ func (s *Server) Router() *gin.Engine {
 	protected.POST("/occurrences/:occurrenceID/groups", s.createOccurrenceGroup)
 	protected.POST("/occurrences/:occurrenceID/resolve", s.resolveOccurrence)
 	protected.GET("/instances/:instanceID/participants/:participantID/activity-history", s.participantActivityHistory)
-
-	return r
 }
 
 type errorResponse struct {

@@ -694,6 +694,29 @@ op adminSession(): AdminSessionResponse;
 @post
 op bootstrapInstanceAdmin(@path instanceID: string): BootstrapAdminResponse;
 
+model AddInstanceAdminRequest { discord_user_id: string; }
+model AddInstanceAdminResponse { instance_id: string; discord_user_id: string; }
+
+@route("/instances/{instanceID}/admins")
+@post
+op addInstanceAdmin(@path instanceID: string, @body body: AddInstanceAdminRequest): AddInstanceAdminResponse;
+
+model AccessRequest { discord_user_id: string; discord_username: string; requested_at: utcDateTime; }
+model ClaimAccessRequestResponse { access_request: AccessRequest | null; }
+model ListAccessRequestsResponse { access_requests: AccessRequest[]; }
+
+@route("/access-requests/claim")
+@post
+op claimAccessRequest(): ClaimAccessRequestResponse;
+
+@route("/access-requests")
+@get
+op listAccessRequests(): ListAccessRequestsResponse;
+
+@route("/access-requests/{discordUserID}")
+@delete
+op deleteAccessRequest(@path discordUserID: string): void;
+
 @route("/discord/guilds/{guildID}/channels/{channelID}")
 @get
 op getDiscordChannelBinding(@path guildID: string, @path channelID: string): DiscordChannelBindingResponse;

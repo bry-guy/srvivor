@@ -558,6 +558,42 @@ func newCommand() *cobra.Command {
 	addSeasonCommands(root, call, instancePath, &yes, &discordBotToken)
 	addEpisodeSync(root, call, instancePath, &yes)
 	addRecapCommand(root, call, instancePath, &instance)
+	addLoginCommands(root, &server)
+	admins := &cobra.Command{Use: "admin", Short: "Instance admins (Discord users)"}
+	root.AddCommand(admins)
+	add(admins, "add DISCORD_USER", 1, func(c *cobra.Command, a []string) error {
+		p, e := instancePath()
+		if e != nil {
+			return e
+		}
+		return request(c, "POST", p+"/admins", map[string]string{"discord_user_id": a[0]})
+	})
+	access := &cobra.Command{Use: "access", Short: "Website access requests from unlinked Discord users"}
+	root.AddCommand(access)
+	add(access, "list", 0, func(c *cobra.Command, _ []string) error { return request(c, "GET", "/access-requests", nil) })
+	add(access, "deny DISCORD_USER", 1, func(c *cobra.Command, a []string) error {
+		if err := call(c.Context(), "DELETE", "/access-requests/"+url.PathEscape(a[0]), nil, nil); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintln(c.OutOrStdout(), "Denied; the request is removed.")
+		return err
+	})
+	// approve = `player add NAME --discord-user USER` (reuses a same-name player); the request then drops off the list.
+	add(access, "approve DISCORD_USER NAME", 2, func(c *cobra.Command, a []string) error {
+		discordUser = a[0]
+		cmd, _, err := root.Find([]string{"player", "add"})
+		if err != nil {
+			return err
+		}
+		return cmd.RunE(c, a[1:])
+	})
+	add(root, "logout", 0, func(c *cobra.Command, _ []string) error {
+		if err := call(c.Context(), "POST", "/auth/logout", nil, nil); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintln(c.OutOrStdout(), "Session revoked. Run probst login to sign in again.")
+		return err
+	})
 	return root
 }
 

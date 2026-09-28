@@ -4,6 +4,40 @@ info:
   version: 0.0.0
 tags: []
 paths:
+  /access-requests:
+    get:
+      operationId: listAccessRequests
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAccessRequestsResponse'
+  /access-requests/claim:
+    post:
+      operationId: claimAccessRequest
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimAccessRequestResponse'
+  /access-requests/{discordUserID}:
+    delete:
+      operationId: deleteAccessRequest
+      parameters:
+        - name: discordUserID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
   /activities/{activityID}:
     get:
       operationId: getActivity
@@ -443,6 +477,28 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateActivityRequest'
+  /instances/{instanceID}/admins:
+    post:
+      operationId: addInstanceAdmin
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddInstanceAdminResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddInstanceAdminRequest'
   /instances/{instanceID}/admins/bootstrap:
     post:
       operationId: bootstrapInstanceAdmin
@@ -1976,6 +2032,20 @@ paths:
                   - $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
+    AccessRequest:
+      type: object
+      required:
+        - discord_user_id
+        - discord_username
+        - requested_at
+      properties:
+        discord_user_id:
+          type: string
+        discord_username:
+          type: string
+        requested_at:
+          type: string
+          format: date-time
     Activity:
       type: object
       required:
@@ -2088,6 +2158,23 @@ components:
         created_at:
           type: string
           format: date-time
+    AddInstanceAdminRequest:
+      type: object
+      required:
+        - discord_user_id
+      properties:
+        discord_user_id:
+          type: string
+    AddInstanceAdminResponse:
+      type: object
+      required:
+        - instance_id
+        - discord_user_id
+      properties:
+        instance_id:
+          type: string
+        discord_user_id:
+          type: string
     AddStirThePotContributionRequest:
       type: object
       required:
@@ -2233,6 +2320,16 @@ components:
           type: string
         admin:
           type: boolean
+    ClaimAccessRequestResponse:
+      type: object
+      required:
+        - access_request
+      properties:
+        access_request:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/AccessRequest'
+          nullable: true
     ClaimAnnouncementRequest:
       type: object
       required:
@@ -2797,6 +2894,15 @@ components:
         points_available:
           type: integer
           format: int32
+    ListAccessRequestsResponse:
+      type: object
+      required:
+        - access_requests
+      properties:
+        access_requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessRequest'
     ListActivitiesResponse:
       type: object
       required:

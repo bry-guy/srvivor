@@ -29,3 +29,17 @@ func (c *Client) FinishAnnouncement(ctx context.Context, id, messageID string, f
 	}
 	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "finish")), nil, map[string]any{"message_id": messageID, "failed": failed}, &response)
 }
+
+type AccessRequest struct {
+	DiscordUserID   string `json:"discord_user_id"`
+	DiscordUsername string `json:"discord_username"`
+}
+
+// ClaimAccessRequest returns the next access request not yet sent to the admin contact, marking it sent.
+func (c *Client) ClaimAccessRequest(ctx context.Context) (*AccessRequest, error) {
+	var response struct {
+		AccessRequest *AccessRequest `json:"access_request"`
+	}
+	err := c.doJSONBody(ctx, "POST", c.endpoint("/access-requests/claim"), nil, map[string]any{}, &response)
+	return response.AccessRequest, err
+}

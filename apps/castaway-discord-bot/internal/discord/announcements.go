@@ -16,6 +16,9 @@ func (b *Bot) pollAnnouncements(ctx context.Context) {
 		if err := b.deliverNextAnnouncement(ctx); err != nil && ctx.Err() == nil {
 			b.log.Error("announcement delivery", "error", err)
 		}
+		if err := b.notifyAccessRequest(ctx); err != nil && ctx.Err() == nil {
+			b.log.Error("access request DM", "error", err)
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -69,4 +72,18 @@ func allowedMentions(notifyUsers bool) *discordgo.MessageAllowedMentions {
 		return &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers}}
 	}
 	return &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
+}
+
+// notifyAccessRequest DMs the admin contact about one new website access request (at most once each).
+func (b *Bot) notifyAccessRequest(ctx context.Context) error {
+	r, err := b.castaway.ClaimAccessRequest(ctx)
+	if err != nil || r == nil {
+		return err
+	}
+	text := fmt.Sprintf("🔑 Castaway website access request from <@%s> (%s, `%s`).\nApprove: `probst access approve %s NAME --instance INSTANCE`\nDeny: `probst access deny %s`", r.DiscordUserID, r.DiscordUsername, r.DiscordUserID, r.DiscordUserID, r.DiscordUserID)
+	dm, err := b.session.UserChannelCreate(b.adminContactID, discordgo.WithContext(ctx))
+	if err == nil {
+		_, err = b.session.ChannelMessageSendComplex(dm.ID, &discordgo.MessageSend{Content: text, AllowedMentions: allowedMentions(false)}, discordgo.WithContext(ctx))
+	}
+	return err
 }

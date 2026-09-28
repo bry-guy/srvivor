@@ -16,6 +16,12 @@ type Config struct {
 	ServiceAuthBearerTokens     []string
 	ServiceAuthPrincipal        string
 	BootstrapAdminDiscordUserID string
+	// Public listener (website + /api behind Discord login); disabled when PublicPort is empty.
+	PublicPort          string
+	PublicBaseURL       string
+	DiscordClientID     string
+	DiscordClientSecret string
+	PublicInstanceID    string
 }
 
 func Load() (*Config, error) {
@@ -25,6 +31,14 @@ func Load() (*Config, error) {
 		DatabaseURL:                 getEnv("DATABASE_URL", "postgres://castaway:castaway@localhost:5432/castaway?sslmode=disable"),
 		MigrationsDir:               getEnv("MIGRATIONS_DIR", "./db/migrations"),
 		ServiceAuthPrincipal:        strings.TrimSpace(getEnv("SERVICE_AUTH_PRINCIPAL", "castaway-discord-bot")),
+		PublicPort:                  strings.TrimSpace(getEnv("PUBLIC_PORT", "")),
+		PublicBaseURL:               strings.TrimSpace(getEnv("PUBLIC_BASE_URL", "")),
+		DiscordClientID:             strings.TrimSpace(getEnv("DISCORD_OAUTH_CLIENT_ID", "")),
+		DiscordClientSecret:         strings.TrimSpace(getEnv("DISCORD_OAUTH_CLIENT_SECRET", "")),
+		PublicInstanceID:            strings.TrimSpace(getEnv("PUBLIC_INSTANCE_ID", "")),
+	}
+	if cfg.PublicPort != "" && (cfg.PublicBaseURL == "" || cfg.DiscordClientID == "" || cfg.DiscordClientSecret == "") {
+		return nil, fmt.Errorf("PUBLIC_PORT needs PUBLIC_BASE_URL, DISCORD_OAUTH_CLIENT_ID and DISCORD_OAUTH_CLIENT_SECRET")
 	}
 
 	autoMigrate, err := strconv.ParseBool(getEnv("AUTO_MIGRATE", "true"))
