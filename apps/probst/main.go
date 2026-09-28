@@ -557,6 +557,7 @@ func newCommand() *cobra.Command {
 	})
 	addSeasonCommands(root, call, instancePath, &yes, &discordBotToken)
 	addEpisodeSync(root, call, instancePath, &yes)
+	addRecapCommand(root, call, instancePath, &instance)
 	return root
 }
 

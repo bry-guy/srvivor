@@ -3,6 +3,8 @@
 ## Unreleased
 
 - `draft watch THREAD_URL` and `draft reject PLAYER` for bot-read draft threads.
+- `recap --episode N` prints the weekly scores post (spoilered boots, biggest gainer/loser, leaderboard with tribes) and diffs against last week's local snapshot.
+- Wordle rounds now run 1pm ET on an episode's air day to noon on the next one's.
 - `episode sync --season S --episode E` pulls survivoR data for an episode and records boots and tribal challenge wins.
 - `draft open --tribes` / `draft close` run draft-submission events (+2/+1, balanced random tribes, pinged posts).
 - `announcement mark-sent` records announcements you posted yourself.

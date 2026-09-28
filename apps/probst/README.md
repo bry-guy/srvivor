@@ -135,19 +135,25 @@ probst draft import --file fixed.txt --participant Kate --instance INSTANCE --ye
 probst draft reject Kate --instance INSTANCE --yes        # or drop it; they lose their spot
 probst draft close --instance INSTANCE --yes
 
-# Wordle: opens at the episode's start and closes at the next episode's start.
+# Wordle: opens 1pm ET on the episode's air day (with the scores post) and closes noon on the next episode's.
 probst wordle open --episode 2 --instance INSTANCE
-probst wordle import --file week2.txt --episode 2 --instance INSTANCE --yes   # before the next episode starts
+probst wordle import --file week2.txt --episode 2 --instance INSTANCE --yes   # before it closes
 probst wordle import THREAD_URL --episode 2 --instance INSTANCE --yes        # or read text shares from a thread
 probst wordle submit Kate 3 --episode 2 --instance INSTANCE             # by hand; X = failed (counts as 7)
 probst wordle resolve --episode 2 --instance INSTANCE --yes             # after it closes
+
+# Weekly scores post (Wednesdays 1pm ET): boots, biggest gainer/loser, leaderboard.
+probst recap --episode 2 --instance INSTANCE > week2.md                 # review, then:
+probst announcement save week-2-scores --file week2.md --instance INSTANCE --yes
+probst announcement schedule week-2-scores --at "2026-10-07 13:00" --instance INSTANCE
 ```
 
 - `wordle import --file` reads one `Player: 3` per line (`X` = failed; `#` comments and blank lines ignored; names as in `player list`). Bad lines, unknown names, and duplicates are shown as SKIP and not saved.
-- `wordle import THREAD_URL` reads text Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected once the next episode starts, so import just before then.
+- `wordle import THREAD_URL` reads text Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected after noon ET on the next episode's air day, so import just before then.
 - `episode sync` downloads survivoR's JSON for that episode into `~/.local/share/probst/survivor/US<season>/episode-NN.json` (castaways, boots, challenges, votes, advantages, journeys) and records each boot at its final place (21 = first out) plus +2/+1 for tribal immunity/reward wins. Individual challenges are shown but not scored. Re-running is safe; if survivoR is late, record by hand with `challenge` and the outcomes API.
 - After `draft open`, each player's first saved draft is a stored event (order, tribe, bonus) in the same transaction as the picks. 1st gets +2, 2nd +1. Each gets a tribe drawn at random from the smallest tribes (never more than one apart) and a pinged Jeff post queued in the alias channel. Resubmitting only changes picks. `draft close` ends bonuses and posts a light rib for the last submitter; later drafts still get a tribe and post, but no bonus (and they miss earlier tribe points). Copy lives in `castaway-web/internal/httpapi/draft_submissions.go`.
 - With `draft watch`, the bot reads every post and edit in the thread (and replays the thread on startup; each message version is handled once). Chat is ignored; a post naming most of the cast is a draft. A complete draft from a linked player — all castaways once, each name matched exactly or unambiguously (first name, last name, or nickname) — is saved. Anything else DMs the admin contact a link and the problems, every time, and the player hears nothing. A player's first draft post, even with problems, holds their submission order: fixing it with `draft import --participant` completes that spot; `draft reject` drops it and their next draft goes to the back of the line. Only complete drafts get the bonus, tribe, and post.
+- `recap --episode N` prints the scores post as of now: new boots since the last recap in spoilers (`||name||`) with a line of flair, the biggest and smallest point gain since the last recap, and the leaderboard with tribes. It saves a snapshot to `~/.local/share/probst/scores/INSTANCE/episode-NN.json` that the next recap diffs against; the first recap counts gains from zero. Re-running overwrites that week's snapshot. The text is fixed once saved, so run it after the Wordle resolves and before scheduling.
 - `scores` (and the bot's `/castaway scores`) hide players who haven't drafted.
 - Wordle scoring: the best individual result gets +2 (ties share). The tribe with the best average among its submitters gets +1 for every member. Players who don't submit aren't counted.
 - Challenges count the tribes as they are during the episode (an hour after it starts). Record a swap with the episode it takes effect in; changes must be made in episode order.

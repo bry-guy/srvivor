@@ -211,6 +211,13 @@ const (
 	challengeOffset   = time.Hour
 )
 
+// The Wordle posts with the scores at 1pm on an episode's air day (8pm ET) and closes at noon on the
+// next one, an hour before the next scores post.
+const (
+	wordleOpensBefore = 7 * time.Hour
+	wordleCloseBefore = 8 * time.Hour
+)
+
 func eastern() *time.Location {
 	location, err := time.LoadLocation("America/New_York")
 	if err != nil {
@@ -356,7 +363,7 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 	wordle := &cobra.Command{Use: "wordle", Short: "Run the weekly Wordle: open, import, resolve"}
 	root.AddCommand(wordle)
 	var wordleEpisode int
-	wordle.PersistentFlags().IntVar(&wordleEpisode, "episode", 0, "Wordle opens at this episode's start and closes at the next episode's start")
+	wordle.PersistentFlags().IntVar(&wordleEpisode, "episode", 0, "Wordle opens 1pm ET on this episode's air day and closes noon on the next episode's")
 
 	// round creates (or, on repeat, returns) the Wordle round for --episode.
 	round := func(ctx context.Context) (string, string, time.Time, time.Time, error) {
@@ -374,7 +381,7 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 		}
 		next, err := findEpisode(episodes, wordleEpisode+1)
 		if err != nil {
-			return "", "", time.Time{}, time.Time{}, fmt.Errorf("the Wordle closes at the next episode's start: %w", err)
+			return "", "", time.Time{}, time.Time{}, fmt.Errorf("the Wordle closes on the next episode's air day: %w", err)
 		}
 		var activities struct {
 			Activities []struct {
@@ -408,11 +415,12 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 				ID string `json:"id"`
 			} `json:"round"`
 		}
-		body := map[string]any{"round_key": fmt.Sprintf("ep%d", ep.Number), "name": ep.Label + " Wordle", "opens_at": ep.AirsAt.UTC().Format(time.RFC3339), "cutoff_at": next.AirsAt.UTC().Format(time.RFC3339)}
+		opens, cutoff := ep.AirsAt.Add(-wordleOpensBefore), next.AirsAt.Add(-wordleCloseBefore)
+		body := map[string]any{"round_key": fmt.Sprintf("ep%d", ep.Number), "name": ep.Label + " Wordle", "opens_at": opens.UTC().Format(time.RFC3339), "cutoff_at": cutoff.UTC().Format(time.RFC3339)}
 		if err := call(ctx, "POST", "/activities/"+url.PathEscape(activityID)+"/wordle-rounds", body, &res); err != nil {
 			return "", "", time.Time{}, time.Time{}, err
 		}
-		return p, res.Round.ID, ep.AirsAt, next.AirsAt, nil
+		return p, res.Round.ID, opens, cutoff, nil
 	}
 
 	wordle.AddCommand(&cobra.Command{Use: "open", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {

@@ -10,3 +10,4 @@
 - Import drafts from a Discord thread or text file: ignore chat, keep each author's latest draft before a cutoff, report unlinked authors, missing drafts, and unmatched or ambiguous names, and write only complete drafts when confirmed with `--yes`.
 - Defer generic gameplay CRUD.
 - Run the weekly loop from the season schedule: set tribes per episode, record immunity/reward winners, and open, import (from a Discord thread), hand-enter, and resolve the Wordle; every write previews unless `--yes`.
+- Print the weekly scores post (`recap`): spoilered boots, biggest gainer/loser since the last recap, and the leaderboard.

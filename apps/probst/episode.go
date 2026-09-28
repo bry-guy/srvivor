@@ -278,13 +278,9 @@ func addEpisodeSync(root *cobra.Command, call apiCall, instancePath func() (stri
 }
 
 func saveSurvivorEpisode(data survivorEpisode) (string, error) {
-	dir := os.Getenv("PROBST_DATA_DIR")
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		dir = filepath.Join(home, ".local", "share", "probst")
+	dir, err := probstDataDir()
+	if err != nil {
+		return "", err
 	}
 	path := filepath.Join(dir, "survivor", fmt.Sprintf("US%d", data.Season), fmt.Sprintf("episode-%02d.json", data.Episode))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
