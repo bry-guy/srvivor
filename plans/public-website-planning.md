@@ -22,12 +22,13 @@ Today the API trusts a service bearer token plus an `X-Discord-User-ID` header. 
 | Caller | Reaches the API via | Credential |
 |---|---|---|
 | Browser (players) | tunnel → public listener `:8080` | session cookie; CSRF token on writes |
-| probst (you) | tunnel → public listener `:8080`, `https://castaway.bry-guy.net/api` | **personal API token**: minted on the site's `/account` page after Discord login, bound to your Discord ID, stored hashed, revocable, sent as `Authorization: Bearer` |
+| probst (you) | tunnel → public listener `:8080`, `https://castaway.bry-guy.net/api` | **Discord login** via `probst login` (below); gets a CLI session token bound to your Discord ID, stored hashed, expiring, revocable, sent as `Authorization: Bearer` |
 | Discord bot | cluster Service → internal listener `:8081` | existing service token plus actor header; the tunnel never routes to `:8081` |
 
 - The public listener never accepts the service token or the actor header. The actor always comes from the session or the personal token. Admin rights still come from `instance_admins`.
 - The internal listener keeps today's behavior, so the bot does not change.
-- probst replaces its `token` and `discord_user_id` config fields with a personal token and switches `api_url` to `…/api`. The tailnet Caddy route and DNS-only record for `castaway.bry-guy.net` are removed.
+- Admins are Discord users listed in `instance_admins` (already how admin rights work). Adding one is `probst admin add USER --instance I`, which admins can run.
+- probst drops its `token` and `discord_user_id` config fields, gains `probst login` / `logout`, and switches `api_url` to `…/api`. The tailnet Caddy route and DNS-only record for `castaway.bry-guy.net` are removed.
 - Paths move under `/api` (for example `/api/instances/...`). The OpenAPI spec and Hurl tests follow. The bot's internal client keeps the old paths on `:8081`, or both listeners mount the same router under a prefix; decide at implementation.
 
 ## Access requests
@@ -51,7 +52,7 @@ If you want email too, add it later as a second notifier through a transactional
 
 1. Public/internal listener split and `/api` prefix. Keep existing regression tests, add tests proving `:8080` rejects the service token and actor header.
 2. Discord OAuth login, logout, sessions, and CSRF middleware. Register the Discord app's redirect `https://castaway.bry-guy.net/auth/callback`. Store the client ID and secret in 1Password.
-3. Personal API tokens (`/account` page to create and revoke), and a probst config migration.
+3. `probst login`: probst listens on `127.0.0.1:<random port>` and opens `https://castaway.bry-guy.net/auth/cli?port=…&state=…`. The site runs the normal Discord login, then redirects the browser to the loopback with a one-time code. probst exchanges the code (`POST /api/auth/cli/exchange`) for a CLI session token and saves it in `~/.config/probst/config.json` (0600). The Discord client secret never leaves the server, and Discord only needs the one site redirect URI registered. This is the same pattern `gcloud`/`az` use. `probst logout` revokes the token. Revocation of all sessions for a user is an admin command.
 4. Access requests: table, page, bot DM, and `probst access approve|deny`.
 5. Pages: leaderboard (tribes, draft+bonus), my draft, tribes. Responses set a CSP, `X-Frame-Options`, and security headers.
 6. Docs: README, requirements, readiness checklist, and a runbook covering tunnel rotation, revoking all sessions, and rolling back to tailnet-only.
@@ -71,11 +72,14 @@ Revisit the frontend stack only for real-time or animation-heavy games (for exam
 | Piece | Estimate |
 |---|---|
 | Tunnel, DNS, cloudflared, NetworkPolicy, edge rules | ~1 day |
-| Listener split, `/api` prefix, personal tokens, probst migration | ~2 days |
+| Listener split, `/api` prefix, `probst login`, admin command | ~2 days |
 | Discord login, sessions, CSRF, access requests | ~2 days |
 | Read-only pages and hardening | ~1–2 days |
 
-## Open questions
+## Decisions (continued)
 
-- A custom domain for Discord OAuth redirects is fine, but confirm the Discord application to use: reuse the bot's application or create a separate one.
-- Keep a break-glass path for probst if Cloudflare is down, for example `kubectl port-forward` to `:8081` with the service token.
+- Discord application: reuse the bot's existing application (Jeff Probst) for OAuth, adding the redirect URI and client secret. A separate application stays an option if isolation is ever wanted.
+
+## Break-glass
+
+If Cloudflare is down, `kubectl port-forward` to `:8081` and use the service token (`probst --server http://127.0.0.1:8081` with `PROBST_TOKEN`).
