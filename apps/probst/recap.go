@@ -37,13 +37,21 @@ type outcome struct {
 	Position     int    `json:"position"`
 }
 
-// Flair for the elimination line, picked by episode; %s is the spoiler-wrapped names.
+// Flair for the elimination line, one per episode; %s is the spoiler-wrapped names.
 var bootFlair = []string{
-	"The tribe has spoken. %s, grab your torch. 🔥",
-	"%s got got. We hardly knew ye. 🫡",
-	"Pour one out for %s, who is officially off the island. 🏝️",
-	"%s has been voted out. Jeff snuffs, the board shuffles. 🔥",
-	"Another torch, another snuff: %s is headed to Ponderosa. 🧺",
+	"The Open Era claims its first victim: %s is heading home. Hope the snacks at Ponderosa slap. 🔥",
+	"%s grabbed their torch and learned the hard way that vibes are not a strategy. 🔦",
+	"Somewhere, %s is still explaining why that vote was actually a great move for their résumé. 📝",
+	"%s has left the island. Jeff didn't even let them finish the sentence. 🔥",
+	"Pour one out for %s. They came, they saw, they got blindsided. 🫗",
+	"%s became the latest castaway to discover the tribe has, in fact, spoken. 🗣️",
+	"Some players build big alliances. %s built a canoe out of bad decisions. 🛶",
+	"%s is now enjoying unlimited food and zero paranoia. Honestly? Winning. 🍔",
+	"Tribal was chaos, and when the smoke cleared, %s was gone. 💨",
+	"Jury bound and salty about it: %s just joined the bench. 🪑",
+	"%s played hard, played loud, and played themselves right out of the game. 📣",
+	"The end is near, and %s won't be there to see it. So close, yet so snuffed. 🕯️",
+	"One final torch goes dark: %s falls just short of the finish line. 🏁",
 }
 
 // shortName prefers a quoted nickname, then the first name: `Danny "Kilby" Kilby` → Kilby.
@@ -92,7 +100,7 @@ func renderRecap(season, episode int, rows []scoreRow, outcomes []outcome, prev 
 		if n := len(booted); n > 1 {
 			names = strings.Join(booted[:n-1], ", ") + " and " + booted[n-1]
 		}
-		fmt.Fprintf(&b, bootFlair[(episode-1+len(bootFlair))%len(bootFlair)]+"\n\n", names)
+		fmt.Fprintf(&b, bootFlair[(episode-1)%len(bootFlair)]+"\n\n", names)
 	}
 
 	gains := map[string]int{}
