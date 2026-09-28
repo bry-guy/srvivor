@@ -1,6 +1,6 @@
 # Public Castaway website
 
-Status: `planning`
+Status: `in-progress`
 
 ## Goal
 
@@ -83,3 +83,23 @@ Revisit the frontend stack only for real-time or animation-heavy games (for exam
 ## Break-glass
 
 If Cloudflare is down, `kubectl port-forward` to `:8081` and use the service token (`probst --server http://127.0.0.1:8081` with `PROBST_TOKEN`).
+
+## Progress
+
+Done (commit `c6245d1` and follow-ups; castaway-web CI and the full integration suite pass):
+
+- castaway-web public listener (`PUBLIC_PORT`, default off). It serves `/`, `/auth/login|cli|callback|logout`, `/access-request`, and `/api/*`. `/api` accepts only sessions (cookie or probst bearer); the service token and caller-supplied `X-Discord-User-ID` are ignored. Non-admins reach only an allowlist of read routes. Bot queues and bootstrap return 404. Cookie writes require a same-origin `Origin`.
+- Migration 018: `web_sessions`, `web_cli_codes`, `access_requests` (tokens stored as SHA-256).
+- `probst login` / `logout` (loopback redirect), `probst admin add`, `probst access list|approve|deny`.
+- The bot DMs the admin contact once per access request.
+- Deploy: container and Service port `public` 8090. Secret sync passes `DISCORD_OAUTH_CLIENT_SECRET` when `CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET` is set.
+- Test `TestPublicListener` runs against a fake Discord.
+
+Go-live steps (need you; nothing applied yet):
+
+1. Discord developer portal → Jeff Probst application → OAuth2: add redirect `https://castaway.bry-guy.net/auth/callback` and copy the client secret into 1Password as `CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET` (plus an fnox entry). Run `castaway:secrets:apply`.
+2. Add to `web-configmap.yaml`: `PUBLIC_PORT: "8090"`, `PUBLIC_BASE_URL: https://castaway.bry-guy.net`, `DISCORD_OAUTH_CLIENT_ID: <application id>`, `PUBLIC_INSTANCE_ID: <Season 51 instance id>`. Deploy. The pod refuses to start if the secret is missing.
+3. In `~/dev/infra`: tunnel Terraform, a `cloudflared` Deployment with NetworkPolicy to `castaway-web:8090`, edge rules, swap the `castaway` record to proxied, and remove the Caddy site. Review `tofu plan` before apply.
+4. `probst login` with `api_url: https://castaway.bry-guy.net/api`. The service token and `discord_user_id` then come out of the probst config.
+
+Not done yet: HTMX and web components (the page is a plain server-rendered table for now), my-draft and tribes pages, rate limiting inside the app (Cloudflare handles it at the edge), session cleanup job.

@@ -27,6 +27,8 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+            - containerPort: 8090
+              name: public
           envFrom:
             - configMapRef:
                 name: castaway-web-config

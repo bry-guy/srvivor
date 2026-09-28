@@ -51,6 +51,7 @@ kubectl create secret generic castaway-web-secrets \
   -n "$namespace" \
   --from-literal=DATABASE_URL="$web_database_url" \
   --from-literal=SERVICE_AUTH_BEARER_TOKENS="$CASTAWAY_BOT_API_TOKEN" \
+  ${CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET:+--from-literal=DISCORD_OAUTH_CLIENT_SECRET="$CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET"} \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret generic castaway-discord-bot-secrets \
