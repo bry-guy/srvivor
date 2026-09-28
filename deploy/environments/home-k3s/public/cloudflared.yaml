@@ -100,24 +100,3 @@ spec:
           protocol: UDP
         - port: 443
           protocol: TCP
----
-# castaway-web's public port only accepts cloudflared; 8080 (service token)
-# stays open to in-cluster callers.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: castaway-web-public-ingress
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: castaway-web
-  policyTypes: ["Ingress"]
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: cloudflared
-      ports:
-        - port: 8090
-    - ports:
-        - port: 8080

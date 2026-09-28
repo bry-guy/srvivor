@@ -105,3 +105,10 @@ Go-live steps (need you; nothing applied yet):
 6. `probst login` with `api_url: https://castaway.bry-guy.net/api`. The service token and `discord_user_id` then come out of the probst config.
 
 Not done yet: HTMX and web components (the page is a plain server-rendered table for now), my-draft and tribes pages, rate limiting inside the app (Cloudflare handles it at the edge), session cleanup job.
+
+### Tailnet preview (current state)
+
+- The tailnet Caddy (`~/dev/infra` `0c09897`) sends `/`, `/auth/*`, `/access-request`, `/api/*` on castaway.bry-guy.net to castaway-web:8090 and everything else to 8080. probst's current config keeps working unchanged.
+- `/` returns 502 until the public listener is enabled. That needs `CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET` (step 1), then the configmap (step 2).
+- The Cloudflare tunnel is blocked: the API token lacks Account → Cloudflare Tunnel → Edit. Once it has that, apply with `castaway_tunnel = true` (the DNS record stays on the tailnet), store the token, and add `public/` to the kustomization.
+- There's no ingress NetworkPolicy on 8090: the tailnet Caddy reaches it from the host, and 8080 (more privileged) is already unrestricted.
