@@ -3,7 +3,7 @@
 ## Unreleased
 
 - `episode sync --season S --episode E` pulls survivoR data for an episode and records boots and tribal challenge wins.
-- `buff PLAYER` assigns a drafted player a tribe on a balanced schedule and posts a pinged Jeff message.
+- `draft open --tribes` / `draft close` run draft-submission events (+2/+1, balanced random tribes, pinged posts).
 - `announcement mark-sent` records announcements you posted yourself.
 - `scores` hides players without a draft.
 - `--notify` on `message` and `announcement save`/`send` lets `<@user>` mentions ping.

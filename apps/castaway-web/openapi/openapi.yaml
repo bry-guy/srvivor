@@ -694,6 +694,85 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/ListContestantsResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/draft-submissions:
+    post:
+      operationId: openDraftSubmissions
+      description: "Open draft submissions: each player's first saved draft is recorded in order, earns +2/+1 for 1st/2nd, gets a balanced random tribe, and queues a pinged announcement."
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  tribes:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - status
+                  - tribes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tribes:
+                  type: array
+                  items:
+                    type: string
+                guild_id:
+                  type: string
+                channel_id:
+                  type: string
+              required:
+                - tribes
+                - guild_id
+                - channel_id
+  /instances/{instanceID}/draft-submissions/close:
+    post:
+      operationId: closeDraftSubmissions
+      description: 'Close draft submissions: later drafts get a tribe but no bonus; queues a post for the last player.'
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                      last:
+                        type: object
+                        additionalProperties: {}
+                    required:
+                      - status
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/drafts/{participantID}:
     put:
       operationId: replaceDraft

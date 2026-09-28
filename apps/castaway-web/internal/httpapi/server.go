@@ -125,6 +125,8 @@ func (s *Server) Router() *gin.Engine {
 	protected.POST("/instances/:instanceID/finale-bingo/scores", s.recordFinaleBingoScores)
 
 	protected.PUT("/instances/:instanceID/drafts/:participantID", s.replaceDraft)
+	protected.POST("/instances/:instanceID/draft-submissions", s.openDraftSubmissions)
+	protected.POST("/instances/:instanceID/draft-submissions/close", s.closeDraftSubmissions)
 	protected.POST("/instances/:instanceID/drafts/:participantID/late", s.acceptLateDraft)
 	protected.GET("/instances/:instanceID/drafts/:participantID", s.getDraft)
 	protected.POST("/instances/:instanceID/progression/draft/open", s.openDraft)
@@ -744,6 +746,10 @@ func (s *Server) replaceDraft(c *gin.Context) {
 	}()
 
 	qtx := s.queries.WithTx(tx)
+	if _, err := qtx.LockInstanceForProgression(c.Request.Context(), toPGUUID(instanceID)); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
 	if err := qtx.DeleteDraftPicksForParticipant(c.Request.Context(), toPGUUID(participantID)); err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
@@ -767,12 +773,17 @@ func (s *Server) replaceDraft(c *gin.Context) {
 		}
 	}
 
+	submission, err := s.recordDraftSubmission(c.Request.Context(), tx, qtx, instanceID, toPGUUID(participantID))
+	if err != nil {
+		writeTribeError(c, err)
+		return
+	}
 	if err := tx.Commit(c.Request.Context()); err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "draft saved"})
+	c.JSON(http.StatusOK, gin.H{"status": "draft saved", "submission": submission})
 }
 
 func (s *Server) getDraft(c *gin.Context) {

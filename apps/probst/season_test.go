@@ -88,18 +88,6 @@ func TestReviewWordleFile(t *testing.T) {
 	}
 }
 
-func TestBuffScheduleBalances(t *testing.T) {
-	savu := 0
-	for n := 1; n <= 40; n++ {
-		if buffTribe(n) == "Savu" {
-			savu++
-		}
-		if n%2 == 0 && n >= 4 && savu != n/2 {
-			t.Fatalf("after %d buffs Savu has %d", n, savu)
-		}
-	}
-}
-
 func TestEpisodeParsing(t *testing.T) {
 	data := survivorEpisode{Tables: map[string][]map[string]any{
 		"castaways": {

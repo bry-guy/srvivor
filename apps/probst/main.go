@@ -289,6 +289,45 @@ func newCommand() *cobra.Command {
 		}
 		return request(c, "GET", p+"/drafts/"+url.PathEscape(a[0]), nil)
 	})
+	var openTribes string
+	openCmd := &cobra.Command{
+		Use:   "open",
+		Short: "Start draft events: 1st/2nd drafts earn +2/+1, every first draft gets a balanced random tribe and a pinged Jeff post",
+		Args:  cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			p, e := instancePath()
+			if e != nil {
+				return e
+			}
+			channel := resolveChannel("")
+			if channel == "" || guild == "" || openTribes == "" {
+				return fmt.Errorf("--tribes and an --instance alias with a channel (or --guild) are required")
+			}
+			if !yes {
+				_, e = fmt.Fprintf(c.OutOrStdout(), "Dry run — would open draft events with tribes %s, posting in channel %s. Re-run with --yes.\n", openTribes, channel)
+				return e
+			}
+			return request(c, "POST", p+"/draft-submissions", map[string]any{"tribes": strings.Split(openTribes, ","), "guild_id": guild, "channel_id": channel})
+		},
+	}
+	openCmd.Flags().StringVar(&openTribes, "tribes", "", "Comma-separated starting tribes, e.g. Savu,Toka")
+	drafts.AddCommand(openCmd)
+	drafts.AddCommand(&cobra.Command{
+		Use:   "close",
+		Short: "Stop draft bonuses and post the last-player message; later drafts still get a tribe",
+		Args:  cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			p, e := instancePath()
+			if e != nil {
+				return e
+			}
+			if !yes {
+				_, e = fmt.Fprintf(c.OutOrStdout(), "Dry run — would close draft events and post the last-draft message. Re-run with --yes.\n")
+				return e
+			}
+			return request(c, "POST", p+"/draft-submissions/close", nil)
+		},
+	})
 	var draftFile, draftParticipant, before string
 	var verbose bool
 	importCmd := &cobra.Command{
@@ -474,7 +513,6 @@ func newCommand() *cobra.Command {
 	})
 	addSeasonCommands(root, call, instancePath, &yes, &discordBotToken)
 	addEpisodeSync(root, call, instancePath, &yes)
-	addBuffCommand(root, call, instancePath, &yes, &discordBotToken, func() string { return resolveChannel("") })
 	return root
 }
 

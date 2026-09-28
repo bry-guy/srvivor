@@ -128,8 +128,9 @@ probst challenge reward Toka --episode 2 --key ep2-reward-2 --instance INSTANCE 
 probst episode sync --season 51 --episode 2 --instance INSTANCE          # preview; saves the raw data locally
 probst episode sync --season 51 --episode 2 --instance INSTANCE --yes    # records boots + tribal immunity/reward
 
-# When a player's draft is in: give them their tribe buff (join + a pinged Jeff post).
-probst buff Kate --instance INSTANCE --yes
+# Draft events: open once before the first import, close when drafts are due.
+probst draft open --tribes Savu,Toka --instance INSTANCE --yes
+probst draft close --instance INSTANCE --yes
 
 # Wordle: opens at the episode's start and closes at the next episode's start.
 probst wordle open --episode 2 --instance INSTANCE
@@ -142,7 +143,7 @@ probst wordle resolve --episode 2 --instance INSTANCE --yes             # after 
 - `wordle import --file` reads one `Player: 3` per line (`X` = failed; `#` comments and blank lines ignored; names as in `player list`). Bad lines, unknown names, and duplicates are shown as SKIP and not saved.
 - `wordle import THREAD_URL` reads text Discord shares like `Wordle 1,561 3/6`, taking each linked player's first share posted while the Wordle is open. Players must be on a tribe when it closes. Submissions are rejected once the next episode starts, so import just before then.
 - `episode sync` downloads survivoR's JSON for that episode into `~/.local/share/probst/survivor/US<season>/episode-NN.json` (castaways, boots, challenges, votes, advantages, journeys) and records each boot at its final place (21 = first out) plus +2/+1 for tribal immunity/reward wins. Individual challenges are shown but not scored. Re-running is safe; if survivoR is late, record by hand with `challenge` and the outcomes API.
-- `buff` only works for players with a draft. Tribes follow a fixed schedule by buff order (Savu, Savu, Toka, Toka, Toka, Savu, Savu, Toka, Toka, Savu, Savu, Toka, then balanced pairs), so the tribes are even at every even count from 4 players on. The message rotates between four wordings. The player joins immediately.
+- After `draft open`, each player's first saved draft is a stored event (order, tribe, bonus) in the same transaction as the picks. 1st gets +2, 2nd +1. Each gets a tribe drawn at random from the smallest tribes (never more than one apart) and a pinged Jeff post queued in the alias channel. Resubmitting only changes picks. `draft close` ends bonuses and posts a light rib for the last submitter; later drafts still get a tribe and post, but no bonus (and they miss earlier tribe points). Copy lives in `castaway-web/internal/httpapi/draft_submissions.go`.
 - `scores` (and the bot's `/castaway scores`) hide players who haven't drafted.
 - Wordle scoring: the best individual result gets +2 (ties share). The tribe with the best average among its submitters gets +1 for every member. Players who don't submit aren't counted.
 - Challenges count the tribes as they are during the episode (an hour after it starts). Record a swap with the episode it takes effect in; changes must be made in episode order.

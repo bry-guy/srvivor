@@ -1170,3 +1170,16 @@ op closeWordleRound(@path roundID: string): CloseWordleRoundResponse | ErrorResp
 @route("/wordle-rounds/{roundID}/resolve")
 @post
 op resolveWordleRound(@path roundID: string): ResolveOccurrenceResponse | ErrorResponse;
+
+/** Open draft submissions: each player's first saved draft is recorded in order, earns +2/+1 for 1st/2nd, gets a balanced random tribe, and queues a pinged announcement. */
+@route("/instances/{instanceID}/draft-submissions")
+@post
+op openDraftSubmissions(
+  @path instanceID: string,
+  @body body: { tribes: string[]; guild_id: string; channel_id: string },
+): { @statusCode statusCode: 201; status: string; tribes: string[] } | ErrorResponse;
+
+/** Close draft submissions: later drafts get a tribe but no bonus; queues a post for the last player. */
+@route("/instances/{instanceID}/draft-submissions/close")
+@post
+op closeDraftSubmissions(@path instanceID: string): { status: string; last?: Record<unknown> } | ErrorResponse;
