@@ -29,3 +29,4 @@ CASTAWAY_DISCORD_APPLICATION_ID = { provider = "op", value = "CASTAWAY_DISCORD_A
 CASTAWAY_DISCORD_PUBLIC_KEY = { provider = "op", value = "CASTAWAY_DISCORD_PUBLIC_KEY/password", description = "Discord public key for selfhost deployment" }
 DISCORD_TARGET_SEVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERVER_ID/password", description = "Target guild/server ID for selfhost deployment" }
 CASTAWAY_BOT_API_TOKEN = { provider = "op", value = "CASTAWAY_BOT_API_TOKEN/password", description = "Shared service auth token between castaway-web and castaway-discord-bot" }
+CASTAWAY_CLOUDFLARED_TOKEN = { provider = "op", value = "CASTAWAY_CLOUDFLARED_TOKEN/password", description = "Cloudflare Tunnel connector token for the public Castaway site" }

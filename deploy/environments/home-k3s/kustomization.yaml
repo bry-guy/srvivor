@@ -9,6 +9,7 @@ resources:
   - bot-configmap.yaml
   - web-servicemonitor.yaml
   - bot-servicemonitor.yaml
+  - public
 patches:
   - path: web-patch.yaml
   - path: web-placement-patch.yaml
