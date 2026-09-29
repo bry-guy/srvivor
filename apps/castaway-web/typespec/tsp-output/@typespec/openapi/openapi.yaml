@@ -2268,6 +2268,10 @@ components:
           nullable: true
         notify_users:
           type: boolean
+        thread:
+          allOf:
+            - $ref: '#/components/schemas/AnnouncementThread'
+          description: Post inside this shared bot thread; `id` is absent until the thread exists.
     AnnouncementListResponse:
       type: object
       required:
@@ -2284,6 +2288,21 @@ components:
       properties:
         announcement:
           $ref: '#/components/schemas/Announcement'
+    AnnouncementThread:
+      type: object
+      required:
+        - key
+        - name
+        - starter
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        starter:
+          type: string
+        id:
+          type: string
     BonusLedgerEntry:
       type: object
       required:
@@ -2711,6 +2730,8 @@ components:
           type: string
         failed:
           type: boolean
+        thread_id:
+          type: string
     FinishAnnouncementResponse:
       type: object
       required:

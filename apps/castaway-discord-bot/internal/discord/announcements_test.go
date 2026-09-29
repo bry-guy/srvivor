@@ -136,3 +136,101 @@ func TestAnnouncementBotDelivery(t *testing.T) {
 		})
 	}
 }
+
+func TestAnnouncementBotThreads(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		threadID string
+		deleted  bool
+		want     []string // Discord requests, in order
+	}{
+		{name: "opens the thread first", want: []string{"POST /channels/201/messages starter", "POST /channels/201/messages/900/threads", "POST /channels/777/messages body"}},
+		{name: "reuses an open thread", threadID: "555", want: []string{"POST /channels/555/messages body"}},
+		{name: "reopens a deleted thread", threadID: "555", deleted: true, want: []string{"POST /channels/555/messages body", "POST /channels/201/messages starter", "POST /channels/201/messages/900/threads", "POST /channels/777/messages body"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var finish struct {
+				MessageID string `json:"message_id"`
+				ThreadID  string `json:"thread_id"`
+				Failed    bool   `json:"failed"`
+			}
+			claimed := false
+			api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var err error
+				switch r.URL.Path {
+				case "/announcements/claim":
+					var announcement any
+					if !claimed {
+						claimed = true
+						announcement = map[string]any{"id": "a", "instance_id": "i", "guild_id": "101", "channel_id": "201", "body": "body <@456>", "notify_users": true,
+							"thread": map[string]any{"key": "k", "name": "Draft rewards", "starter": "starter", "id": tc.threadID}}
+					}
+					err = json.NewEncoder(w).Encode(map[string]any{"announcement": announcement})
+				case "/discord/guilds/101/channels/201":
+					err = json.NewEncoder(w).Encode(map[string]any{"binding": map[string]any{"instance_id": "i"}})
+				case "/announcements/a/finish":
+					err = json.NewDecoder(r.Body).Decode(&finish)
+					if err == nil {
+						_, err = io.WriteString(w, `{"status":"ok"}`)
+					}
+				default:
+					http.NotFound(w, r)
+				}
+				if err != nil {
+					t.Error(err)
+				}
+			}))
+			defer api.Close()
+			client, err := castaway.NewClient(api.URL, api.Client(), castaway.Options{BearerToken: "t"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			session, err := discordgo.New("Bot test-token")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			session.Client.Transport = announcementRoundTrip(func(r *http.Request) (*http.Response, error) {
+				path := strings.TrimPrefix(r.URL.Path, "/api/v9")
+				var body struct {
+					Content         string `json:"content"`
+					AllowedMentions struct {
+						Parse []string `json:"parse"`
+					} `json:"allowed_mentions"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				call := r.Method + " " + path
+				if body.Content != "" {
+					call += map[bool]string{true: " starter", false: " body"}[body.Content == "starter"]
+					if body.Content == "starter" && len(body.AllowedMentions.Parse) != 0 {
+						t.Error("thread starter may ping")
+					}
+				}
+				got = append(got, call)
+				switch {
+				case strings.HasSuffix(path, "/threads"):
+					return discordResponse(r, 200, `{"id":"777"}`), nil
+				case strings.HasPrefix(path, "/channels/555/") && tc.deleted:
+					return discordResponse(r, 404, `{"code":10003,"message":"Unknown Channel"}`), nil
+				case body.Content == "starter":
+					return discordResponse(r, 200, `{"id":"900"}`), nil
+				default:
+					return discordResponse(r, 200, `{"id":"123456"}`), nil
+				}
+			})
+			b := &Bot{castaway: client, session: session, targetServerIDs: []string{"101"}, log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+			if err := b.deliverNextAnnouncement(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Join(got, "\n") != strings.Join(tc.want, "\n") {
+				t.Fatalf("Discord requests:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
+			}
+			wantThread := map[bool]string{true: "777", false: tc.threadID}[tc.threadID == "" || tc.deleted]
+			if finish.Failed || finish.MessageID != "123456" || finish.ThreadID != wantThread {
+				t.Fatalf("finish = %+v", finish)
+			}
+		})
+	}
+}

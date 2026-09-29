@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -129,6 +130,72 @@ func TestDraftSubmissionEvents(t *testing.T) {
 			t.Fatalf("announcement %s notify=%v %v", key, notify, err)
 		}
 		bodies = append(bodies, text)
+	}
+	// Routine buffs go to the shared rewards thread; 1st, 2nd, and last stay in the channel.
+	var threaded []string
+	threadRows, err := pool.Query(ctx, `SELECT request_key FROM announcements WHERE thread->>'key' = 'draft-rewards' ORDER BY request_key`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for threadRows.Next() {
+		var key string
+		if err := threadRows.Scan(&key); err != nil {
+			t.Fatal(err)
+		}
+		threaded = append(threaded, key)
+	}
+	threadRows.Close()
+	wantThreaded := []string{"draft-submission-" + players[2], "draft-submission-" + players[3], "draft-submission-" + players[4]}
+	slices.Sort(wantThreaded)
+	if !slices.Equal(threaded, wantThreaded) {
+		t.Fatalf("threaded announcements = %v, want %v", threaded, wantThreaded)
+	}
+
+	// The bot sees the thread; once one post reports the thread it opened, later posts reuse it.
+	claim := func() map[string]any {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, authorizedJSONRequest(http.MethodPost, "/announcements/claim", `{"guild_ids":["7001"]}`, "token", ""))
+		var body struct {
+			Announcement map[string]any `json:"announcement"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil || body.Announcement == nil {
+			t.Fatalf("claim: %d %s", recorder.Code, recorder.Body.String())
+		}
+		return body.Announcement
+	}
+	finish := func(id, body string) {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, authorizedJSONRequest(http.MethodPost, "/announcements/"+id+"/finish", body, "token", ""))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("finish: %d %s", recorder.Code, recorder.Body.String())
+		}
+	}
+	threadID := func(a map[string]any) string {
+		thread, _ := a["thread"].(map[string]any)
+		id, _ := thread["id"].(string)
+		return id
+	}
+	sawThread := false
+	for range bodies {
+		a := claim()
+		if a["thread"] == nil {
+			finish(a["id"].(string), `{"message_id":"1"}`)
+			continue
+		}
+		if !sawThread {
+			if id := threadID(a); id != "" {
+				t.Fatalf("thread id before any post: %q", id)
+			}
+			sawThread = true
+			finish(a["id"].(string), `{"message_id":"2","thread_id":"8888"}`)
+			continue
+		}
+		if id := threadID(a); id != "8888" {
+			t.Fatalf("later threaded post got thread %q", id)
+		}
+		finish(a["id"].(string), `{"message_id":"3"}`)
 	}
 	all := strings.Join(bodies, "\n")
 	if len(bodies) != 6 || !strings.Contains(all, "🔥 <@1234567890> — first") || !strings.Contains(all, "**P2**, right behind") || !strings.Contains(all, "**P4**... last draft in") {

@@ -13,6 +13,15 @@ type Announcement struct {
 	Body       string `json:"body"`
 	// NotifyUsers lets <@user> mentions ping; @everyone and roles never do.
 	NotifyUsers bool `json:"notify_users"`
+	// Thread, when set, means post inside this shared thread, opening it (starter message + thread) if ID is empty.
+	Thread *AnnouncementThread `json:"thread,omitempty"`
+}
+
+type AnnouncementThread struct {
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Starter string `json:"starter"`
+	ID      string `json:"id"`
 }
 
 func (c *Client) ClaimAnnouncement(ctx context.Context, guildIDs []string) (*Announcement, error) {
@@ -23,11 +32,11 @@ func (c *Client) ClaimAnnouncement(ctx context.Context, guildIDs []string) (*Ann
 	return response.Announcement, err
 }
 
-func (c *Client) FinishAnnouncement(ctx context.Context, id, messageID string, failed bool) error {
+func (c *Client) FinishAnnouncement(ctx context.Context, id, messageID, threadID string, failed bool) error {
 	var response struct {
 		Status string `json:"status"`
 	}
-	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "finish")), nil, map[string]any{"message_id": messageID, "failed": failed}, &response)
+	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "finish")), nil, map[string]any{"message_id": messageID, "failed": failed, "thread_id": threadID}, &response)
 }
 
 type AccessRequest struct {

@@ -27,6 +27,15 @@ type announcementRecord struct {
 	Status      string     `json:"status"`
 	MessageID   *string    `json:"message_id"`
 	NotifyUsers bool       `json:"notify_users"`
+	// Thread, when set, sends the body inside a shared bot thread; ID is empty until the thread exists.
+	Thread *announcementThread `json:"thread,omitempty"`
+}
+
+type announcementThread struct {
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Starter string `json:"starter"`
+	ID      string `json:"id,omitempty"`
 }
 
 func validAnnouncementID(id string) bool {
@@ -37,7 +46,7 @@ func validAnnouncementID(id string) bool {
 func scanAnnouncement(row pgx.Row) (announcementRecord, error) {
 	var a announcementRecord
 	var id, instanceID pgtype.UUID
-	err := row.Scan(&id, &instanceID, &a.GuildID, &a.ChannelID, &a.RequestKey, &a.Body, &a.ScheduledAt, &a.DueAt, &a.Status, &a.MessageID, &a.NotifyUsers)
+	err := row.Scan(&id, &instanceID, &a.GuildID, &a.ChannelID, &a.RequestKey, &a.Body, &a.ScheduledAt, &a.DueAt, &a.Status, &a.MessageID, &a.NotifyUsers, &a.Thread)
 	if err == nil {
 		a.ID, a.InstanceID = uuid.UUID(id.Bytes), uuid.UUID(instanceID.Bytes)
 		a.DueAt = a.DueAt.UTC()
@@ -49,7 +58,9 @@ func scanAnnouncement(row pgx.Row) (announcementRecord, error) {
 	return a, err
 }
 
-const announcementColumns = `a.id, i.public_id, a.guild_id, a.channel_id, a.request_key, a.body, a.scheduled_at, a.due_at, a.status, a.message_id, a.notify_users`
+const announcementColumns = `a.id, i.public_id, a.guild_id, a.channel_id, a.request_key, a.body, a.scheduled_at, a.due_at, a.status, a.message_id, a.notify_users,
+	CASE WHEN a.thread IS NULL THEN NULL ELSE a.thread || jsonb_build_object('id', (SELECT t.thread_id FROM announcement_threads t
+		WHERE t.instance_id = a.instance_id AND t.channel_id = a.channel_id AND t.thread_key = a.thread->>'key')) END`
 
 func (s *Server) createAnnouncement(c *gin.Context) {
 	if !requireAdminService(c) {
@@ -264,14 +275,25 @@ func (s *Server) finishAnnouncement(c *gin.Context) {
 	var req struct {
 		MessageID string `json:"message_id"`
 		Failed    bool   `json:"failed"`
+		// ThreadID is the thread the bot opened for this announcement, reported even if the post then failed.
+		ThreadID string `json:"thread_id"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || (req.Failed && req.MessageID != "") || (!req.Failed && !validAnnouncementID(req.MessageID)) {
+	if err := c.ShouldBindJSON(&req); err != nil || (req.Failed && req.MessageID != "") || (!req.Failed && !validAnnouncementID(req.MessageID)) || (req.ThreadID != "" && !validAnnouncementID(req.ThreadID)) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid delivery result"})
 		return
 	}
 	status := "sent"
 	if req.Failed {
 		status = "failed"
+	}
+	if req.ThreadID != "" {
+		if _, err := s.pool.Exec(c.Request.Context(), `
+			INSERT INTO announcement_threads (instance_id, channel_id, thread_key, thread_id)
+			SELECT instance_id, channel_id, thread->>'key', $2 FROM announcements WHERE id = $1 AND status = 'sending' AND thread IS NOT NULL
+			ON CONFLICT (instance_id, channel_id, thread_key) DO UPDATE SET thread_id = EXCLUDED.thread_id`, toPGUUID(id), req.ThreadID); err != nil {
+			writeAnnouncementError(c, err)
+			return
+		}
 	}
 	result, err := s.pool.Exec(c.Request.Context(), `
 		UPDATE announcements SET status = $2, message_id = NULLIF($3, ''),

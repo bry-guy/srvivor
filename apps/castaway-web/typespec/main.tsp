@@ -665,6 +665,15 @@ model Announcement {
   status: string;
   message_id: string | null;
   notify_users: boolean;
+  /** Post inside this shared bot thread; `id` is absent until the thread exists. */
+  thread?: AnnouncementThread;
+}
+
+model AnnouncementThread {
+  key: string;
+  name: string;
+  starter: string;
+  id?: string;
 }
 
 model CreateAnnouncementRequest {
@@ -683,7 +692,7 @@ model AnnouncementResponse { announcement: Announcement; }
 model AnnouncementListResponse { announcements: Announcement[]; }
 model ClaimAnnouncementRequest { guild_ids: string[]; }
 model ClaimAnnouncementResponse { announcement: Announcement | null; }
-model FinishAnnouncementRequest { message_id?: string; failed?: boolean; }
+model FinishAnnouncementRequest { message_id?: string; failed?: boolean; thread_id?: string; }
 model FinishAnnouncementResponse { status: string; message_id?: string; }
 
 @route("/admin/session")

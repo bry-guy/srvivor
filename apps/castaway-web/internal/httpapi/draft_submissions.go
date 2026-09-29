@@ -162,7 +162,7 @@ func (s *Server) closeDraftSubmissions(c *gin.Context) {
 	last := gin.H(nil)
 	if err == nil {
 		if err = json.Unmarshal(raw, &result); err == nil && result.Order > 2 {
-			if err = s.queueDraftAnnouncement(ctx, tx, instanceID, config, participantID, "draft-last", draftLastCopy, result.Tribe); err == nil {
+			if err = s.queueDraftAnnouncement(ctx, tx, instanceID, config, participantID, "draft-last", draftLastCopy, result.Tribe, nil); err == nil {
 				last = gin.H{"participant_id": pgUUIDString(participantID), "order": result.Order}
 			}
 		}
@@ -242,14 +242,14 @@ func (s *Server) recordDraftSubmission(ctx context.Context, tx pgx.Tx, q *db.Que
 			return nil, err
 		}
 	}
-	template := draftRestCopy[(result.Order-3+len(draftRestCopy)*8)%len(draftRestCopy)]
+	template, thread := draftRestCopy[(result.Order-3+len(draftRestCopy)*8)%len(draftRestCopy)], draftRewardsThread
 	switch {
 	case result.Points == 2:
-		template = draftFirstCopy
+		template, thread = draftFirstCopy, nil
 	case result.Points == 1:
-		template = draftSecondCopy
+		template, thread = draftSecondCopy, nil
 	}
-	return &result, s.queueDraftAnnouncement(ctx, tx, instanceID, config, participantID, "draft-submission", template, result.Tribe)
+	return &result, s.queueDraftAnnouncement(ctx, tx, instanceID, config, participantID, "draft-submission", template, result.Tribe, thread)
 }
 
 type draftClaim struct {
@@ -310,7 +310,10 @@ func draftTribeGroup(ctx context.Context, q *db.Queries, instanceID uuid.UUID, t
 }
 
 // queueDraftAnnouncement queues a pinged post for the player; keyed by player so it's queued at most once.
-func (s *Server) queueDraftAnnouncement(ctx context.Context, tx pgx.Tx, instanceID uuid.UUID, config draftSubmissionConfig, participantID pgtype.UUID, prefix, template, tribe string) error {
+// draftRewardsThread keeps routine draft buffs out of the channel; the 1st, 2nd, and last callouts stay in it.
+var draftRewardsThread = &announcementThread{Key: "draft-rewards", Name: "Draft rewards", Starter: "🔥 The drafts are rolling in. Find your reward inside."}
+
+func (s *Server) queueDraftAnnouncement(ctx context.Context, tx pgx.Tx, instanceID uuid.UUID, config draftSubmissionConfig, participantID pgtype.UUID, prefix, template, tribe string, thread *announcementThread) error {
 	var name string
 	var discordID pgtype.Text
 	if err := tx.QueryRow(ctx, `SELECT name, discord_user_id FROM participants WHERE public_id = $1`, participantID).Scan(&name, &discordID); err != nil {
@@ -321,9 +324,9 @@ func (s *Server) queueDraftAnnouncement(ctx context.Context, tx pgx.Tx, instance
 		player = "<@" + discordID.String + ">"
 	}
 	_, err := tx.Exec(ctx, `
-		INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, due_at, status, notify_users)
-		SELECT id, $2, $3, $4, $5, $6, 'pending', true FROM instances WHERE public_id = $1
+		INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, due_at, status, notify_users, thread)
+		SELECT id, $2, $3, $4, $5, $6, 'pending', true, $7 FROM instances WHERE public_id = $1
 		ON CONFLICT (instance_id, request_key) DO NOTHING`,
-		toPGUUID(instanceID), config.GuildID, config.ChannelID, prefix+"-"+pgUUIDString(participantID), draftCopy(template, player, tribe), s.now())
+		toPGUUID(instanceID), config.GuildID, config.ChannelID, prefix+"-"+pgUUIDString(participantID), draftCopy(template, player, tribe), s.now(), thread)
 	return err
 }
