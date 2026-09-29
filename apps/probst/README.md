@@ -111,7 +111,8 @@ Thread reading needs `CASTAWAY_DISCORD_BOT_TOKEN` (fnox profile `castaway-discor
 - A message is a draft only if at least 15 of its lines name contestants; chat is ignored.
 - Each author's latest draft before `--before` wins; later drafts and edits after the cutoff are reported.
 - Numbered lines rank by number (any of `1.`, `1)`, `1 -`, `1:`); otherwise lines rank top to bottom. Comma lists work.
-- Names match exactly on full name, nickname, first name, or surname, or fuzzily when the winner is clear. Close calls are reported, never guessed. If a player goes by a name the parser can't infer, rename the contestant to carry it as a nickname: `probst contestant rename CONTESTANT_ID 'Thien "An" Nguyen'`. Contestants are shared across seasons, so the new name shows everywhere.
+- Names match exactly on full name, quoted nickname, first name, or surname, or fuzzily when the winner is clear. Existing fuzzy thresholds are unchanged. In a complete, correctly numbered (or unnumbered), duplicate-free draft with exactly one unmatched pick, a whole name word can identify the sole unused contestant: `An` can resolve to `Thien An Nguyen` without storing an extra nickname. `--verbose` labels this match `inferred` and explains why. Ambiguous matches are never resolved by removing already-used contestants.
+- Weaker names may show `possible ...; requires confirmation` in the diagnostics. These are suggestions only: `--yes` does not accept them. Review the original message, correct a separate file with canonical names, dry-run `draft import --file fixed.txt --participant PLAYER --instance INSTANCE`, then add `--yes`. Only add a quoted nickname via `contestant rename` when it is actually intended; contestant names are shared across seasons.
 - The API still rejects any draft that is not every contestant exactly once.
 
 ## Weekly loop
@@ -172,5 +173,7 @@ MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:integration -- -run TestProbstC
 ```
 
 The integration task uses a fresh disposable PostgreSQL container and invokes the built Probst binary against a local test API. It does not use production databases.
+
+`TestDraftThreadKeelingOriginalMessage` and `TestDraftThreadMooneyOriginalMessage` exercise captured, unedited messages without contacting Discord. They verify all 21 ranks, pending submission credit, and replay safety; Mooney's weak matches require a corrected revision before any picks or rewards are saved. See [the matching plan](plans/contextual-draft-name-matching.md) and [fixture provenance](testdata/README.md).
 
 See [requirements](functional-requirements.md), [security requirements](non-functional-requirements.md), [readiness](production-readiness-checklist.md), [administration plan](plans/player-administration.md), [private-endpoint proposal](plans/private-api-endpoint.md), and [changelog](CHANGELOG.md).

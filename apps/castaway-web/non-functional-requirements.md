@@ -14,6 +14,7 @@
 - Database migrations must be applied consistently before serving traffic.
 - Production deployments must run migrations through a dedicated migration Job or equivalent pre-traffic hook rather than relying on app-startup auto-migration.
 - Seed workflows must remain repeatable for local development.
+- Weak draft-name suggestions must not save picks or trigger rewards; accepted revisions and message replay must preserve claim order without duplicating bonus, tribe, or announcement effects.
 
 ## Observability
 

@@ -18,6 +18,8 @@
 - create and list contestants for an instance
 - create and list participants for an instance
 - create and retrieve draft picks for a participant
+- parse watched-thread drafts with unchanged exact/clear-fuzzy matching, bounded single-unused-contestant whole-word inference, and non-binding weak-match suggestions; reject ambiguous, incomplete, duplicate, and malformed drafts
+- preserve pending submission claims without granting draft rewards until a complete draft is saved; replay messages without duplicating picks, bonuses, tribe memberships, or announcements
 - create and retrieve ordered outcome positions
 - compute and return leaderboard results from drafts plus outcomes, including linked Discord user ids and current tribe names for bot-facing score formatting
 - support bot-friendly filters for instances, participants, contestants, activities, and leaderboard lookups

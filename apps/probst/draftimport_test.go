@@ -175,7 +175,7 @@ func TestDraftImportFromFileNeverSubmitsBrokenDraft(t *testing.T) {
 	t.Setenv("PROBST_API_URL", api.URL)
 	file := t.TempDir() + "/ada.txt"
 	lines := strings.Split(numberedDraft(identity()), "\n")
-	lines[20] = "21. An"
+	lines[20] = "21. Unknown Contestant"
 	if err := os.WriteFile(file, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}

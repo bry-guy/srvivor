@@ -8,6 +8,8 @@
 - [ ] Public exposure reviewed for TLS, ingress, and network policy
 
 ## Reliability
+- [x] Offline original-message draft tests verify no rewards for unconfirmed names, pending submission credit, all ranks, and replay idempotency.
+- [ ] Contextual parser changes deployed and observed on a new live draft.
 - [ ] Database backup and restore procedure documented
 - [x] Dedicated migration job or pre-traffic hook wired into the deployment environment — `cmd/migrate/main.go` + `deploy/base/castaway-web/migration-job.yaml` as Argo CD PreSync hook
 - [x] Production web pods configured with `AUTO_MIGRATE=false` — enforced in k8s environment overlay

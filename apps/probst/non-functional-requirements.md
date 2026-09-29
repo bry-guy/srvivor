@@ -6,3 +6,4 @@
 - Bound requests to ten seconds and response decoding to four MiB.
 - Delegate authorization to service-authenticated API transactions; never claim human login.
 - Validate mutations using disposable PostgreSQL, preserving historical gameplay data.
+- Keep weak name suggestions non-binding, and test real-message matching with offline fixtures rather than live Discord or operator credentials.

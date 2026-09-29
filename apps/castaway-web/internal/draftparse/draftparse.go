@@ -4,6 +4,7 @@ package draftparse
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,8 +22,10 @@ type pick struct {
 	Raw        string
 	Number     int // 0 when the line has no number
 	Contestant *Contestant
-	Method     string // exact, fuzzy, ambiguous, unmatched
+	Method     string
 	Note       string
+	nameText   string
+	numbered   bool
 }
 
 type Draft struct {
@@ -156,7 +159,21 @@ func matchName(text string, roster []*Contestant) (*Contestant, string, string) 
 		return nil, "ambiguous", "could be " + names(exact)
 	}
 	sort.SliceStable(best, func(i, j int) bool { return best[i].score > best[j].score })
-	if len(best) == 0 || best[0].score < fuzzyThreshold {
+	if len(best) == 0 {
+		return nil, "unmatched", ""
+	}
+	if best[0].score < fuzzyThreshold {
+		if len(words) > 1 {
+			for i := range best {
+				if slices.Contains(best[i].c.aliases, words[len(words)-1]) {
+					best[i].score = 1
+				}
+			}
+			sort.SliceStable(best, func(i, j int) bool { return best[i].score > best[j].score })
+		}
+		if best[0].score >= 0.5 && (len(best) == 1 || best[0].score-best[1].score >= fuzzyMargin) {
+			return nil, "unmatched", "possible " + best[0].c.Name + "; requires confirmation"
+		}
 		return nil, "unmatched", ""
 	}
 	if len(best) > 1 && best[0].score-best[1].score < fuzzyMargin {
@@ -210,30 +227,35 @@ func Parse(text string, roster []*Contestant) Draft {
 		line := cleanLine(raw)
 		p := pick{Raw: raw}
 		if m := numberedLine.FindStringSubmatch(line); m != nil {
-			if n, err := strconv.Atoi(m[1]); err == nil && n >= 1 && n <= len(roster) {
-				p.Number, line = n, m[2]
+			if number, err := strconv.Atoi(m[1]); err == nil {
+				p.Number = number
 			}
+			p.numbered, line = true, m[2]
 		}
-		p.Contestant, p.Method, p.Note = matchName(normalize(line), roster)
-		if p.Contestant != nil {
-			d.Matched++
-		}
-		if p.Number > 0 {
+		p.nameText = normalize(line)
+		p.Contestant, p.Method, p.Note = matchName(p.nameText, roster)
+		if p.numbered {
 			numbered = true
 		}
-		if p.Contestant != nil || p.Number > 0 {
+		if p.Contestant != nil || p.numbered || slices.ContainsFunc(roster, func(c *Contestant) bool { return matchesNameWord(p.nameText, c) }) {
 			d.Picks = append(d.Picks, p)
 		}
 	}
 	if numbered {
 		kept := d.Picks[:0]
 		for _, p := range d.Picks {
-			if p.Number > 0 {
+			if p.numbered {
 				kept = append(kept, p)
 			}
 		}
 		d.Picks = kept
 		sort.SliceStable(d.Picks, func(i, j int) bool { return d.Picks[i].Number < d.Picks[j].Number })
+	}
+	inferLastPick(d.Picks, roster, numbered)
+	for _, p := range d.Picks {
+		if p.Contestant != nil {
+			d.Matched++
+		}
 	}
 	d.Problems = validate(d.Picks, roster, numbered)
 	if len(d.Problems) == 0 {
@@ -244,12 +266,58 @@ func Parse(text string, roster []*Contestant) Draft {
 	return d
 }
 
+func matchesNameWord(text string, c *Contestant) bool {
+	return len([]rune(text)) >= 2 && !strings.Contains(text, " ") && strings.Contains(" "+normalize(c.Name)+" ", " "+text+" ")
+}
+
+func inferLastPick(picks []pick, roster []*Contestant, numbered bool) {
+	if len(roster) < 2 || len(picks) != len(roster) {
+		return
+	}
+	seen := map[*Contestant]bool{}
+	numbers := map[int]bool{}
+	var unresolved *pick
+	for i := range picks {
+		p := &picks[i]
+		if numbered {
+			if p.Number < 1 || p.Number > len(roster) || numbers[p.Number] {
+				return
+			}
+			numbers[p.Number] = true
+		}
+		if p.Contestant == nil {
+			if p.Method != "unmatched" || unresolved != nil {
+				return
+			}
+			unresolved = p
+		} else {
+			if seen[p.Contestant] {
+				return
+			}
+			seen[p.Contestant] = true
+		}
+	}
+	if unresolved == nil {
+		return
+	}
+	for _, c := range roster {
+		if !seen[c] && matchesNameWord(unresolved.nameText, c) {
+			unresolved.Contestant, unresolved.Method = c, "inferred"
+			unresolved.Note = "whole name word; only unused contestant in a complete draft"
+			return
+		}
+	}
+}
+
 func validate(picks []pick, roster []*Contestant, numbered bool) []string {
 	var problems []string
 	seenNumber := map[int]bool{}
 	seen := map[*Contestant]int{}
 	for _, p := range picks {
 		if numbered {
+			if p.Number < 1 || p.Number > len(roster) {
+				problems = append(problems, fmt.Sprintf("number %d is outside 1..%d", p.Number, len(roster)))
+			}
 			if seenNumber[p.Number] {
 				problems = append(problems, fmt.Sprintf("number %d used twice", p.Number))
 			}
@@ -258,6 +326,8 @@ func validate(picks []pick, roster []*Contestant, numbered bool) []string {
 		switch {
 		case p.Contestant == nil && p.Method == "ambiguous":
 			problems = append(problems, fmt.Sprintf("%q is ambiguous (%s)", strings.TrimSpace(p.Raw), p.Note))
+		case p.Contestant == nil && p.Note != "":
+			problems = append(problems, fmt.Sprintf("%q matches no contestant (%s)", strings.TrimSpace(p.Raw), p.Note))
 		case p.Contestant == nil:
 			problems = append(problems, fmt.Sprintf("%q matches no contestant", strings.TrimSpace(p.Raw)))
 		default:

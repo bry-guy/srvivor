@@ -100,6 +100,14 @@ The scenario task creates its own disposable PostgreSQL database and local servi
 
 You can still point the tests at another non-prod Postgres instance by setting `CASTAWAY_TEST_DATABASE_URL` manually.
 
+The captured Keeling and Mooney original-message tests run offline against disposable databases:
+
+```bash
+MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:integration -- -run 'TestDraftThread(Keeling|Mooney)OriginalMessage' -count=1
+```
+
+The watched-thread parser keeps existing exact/fuzzy thresholds. It can infer one unmatched whole name word only in a complete, valid, duplicate-free draft when there is one unused contestant. Weak candidate suggestions require confirmation through a corrected message or targeted Probst file import; they do not save picks or award rewards. Tests assert every rank, preserved second-submission credit, and replay idempotency. See [the matching plan](../probst/plans/contextual-draft-name-matching.md) and [fixture provenance](../probst/testdata/README.md).
+
 ## Historical season rehearsal
 
 Run `MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:rehearsal-season43` for a disposable, repeatable Season 43 test with six fake drafts and thirteen public-bonus Wordle rounds. Historical inputs are pinned to survivoR; no online data or Discord access is needed by default. See the [rehearsal guide](../../docs/guides/season43-rehearsal.md) for fixture editing, explicit BrainLand delivery, and observed results. This uses legacy mode and leaves the managed YAML scenario unchanged.

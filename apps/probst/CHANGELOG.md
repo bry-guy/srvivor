@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Infer a single unmatched whole name word from a complete draft's sole unused contestant, without adding artificial nicknames or changing fuzzy thresholds. Weak candidates remain confirmation-only suggestions.
+- Add offline Keeling and Mooney original-message coverage, including all ranks, pending submission credit, and replay safety.
+
 - `contestant rename CONTESTANT NEW_NAME`.
 
 - `login`/`logout` (Discord login for the public `/api`), `admin add`, and `access list|approve|deny`.

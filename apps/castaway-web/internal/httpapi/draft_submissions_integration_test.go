@@ -173,15 +173,29 @@ func TestDraftSubmissionEvents(t *testing.T) {
 		}
 	}
 	threadID := func(a map[string]any) string {
-		thread, _ := a["thread"].(map[string]any)
-		id, _ := thread["id"].(string)
+		t.Helper()
+		thread, ok := a["thread"].(map[string]any)
+		if !ok {
+			t.Fatalf("invalid thread metadata: %v", a["thread"])
+		}
+		if thread["id"] == nil {
+			return ""
+		}
+		id, ok := thread["id"].(string)
+		if !ok {
+			t.Fatalf("invalid thread id: %v", thread["id"])
+		}
 		return id
 	}
 	sawThread := false
 	for range bodies {
 		a := claim()
+		id, ok := a["id"].(string)
+		if !ok || id == "" {
+			t.Fatalf("invalid announcement id: %v", a["id"])
+		}
 		if a["thread"] == nil {
-			finish(a["id"].(string), `{"message_id":"1"}`)
+			finish(id, `{"message_id":"1"}`)
 			continue
 		}
 		if !sawThread {
@@ -189,13 +203,13 @@ func TestDraftSubmissionEvents(t *testing.T) {
 				t.Fatalf("thread id before any post: %q", id)
 			}
 			sawThread = true
-			finish(a["id"].(string), `{"message_id":"2","thread_id":"8888"}`)
+			finish(id, `{"message_id":"2","thread_id":"8888"}`)
 			continue
 		}
 		if id := threadID(a); id != "8888" {
 			t.Fatalf("later threaded post got thread %q", id)
 		}
-		finish(a["id"].(string), `{"message_id":"3"}`)
+		finish(id, `{"message_id":"3"}`)
 	}
 	all := strings.Join(bodies, "\n")
 	if len(bodies) != 6 || !strings.Contains(all, "🔥 <@1234567890> — first") || !strings.Contains(all, "**P2**, right behind") || !strings.Contains(all, "**P4**... last draft in") {
