@@ -111,7 +111,7 @@ Thread reading needs `CASTAWAY_DISCORD_BOT_TOKEN` (fnox profile `castaway-discor
 - A message is a draft only if at least 15 of its lines name contestants; chat is ignored.
 - Each author's latest draft before `--before` wins; later drafts and edits after the cutoff are reported.
 - Numbered lines rank by number (any of `1.`, `1)`, `1 -`, `1:`); otherwise lines rank top to bottom. Comma lists work.
-- Names match exactly on full name, nickname, first name, or surname, or fuzzily when the winner is clear. Close calls (for example `An`: Ana or Thien An) are reported, never guessed.
+- Names match exactly on full name, nickname, first name, or surname, or fuzzily when the winner is clear. Close calls are reported, never guessed. If a player goes by a name the parser can't infer, store it as a nickname (`Thien "An" Nguyen`); Season 51 needed this for An.
 - The API still rejects any draft that is not every contestant exactly once.
 
 ## Weekly loop
