@@ -112,3 +112,12 @@ Not done yet: HTMX and web components (the page is a plain server-rendered table
 - `/` returns 502 until the public listener is enabled. That needs `CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET` (step 1), then the configmap (step 2).
 - The Cloudflare tunnel is blocked: the API token lacks Account → Cloudflare Tunnel → Edit. Once it has that, apply with `castaway_tunnel = true` (the DNS record stays on the tailnet), store the token, and add `public/` to the kustomization.
 - There's no ingress NetworkPolicy on 8090: the tailnet Caddy reaches it from the host, and 8080 (more privileged) is already unrestricted.
+
+### Live (2026-09-29)
+
+- castaway.bry-guy.net is public: Cloudflare proxy → tunnel → castaway-web:8090. Checked from outside: `/` 200, `/auth/login` redirects to Discord, `/api/*` 401 without a session and 401 with the service token, internal routes 404, HTTP redirects to HTTPS.
+- Edge (infra `cloudflare/dns/castaway_edge.tf`): SSL strict, Always Use HTTPS, TLS ≥1.2, Bot Fight Mode, one rate-limit rule (30 requests / 10 s per IP on `/auth/` and `/api/`).
+- probst uses `probst login` against `https://castaway.bry-guy.net/api`.
+- Rollback: set `castaway_public = false` in infra and apply.
+- The security review was skipped by owner decision; the site only shows the leaderboard for now. Do it before adding pages that expose more.
+- The tailnet Caddy castaway site still exists but DNS no longer points to it.
