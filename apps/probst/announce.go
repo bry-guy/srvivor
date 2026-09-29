@@ -247,7 +247,7 @@ func mentionNote(notify bool) string {
 	return "mentions will not notify"
 }
 
-func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo string, notify bool) (string, error) {
+func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo string, notify, silent bool) (string, error) {
 	if token == "" {
 		return "", fmt.Errorf("set CASTAWAY_DISCORD_BOT_TOKEN (or discord_bot_token in the config file) to post to Discord")
 	}
@@ -260,6 +260,9 @@ func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo str
 		parse = []string{"users"}
 	}
 	payload := map[string]any{"content": text, "allowed_mentions": map[string]any{"parse": parse}}
+	if silent {
+		payload["flags"] = 1 << 12 // SUPPRESS_NOTIFICATIONS, same as @silent
+	}
 	if replyTo != "" {
 		payload["message_reference"] = map[string]any{"message_id": replyTo, "fail_if_not_exists": false}
 	}
@@ -294,7 +297,7 @@ func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo str
 
 func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveChannel func(string) string) {
 	var file, replyTo string
-	var notify bool
+	var notify, silent bool
 	message := &cobra.Command{
 		Use:   "message [CHANNEL] [TEXT]",
 		Short: "Post a one-off message as the bot right now (not saved); dry run unless --yes. CHANNEL defaults to the --instance alias's channel",
@@ -327,7 +330,7 @@ func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveCha
 				_, err := fmt.Fprintf(c.OutOrStdout(), "Dry run — channel %s (%s):\n\n%s\n\nRe-run with --yes to post it.\n", a[0], mentionNote(notify), text)
 				return err
 			}
-			id, err := sendDiscordMessage(c.Context(), *token, a[0], text, replyTo, notify)
+			id, err := sendDiscordMessage(c.Context(), *token, a[0], text, replyTo, notify, silent)
 			if err != nil {
 				return err
 			}
@@ -337,6 +340,7 @@ func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveCha
 	}
 	message.Flags().StringVar(&file, "file", "", "UTF-8 Markdown file to post")
 	message.Flags().BoolVar(&notify, "notify", false, "Let <@user> mentions ping those players (never @everyone or roles)")
+	message.Flags().BoolVar(&silent, "silent", false, "Post without push notifications (like @silent)")
 	message.Flags().StringVar(&replyTo, "reply-to", "", "Discord message ID to reply to")
 	root.AddCommand(message)
 }
