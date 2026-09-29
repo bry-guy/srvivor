@@ -13,3 +13,7 @@ data:
   SERVICE_AUTH_PRINCIPAL: castaway-discord-bot
   OTEL_SERVICE_NAME: castaway-web
   OTEL_RESOURCE_ATTRIBUTES: deployment.environment=home-k3s,service.namespace=castaway
+  PUBLIC_PORT: "8090"
+  PUBLIC_BASE_URL: https://castaway.bry-guy.net
+  DISCORD_OAUTH_CLIENT_ID: "658231035246673931"
+  PUBLIC_INSTANCE_ID: "10"

@@ -30,3 +30,4 @@ CASTAWAY_DISCORD_PUBLIC_KEY = { provider = "op", value = "CASTAWAY_DISCORD_PUBLI
 DISCORD_TARGET_SEVER_ID = { provider = "op", value = "DISCORD_PODRACING_SERVER_ID/password", description = "Target guild/server ID for selfhost deployment" }
 CASTAWAY_BOT_API_TOKEN = { provider = "op", value = "CASTAWAY_BOT_API_TOKEN/password", description = "Shared service auth token between castaway-web and castaway-discord-bot" }
 CASTAWAY_CLOUDFLARED_TOKEN = { provider = "op", value = "CASTAWAY_CLOUDFLARED_TOKEN/password", description = "Cloudflare Tunnel connector token for the public Castaway site" }
+CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET = { provider = "op", value = "CASTAWAY_DISCORD_OAUTH_CLIENT_SECRET/password", description = "Discord OAuth client secret for website login (Jeff Probst app)" }
