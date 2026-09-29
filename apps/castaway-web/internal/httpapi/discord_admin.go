@@ -31,7 +31,11 @@ func (s *Server) adminSession(c *gin.Context) {
 		return
 	}
 	principal, _ := ServicePrincipal(c.Request.Context())
-	c.JSON(http.StatusOK, gin.H{"principal": principal, "discord_user_id": discordUserIDFromRequest(c.Request), "authentication": "trusted-service delegation; Discord identity asserted by service"})
+	authentication := "trusted-service delegation; Discord identity asserted by service"
+	if principal == webSessionActor {
+		authentication = "Discord login session"
+	}
+	c.JSON(http.StatusOK, gin.H{"principal": principal, "discord_user_id": discordUserIDFromRequest(c.Request), "authentication": authentication})
 }
 
 func (s *Server) bootstrapInstanceAdmin(c *gin.Context) {
