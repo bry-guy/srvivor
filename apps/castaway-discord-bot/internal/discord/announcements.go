@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 	"slices"
 	"time"
 
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 	"github.com/bwmarrin/discordgo"
 )
 
