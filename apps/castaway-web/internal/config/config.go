@@ -1,6 +1,8 @@
 package config
 
 import (
+	"github.com/google/uuid"
+
 	"fmt"
 	"os"
 	"strconv"
@@ -36,6 +38,11 @@ func Load() (*Config, error) {
 		DiscordClientID:             strings.TrimSpace(getEnv("DISCORD_OAUTH_CLIENT_ID", "")),
 		DiscordClientSecret:         strings.TrimSpace(getEnv("DISCORD_OAUTH_CLIENT_SECRET", "")),
 		PublicInstanceID:            strings.TrimSpace(getEnv("PUBLIC_INSTANCE_ID", "")),
+	}
+	if cfg.PublicInstanceID != "" {
+		if _, err := uuid.Parse(cfg.PublicInstanceID); err != nil {
+			return nil, fmt.Errorf("PUBLIC_INSTANCE_ID must be the instance's public UUID: %w", err)
+		}
 	}
 	if cfg.PublicPort != "" && (cfg.PublicBaseURL == "" || cfg.DiscordClientID == "" || cfg.DiscordClientSecret == "") {
 		return nil, fmt.Errorf("PUBLIC_PORT needs PUBLIC_BASE_URL, DISCORD_OAUTH_CLIENT_ID and DISCORD_OAUTH_CLIENT_SECRET")
