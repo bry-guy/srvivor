@@ -818,6 +818,16 @@ op importInstance(@body body: ImportInstanceRequest): {
 @get
 op getInstance(@path instanceID: string): GetInstanceResponse | ErrorResponse;
 
+model RenameContestantRequest { name: string; }
+
+@route("/instances/{instanceID}/contestants/{contestantID}")
+@patch
+op renameContestant(
+  @path instanceID: string,
+  @path contestantID: string,
+  @body body: RenameContestantRequest,
+): CreateContestantResponse | ErrorResponse;
+
 @route("/instances/{instanceID}/contestants")
 @post
 op createContestant(

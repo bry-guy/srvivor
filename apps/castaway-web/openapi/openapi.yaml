@@ -837,6 +837,35 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/ListContestantsResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/contestants/{contestantID}:
+    patch:
+      operationId: renameContestant
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: contestantID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CreateContestantResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameContestantRequest'
   /instances/{instanceID}/draft-submissions:
     post:
       operationId: openDraftSubmissions
@@ -3450,6 +3479,13 @@ components:
         awarded_count:
           type: integer
           format: int32
+    RenameContestantRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
     ReplaceDraftRequest:
       type: object
       required:

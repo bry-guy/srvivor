@@ -156,3 +156,34 @@ func (q *Queries) ListContestantsGlobal(ctx context.Context) ([]ListContestantsG
 	}
 	return items, nil
 }
+
+const renameInstanceContestant = `-- name: RenameInstanceContestant :one
+UPDATE contestants c
+SET name = $1
+FROM instance_contestants ic
+JOIN instances i ON i.id = ic.instance_id
+WHERE ic.contestant_id = c.id
+  AND i.public_id = $2
+  AND c.public_id = $3
+RETURNING c.public_id AS id, c.name, c.created_at
+`
+
+type RenameInstanceContestantParams struct {
+	Name         string      `json:"name"`
+	InstanceID   pgtype.UUID `json:"instance_id"`
+	ContestantID pgtype.UUID `json:"contestant_id"`
+}
+
+type RenameInstanceContestantRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+// Contestants are shared across instances, so the new name shows everywhere they appear.
+func (q *Queries) RenameInstanceContestant(ctx context.Context, arg RenameInstanceContestantParams) (RenameInstanceContestantRow, error) {
+	row := q.db.QueryRow(ctx, renameInstanceContestant, arg.Name, arg.InstanceID, arg.ContestantID)
+	var i RenameInstanceContestantRow
+	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	return i, err
+}

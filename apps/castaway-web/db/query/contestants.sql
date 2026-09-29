@@ -43,3 +43,14 @@ SELECT EXISTS (
     WHERE i.public_id = sqlc.arg(instance_id)
       AND c.public_id = sqlc.arg(contestant_id)
 );
+
+-- name: RenameInstanceContestant :one
+-- Contestants are shared across instances, so the new name shows everywhere they appear.
+UPDATE contestants c
+SET name = sqlc.arg(name)
+FROM instance_contestants ic
+JOIN instances i ON i.id = ic.instance_id
+WHERE ic.contestant_id = c.id
+  AND i.public_id = sqlc.arg(instance_id)
+  AND c.public_id = sqlc.arg(contestant_id)
+RETURNING c.public_id AS id, c.name, c.created_at;

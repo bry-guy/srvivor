@@ -12,7 +12,8 @@ spec:
     - name: http
       port: 8080
       targetPort: http
-    # Website + /api behind Discord login; the only port the Cloudflare tunnel reaches.
+    # Website + /api behind Discord login; the Cloudflare tunnel
+    # reaches only this port.
     - name: public
       port: 8090
       targetPort: public

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `contestant rename CONTESTANT NEW_NAME`.
+
 - `login`/`logout` (Discord login for the public `/api`), `admin add`, and `access list|approve|deny`.
 - `draft watch THREAD_URL` and `draft reject PLAYER` for bot-read draft threads.
 - `recap --episode N` prints the weekly scores post (spoilered boots, biggest gainer/loser, leaderboard with tribes) and diffs against last week's local snapshot.

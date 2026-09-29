@@ -197,6 +197,13 @@ func newCommand() *cobra.Command {
 		}
 		return request(c, "GET", p+"/contestants", nil)
 	})
+	add(contestants, `rename CONTESTANT NEW_NAME`, 2, func(c *cobra.Command, a []string) error {
+		p, e := instancePath()
+		if e != nil {
+			return e
+		}
+		return request(c, "PATCH", p+"/contestants/"+url.PathEscape(a[0]), map[string]string{"name": a[1]})
+	})
 	channels := &cobra.Command{Use: "channel"}
 	root.AddCommand(channels)
 	add(channels, "show CHANNEL", 1, func(c *cobra.Command, a []string) error {

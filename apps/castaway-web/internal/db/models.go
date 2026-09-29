@@ -8,6 +8,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AccessRequest struct {
+	DiscordUserID   string             `json:"discord_user_id"`
+	DiscordUsername string             `json:"discord_username"`
+	RequestedAt     pgtype.Timestamptz `json:"requested_at"`
+	NotifiedAt      pgtype.Timestamptz `json:"notified_at"`
+}
+
 type ActivityGroupAssignment struct {
 	ID                 int64              `json:"id"`
 	ActivityID         int64              `json:"activity_id"`
@@ -82,6 +89,7 @@ type Announcement struct {
 	MessageID   pgtype.Text        `json:"message_id"`
 	SentAt      pgtype.Timestamptz `json:"sent_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	NotifyUsers bool               `json:"notify_users"`
 }
 
 type BonusPointLedgerEntry struct {
@@ -120,6 +128,14 @@ type DraftPick struct {
 	ContestantID  int64              `json:"contestant_id"`
 	Position      int32              `json:"position"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type DraftThreadMessage struct {
+	InstanceID int64              `json:"instance_id"`
+	MessageID  string             `json:"message_id"`
+	Version    string             `json:"version"`
+	Status     string             `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type Import struct {
@@ -327,6 +343,24 @@ type ParticipantPonyOwnership struct {
 	Metadata                   []byte             `json:"metadata"`
 	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WebCliCode struct {
+	CodeHash        []byte             `json:"code_hash"`
+	DiscordUserID   string             `json:"discord_user_id"`
+	DiscordUsername string             `json:"discord_username"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+}
+
+type WebSession struct {
+	ID              int64              `json:"id"`
+	TokenHash       []byte             `json:"token_hash"`
+	DiscordUserID   string             `json:"discord_user_id"`
+	DiscordUsername string             `json:"discord_username"`
+	Kind            string             `json:"kind"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
 }
 
 type WordleRound struct {

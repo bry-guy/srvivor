@@ -112,6 +112,7 @@ func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.GET("/instances/:instanceID", s.getInstance)
 	protected.POST("/instances/:instanceID/contestants", s.createContestant)
 	protected.GET("/instances/:instanceID/contestants", s.listContestants)
+	protected.PATCH("/instances/:instanceID/contestants/:contestantID", s.renameContestant)
 
 	protected.POST("/instances/:instanceID/participants", s.createParticipant)
 	protected.GET("/instances/:instanceID/participants", s.listParticipants)
@@ -510,6 +511,40 @@ func (s *Server) createContestant(c *gin.Context) {
 		"id":   uuid.UUID(contestant.ID.Bytes).String(),
 		"name": contestant.Name,
 	}})
+}
+
+// renameContestant changes a contestant's display name. Contestants are shared across instances, so the
+// new name shows in every season they belong to. Use `First "Nick" Last` to add a draft-matching nickname.
+func (s *Server) renameContestant(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	contestantID, ok := parseUUIDPath(c, "contestantID")
+	if !ok {
+		return
+	}
+	var req createContestantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "name is required"})
+		return
+	}
+	contestant, err := s.queries.RenameInstanceContestant(c.Request.Context(), db.RenameInstanceContestantParams{
+		Name: name, InstanceID: toPGUUID(instanceID), ContestantID: toPGUUID(contestantID),
+	})
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		c.JSON(http.StatusNotFound, errorResponse{Error: "contestant not found in this instance"})
+	case err != nil:
+		c.JSON(statusFromPg(err), errorResponse{Error: err.Error()})
+	default:
+		c.JSON(http.StatusOK, gin.H{"contestant": gin.H{"id": uuid.UUID(contestant.ID.Bytes).String(), "name": contestant.Name}})
+	}
 }
 
 func (s *Server) listContestants(c *gin.Context) {

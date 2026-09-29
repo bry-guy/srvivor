@@ -116,6 +116,8 @@ type Querier interface {
 	LockWordleRound(ctx context.Context, id pgtype.UUID) (LockWordleRoundRow, error)
 	MarkAdvantageUsed(ctx context.Context, id pgtype.UUID) error
 	NextInstanceScoreRevisionNumber(ctx context.Context, instanceID pgtype.UUID) (int32, error)
+	// Contestants are shared across instances, so the new name shows everywhere they appear.
+	RenameInstanceContestant(ctx context.Context, arg RenameInstanceContestantParams) (RenameInstanceContestantRow, error)
 	SetDiscordChannelBinding(ctx context.Context, arg SetDiscordChannelBindingParams) error
 	SetInstanceProgressionMode(ctx context.Context, arg SetInstanceProgressionModeParams) error
 	SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error)
