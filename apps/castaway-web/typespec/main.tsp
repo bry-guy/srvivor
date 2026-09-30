@@ -24,6 +24,8 @@ model CastawordleGame {
   opens_at: utcDateTime;
   cutoff_at: utcDateTime;
   unscored: boolean;
+  test: boolean;
+  episode_number?: int32;
 }
 
 model CastawordlePlay {
@@ -37,7 +39,7 @@ model CastawordlePlay {
 @post
 op createCastawordle(
   @path instanceID: string,
-  @body body: { name: string; answer: string; opens_at?: utcDateTime; cutoff_at?: utcDateTime; },
+  @body body: { name: string; answer: string; episode_number?: int32 | null; opens_at?: utcDateTime; cutoff_at?: utcDateTime; },
 ): { @statusCode statusCode: 201; ...CastawordleGame; } | ErrorResponse;
 
 @route("/castawordle/{gameID}/play")

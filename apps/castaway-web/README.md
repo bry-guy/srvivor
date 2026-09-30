@@ -116,11 +116,17 @@ Run `MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:rehearsal-season43` for a 
 
 All content pages require Discord login. `/` shows scores, `/castawordle` lists the configured season's games, and `/castawordle/{gameID}` resumes one game. Unlinked accounts see the access-request screen. OAuth routes, static assets, and `/healthz` remain reachable without a session.
 
-Instance admins can create an **unscored** trial from the game-list page, or `POST /api/instances/{instanceID}/castawordle` with `name`, `answer`, and optional `opens_at` / `cutoff_at`. Default windows open immediately and last seven days. Answers are validated against the pinned dictionary and determine the 4–8-letter board width. Games cannot be edited after creation in this first pass.
+Instance admins prepare **unscored** puzzles from the game-list page or `POST /api/instances/{instanceID}/castawordle` with `name` and `answer`:
+
+- Omit `episode_number` (or use `null`) for an **admin-only test**. This includes existing preview games. Tests default to opening immediately for seven days; optional `opens_at` / `cutoff_at` remain supported for tests.
+- Select `episode_number` for a **scheduled player puzzle**. The server uses that instance's episode dates: 1pm Eastern on the selected episode day through noon on the next episode day, including DST. Prepare it ahead of time; linked players can see it, but guesses cannot start before opening. No background scheduler is required.
+- Scheduled puzzles require the selected and following episodes, reject caller-provided timestamps and expired windows, and allow one puzzle per instance/episode. A duplicate returns 409 without replacing the answer. The final episode needs a following registered episode to define its cutoff.
+
+Answers are validated against the pinned dictionary and determine the 4–8-letter board width. Games cannot be edited after creation. Existing answers and saved progress are preserved when trials become admin-only; admins still need a linked player to play.
 
 Players use `GET /api/castawordle/{gameID}/play` and `POST .../play/guesses` with `guess` and the next one-based `position`. The server owns the answer, feedback, six-guess limit, saved progress, and terminal state. Repeating the same guess/position is idempotent; a conflicting move returns 409. Cookie writes require the same-origin `Origin` header.
 
-**No scoring inputs or bonus awards are written.** Connecting browser results to the existing Wordle scorer is deferred. Admin-only creation, own-player progress, cross-instance denial, cutoff, concurrency, and zero scoring effects are covered by disposable-database tests.
+**No scoring inputs or bonus awards are written.** Connecting browser results to the existing Wordle scorer is deferred. Admin-only test visibility on lists/pages/play/guess APIs, schedule-derived opening/cutoff, own-player progress, cross-instance denial, concurrency, and zero scoring effects are covered by disposable-database tests.
 
 The preview uses SCOWL/English Speller Database size 70, pinned revision `1e5b7d3a72f47a71da5d28686c1dd4b397178485`, with American/British spellings and inflections: **59,212** alphabetic 4–8-letter guesses. It includes `SWADDLE`; no individual-word patches or runtime downloads. Curate familiar answers separately. [Source, generation and license](internal/castawordle/data/README.md). Existing CMUdict-backed unscored trials require a guarded answer-compatibility check and explicit dictionary-metadata upgrade; answers, progress and scoring remain unchanged. Historical saved guesses remain replayable even if absent from the new list.
 

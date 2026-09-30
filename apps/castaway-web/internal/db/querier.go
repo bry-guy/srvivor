@@ -92,7 +92,7 @@ type Querier interface {
 	ListActivityOccurrencesByActivityAndStatus(ctx context.Context, arg ListActivityOccurrencesByActivityAndStatusParams) ([]ListActivityOccurrencesByActivityAndStatusRow, error)
 	ListActivityParticipantAssignments(ctx context.Context, activityID pgtype.UUID) ([]ListActivityParticipantAssignmentsRow, error)
 	ListAllBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListAllBonusPointLedgerEntriesForParticipantParams) ([]ListAllBonusPointLedgerEntriesForParticipantRow, error)
-	ListCastawordleGames(ctx context.Context, instanceID pgtype.UUID) ([]ListCastawordleGamesRow, error)
+	ListCastawordleGames(ctx context.Context, arg ListCastawordleGamesParams) ([]ListCastawordleGamesRow, error)
 	ListContestantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListContestantsByInstanceRow, error)
 	ListContestantsGlobal(ctx context.Context) ([]ListContestantsGlobalRow, error)
 	ListDraftPicksForInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListDraftPicksForInstanceRow, error)

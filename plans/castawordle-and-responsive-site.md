@@ -14,6 +14,7 @@ Selected direction:
 - First-pass implementation and feature-branch hosting are approved. All content pages require Discord login; OAuth entry/callback, non-sensitive assets, and health checks remain reachable.
 - Preview is unscored: save play progress, but do not create scoring occurrences, participant scoring inputs, or bonus awards. Scoring integration below is deferred.
 - Each game has its own public UUID and belongs to a Castaway instance. `/castawordle/:id` is its stable player URL.
+- Follow-up approved: tests (including existing preview games) are admin-only; admins prepare an answer for an episode ahead of time. Scheduled puzzles are visible to linked players and open from 1pm Eastern on that episode date through noon on the next episode date. Merge/push is now authorized; scored gameplay remains deferred.
 - Temporarily host the branch at `castaway.bry-guy.net`, preserving the existing Discord callback. The requested `castaway.preview.bry-guy.net` is outside free Cloudflare Universal SSL coverage; the owner approved production replacement as the simple fallback.
 
 ## Recommended architecture
@@ -27,7 +28,7 @@ Keep the existing `castaway-web` Go application, PostgreSQL, Discord login, publ
 - `/castawordle/:gameID` is one game's server-rendered page.
 - `GET /api/castawordle/:gameID/play` returns public puzzle rules and the authenticated player's saved play.
 - `POST /api/castawordle/:gameID/play/guesses` submits one guess and returns updated state.
-- Instance admins create unscored games through `POST /api/instances/:instanceID/castawordle` or the game-list page's admin form.
+- Instance admins create unscored games through `POST /api/instances/:instanceID/castawordle` or the game-list page's admin form. Omitted/null `episode_number` creates an admin-only test; selecting an episode creates a scheduled puzzle using that instance's stored episode dates. One puzzle per instance/episode; no caller-defined scheduled timestamps or background scheduler.
 
 Use the existing session middleware, plus narrow player-route allowlisting and round/instance authorization inside each handler. Resolve the participant from the session's Discord identity in the round's instance; do not accept a participant ID, actor header, or reported score from the browser. Restrict v1 play to the configured current season. An instance admin without a player link may configure a puzzle but cannot fabricate a player play.
 
@@ -62,7 +63,7 @@ Every player in a round gets the same answer, length, dictionary version, and si
 
 Use an operator-curated answer with a broader licensed dictionary of valid same-length guesses. Ordinary English guesses remain valid; Survivor flavor need not force an obscure trivia-only answer list. Validate answer membership and length at configuration time. Pin and document the dictionary's source, license, normalization, and version before implementation. No runtime vocabulary service or copied proprietary answer list.
 
-Keep the existing episode window: opens Wednesday 1pm America/New_York and closes at noon on the next episode's air day. Dates follow the existing episode schedule, including timezone/DST handling. A daily game, practice mode, archives, hard mode, hints, and additional guess-limit settings are not part of v1.
+Keep the existing episode window: opens Wednesday 1pm America/New_York and closes at noon on the next episode's air day. Dates follow the existing episode schedule; derive explicit local clock times, not airtime offsets. Timezone data is embedded in the Go binary for DST-safe deployment. A selected episode must have a following episode to define cutoff. Admin-only tests are supported; public practice, daily games, archives, hard mode, hints, and additional guess-limit settings remain out of scope.
 
 Longer words are not automatically harder: letter information, repetition, vocabulary size, and candidate families all matter. Keep six guesses first and measure actual results by length before proposing a rule change.
 
@@ -70,7 +71,7 @@ Longer words are not automatically harder: letter information, repetition, vocab
 
 First pass uses independent unscored games, not scoring occurrences. The future bridge can attach a game to existing Wordle round/award machinery after its rules are approved.
 
-1. A private `castawordle_games` record belonging to a Castaway instance: public UUID, name, answer, pinned dictionary version, opening and cutoff timestamps. Keep the answer out of generic activity/occurrence metadata, which other APIs may expose.
+1. A private `castawordle_games` record belonging to a Castaway instance: public UUID, name, answer, pinned dictionary version, opening and cutoff timestamps, and nullable episode number. NULL identifies admin-only tests; scheduled rows have a same-instance episode foreign key and unique instance/episode constraint. Keep the answer out of generic activity/occurrence metadata, which other APIs may expose.
 2. A `castawordle_plays` record unique on game/player: a bounded JSON guess history, persisted in-progress/solved/exhausted status, and relevant timestamps. Expiration is derived from the game's cutoff without a scheduler.
 
 Six guesses do not need a separate event-sourcing system or guess table. Recompute tile feedback from stored guesses and the private answer when resuming. Save accepted guesses on the server; browser storage is only for appearance preferences and optional unfinished typing, not game progress or scores.

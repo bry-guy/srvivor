@@ -128,6 +128,7 @@ type CastawordleGame struct {
 	OpensAt           pgtype.Timestamptz `json:"opens_at"`
 	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
 }
 
 type CastawordlePlay struct {

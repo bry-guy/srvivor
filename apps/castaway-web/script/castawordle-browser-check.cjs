@@ -82,7 +82,21 @@ const base = process.argv[2];
       for (const letter of 'SWADDLE') await key(letter);
       await page.waitForFunction(() => document.querySelector('castawordle-game').state.guesses.length === 1);
       assert.equal(await page.locator('.board-row').first().innerText().then(t => t.replace(/\s/g, '')), 'SWADDLE');
-      console.log(`${mobile ? '320px phone' : 'desktop'}: OAuth return, themes, 7/8-column layout, SWADDLE, invalid-error clearing, touch/physical input, lost-response retry, resume, solve passed; ${screenshot}`);
+      await page.goto(`${base}/castawordle`);
+      const episode = mobile ? '3' : '4';
+      await page.selectOption('select[name="episode_number"]', episode);
+      await page.locator('input[name="name"]').fill(`Prepared episode ${episode}`);
+      await page.locator('input[name="answer"]').fill('TORCH');
+      await page.locator('#create-game button').click();
+      await page.waitForFunction(() => document.querySelector('castawordle-game')?.state);
+      const prepared = await page.evaluate(() => document.querySelector('castawordle-game').state);
+      assert.equal(prepared.game.test, false);
+      assert.equal(prepared.game.episode_number, Number(episode));
+      assert.equal(prepared.status, 'not_open');
+      assert.equal(prepared.guesses.length, 0);
+      await page.goto(`${base}/castawordle`);
+      assert.equal(await page.locator(`select[name="episode_number"] option[value="${episode}"]`).count(), 0);
+      console.log(`${mobile ? '320px phone' : 'desktop'}: OAuth, themes, 7/8-column layout, dictionary, input, retry/resume, solve, scheduled episode preparation passed; ${screenshot}`);
       await context.close();
     }
   } finally { await browser.close(); }

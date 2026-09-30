@@ -34,6 +34,9 @@ func TestCastawordleDictionaryUpgradeReplayAndGuess(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := q.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "cw-player"}); err != nil {
+		t.Fatal(err)
+	}
 	now := time.Date(2026, 9, 30, 17, 0, 0, 0, time.UTC)
 	token := uuid.NewString()
 	hash := sha256.Sum256([]byte(token))

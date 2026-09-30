@@ -12,18 +12,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type castawordleGameView struct {
-	ID         string    `json:"id"`
-	InstanceID string    `json:"instance_id"`
-	Name       string    `json:"name"`
-	WordLength int       `json:"word_length"`
-	GuessLimit int       `json:"guess_limit"`
-	OpensAt    time.Time `json:"opens_at"`
-	CutoffAt   time.Time `json:"cutoff_at"`
-	Unscored   bool      `json:"unscored"`
+	ID            string    `json:"id"`
+	InstanceID    string    `json:"instance_id"`
+	Name          string    `json:"name"`
+	WordLength    int       `json:"word_length"`
+	GuessLimit    int       `json:"guess_limit"`
+	OpensAt       time.Time `json:"opens_at"`
+	CutoffAt      time.Time `json:"cutoff_at"`
+	Unscored      bool      `json:"unscored"`
+	Test          bool      `json:"test"`
+	EpisodeNumber *int32    `json:"episode_number,omitempty"`
 }
 
 type castawordleGuessView struct {
@@ -39,10 +42,15 @@ type castawordlePlayView struct {
 }
 
 func castawordleGame(row db.GetCastawordleGameRow) castawordleGameView {
+	var episodeNumber *int32
+	if row.EpisodeNumber.Valid {
+		episodeNumber = &row.EpisodeNumber.Int32
+	}
 	return castawordleGameView{
 		ID: pgUUIDString(row.ID), InstanceID: pgUUIDString(row.InstanceID), Name: row.Name,
 		WordLength: len(row.Answer), GuessLimit: castawordle.GuessLimit,
 		OpensAt: row.OpensAt.Time, CutoffAt: row.CutoffAt.Time, Unscored: true,
+		Test: !row.EpisodeNumber.Valid, EpisodeNumber: episodeNumber,
 	}
 }
 
@@ -77,10 +85,11 @@ func (s *Server) createCastawordle(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Name     string    `json:"name"`
-		Answer   string    `json:"answer"`
-		OpensAt  time.Time `json:"opens_at"`
-		CutoffAt time.Time `json:"cutoff_at"`
+		Name          string    `json:"name"`
+		Answer        string    `json:"answer"`
+		OpensAt       time.Time `json:"opens_at"`
+		CutoffAt      time.Time `json:"cutoff_at"`
+		EpisodeNumber *int32    `json:"episode_number"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2048)
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -93,21 +102,49 @@ func (s *Server) createCastawordle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "use a name up to 80 characters and a dictionary answer of 4–8 letters"})
 		return
 	}
-	if req.OpensAt.IsZero() {
-		req.OpensAt = s.now()
-	}
-	if req.CutoffAt.IsZero() {
-		req.CutoffAt = req.OpensAt.AddDate(0, 0, 7)
+	var episodeNumber pgtype.Int4
+	if req.EpisodeNumber != nil {
+		if !req.OpensAt.IsZero() || !req.CutoffAt.IsZero() {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled puzzle times come from the instance schedule"})
+			return
+		}
+		episodes, err := s.queries.ListInstanceEpisodes(c.Request.Context(), toPGUUID(instanceID))
+		if err != nil {
+			castawordleError(c, err)
+			return
+		}
+		req.OpensAt, req.CutoffAt, err = castawordleEpisodeWindow(episodes, *req.EpisodeNumber)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+			return
+		}
+		if !s.now().Before(req.CutoffAt) {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "this episode's game window has already closed"})
+			return
+		}
+		episodeNumber = pgtype.Int4{Int32: *req.EpisodeNumber, Valid: true}
+	} else {
+		if req.OpensAt.IsZero() {
+			req.OpensAt = s.now()
+		}
+		if req.CutoffAt.IsZero() {
+			req.CutoffAt = req.OpensAt.AddDate(0, 0, 7)
+		}
 	}
 	if !req.CutoffAt.After(req.OpensAt) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "cutoff must be after opening"})
 		return
 	}
 	row, err := s.queries.CreateCastawordleGame(c.Request.Context(), db.CreateCastawordleGameParams{
-		InstanceID: toPGUUID(instanceID), Name: req.Name, Answer: req.Answer, DictionaryVersion: castawordle.DictionaryVersion,
+		InstanceID: toPGUUID(instanceID), Name: req.Name, Answer: req.Answer, DictionaryVersion: castawordle.DictionaryVersion, EpisodeNumber: episodeNumber,
 		OpensAt: pgtype.Timestamptz{Time: req.OpensAt, Valid: true}, CutoffAt: pgtype.Timestamptz{Time: req.CutoffAt, Valid: true},
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			c.JSON(http.StatusConflict, errorResponse{Error: "a puzzle is already prepared for this episode"})
+			return
+		}
 		castawordleError(c, err)
 		return
 	}
@@ -127,6 +164,17 @@ func (s *Server) castawordlePlayer(c *gin.Context) (db.GetCastawordleGameRow, pg
 	if strings.HasPrefix(c.FullPath(), "/api/") && s.public.InstanceID != pgUUIDString(game.InstanceID) {
 		c.JSON(http.StatusForbidden, errorResponse{Error: "this game belongs to a different season"})
 		return game, pgtype.UUID{}, false
+	}
+	if !game.EpisodeNumber.Valid {
+		admin, err := s.isInstanceAdmin(c.Request.Context(), game.InstanceID, discordUserIDFromRequest(c.Request))
+		if err != nil {
+			castawordleError(c, err)
+			return game, pgtype.UUID{}, false
+		}
+		if !admin {
+			c.JSON(http.StatusNotFound, errorResponse{Error: "game not found"})
+			return game, pgtype.UUID{}, false
+		}
 	}
 	player, err := s.queries.GetParticipantByDiscordUserID(c.Request.Context(), db.GetParticipantByDiscordUserIDParams{
 		InstanceID:    game.InstanceID,
@@ -261,17 +309,41 @@ func (s *Server) castawordleListPage(c *gin.Context) {
 		castawordleError(c, err)
 		return
 	}
-	rows, err := s.queries.ListCastawordleGames(c.Request.Context(), toPGUUID(id))
+	rows, err := s.queries.ListCastawordleGames(c.Request.Context(), db.ListCastawordleGamesParams{InstanceID: toPGUUID(id), IncludeTests: data.Admin})
 	if err != nil {
 		castawordleError(c, err)
 		return
 	}
 	for _, row := range rows {
+		var episodeNumber *int32
+		if row.EpisodeNumber.Valid {
+			episodeNumber = &row.EpisodeNumber.Int32
+		}
 		data.Games = append(data.Games, castawordleGameView{
 			ID: pgUUIDString(row.ID), InstanceID: pgUUIDString(row.InstanceID), Name: row.Name,
 			WordLength: int(row.WordLength), GuessLimit: castawordle.GuessLimit,
 			OpensAt: row.OpensAt.Time, CutoffAt: row.CutoffAt.Time, Unscored: true,
+			Test: !row.EpisodeNumber.Valid, EpisodeNumber: episodeNumber,
 		})
+	}
+	if data.Admin {
+		episodes, err := s.queries.ListInstanceEpisodes(c.Request.Context(), toPGUUID(id))
+		if err != nil {
+			castawordleError(c, err)
+			return
+		}
+		prepared := make(map[int32]bool)
+		for _, row := range rows {
+			if row.EpisodeNumber.Valid {
+				prepared[row.EpisodeNumber.Int32] = true
+			}
+		}
+		for _, episode := range episodes {
+			opens, cutoff, err := castawordleEpisodeWindow(episodes, episode.EpisodeNumber)
+			if err == nil && !prepared[episode.EpisodeNumber] && s.now().Before(cutoff) {
+				data.Episodes = append(data.Episodes, castawordleEpisodeOption{Number: episode.EpisodeNumber, OpensAt: opens})
+			}
+		}
 	}
 	renderSite(c, "games.html", data)
 }
@@ -294,7 +366,7 @@ func (s *Server) castawordlePage(c *gin.Context) {
 		castawordleError(c, err)
 		return
 	}
-	if pgUUIDString(row.InstanceID) != s.public.InstanceID {
+	if pgUUIDString(row.InstanceID) != s.public.InstanceID || (!row.EpisodeNumber.Valid && !data.Admin) {
 		c.String(http.StatusNotFound, "game not found")
 		return
 	}

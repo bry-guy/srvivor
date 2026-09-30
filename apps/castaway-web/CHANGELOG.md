@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Make test puzzles admin-only, preserving existing answers/progress. Admins can prepare one player-visible puzzle per instance episode; derive the 1pm–next-episode-noon Eastern window from the instance schedule, with DST support and duplicate protection (migration 021). Gameplay remains unscored.
+
 - Replace the pronunciation dictionary with SCOWL size 70 US/UK words and inflections; preserve historical saved-guess replay. Invalid-word errors read `invalid word, try again` and clear after edits. Remove the Scores page's Draft column without changing scoring.
 
 - Automatically check complete Castawordle guesses on touch/physical keyboards; rejected words remain editable and cost no turn. Darken ruled-out keyboard letters in both themes.

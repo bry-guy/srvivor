@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/gameplay"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/httpapi"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,6 +26,9 @@ func TestCastawordleBrowser(t *testing.T) {
 	resetDatabase(t, ctx, pool)
 	q := db.New(pool)
 	instance := createInstanceForTest(t, ctx, q, "Browser preview", 51)
+	if err := gameplay.NewService(q).CopyInstanceSchedule(ctx, instance.ID, 51); err != nil {
+		t.Fatal(err)
+	}
 	player := createParticipantForTest(t, ctx, q, instance.ID, "Browser Player")
 	if _, err := q.SetParticipantDiscordUserID(ctx, db.SetParticipantDiscordUserIDParams{ID: player.ID, DiscordUserID: pgtype.Text{String: "cw-browser", Valid: true}}); err != nil {
 		t.Fatal(err)
@@ -47,7 +52,7 @@ func TestCastawordleBrowser(t *testing.T) {
 		}
 	}))
 	defer discord.Close()
-	site.Config.Handler = httpapi.New(pool, httpapi.WithPublic(httpapi.PublicConfig{
+	site.Config.Handler = httpapi.New(pool, httpapi.WithClock(func() time.Time { return time.Date(2026, 9, 30, 17, 0, 0, 0, time.UTC) }), httpapi.WithPublic(httpapi.PublicConfig{
 		BaseURL: base, InstanceID: uuid.UUID(instance.ID.Bytes).String(), DiscordClientID: "fixture", DiscordClientSecret: "fixture",
 		DiscordAPIBaseURL: discord.URL, DiscordAuthorizeURL: discord.URL + "/authorize",
 	})).PublicRouter()

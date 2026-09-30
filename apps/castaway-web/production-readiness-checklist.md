@@ -12,7 +12,9 @@
 - [x] Private answers, duplicate-letter feedback, cutoff, concurrent/retried moves, and zero scoring effects covered in disposable PostgreSQL.
 - [x] 320px/desktop, themes, touch/physical input, fake OAuth return, lost-response recovery, and resume checked with Playwright.
 - [x] Feature image deployed and public page gates/OAuth entry/CLI compatibility verified; owner completes real Discord browser sign-in.
-- [ ] Scored-game lifecycle and abandoned/all-failed policies approved and implemented; this preview is unscored.
+- [x] Admin-only trial access and prepared episode puzzles checked in PostgreSQL and mobile/desktop browsers; DST, opening/cutoff, duplicates, preserved progress, and cross-instance boundaries covered.
+- [ ] Scheduled/test visibility follow-up deployed; merge/push and activation are separate because Argo is pinned to a preview commit.
+- [ ] Scored-game lifecycle and abandoned/all-failed policies approved and implemented; all games remain unscored.
 
 ## Reliability
 - [x] Offline original-message draft tests verify no rewards for unconfirmed names, pending submission credit, all ranks, and replay idempotency.

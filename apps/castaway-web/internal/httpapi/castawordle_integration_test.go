@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/gameplay"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/httpapi"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,6 +25,10 @@ func TestCastawordle(t *testing.T) {
 	q := db.New(pool)
 	instance := createInstanceForTest(t, ctx, q, "Castawordle preview", 51)
 	instanceID := uuid.UUID(instance.ID.Bytes).String()
+	if err := gameplay.NewService(q).CopyInstanceSchedule(ctx, instance.ID, 51); err != nil {
+		t.Fatal(err)
+	}
+	episodes := gameplay.DefaultEpisodeScheduleForSeason(51)
 	for _, user := range []string{"cw-player", "cw-other"} {
 		p := createParticipantForTest(t, ctx, q, instance.ID, user)
 		if _, err := q.SetParticipantDiscordUserID(ctx, db.SetParticipantDiscordUserIDParams{ID: p.ID, DiscordUserID: pgtype.Text{String: user, Valid: true}}); err != nil {
@@ -36,7 +41,7 @@ func TestCastawordle(t *testing.T) {
 	now := time.Date(2026, 9, 30, 17, 0, 0, 0, time.UTC)
 	for _, user := range []string{"cw-player", "cw-other", "cw-stranger"} {
 		hash := sha256.Sum256([]byte(user + "-session"))
-		if _, err := pool.Exec(ctx, `INSERT INTO web_sessions (token_hash, discord_user_id, discord_username, kind, expires_at) VALUES ($1,$2,$2,'browser',$3)`, hash[:], user, now.AddDate(0, 0, 30)); err != nil {
+		if _, err := pool.Exec(ctx, `INSERT INTO web_sessions (token_hash, discord_user_id, discord_username, kind, expires_at) VALUES ($1,$2,$2,'browser',$3)`, hash[:], user, now.AddDate(0, 0, 90)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -61,9 +66,12 @@ func TestCastawordle(t *testing.T) {
 			t.Fatalf("HTTP %d, want %d: %s", rec.Code, status, rec.Body)
 		}
 	}
+	episodeNumber := 2
 	create := func(answer string) string {
 		t.Helper()
-		rec := serve("POST", "/api/instances/"+instanceID+"/castawordle", fmt.Sprintf(`{"name":"Trial","answer":%q}`, answer), "cw-player", base)
+		now = episodes[episodeNumber].AirsAt.Add(-7 * time.Hour)
+		rec := serve("POST", "/api/instances/"+instanceID+"/castawordle", fmt.Sprintf(`{"name":"Scheduled","answer":%q,"episode_number":%d}`, answer, episodeNumber), "cw-player", base)
+		episodeNumber++
 		want(rec, 201)
 		var result struct {
 			ID       string `json:"id"`

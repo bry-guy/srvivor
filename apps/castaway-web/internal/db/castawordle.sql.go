@@ -12,11 +12,11 @@ import (
 )
 
 const createCastawordleGame = `-- name: CreateCastawordleGame :one
-INSERT INTO castawordle_games (instance_id, name, answer, dictionary_version, opens_at, cutoff_at)
-SELECT i.id, $1, $2, $3, $4, $5
-FROM instances i WHERE i.public_id = $6
+INSERT INTO castawordle_games (instance_id, name, answer, dictionary_version, opens_at, cutoff_at, episode_number)
+SELECT i.id, $1, $2, $3, $4, $5, $6
+FROM instances i WHERE i.public_id = $7
 RETURNING public_id AS id, (SELECT public_id FROM instances WHERE id = instance_id) AS instance_id,
-    name, answer, dictionary_version, opens_at, cutoff_at
+    name, answer, dictionary_version, opens_at, cutoff_at, episode_number
 `
 
 type CreateCastawordleGameParams struct {
@@ -25,6 +25,7 @@ type CreateCastawordleGameParams struct {
 	DictionaryVersion string             `json:"dictionary_version"`
 	OpensAt           pgtype.Timestamptz `json:"opens_at"`
 	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
+	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
 	InstanceID        pgtype.UUID        `json:"instance_id"`
 }
 
@@ -36,6 +37,7 @@ type CreateCastawordleGameRow struct {
 	DictionaryVersion string             `json:"dictionary_version"`
 	OpensAt           pgtype.Timestamptz `json:"opens_at"`
 	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
+	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
 }
 
 func (q *Queries) CreateCastawordleGame(ctx context.Context, arg CreateCastawordleGameParams) (CreateCastawordleGameRow, error) {
@@ -45,6 +47,7 @@ func (q *Queries) CreateCastawordleGame(ctx context.Context, arg CreateCastaword
 		arg.DictionaryVersion,
 		arg.OpensAt,
 		arg.CutoffAt,
+		arg.EpisodeNumber,
 		arg.InstanceID,
 	)
 	var i CreateCastawordleGameRow
@@ -56,6 +59,7 @@ func (q *Queries) CreateCastawordleGame(ctx context.Context, arg CreateCastaword
 		&i.DictionaryVersion,
 		&i.OpensAt,
 		&i.CutoffAt,
+		&i.EpisodeNumber,
 	)
 	return i, err
 }
@@ -79,7 +83,7 @@ func (q *Queries) EnsureCastawordlePlay(ctx context.Context, arg EnsureCastaword
 }
 
 const getCastawordleGame = `-- name: GetCastawordleGame :one
-SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at
+SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number
 FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
 WHERE g.public_id = $1
 `
@@ -92,6 +96,7 @@ type GetCastawordleGameRow struct {
 	DictionaryVersion string             `json:"dictionary_version"`
 	OpensAt           pgtype.Timestamptz `json:"opens_at"`
 	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
+	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
 }
 
 func (q *Queries) GetCastawordleGame(ctx context.Context, id pgtype.UUID) (GetCastawordleGameRow, error) {
@@ -105,6 +110,7 @@ func (q *Queries) GetCastawordleGame(ctx context.Context, id pgtype.UUID) (GetCa
 		&i.DictionaryVersion,
 		&i.OpensAt,
 		&i.CutoffAt,
+		&i.EpisodeNumber,
 	)
 	return i, err
 }
@@ -135,23 +141,30 @@ func (q *Queries) GetCastawordlePlay(ctx context.Context, arg GetCastawordlePlay
 
 const listCastawordleGames = `-- name: ListCastawordleGames :many
 SELECT g.public_id AS id, i.public_id AS instance_id, g.name, char_length(g.answer)::integer AS word_length,
-    g.opens_at, g.cutoff_at
+    g.opens_at, g.cutoff_at, g.episode_number
 FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
 WHERE i.public_id = $1
+    AND (g.episode_number IS NOT NULL OR $2::boolean)
 ORDER BY g.opens_at DESC, g.id DESC
 `
 
-type ListCastawordleGamesRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	InstanceID pgtype.UUID        `json:"instance_id"`
-	Name       string             `json:"name"`
-	WordLength int32              `json:"word_length"`
-	OpensAt    pgtype.Timestamptz `json:"opens_at"`
-	CutoffAt   pgtype.Timestamptz `json:"cutoff_at"`
+type ListCastawordleGamesParams struct {
+	InstanceID   pgtype.UUID `json:"instance_id"`
+	IncludeTests bool        `json:"include_tests"`
 }
 
-func (q *Queries) ListCastawordleGames(ctx context.Context, instanceID pgtype.UUID) ([]ListCastawordleGamesRow, error) {
-	rows, err := q.db.Query(ctx, listCastawordleGames, instanceID)
+type ListCastawordleGamesRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	InstanceID    pgtype.UUID        `json:"instance_id"`
+	Name          string             `json:"name"`
+	WordLength    int32              `json:"word_length"`
+	OpensAt       pgtype.Timestamptz `json:"opens_at"`
+	CutoffAt      pgtype.Timestamptz `json:"cutoff_at"`
+	EpisodeNumber pgtype.Int4        `json:"episode_number"`
+}
+
+func (q *Queries) ListCastawordleGames(ctx context.Context, arg ListCastawordleGamesParams) ([]ListCastawordleGamesRow, error) {
+	rows, err := q.db.Query(ctx, listCastawordleGames, arg.InstanceID, arg.IncludeTests)
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +179,7 @@ func (q *Queries) ListCastawordleGames(ctx context.Context, instanceID pgtype.UU
 			&i.WordLength,
 			&i.OpensAt,
 			&i.CutoffAt,
+			&i.EpisodeNumber,
 		); err != nil {
 			return nil, err
 		}

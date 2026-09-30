@@ -16,6 +16,8 @@
 - provide responsive scores and game pages with system-following light/dark appearance and a saved manual override
 - persist instance-owned, unscored Castawordle games and own-player progress; validate 4–8-letter SCOWL size 70 US/UK words and inflections, return duplicate-aware tile feedback, enforce six guesses and cutoff, and resume across devices
 - automatically submit full guesses; show `invalid word, try again` without consuming a turn and clear transient feedback on edits; show total/bonus scores without a Draft column
+- restrict test games, including existing previews, to instance admins on lists, detail pages, play reads, and guess writes; preserve their answers and saved progress
+- let admins prepare an answer for one scheduled puzzle per instance/episode; derive opening at 1pm Eastern and cutoff at noon on the following episode date, and allow only linked players in that instance to play during the window
 - permit instance-admin creation only; serialize competing guesses and replay an accepted guess/position without consuming another turn; never expose unfinished answers or write scoring inputs/bonus awards from trial play
 - expose a health endpoint for local and production monitoring
 - create and list instances

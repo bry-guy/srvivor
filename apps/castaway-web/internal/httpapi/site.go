@@ -25,6 +25,7 @@ type sitePageData struct {
 	InstanceID         string
 	Rows               []homeRow
 	Games              []castawordleGameView
+	Episodes           []castawordleEpisodeOption
 	Game               *castawordleGameView
 }
 

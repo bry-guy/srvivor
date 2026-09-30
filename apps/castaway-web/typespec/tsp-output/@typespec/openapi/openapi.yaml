@@ -876,6 +876,10 @@ paths:
                   type: string
                 answer:
                   type: string
+                episode_number:
+                  type: integer
+                  format: int32
+                  nullable: true
                 opens_at:
                   type: string
                   format: date-time
@@ -2472,6 +2476,7 @@ components:
         - opens_at
         - cutoff_at
         - unscored
+        - test
       properties:
         id:
           type: string
@@ -2493,6 +2498,11 @@ components:
           format: date-time
         unscored:
           type: boolean
+        test:
+          type: boolean
+        episode_number:
+          type: integer
+          format: int32
     CastawordlePlay:
       type: object
       required:

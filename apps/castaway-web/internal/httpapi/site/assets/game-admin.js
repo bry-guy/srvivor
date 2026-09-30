@@ -9,7 +9,7 @@ form?.addEventListener('submit', async event => {
     const fields = new FormData(form);
     const response = await fetch(`/api/instances/${encodeURIComponent(form.dataset.instanceId)}/castawordle`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-      body: JSON.stringify({ name: fields.get('name'), answer: fields.get('answer') }),
+      body: JSON.stringify({ name: fields.get('name'), answer: fields.get('answer'), episode_number: fields.get('episode_number') ? Number(fields.get('episode_number')) : null }),
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || 'Could not create the puzzle.');
