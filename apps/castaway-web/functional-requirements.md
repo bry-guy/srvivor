@@ -12,6 +12,10 @@
 
 ## Required capabilities
 
+- require Discord browser sessions for all content pages, with access requests for accounts not linked to the configured season; keep OAuth, non-sensitive assets, and health checks reachable
+- provide responsive scores and game pages with system-following light/dark appearance and a saved manual override
+- persist instance-owned, unscored Castawordle games and own-player progress; validate 4–8-letter dictionary words, return duplicate-aware tile feedback, enforce six guesses and cutoff, and resume across devices
+- permit instance-admin creation only; serialize competing guesses and replay an accepted guess/position without consuming another turn; never expose unfinished answers or write scoring inputs/bonus awards from trial play
 - expose a health endpoint for local and production monitoring
 - create and list instances
 - import an instance from structured submissions

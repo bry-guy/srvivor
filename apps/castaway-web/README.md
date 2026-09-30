@@ -112,6 +112,26 @@ The watched-thread parser keeps existing exact/fuzzy thresholds. It can infer on
 
 Run `MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:rehearsal-season43` for a disposable, repeatable Season 43 test with six fake drafts and thirteen public-bonus Wordle rounds. Historical inputs are pinned to survivoR; no online data or Discord access is needed by default. See the [rehearsal guide](../../docs/guides/season43-rehearsal.md) for fixture editing, explicit BrainLand delivery, and observed results. This uses legacy mode and leaves the managed YAML scenario unchanged.
 
+## Castawordle preview
+
+All content pages require Discord login. `/` shows scores, `/castawordle` lists the configured season's games, and `/castawordle/{gameID}` resumes one game. Unlinked accounts see the access-request screen. OAuth routes, static assets, and `/healthz` remain reachable without a session.
+
+Instance admins can create an **unscored** trial from the game-list page, or `POST /api/instances/{instanceID}/castawordle` with `name`, `answer`, and optional `opens_at` / `cutoff_at`. Default windows open immediately and last seven days. Answers are validated against the pinned dictionary and determine the 4–8-letter board width. Games cannot be edited after creation in this first pass.
+
+Players use `GET /api/castawordle/{gameID}/play` and `POST .../play/guesses` with `guess` and the next one-based `position`. The server owns the answer, feedback, six-guess limit, saved progress, and terminal state. Repeating the same guess/position is idempotent; a conflicting move returns 409. Cookie writes require the same-origin `Origin` header.
+
+**No scoring inputs or bonus awards are written.** Connecting browser results to the existing Wordle scorer is deferred. Admin-only creation, own-player progress, cross-instance denial, cutoff, concurrency, and zero scoring effects are covered by disposable-database tests.
+
+The preview dictionary is CMUdict revision `74790861f652b15e4ac49015a90074ad62a27690`, filtered to unique ASCII words of 4–8 letters. It includes names and uncommon entries; curate answers separately. License: `internal/castawordle/data/LICENSE`. See [the implementation plan](../../plans/castawordle-and-responsive-site.md).
+
+Optional browser checks use an already-installed Node/Playwright runtime, without installing global tools:
+
+```bash
+CASTAWAY_BROWSER_TEST=1 mise run integration -- -run TestCastawordle -count=1
+```
+
+Make Playwright resolvable by Node in your local environment. These tests run fake Discord OAuth and games against a disposable database, covering 320px and desktop layouts, theme persistence, touch/physical input, lost-response retries, and cross-device resume. They do not authenticate to production.
+
 ## Manual Wordle rounds
 
 For legacy instances, create a `tribe_wordle` activity, then use:
@@ -148,7 +168,7 @@ Recommended production defaults for the web Deployment:
 - `SERVICE_AUTH_BEARER_TOKENS` populated from managed secrets
 - `SERVICE_AUTH_PRINCIPAL=castaway-discord-bot`
 
-Public listener (off unless `PUBLIC_PORT` is set): serves the website, Discord login (`/auth/*`), and the API under `/api` with session auth only. It never honors the service token or `X-Discord-User-ID`. Requires `PUBLIC_BASE_URL`, `DISCORD_OAUTH_CLIENT_ID`, and `DISCORD_OAUTH_CLIENT_SECRET`; `PUBLIC_INSTANCE_ID` picks the season shown. See `plans/public-website-planning.md`.
+Public listener (off unless `PUBLIC_PORT` is set): serves the website, Discord login (`/auth/*`), and the API under `/api` with session auth only. It never honors the service token or `X-Discord-User-ID`. Requires `PUBLIC_BASE_URL`, `DISCORD_OAUTH_CLIENT_ID`, and `DISCORD_OAUTH_CLIENT_SECRET`; `PUBLIC_INSTANCE_ID` picks the season shown. See `../../plans/public-website-planning.md` and `../../plans/castawordle-and-responsive-site.md`.
 - leave `BOOTSTRAP_ADMIN_DISCORD_USER_ID` empty after explicit first-admin bootstrap
 
 `/healthz` remains unauthenticated for cluster health checks.

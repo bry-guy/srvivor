@@ -20,6 +20,7 @@ type Querier interface {
 	CreateActivityOccurrenceParticipant(ctx context.Context, arg CreateActivityOccurrenceParticipantParams) (CreateActivityOccurrenceParticipantRow, error)
 	CreateActivityParticipantAssignment(ctx context.Context, arg CreateActivityParticipantAssignmentParams) (CreateActivityParticipantAssignmentRow, error)
 	CreateBonusPointLedgerEntry(ctx context.Context, arg CreateBonusPointLedgerEntryParams) (CreateBonusPointLedgerEntryRow, error)
+	CreateCastawordleGame(ctx context.Context, arg CreateCastawordleGameParams) (CreateCastawordleGameRow, error)
 	CreateContestant(ctx context.Context, arg CreateContestantParams) (CreateContestantRow, error)
 	CreateDraftPick(ctx context.Context, arg CreateDraftPickParams) (CreateDraftPickRow, error)
 	CreateInstance(ctx context.Context, arg CreateInstanceParams) (CreateInstanceRow, error)
@@ -41,11 +42,14 @@ type Querier interface {
 	DeleteInstanceAdmin(ctx context.Context, arg DeleteInstanceAdminParams) error
 	DeleteInstanceByNameSeason(ctx context.Context, arg DeleteInstanceByNameSeasonParams) error
 	EndInstanceTribeMembershipsAt(ctx context.Context, arg EndInstanceTribeMembershipsAtParams) error
+	EnsureCastawordlePlay(ctx context.Context, arg EnsureCastawordlePlayParams) error
 	GetActiveParticipantLoanByParticipant(ctx context.Context, arg GetActiveParticipantLoanByParticipantParams) (GetActiveParticipantLoanByParticipantRow, error)
 	GetActivityOccurrence(ctx context.Context, id pgtype.UUID) (GetActivityOccurrenceRow, error)
 	GetActivityOccurrenceBySourceRef(ctx context.Context, arg GetActivityOccurrenceBySourceRefParams) (GetActivityOccurrenceBySourceRefRow, error)
 	GetActivityOccurrenceParticipant(ctx context.Context, arg GetActivityOccurrenceParticipantParams) (GetActivityOccurrenceParticipantRow, error)
 	GetAvailableSecretBalanceByParticipant(ctx context.Context, arg GetAvailableSecretBalanceByParticipantParams) (int32, error)
+	GetCastawordleGame(ctx context.Context, id pgtype.UUID) (GetCastawordleGameRow, error)
+	GetCastawordlePlay(ctx context.Context, arg GetCastawordlePlayParams) (GetCastawordlePlayRow, error)
 	GetContestant(ctx context.Context, id pgtype.UUID) (GetContestantRow, error)
 	GetCurrentEpisodeAt(ctx context.Context, arg GetCurrentEpisodeAtParams) (GetCurrentEpisodeAtRow, error)
 	GetDiscordChannelBinding(ctx context.Context, arg GetDiscordChannelBindingParams) (GetDiscordChannelBindingRow, error)
@@ -88,6 +92,7 @@ type Querier interface {
 	ListActivityOccurrencesByActivityAndStatus(ctx context.Context, arg ListActivityOccurrencesByActivityAndStatusParams) ([]ListActivityOccurrencesByActivityAndStatusRow, error)
 	ListActivityParticipantAssignments(ctx context.Context, activityID pgtype.UUID) ([]ListActivityParticipantAssignmentsRow, error)
 	ListAllBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListAllBonusPointLedgerEntriesForParticipantParams) ([]ListAllBonusPointLedgerEntriesForParticipantRow, error)
+	ListCastawordleGames(ctx context.Context, instanceID pgtype.UUID) ([]ListCastawordleGamesRow, error)
 	ListContestantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListContestantsByInstanceRow, error)
 	ListContestantsGlobal(ctx context.Context) ([]ListContestantsGlobalRow, error)
 	ListDraftPicksForInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListDraftPicksForInstanceRow, error)
@@ -107,6 +112,7 @@ type Querier interface {
 	ListParticipantsByInstance(ctx context.Context, instanceID pgtype.UUID) ([]ListParticipantsByInstanceRow, error)
 	ListVisibleBonusPointLedgerEntriesByOccurrence(ctx context.Context, activityOccurrenceID pgtype.UUID) ([]ListVisibleBonusPointLedgerEntriesByOccurrenceRow, error)
 	ListVisibleBonusPointLedgerEntriesForParticipant(ctx context.Context, arg ListVisibleBonusPointLedgerEntriesForParticipantParams) ([]ListVisibleBonusPointLedgerEntriesForParticipantRow, error)
+	LockCastawordlePlay(ctx context.Context, arg LockCastawordlePlayParams) (LockCastawordlePlayRow, error)
 	LockDiscordChannel(ctx context.Context, channelKey string) error
 	LockInstanceDraftProgress(ctx context.Context, instanceID pgtype.UUID) (LockInstanceDraftProgressRow, error)
 	LockInstanceEpisodeProgress(ctx context.Context, arg LockInstanceEpisodeProgressParams) (LockInstanceEpisodeProgressRow, error)
@@ -122,6 +128,7 @@ type Querier interface {
 	SetInstanceProgressionMode(ctx context.Context, arg SetInstanceProgressionModeParams) error
 	SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error)
 	UpdateActivityOccurrenceStatusAndMetadata(ctx context.Context, arg UpdateActivityOccurrenceStatusAndMetadataParams) (UpdateActivityOccurrenceStatusAndMetadataRow, error)
+	UpdateCastawordlePlay(ctx context.Context, arg UpdateCastawordlePlayParams) error
 	UpdateInstanceDraftProgress(ctx context.Context, arg UpdateInstanceDraftProgressParams) (UpdateInstanceDraftProgressRow, error)
 	UpdateInstanceEpisodeProgress(ctx context.Context, arg UpdateInstanceEpisodeProgressParams) (UpdateInstanceEpisodeProgressRow, error)
 	UpdateInstanceName(ctx context.Context, arg UpdateInstanceNameParams) (UpdateInstanceNameRow, error)

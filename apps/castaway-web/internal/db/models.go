@@ -90,6 +90,15 @@ type Announcement struct {
 	SentAt      pgtype.Timestamptz `json:"sent_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	NotifyUsers bool               `json:"notify_users"`
+	Thread      []byte             `json:"thread"`
+}
+
+type AnnouncementThread struct {
+	InstanceID int64              `json:"instance_id"`
+	ChannelID  string             `json:"channel_id"`
+	ThreadKey  string             `json:"thread_key"`
+	ThreadID   string             `json:"thread_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type BonusPointLedgerEntry struct {
@@ -107,6 +116,26 @@ type BonusPointLedgerEntry struct {
 	AwardKey             pgtype.Text        `json:"award_key"`
 	Metadata             []byte             `json:"metadata"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type CastawordleGame struct {
+	ID                int64              `json:"id"`
+	PublicID          pgtype.UUID        `json:"public_id"`
+	InstanceID        int64              `json:"instance_id"`
+	Name              string             `json:"name"`
+	Answer            string             `json:"answer"`
+	DictionaryVersion string             `json:"dictionary_version"`
+	OpensAt           pgtype.Timestamptz `json:"opens_at"`
+	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type CastawordlePlay struct {
+	GameID        int64              `json:"game_id"`
+	ParticipantID int64              `json:"participant_id"`
+	Guesses       []byte             `json:"guesses"`
+	Status        string             `json:"status"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Contestant struct {

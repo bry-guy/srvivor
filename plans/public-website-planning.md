@@ -61,7 +61,7 @@ If you want email too, add it later as a second notifier through a transactional
 
 A game is a web component that renders its own grid or canvas and posts moves with `fetch` or HTMX. The server holds the solution and scores every move, so the client never sees the answer:
 
-- **Castawordle:** a 6×5 grid plus an on-screen keyboard. The server checks each guess and returns tile colors.
+- **Castawordle:** six rows with an operator-selected word length (including seven/eight letters), touch/physical keyboards, Survivor-inspired letter tiles, and Last Torch theming. The server validates guesses, persists play, and registers results for scoring. See [the responsive-site and Castawordle architecture plan](castawordle-and-responsive-site.md) for the proposed implementation and open scoring decisions.
 - **Word search:** a letter grid where the player drags to select. The server validates selected coordinates.
 - **Prisoner's dilemma:** buttons plus a scheduled reveal. It is plain HTMX with no component.
 

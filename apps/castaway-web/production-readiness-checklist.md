@@ -7,6 +7,13 @@
 - [ ] Secrets provided through managed secret storage
 - [ ] Public exposure reviewed for TLS, ingress, and network policy
 
+## Castawordle preview
+- [x] Content-page session gates and own-player/cross-instance API authorization covered offline.
+- [x] Private answers, duplicate-letter feedback, cutoff, concurrent/retried moves, and zero scoring effects covered in disposable PostgreSQL.
+- [x] 320px/desktop, themes, touch/physical input, fake OAuth return, lost-response recovery, and resume checked with Playwright.
+- [ ] Feature image deployed and public authentication/CLI compatibility verified.
+- [ ] Scored-game lifecycle and abandoned/all-failed policies approved and implemented; this preview is unscored.
+
 ## Reliability
 - [x] Offline original-message draft tests verify no rewards for unconfirmed names, pending submission credit, all ranks, and replay idempotency.
 - [ ] Contextual parser changes deployed and observed on a new live draft.

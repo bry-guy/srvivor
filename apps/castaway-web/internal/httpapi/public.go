@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -66,6 +65,9 @@ var playerRoutes = map[string]bool{
 	"GET /instances/:instanceID/participants/:participantID/bonus-ledger":     true,
 	"GET /instances/:instanceID/participants/:participantID/activity-history": true,
 	"GET /admin/session":                                                      true,
+	"POST /auth/logout":                                                       true,
+	"GET /castawordle/:gameID/play":                                           true,
+	"POST /castawordle/:gameID/play/guesses":                                  true,
 }
 
 // internalOnlyRoutes are the bot's work queues and first-admin bootstrap; the public listener never serves them.
@@ -84,16 +86,21 @@ func (s *Server) PublicRouter() *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery(), structuredRequestLogger(), metricsMiddleware(), securityHeaders())
 	r.GET("/healthz", s.health)
-	r.GET("/", s.home)
+	r.GET("/assets/:file", serveSiteAsset)
+	pages := r.Group("/")
+	pages.Use(s.requirePageSession())
+	pages.GET("/", s.home)
+	pages.GET("/castawordle", s.castawordleListPage)
+	pages.GET("/castawordle/:gameID", s.castawordlePage)
 	r.GET("/auth/login", s.startLogin)
 	r.GET("/auth/cli", s.startLogin)
 	r.GET("/auth/callback", s.loginCallback)
 	r.POST("/auth/logout", s.requireSameOrigin(), s.logout)
 	r.POST("/access-request", s.requireSameOrigin(), s.requestAccess)
 	r.POST("/api/auth/cli/exchange", s.exchangeCLICode)
-	r.POST("/api/auth/logout", s.logout)
 	api := r.Group("/api")
 	api.Use(s.requireSession())
+	api.POST("/auth/logout", s.logout)
 	s.registerAPI(api)
 	s.publicEngine = r
 	return r
@@ -139,7 +146,7 @@ func (s *Server) secureCookies() bool { return strings.HasPrefix(s.public.BaseUR
 // startLogin sends the browser to Discord. /auth/cli?port=N&state=S is probst's variant: the result goes
 // back to probst's loopback listener instead of a browser session.
 func (s *Server) startLogin(c *gin.Context) {
-	mode := "browser"
+	mode := "browser|" + loginReturnTo(c.Query("next"))
 	if c.FullPath() == "/auth/cli" {
 		port, err := strconv.Atoi(c.Query("port"))
 		cliState := c.Query("state")
@@ -247,7 +254,7 @@ func (s *Server) loginCallback(c *gin.Context) {
 	}
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(sessionCookie, token, int(browserTTL.Seconds()), "/", "", s.secureCookies(), true)
-	c.Redirect(http.StatusFound, "/")
+	c.Redirect(http.StatusFound, loginReturnTo(strings.TrimPrefix(mode, "browser|")))
 }
 
 func (s *Server) createSession(ctx context.Context, discordUserID, username, kind string, ttl time.Duration) (string, error) {
@@ -403,25 +410,6 @@ func (s *Server) requestAccess(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/")
 }
 
-var homePage = template.Must(template.New("home").Parse(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Castaway</title></head><body>
-<h1>🔥 Castaway</h1>
-{{if not .User}}
-<p><a href="/auth/login">Log in with Discord</a></p>
-{{else if not .Allowed}}
-<p>Hi {{.User.Username}}. Your Discord account isn't linked to a Castaway player yet.</p>
-{{if .Requested}}<p>Access requested. Jeff will be in touch.</p>
-{{else}}<form method="post" action="/access-request"><button>Request access</button></form>{{end}}
-{{else}}
-<p>Hi {{.User.Username}}.</p>
-<table><thead><tr><th>#</th><th>Player</th><th>Tribe</th><th>Total</th><th>Draft</th><th>Bonus</th></tr></thead><tbody>
-{{range .Rows}}<tr><td>{{.Rank}}</td><td>{{.Name}}</td><td>{{.Tribe}}</td><td>{{.Total}}</td><td>{{.Draft}}</td><td>{{.Bonus}}</td></tr>{{end}}
-</tbody></table>
-{{end}}
-{{if .User}}<form method="post" action="/auth/logout"><button>Log out</button></form>{{end}}
-</body></html>`))
-
 type homeRow struct {
 	Rank                int
 	Name, Tribe         string
@@ -429,38 +417,19 @@ type homeRow struct {
 }
 
 func (s *Server) home(c *gin.Context) {
-	ctx := c.Request.Context()
-	token, _ := sessionToken(c)
-	ws, err := s.lookupSession(ctx, token)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "session lookup failed")
+	data, ok := s.siteData(c)
+	if !ok {
 		return
 	}
-	data := struct {
-		User               *webSession
-		Allowed, Requested bool
-		Rows               []homeRow
-	}{User: ws}
-	if ws != nil {
-		if data.Allowed, err = s.webAccess(ctx, ws.DiscordUserID); err != nil {
-			c.String(http.StatusInternalServerError, "access check failed")
-			return
-		}
-		if data.Allowed {
-			data.Rows, err = s.homeLeaderboard(c)
-		} else {
-			err = s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM access_requests WHERE discord_user_id = $1)`, ws.DiscordUserID).Scan(&data.Requested)
-		}
+	if data.Allowed {
+		rows, err := s.homeLeaderboard(c)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "could not load the page")
 			return
 		}
+		data.Rows = rows
 	}
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Header("Cache-Control", "no-store")
-	if err := homePage.Execute(c.Writer, data); err != nil {
-		requestLogger.Error("render home", "error", err)
-	}
+	renderSite(c, "home.html", data)
 }
 
 // homeLeaderboard reads the configured season's leaderboard through /api as the signed-in user.

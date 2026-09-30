@@ -181,6 +181,57 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/FinishAnnouncementRequest'
+  /castawordle/{gameID}/play:
+    get:
+      operationId: getCastawordlePlay
+      parameters:
+        - name: gameID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CastawordlePlay'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /castawordle/{gameID}/play/guesses:
+    post:
+      operationId: guessCastawordle
+      parameters:
+        - name: gameID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/CastawordlePlay'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guess:
+                  type: string
+                position:
+                  type: integer
+                  format: int32
+              required:
+                - guess
+                - position
   /discord/guilds/{guildID}/channels/{channelID}:
     get:
       operationId: getDiscordChannelBinding
@@ -792,6 +843,48 @@ paths:
                   - type: object
                     additionalProperties: {}
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/castawordle:
+    post:
+      operationId: createCastawordle
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CastawordleGame'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                answer:
+                  type: string
+                opens_at:
+                  type: string
+                  format: date-time
+                cutoff_at:
+                  type: string
+                  format: date-time
+              required:
+                - name
+                - answer
   /instances/{instanceID}/contestants:
     post:
       operationId: createContestant
@@ -2368,6 +2461,65 @@ components:
           type: string
         admin:
           type: boolean
+    CastawordleGame:
+      type: object
+      required:
+        - id
+        - instance_id
+        - name
+        - word_length
+        - guess_limit
+        - opens_at
+        - cutoff_at
+        - unscored
+      properties:
+        id:
+          type: string
+        instance_id:
+          type: string
+        name:
+          type: string
+        word_length:
+          type: integer
+          format: int32
+        guess_limit:
+          type: integer
+          format: int32
+        opens_at:
+          type: string
+          format: date-time
+        cutoff_at:
+          type: string
+          format: date-time
+        unscored:
+          type: boolean
+    CastawordlePlay:
+      type: object
+      required:
+        - game
+        - guesses
+        - status
+      properties:
+        game:
+          $ref: '#/components/schemas/CastawordleGame'
+        guesses:
+          type: array
+          items:
+            type: object
+            properties:
+              word:
+                type: string
+              feedback:
+                type: array
+                items:
+                  type: string
+            required:
+              - word
+              - feedback
+        status:
+          type: string
+        answer:
+          type: string
     ClaimAccessRequestResponse:
       type: object
       required:

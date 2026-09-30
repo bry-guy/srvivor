@@ -1,0 +1,12 @@
+{{template "header" .}}
+{{if not .Allowed}}
+<h1>Welcome to Castaway</h1><p>Your Discord account isn't linked to a Castaway player in this season yet.</p>
+{{if .Requested}}<p class="notice">Access requested. Jeff will be in touch.</p>{{else}}<form method="post" action="/access-request"><button>Request access</button></form>{{end}}
+{{else}}
+<p class="eyebrow">The tribe has spoken</p><h1>Scores</h1><p class="muted">Your season, at a glance.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Season scores"><table>
+<thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Tribe</th><th scope="col">Total</th><th scope="col">Draft</th><th scope="col">Bonus</th></tr></thead>
+<tbody>{{range .Rows}}<tr><td>{{.Rank}}</td><th scope="row">{{.Name}}</th><td>{{.Tribe}}</td><td class="total">{{.Total}}</td><td>{{.Draft}}</td><td>{{.Bonus}}</td></tr>{{else}}<tr><td colspan="6" class="muted">No scores yet. Check back after drafts are in.</td></tr>{{end}}</tbody>
+</table></div>
+{{end}}
+{{template "footer" .}}

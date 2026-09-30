@@ -2,7 +2,7 @@ name: Publish Images
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'apps/castaway-web/**'
       - 'apps/castaway-discord-bot/**'
@@ -135,7 +135,7 @@ jobs:
       - changes
       - build-castaway-web
       - build-castaway-discord-bot
-    if: always() && (needs.changes.outputs.castaway_web == 'true' || needs.changes.outputs.castaway_discord_bot == 'true')
+    if: always() && github.ref == 'refs/heads/main' && (needs.changes.outputs.castaway_web == 'true' || needs.changes.outputs.castaway_discord_bot == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -148,7 +148,9 @@ jobs:
       - name: Update castaway-discord-bot digest
         if: needs.changes.outputs.castaway_discord_bot == 'true'
         run: |
-          python3 script/update-home-k3s-digests.py ghcr.io/${{ github.repository_owner }}/castaway-discord-bot ${{ needs.build-castaway-discord-bot.outputs.digest }}
+          python3 script/update-home-k3s-digests.py \
+            ghcr.io/${{ github.repository_owner }}/castaway-discord-bot \
+            ${{ needs.build-castaway-discord-bot.outputs.digest }}
       - uses: azure/setup-kubectl@v4
         with:
           version: latest

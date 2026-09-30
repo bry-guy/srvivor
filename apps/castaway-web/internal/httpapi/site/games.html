@@ -1,0 +1,9 @@
+{{template "header" .}}
+<p class="eyebrow">Keep your torch lit</p><h1>Castawordle</h1><p class="muted">One word. Six torches. How long can you stay in the game?</p>
+<p class="notice"><strong>Unscored preview.</strong> Your progress is saved, but these games do not affect season points.</p>
+<div class="game-list">{{range .Games}}<a class="game-card" href="/castawordle/{{.ID}}"><span class="badge">Unscored</span><h2>{{.Name}}</h2><p>{{.WordLength}} letters · {{.GuessLimit}} guesses</p><p class="muted">Opens {{.OpensAt.Format "Jan 2, 15:04 MST"}}<br>Closes {{.CutoffAt.Format "Jan 2, 15:04 MST"}}</p></a>{{else}}<p>No puzzles yet. Your host will set the first challenge.</p>{{end}}</div>
+{{if .Admin}}<section class="admin-panel"><h2>Create a trial puzzle</h2><p class="muted">As the host, you choose the answer. Games open now, last seven days, and are always unscored in this preview.</p>
+<form id="create-game" data-instance-id="{{.InstanceID}}"><label>Name<input name="name" maxlength="80" required placeholder="Last Torch — trial"></label>
+<label>Answer · 4–8 letters<input name="answer" minlength="4" maxlength="8" pattern="[A-Za-z]{4,8}" autocomplete="off" autocapitalize="characters" spellcheck="false" required></label>
+<button>Create unscored puzzle</button><p id="create-game-message" role="status"></p></form></section>{{end}}
+{{template "footer" .}}

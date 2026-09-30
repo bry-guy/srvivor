@@ -15,6 +15,39 @@ model HealthResponse {
   status: string;
 }
 
+model CastawordleGame {
+  id: string;
+  instance_id: string;
+  name: string;
+  word_length: int32;
+  guess_limit: int32;
+  opens_at: utcDateTime;
+  cutoff_at: utcDateTime;
+  unscored: boolean;
+}
+
+model CastawordlePlay {
+  game: CastawordleGame;
+  guesses: { word: string; feedback: string[]; }[];
+  status: string;
+  answer?: string;
+}
+
+@route("/instances/{instanceID}/castawordle")
+@post
+op createCastawordle(
+  @path instanceID: string,
+  @body body: { name: string; answer: string; opens_at?: utcDateTime; cutoff_at?: utcDateTime; },
+): { @statusCode statusCode: 201; ...CastawordleGame; } | ErrorResponse;
+
+@route("/castawordle/{gameID}/play")
+@get
+op getCastawordlePlay(@path gameID: string): CastawordlePlay | ErrorResponse;
+
+@route("/castawordle/{gameID}/play/guesses")
+@post
+op guessCastawordle(@path gameID: string, @body body: { guess: string; position: int32; }): CastawordlePlay | ErrorResponse;
+
 model Instance {
   id: string;
   name: string;
