@@ -92,19 +92,27 @@ func TestCastawordleVisibilityAndSchedule(t *testing.T) {
 	if page := serve("GET", "/castawordle", "", "player", 200); strings.Contains(page.Body.String(), testID) || strings.Contains(page.Body.String(), "Private practice") || strings.Contains(page.Body.String(), "create-game") {
 		t.Fatal("ordinary player discovered an admin test or creation form")
 	}
-	if page := serve("GET", "/castawordle", "", "admin", 200); !strings.Contains(page.Body.String(), testID) || !strings.Contains(page.Body.String(), `name="episode_number"`) {
+	if page := serve("GET", "/castawordle", "", "admin", 200); !strings.Contains(page.Body.String(), testID) || !strings.Contains(page.Body.String(), `name="episode_number"`) || !strings.Contains(page.Body.String(), `value="13"`) {
 		t.Fatal("admin cannot discover tests or prepare episode puzzles")
 	}
 	serve("POST", createPath, `{"name":"No","answer":"TORCH","episode_number":2}`, "player", 403)
 	for _, body := range []string{
 		`{"name":"No","answer":"TORCH","episode_number":-1}`,
 		`{"name":"No","answer":"TORCH","episode_number":99}`,
-		`{"name":"No","answer":"TORCH","episode_number":13}`,
 		`{"name":"No","answer":"TORCH","episode_number":1}`,
 		`{"name":"No","answer":"TORCH","episode_number":2,"opens_at":"2026-09-30T16:00:00Z"}`,
 		`{"name":"No","answer":"TORCH","episode_number":2,"cutoff_at":"2026-10-07T18:00:00Z"}`,
 	} {
 		serve("POST", createPath, body, "admin", 400)
+	}
+	finaleID := create(`{"name":"Finale","answer":"TORCH","episode_number":13}`)
+	finale, err := q.GetCastawordleGame(ctx, pgtype.UUID{Bytes: uuid.MustParse(finaleID), Valid: true})
+	if err != nil || !finale.CutoffAt.Time.Equal(time.Date(2026, 12, 23, 17, 0, 0, 0, time.UTC)) {
+		t.Fatalf("finale cutoff was not next Wednesday noon: %s, %v", finale.CutoffAt.Time, err)
+	}
+	episodes, err := q.ListInstanceEpisodes(ctx, instance.ID)
+	if err != nil || len(episodes) != 14 {
+		t.Fatalf("finale preparation altered the episode schedule: count %d, %v", len(episodes), err)
 	}
 	gameID := create(`{"name":"Episode challenge","answer":"TORCH","episode_number":2}`)
 	gameUUID := pgtype.UUID{Bytes: uuid.MustParse(gameID), Valid: true}

@@ -15,7 +15,11 @@ type castawordleEpisodeOption struct {
 
 func castawordleEpisodeWindow(episodes []db.ListInstanceEpisodesRow, number int32) (time.Time, time.Time, error) {
 	var airs, next time.Time
+	lastNumber := int32(-1)
 	for _, episode := range episodes {
+		if episode.EpisodeNumber > lastNumber {
+			lastNumber = episode.EpisodeNumber
+		}
 		if episode.EpisodeNumber == number {
 			airs = episode.AirsAt.Time
 		}
@@ -23,8 +27,8 @@ func castawordleEpisodeWindow(episodes []db.ListInstanceEpisodesRow, number int3
 			next = episode.AirsAt.Time
 		}
 	}
-	if number < 0 || airs.IsZero() || next.IsZero() {
-		return time.Time{}, time.Time{}, errors.New("episode and following episode must exist in this instance's schedule")
+	if number < 0 || airs.IsZero() || (next.IsZero() && number != lastNumber) {
+		return time.Time{}, time.Time{}, errors.New("episode must exist and cannot precede a gap in this instance's schedule")
 	}
 	location, err := time.LoadLocation("America/New_York")
 	if err != nil {
@@ -32,7 +36,11 @@ func castawordleEpisodeWindow(episodes []db.ListInstanceEpisodesRow, number int3
 	}
 	year, month, day := airs.In(location).Date()
 	opens := time.Date(year, month, day, 13, 0, 0, 0, location)
-	year, month, day = next.In(location).Date()
+	cutoffDay := next.In(location)
+	if next.IsZero() {
+		cutoffDay = airs.In(location).AddDate(0, 0, 7)
+	}
+	year, month, day = cutoffDay.Date()
 	cutoff := time.Date(year, month, day, 12, 0, 0, 0, location)
 	if !cutoff.After(opens) {
 		return time.Time{}, time.Time{}, errors.New("episode schedule does not provide a valid game window")

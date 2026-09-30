@@ -120,7 +120,7 @@ Instance admins prepare **unscored** puzzles from the game-list page or `POST /a
 
 - Omit `episode_number` (or use `null`) for an **admin-only test**. This includes existing preview games. Tests default to opening immediately for seven days; optional `opens_at` / `cutoff_at` remain supported for tests.
 - Select `episode_number` for a **scheduled player puzzle**. The server uses that instance's episode dates: 1pm Eastern on the selected episode day through noon on the next episode day, including DST. Prepare it ahead of time; linked players can see it, but guesses cannot start before opening. No background scheduler is required.
-- Scheduled puzzles require the selected and following episodes, reject caller-provided timestamps and expired windows, and allow one puzzle per instance/episode. A duplicate returns 409 without replacing the answer. The final episode needs a following registered episode to define its cutoff.
+- Scheduled puzzles reject unknown episodes, intermediate schedule gaps, caller-provided timestamps, and expired windows; allow one puzzle per instance/episode. A duplicate returns 409 without replacing the answer. For the final registered episode, cutoff is noon seven Eastern calendar days later (next Wednesday for Season 51), without creating a synthetic episode.
 
 Answers are validated against the pinned dictionary and determine the 4–8-letter board width. Games cannot be edited after creation. Existing answers and saved progress are preserved when trials become admin-only; admins still need a linked player to play.
 

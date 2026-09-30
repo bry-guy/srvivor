@@ -30,7 +30,11 @@ func TestCastawordleEpisodeWindow(t *testing.T) {
 	if !opens.Equal(time.Date(2026, 10, 28, 17, 0, 0, 0, time.UTC)) || !cutoff.Equal(time.Date(2026, 11, 4, 17, 0, 0, 0, time.UTC)) {
 		t.Fatalf("expected 1pm EDT through noon EST despite changed airtimes: %s → %s", opens, cutoff)
 	}
-	for _, number := range []int32{-1, 2, 3, 2147483647} {
+	finaleOpens, finaleCutoff, err := castawordleEpisodeWindow(episodes[:1], 1)
+	if err != nil || !finaleOpens.Equal(opens) || !finaleCutoff.Equal(cutoff) {
+		t.Fatalf("finale did not use next Wednesday noon across DST: %s → %s, %v", finaleOpens, finaleCutoff, err)
+	}
+	for _, number := range []int32{-1, 3, 2147483647} {
 		if _, _, err := castawordleEpisodeWindow(episodes, number); err == nil {
 			t.Fatalf("accepted missing or invalid episode %d", number)
 		}
@@ -38,5 +42,9 @@ func TestCastawordleEpisodeWindow(t *testing.T) {
 	episodes[1].AirsAt = episodes[0].AirsAt
 	if _, _, err := castawordleEpisodeWindow(episodes, 1); err == nil {
 		t.Fatal("accepted a nonpositive game window")
+	}
+	episodes[1].EpisodeNumber = 3
+	if _, _, err := castawordleEpisodeWindow(episodes, 1); err == nil {
+		t.Fatal("treated an intermediate schedule gap as a finale")
 	}
 }
