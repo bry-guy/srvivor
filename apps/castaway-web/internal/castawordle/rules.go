@@ -6,7 +6,7 @@ import (
 )
 
 const GuessLimit = 6
-const DictionaryVersion = "cmudict-74790861f652b15e4ac49015a90074ad62a27690"
+const DictionaryVersion = "scowl-1e5b7d3a72f47a71da5d28686c1dd4b397178485-70-ABZ-1"
 
 //go:embed data/words.txt data/LICENSE
 var dictionaryFiles embed.FS

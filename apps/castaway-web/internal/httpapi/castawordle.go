@@ -182,10 +182,6 @@ func (s *Server) guessCastawordle(c *gin.Context) {
 		return
 	}
 	req.Guess = castawordle.Normalize(req.Guess)
-	if len(req.Guess) != len(game.Answer) || !castawordle.ValidWord(req.Guess) {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "enter a dictionary word of the correct length"})
-		return
-	}
 	tx, err := s.pool.Begin(c.Request.Context())
 	if err != nil {
 		castawordleError(c, err)
@@ -209,6 +205,10 @@ func (s *Server) guessCastawordle(c *gin.Context) {
 	}
 	if req.Position <= len(guesses) && guesses[req.Position-1] == req.Guess {
 		c.JSON(http.StatusOK, s.castawordlePlay(game, guesses, play.Status))
+		return
+	}
+	if len(req.Guess) != len(game.Answer) || !castawordle.ValidWord(req.Guess) {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "invalid word, try again"})
 		return
 	}
 	if req.Position != len(guesses)+1 || play.Status != "in_progress" {
