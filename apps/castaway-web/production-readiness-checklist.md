@@ -11,7 +11,7 @@
 - [x] Content-page session gates and own-player/cross-instance API authorization covered offline.
 - [x] Private answers, duplicate-letter feedback, cutoff, concurrent/retried moves, and zero scoring effects covered in disposable PostgreSQL.
 - [x] 320px/desktop, themes, touch/physical input, fake OAuth return, lost-response recovery, and resume checked with Playwright.
-- [ ] Feature image deployed and public authentication/CLI compatibility verified.
+- [x] Feature image deployed and public page gates/OAuth entry/CLI compatibility verified; owner completes real Discord browser sign-in.
 - [ ] Scored-game lifecycle and abandoned/all-failed policies approved and implemented; this preview is unscored.
 
 ## Reliability
