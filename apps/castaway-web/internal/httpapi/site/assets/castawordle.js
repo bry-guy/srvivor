@@ -48,9 +48,11 @@ class CastawordleGame extends HTMLElement {
   press(key) {
     if (this.pending || !this.playable()) return;
     if (key === 'Enter') { this.submit(); return; }
+    const addingLetter = /^[a-z]$/i.test(key) && this.draft.length < this.state.game.word_length;
     if (key === 'Backspace') this.draft = this.draft.slice(0, -1);
-    else if (/^[a-z]$/i.test(key) && this.draft.length < this.state.game.word_length) this.draft += key.toUpperCase();
+    else if (addingLetter) this.draft += key.toUpperCase();
     this.renderBoard();
+    if (addingLetter && this.draft.length === this.state.game.word_length) this.submit();
   }
   async submit() {
     if (this.draft.length !== this.state.game.word_length) {

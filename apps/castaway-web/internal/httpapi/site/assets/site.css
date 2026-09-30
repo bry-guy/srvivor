@@ -56,7 +56,8 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 .tile { aspect-ratio: 1; display: grid; place-items: center; min-width: 0; border: 2px solid var(--border); border-radius: .12rem .25rem .15rem .2rem; background: var(--surface); font-family: Impact, Haettenschweiler, "Arial Narrow Bold", ui-sans-serif, sans-serif; font-weight: 900; font-size: clamp(1.15rem, 5vw, 2rem); letter-spacing: .02em; box-shadow: inset 0 -3px 0 #00000012; }
 .tile.filled { border-color: var(--muted); } .tile.correct, .key.correct { background: var(--correct); color: #fff; border-color: var(--correct); }
 .tile.present, .key.present { background: var(--present); color: #fff; border-color: var(--present); }
-.tile.absent, .key.absent { background: var(--absent); color: #fff; border-color: var(--absent); }
+.tile.absent { background: var(--absent); color: #fff; border-color: var(--absent); }
+.key.absent { background: #111714; color: #d3d9d3; }
 .game-message { min-height: 3rem; text-align: center; font-size: .85rem; margin: .6rem 0; }
 .keyboard { display: grid; gap: .35rem; touch-action: manipulation; } .key-row { display: flex; justify-content: center; gap: .25rem; }
 .key { padding: .1rem; min-width: 0; flex: 1; height: 2.9rem; max-width: 3rem; border: 0; border-radius: .3rem; background: var(--key); color: var(--text); font-size: .82rem; font-weight: 750; }
