@@ -13,7 +13,7 @@
 - [x] 320px/desktop, themes, touch/physical input, fake OAuth return, lost-response recovery, and resume checked with Playwright.
 - [x] Feature image deployed and public page gates/OAuth entry/CLI compatibility verified; owner completes real Discord browser sign-in.
 - [x] Admin-only trial access and prepared episode puzzles checked in PostgreSQL and mobile/desktop browsers; DST, opening/cutoff, duplicates, preserved progress, and cross-instance boundaries covered.
-- [ ] Scheduled/test visibility follow-up deployed; merge/push and activation are separate because Argo is pinned to a preview commit.
+- [x] Scheduled/test visibility follow-up deployed at pinned revision `bc1ad1b`; migration, healthy image rollout, protected pages/assets, and read-only Probst checks passed. See `plans/castawordle-scheduled-deployment.md`.
 - [ ] Scored-game lifecycle and abandoned/all-failed policies approved and implemented; all games remain unscored.
 
 ## Reliability
