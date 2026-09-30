@@ -1,6 +1,6 @@
 # Castawordle test access and scheduled puzzles
 
-Status: in-progress
+Status: done
 
 ## Approved scope
 
@@ -12,6 +12,6 @@ Migration 021 adds nullable `episode_number`, a same-instance episode foreign ke
 
 ## Verification and delivery
 
-Targeted PostgreSQL and 320px/desktop browser checks passed: private-test denial, linked-player access, exact opening/cutoff, duplicate preparation, cross-instance denial, preserved progress, retry/concurrency behavior, DST/non-8pm airtimes, and no scoring writes. Browser form checks select an episode and prepare a future puzzle. Full monorepo CI and full PostgreSQL/browser integration also passed. TypeSpec retains seven existing dependency-audit findings; no dependency changes were made. LSP probes were unavailable; compiler, lint, and runtime checks passed. Independent review identified missing finale support; the approved next-Wednesday window now covers the finale, with DST and selector/API regression checks. Final revalidation precedes merge/push.
+Targeted PostgreSQL and 320px/desktop browser checks passed: private-test denial, linked-player access, exact opening/cutoff, duplicate preparation, cross-instance denial, preserved progress, retry/concurrency behavior, DST/non-8pm airtimes, and no scoring writes. Browser form checks select an episode and prepare a future puzzle. Full monorepo CI and full PostgreSQL/browser integration also passed. TypeSpec retains seven existing dependency-audit findings; no dependency changes were made. LSP probes were unavailable; compiler, lint, and runtime checks passed. Independent review identified missing finale support; the approved next-Wednesday window now covers the finale, with DST and selector/API regression checks. Full CI and PostgreSQL/browser integration passed again after the finale fix. Implementation is complete; production activation remains a separate step.
 
-The owner explicitly authorized merging and pushing, replacing the original feature-only restriction. Preserve current main deployment image pins while merging. Argo remains pinned to the preview commit; merging is not activation. No production puzzle creation or scoring changes are part of this delivery.
+The owner explicitly authorized merging and pushing, replacing the original feature-only restriction. Merged current main locally without conflicts, preserving its web/bot deployment image pins and the main-only image-updater guard. Argo remains pinned to the preview commit; merging is not activation. No production puzzle creation or scoring changes are part of this delivery.
