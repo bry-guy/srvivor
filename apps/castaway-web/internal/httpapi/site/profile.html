@@ -2,6 +2,12 @@
 {{with .Profile}}
 <p class="eyebrow">{{.Season.InstanceName}}{{if .LeagueName}} · {{.LeagueName}}{{end}}</p>
 <h1>{{if .Self}}Me · {{end}}{{.PlayerName}}</h1>
+{{if .Self}}<form class="pronouns-form" method="post" action="/me/pronouns"><label>Pronouns <select name="pronouns">
+<option value=""{{if not .Pronouns}} selected{{end}}>Not set</option>
+<option value="he/him"{{if eq .Pronouns "he/him"}} selected{{end}}>he/him</option>
+<option value="she/her"{{if eq .Pronouns "she/her"}} selected{{end}}>she/her</option>
+<option value="they/them"{{if eq .Pronouns "they/them"}} selected{{end}}>they/them</option>
+</select></label> <button type="submit">Save</button> <span class="muted">Only you see this. Probst uses it when writing about you.</span></form>{{end}}
 <div class="profile-grid">
 <section class="profile-card" aria-labelledby="score-heading"><h2 id="score-heading">Score</h2>
 {{if .Season.Scored}}<p class="profile-total">{{.Season.Total}}<span> pts</span></p>

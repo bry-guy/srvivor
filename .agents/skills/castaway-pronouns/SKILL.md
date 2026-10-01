@@ -1,15 +1,15 @@
 ---
 name: castaway-pronouns
-description: Use when writing Probst/Castaway Discord message copy (scores posts, recaps, announcements, `probst message`) that refers to a player in the third person. Pronouns are for Probst message copy only — never display them anywhere else.
+description: Use when writing Probst/Castaway Discord message copy (scores posts, recaps, announcements, `probst message`) that refers to a player in the third person. Pronouns are for Probst message copy only — never display them to anyone but the player themself.
 ---
 
 # Castaway pronouns: Probst message copy only
 
 Players have a stored `pronouns` value: `he/him`, `she/her`, or `they/them` (unset = unknown).
 
-**Where it may be used:** only in text Probst posts to Discord (scores posts, recaps, announcements, one-off messages). Never show pronouns on the website, in profiles, leaderboards, tables, logs meant for players, or anywhere else.
+**Where it may be used:** only in text Probst posts to Discord (scores posts, recaps, announcements, one-off messages). The only other place pronouns appear is the player's own **Me** page, where they can change them; never show one player's pronouns to another (profiles, leaderboards, tables, player-facing logs, or anywhere else).
 
-**How to read them:** `probst player list --instance INSTANCE --json` (admin-only) → each participant's `pronouns`. Pronouns belong to the person, so the same player has the same value in every season.
+**How to read them:** `probst player list --instance INSTANCE --json` (admin-only) → each participant's `pronouns`. Pronouns belong to the person: the same player has the same value in every season, and players may change theirs at any time, so always read the current value.
 
 **Rules:**
 1. Look the player up every time; never infer pronouns from a name, nickname, or past copy.

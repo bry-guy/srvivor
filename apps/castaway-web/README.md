@@ -148,7 +148,7 @@ To link past seasons' unlinked players to the Discord account of the same-named 
 
 ### Pronouns
 
-Participants carry an optional `pronouns` value (`he/him`, `she/her`, `they/them`; migration 023). Pronouns are used **only** in Probst-authored Discord message copy and are never displayed on the site. They appear only in the admin-only participant list (`GET /instances/{id}/participants`, e.g. `probst player list --json`). Agents follow the project skill [`castaway-pronouns`](../../.agents/skills/castaway-pronouns/SKILL.md).
+Participants carry an optional `pronouns` value (`he/him`, `she/her`, `they/them`; migration 023). Pronouns are used **only** in Probst-authored Discord message copy. On the site, a player sees and changes their own pronouns on **Me** (`POST /me/pronouns`, same-origin; saves to all of their league seasons); nobody else's pronouns are ever shown. They appear only in the admin-only participant list (`GET /instances/{id}/participants`, e.g. `probst player list --json`). Agents follow the project skill [`castaway-pronouns`](../../.agents/skills/castaway-pronouns/SKILL.md).
 
 Optional browser checks use an already-installed Node/Playwright runtime, without installing global tools:
 

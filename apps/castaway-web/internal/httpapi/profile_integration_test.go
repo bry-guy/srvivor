@@ -122,6 +122,33 @@ func TestProfiles(t *testing.T) {
 	get("/seasons/"+id(other.ID), "bob", 404)
 	get("/seasons/"+id(current.ID), "bob", 302)
 	get("/seasons", "dave", 302)
+
+	// Pronouns: only the player sees (and edits) their own; saving updates every league season they played.
+	post := func(path, body, user, origin string, status int) {
+		t.Helper()
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", origin)
+		req.AddCookie(&http.Cookie{Name: "castaway_session", Value: user + "-profile"})
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != status {
+			t.Fatalf("POST %s as %s: %d, want %d: %s", path, user, rec.Code, status, rec.Body)
+		}
+	}
+	post("/me/pronouns", "pronouns=they%2Fthem", "alice", "https://castaway.example", 303)
+	post("/me/pronouns", "pronouns=she%2Fher", "alice", "https://evil.example", 403)
+	post("/me/pronouns", "pronouns=xe%2Fxem", "alice", "https://castaway.example", 400)
+	has(get("/me", "alice", 200), `value="they/them" selected`, "Only you see this")
+	for _, path := range []string{"/players/" + id(people["alice"].cur), "/players/" + id(people["alice"].past), "/seasons/" + id(past.ID), "/"} {
+		lacks(get(path, "bob", 200), "they/them", "pronouns")
+	}
+	var counts [2]int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE pronouns = 'they/them'), count(*) FILTER (WHERE pronouns IS NOT NULL) FROM participants`).Scan(&counts[0], &counts[1]); err != nil || counts != [2]int{2, 2} {
+		t.Fatalf("pronouns saved to %v (want alice's 2 league seasons only, not BrainLand): %v", counts, err)
+	}
+	post("/me/pronouns", "pronouns=", "alice", "https://castaway.example", 303)
+	has(get("/me", "alice", 200), `value="" selected`)
 	get("/players/not-a-uuid", "alice", 404)
 	get("/me", "dave", 302)
 }

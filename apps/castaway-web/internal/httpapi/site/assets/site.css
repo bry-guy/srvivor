@@ -79,3 +79,4 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 .season-list { list-style: none; padding: 0; }
 .season-list li { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; padding: .5rem 0; border-bottom: 1px solid var(--border, #ccc); }
 .season-list li[aria-current] a { font-weight: 700; }
+.pronouns-form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 0 0 1rem; }

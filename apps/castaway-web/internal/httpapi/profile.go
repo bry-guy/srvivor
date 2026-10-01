@@ -33,6 +33,7 @@ type profilePick struct {
 type profileView struct {
 	PlayerName, LeagueName string
 	Self                   bool
+	Pronouns               string // set only when Self: players see their own pronouns, nobody else's
 	Season                 profileSeason
 	Draft                  []profilePick
 	DraftHidden            string
@@ -142,6 +143,12 @@ func (s *Server) renderProfile(c *gin.Context, data sitePageData, participantID 
 		return
 	}
 	view := profileView{PlayerName: name, LeagueName: s.public.LeagueName, Self: discordID != "" && discordID == data.User.DiscordUserID}
+	if view.Self {
+		if err := s.pool.QueryRow(ctx, `SELECT COALESCE(pronouns, '') FROM participants WHERE public_id = $1`, participantID).Scan(&view.Pronouns); err != nil {
+			c.String(http.StatusInternalServerError, "could not load the page")
+			return
+		}
+	}
 	rows, err := s.pool.Query(ctx, `SELECT p.public_id::text, i.public_id::text, i.name, i.season FROM participants p JOIN instances i ON i.id = p.instance_id
 		WHERE i.public_id::text = ANY($1) AND (p.public_id = $2 OR ($3 <> '' AND p.discord_user_id = $3))
 		ORDER BY i.season DESC, i.created_at DESC`, league, participantID, discordID)
@@ -312,4 +319,25 @@ func (s *Server) seasonPage(c *gin.Context) {
 		data.Rows = append(data.Rows, homeRow{Rank: r.Rank, ID: r.ParticipantID, Name: r.Name, Tribe: r.Tribe, Total: r.Total, Draft: r.Draft, Bonus: r.Bonus})
 	}
 	renderSite(c, "home.html", data)
+}
+
+// setPronouns lets a signed-in player set their own pronouns (or clear them) on every league season they
+// played. Pronouns are used only in Probst message copy and shown only to the player themself.
+func (s *Server) setPronouns(c *gin.Context) {
+	data, ok := s.siteData(c)
+	if !ok {
+		return
+	}
+	value := c.PostForm("pronouns")
+	if !data.Allowed || (value != "" && value != "he/him" && value != "she/her" && value != "they/them") {
+		c.String(http.StatusBadRequest, "invalid pronouns")
+		return
+	}
+	if _, err := s.pool.Exec(c.Request.Context(), `UPDATE participants p SET pronouns = NULLIF($1, '') FROM instances i
+		WHERE i.id = p.instance_id AND p.discord_user_id = $2 AND i.public_id::text = ANY($3)`,
+		value, data.User.DiscordUserID, s.leagueInstanceIDs()); err != nil {
+		c.String(http.StatusInternalServerError, "could not save")
+		return
+	}
+	c.Redirect(http.StatusSeeOther, "/me")
 }
