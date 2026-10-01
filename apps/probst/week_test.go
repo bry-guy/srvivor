@@ -26,9 +26,9 @@ type weekTestCall struct {
 }
 
 type weekTestAPI struct {
-	calls       []weekTestCall
-	gameReply   any
-	gameErr     error
+	calls     []weekTestCall
+	gameReply any
+	gameErr   error
 }
 
 func (f *weekTestAPI) call(_ context.Context, method, path string, body, out any) error {
@@ -157,10 +157,10 @@ func TestWeekApplyUsesStableScoredPayloadAndVerifiesResponse(t *testing.T) {
 		t.Fatalf("expected stable payload on idempotent reapply, got %#v", posts)
 	}
 	var body struct {
-		Answer       string            `json:"answer"`
-		Episode      int               `json:"episode_number"`
-		Scored       bool              `json:"scored"`
-		Window       map[string]string `json:"window"`
+		Answer  string            `json:"answer"`
+		Episode int               `json:"episode_number"`
+		Scored  bool              `json:"scored"`
+		Window  map[string]string `json:"window"`
 	}
 	if err := json.Unmarshal([]byte(posts[0].body), &body); err != nil {
 		t.Fatal(err)

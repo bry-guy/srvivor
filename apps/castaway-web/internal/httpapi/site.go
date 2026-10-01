@@ -31,12 +31,14 @@ type sitePageData struct {
 }
 
 func loginReturnTo(candidate string) string {
-	if candidate == "/castawordle" {
+	if candidate == "/castawordle" || candidate == "/me" {
 		return candidate
 	}
-	if suffix, ok := strings.CutPrefix(candidate, "/castawordle/"); ok {
-		if id, err := uuid.Parse(suffix); err == nil {
-			return "/castawordle/" + id.String()
+	for _, prefix := range []string{"/castawordle/", "/players/"} {
+		if suffix, ok := strings.CutPrefix(candidate, prefix); ok {
+			if id, err := uuid.Parse(suffix); err == nil {
+				return prefix + id.String()
+			}
 		}
 	}
 	return "/"

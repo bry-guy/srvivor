@@ -39,13 +39,13 @@ type preparedWeek struct {
 }
 
 type weekGameResponse struct {
-	ID            string     `json:"id"`
-	InstanceID    string     `json:"instance_id"`
-	Name          string     `json:"name"`
-	OpensAt       time.Time  `json:"opens_at"`
-	CutoffAt      time.Time  `json:"cutoff_at"`
-	Unscored      *bool      `json:"unscored"`
-	EpisodeNumber *int       `json:"episode_number"`
+	ID            string    `json:"id"`
+	InstanceID    string    `json:"instance_id"`
+	Name          string    `json:"name"`
+	OpensAt       time.Time `json:"opens_at"`
+	CutoffAt      time.Time `json:"cutoff_at"`
+	Unscored      *bool     `json:"unscored"`
+	EpisodeNumber *int      `json:"episode_number"`
 }
 
 func newWeekCommand(call apiCall, instance *string, yes *bool) *cobra.Command {
@@ -72,9 +72,9 @@ func newWeekCommand(call apiCall, instance *string, yes *bool) *cobra.Command {
 			body := map[string]any{
 				"name": plan.declaration.Puzzle.Name, "answer": plan.answer,
 				"episode_number": plan.declaration.Episode,
-				"scored": true,
+				"scored":         true,
 				"window": map[string]string{
-					"opens_at": plan.opensAt.Format(time.RFC3339Nano),
+					"opens_at":  plan.opensAt.Format(time.RFC3339Nano),
 					"cutoff_at": plan.cutoffAt.Format(time.RFC3339Nano),
 				},
 			}
@@ -88,7 +88,7 @@ func newWeekCommand(call apiCall, instance *string, yes *bool) *cobra.Command {
 			}
 			_, err = fmt.Fprintf(c.OutOrStdout(), "Prepared scored Castawordle %s, %q, episode %d.\n", gameID, game.Name, *game.EpisodeNumber)
 			return err
-		}, 
+		},
 	}
 	week.Flags().StringVar(&file, "file", "", "JSON v1 week declaration")
 	week.AddCommand(&cobra.Command{
