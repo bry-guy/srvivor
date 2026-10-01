@@ -3,9 +3,11 @@ package httpapi_test
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -112,9 +114,30 @@ func TestPublicListener(t *testing.T) {
 	// and returns to the requested puzzle, but a tampered state or a cookieless CLI login does not.
 	start := serve("GET", "/auth/login?next=/castawordle", nil)
 	state := parse(start.Header().Get("Location")).Query().Get("state")
-	mobile := serve("GET", "/auth/callback?code="+player+"&state="+url.QueryEscape(state), nil)
+	confirm := serve("GET", "/auth/callback?code="+player+"&state="+url.QueryEscape(state), nil)
+	want(confirm, 200)
+	for _, c := range confirm.Result().Cookies() {
+		if c.Name == "castaway_session" && c.Value != "" {
+			t.Fatal("cookieless callback created a session without confirmation")
+		}
+	}
+	m := regexp.MustCompile(`name="token" value="([^"]+)"`).FindStringSubmatch(confirm.Body.String())
+	if m == nil || !strings.Contains(confirm.Body.String(), "Continue as "+player) {
+		t.Fatalf("confirm page: %s", confirm.Body)
+	}
+	post := func(origin, token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/auth/confirm", strings.NewReader(url.Values{"token": {token}}.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", origin)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+	want(post("https://evil.example", html.UnescapeString(m[1])), 403)
+	want(post(base, html.UnescapeString(m[1])+"x"), 400)
+	mobile := post(base, html.UnescapeString(m[1]))
 	if sessionOf(mobile); mobile.Header().Get("Location") != "/castawordle" {
-		t.Fatalf("cookieless browser callback: %d %s", mobile.Code, mobile.Header().Get("Location"))
+		t.Fatalf("confirmed cookieless login: %d %s", mobile.Code, mobile.Header().Get("Location"))
 	}
 	want(serve("GET", "/auth/callback?code="+player+"&state="+url.QueryEscape(state[:len(state)-2]+"AA"), nil), 400)
 	cliStart := serve("GET", "/auth/cli?port=45678&state=xyz", nil)

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -96,6 +97,7 @@ func (s *Server) PublicRouter() *gin.Engine {
 	r.GET("/auth/login", s.startLogin)
 	r.GET("/auth/cli", s.startLogin)
 	r.GET("/auth/callback", s.loginCallback)
+	r.POST("/auth/confirm", s.requireSameOrigin(), s.confirmLogin)
 	r.POST("/auth/logout", s.requireSameOrigin(), s.logout)
 	r.POST("/access-request", s.requireSameOrigin(), s.requestAccess)
 	r.POST("/api/auth/cli/exchange", s.exchangeCLICode)
@@ -218,10 +220,13 @@ func (s *Server) loginCallback(c *gin.Context) {
 	}
 	c.SetCookie(oauthCookie, "", -1, "/auth", "", s.secureCookies(), true)
 	state, mode, _ := strings.Cut(cookie, "|")
+	cookieless := false
 	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(c.Query("state"))) != 1 {
 		// Mobile Discord often finishes sign-in in a different browser than the one that started it, so
-		// the cookie is missing; a server-signed browser state is still accepted there.
+		// the cookie is missing; a server-signed browser state is still accepted there, but only after the
+		// user confirms the account (anyone can obtain a signed state, so this blocks login CSRF).
 		mode = s.verifyLoginState(c.Query("state"))
+		cookieless = true
 	}
 	if mode == "" || c.Query("code") == "" {
 		s.loginRetryPage(c)
@@ -253,14 +258,55 @@ func (s *Server) loginCallback(c *gin.Context) {
 		c.Redirect(http.StatusFound, back+"&code="+url.QueryEscape(code))
 		return
 	}
-	token, err := s.createSession(ctx, user.ID, user.GlobalName, "browser", browserTTL)
+	if cookieless {
+		s.loginConfirmPage(c, user, mode)
+		return
+	}
+	s.finishBrowserLogin(c, user.ID, user.GlobalName, mode)
+}
+
+func (s *Server) finishBrowserLogin(c *gin.Context, discordUserID, username, mode string) {
+	token, err := s.createSession(c.Request.Context(), discordUserID, username, "browser", browserTTL)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "login failed")
 		return
 	}
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(sessionCookie, token, int(browserTTL.Seconds()), "/", "", s.secureCookies(), true)
-	c.Redirect(http.StatusFound, loginReturnTo(strings.TrimPrefix(mode, "browser|")))
+	c.Redirect(http.StatusSeeOther, loginReturnTo(strings.TrimPrefix(mode, "browser|")))
+}
+
+// loginConfirmPage asks a cookieless browser to confirm the Discord account before a session is made.
+func (s *Server) loginConfirmPage(c *gin.Context, user discordUser, mode string) {
+	payload := base64.RawURLEncoding.EncodeToString([]byte(user.ID)) + "." + base64.RawURLEncoding.EncodeToString([]byte(user.GlobalName)) + "." +
+		base64.RawURLEncoding.EncodeToString([]byte(mode)) + "." + strconv.FormatInt(s.now().Add(loginStateTTL).Unix(), 10)
+	token := payload + "." + s.loginStateMAC("confirm|"+payload)
+	name := html.EscapeString(user.GlobalName)
+	c.Header("Cache-Control", "no-store")
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Confirm sign-in \u00b7 Castaway</title><link rel="stylesheet" href="/assets/site.css"></head><body><main><h1>Continue as `+name+`?</h1><p>You're signing in to Castaway with the Discord account <strong>`+name+`</strong>. If this isn't you, close this page.</p><form method="post" action="/auth/confirm"><input type="hidden" name="token" value="`+html.EscapeString(token)+`"><button class="button" type="submit">Continue as `+name+`</button></form></main></body></html>`))
+}
+
+func (s *Server) confirmLogin(c *gin.Context) {
+	token := c.PostForm("token")
+	i := strings.LastIndex(token, ".")
+	if i < 0 || !hmac.Equal([]byte(token[i+1:]), []byte(s.loginStateMAC("confirm|"+token[:i]))) {
+		s.loginRetryPage(c)
+		return
+	}
+	parts := strings.Split(token[:i], ".")
+	if len(parts) != 4 {
+		s.loginRetryPage(c)
+		return
+	}
+	id, err1 := base64.RawURLEncoding.DecodeString(parts[0])
+	name, err2 := base64.RawURLEncoding.DecodeString(parts[1])
+	mode, err3 := base64.RawURLEncoding.DecodeString(parts[2])
+	expiry, err4 := strconv.ParseInt(parts[3], 10, 64)
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || s.now().Unix() > expiry || !strings.HasPrefix(string(mode), "browser|") {
+		s.loginRetryPage(c)
+		return
+	}
+	s.finishBrowserLogin(c, string(id), string(name), string(mode))
 }
 
 const loginStateTTL = 10 * time.Minute
