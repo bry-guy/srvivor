@@ -12,7 +12,7 @@
 {{if .DraftHidden}}<p class="muted">{{.DraftHidden}}</p>{{else}}<ol class="draft-list">{{range .Draft}}<li value="{{.Position}}">{{.Name}}</li>{{end}}</ol>{{end}}</section>
 </div>
 <section aria-labelledby="seasons-heading"><h2 id="seasons-heading">Seasons</h2>
-<ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a>{{if .Current}} <span class="badge">Current</span>{{end}}
+<ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a> <a class="muted" href="/seasons/{{.InstanceID}}">standings</a>{{if .Current}} <span class="badge">Current</span>{{end}}
 <span class="muted">{{if .Scored}}Rank {{.Rank}} · {{.Total}} pts{{else}}Unavailable{{end}}</span></li>{{end}}</ul></section>
 {{end}}
 {{template "footer" .}}

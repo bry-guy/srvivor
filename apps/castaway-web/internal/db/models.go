@@ -300,6 +300,7 @@ type Participant struct {
 	Name          string             `json:"name"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	Pronouns      pgtype.Text        `json:"pronouns"`
 }
 
 type ParticipantAdvantage struct {

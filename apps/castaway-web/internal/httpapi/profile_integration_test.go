@@ -109,9 +109,19 @@ func TestProfiles(t *testing.T) {
 	has(get("/players/"+id(people["alice"].past), "carol", 200), "Old Legend", "Season 50")
 	has(get("/players/"+id(people["carol"].cur), "alice", 200), "Unavailable", "No draft on record.")
 
-	// Outside the league or the current season: not viewable, and not a player this season → no Me page.
+	// Past league players are viewable; other instances are not. Not a player this season → no Me page.
 	get("/players/"+id(people["alice"].other), "bob", 404)
-	get("/players/"+id(outsider), "alice", 404)
+	has(get("/players/"+id(outsider), "alice", 200), "Old Timer", "Old Legend")
+
+	// Seasons: league list with past winners; past standings link players; BrainLand stays out.
+	seasons := get("/seasons", "bob", 200)
+	has(seasons, "Season 50", "/seasons/"+id(past.ID), "Current")
+	lacks(seasons, "BrainLand")
+	has(get("/seasons/"+id(past.ID), "bob", 200), "<h1>Season 50</h1>", "/players/"+id(outsider))
+	lacks(get("/seasons/"+id(past.ID), "bob", 200), "Torch Bearer")
+	get("/seasons/"+id(other.ID), "bob", 404)
+	get("/seasons/"+id(current.ID), "bob", 302)
+	get("/seasons", "dave", 302)
 	get("/players/not-a-uuid", "alice", 404)
 	get("/me", "dave", 302)
 }

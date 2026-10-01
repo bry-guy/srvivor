@@ -25,6 +25,8 @@ type sitePageData struct {
 	InstanceID         string
 	Rows               []homeRow
 	Profile            *profileView
+	Seasons            []seasonSummary
+	SeasonName         string // set when showing a past season's scoreboard
 	Games              []castawordleGameView
 	Episodes           []castawordleEpisodeOption
 	Game               *castawordleGameView

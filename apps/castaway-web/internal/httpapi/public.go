@@ -94,6 +94,8 @@ func (s *Server) PublicRouter() *gin.Engine {
 	pages.Use(s.requirePageSession())
 	pages.GET("/", s.home)
 	pages.GET("/me", s.mePage)
+	pages.GET("/seasons", s.seasonsPage)
+	pages.GET("/seasons/:instanceID", s.seasonPage)
 	pages.GET("/players/:participantID", s.playerPage)
 	pages.GET("/castawordle", s.castawordleListPage)
 	pages.GET("/castawordle/:gameID", s.castawordlePage)

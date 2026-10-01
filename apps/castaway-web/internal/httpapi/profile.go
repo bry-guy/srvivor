@@ -129,12 +129,10 @@ func (s *Server) renderProfile(c *gin.Context, data sitePageData, participantID 
 	league := s.leagueInstanceIDs()
 	var targetInstance, discordID string
 	var name string
-	// Only league seasons, and only players of the current season (plus anyone in it), are viewable.
+	// Any league player is viewable (by signed-in current-season players); other instances are not.
 	err := s.pool.QueryRow(ctx, `SELECT p.name, i.public_id::text, COALESCE(p.discord_user_id, '') FROM participants p JOIN instances i ON i.id = p.instance_id
-		WHERE p.public_id = $1 AND i.public_id::text = ANY($2)
-		  AND (i.public_id = $3 OR EXISTS (SELECT 1 FROM participants cur JOIN instances ci ON ci.id = cur.instance_id
-		       WHERE ci.public_id = $3 AND cur.discord_user_id = p.discord_user_id))`,
-		participantID, league, s.public.InstanceID).Scan(&name, &targetInstance, &discordID)
+		WHERE p.public_id = $1 AND i.public_id::text = ANY($2)`,
+		participantID, league).Scan(&name, &targetInstance, &discordID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.String(http.StatusNotFound, "player not found")
 		return
@@ -225,4 +223,93 @@ func (s *Server) profileDraft(ctx context.Context, data sitePageData, view profi
 		return nil, "No draft on record.", nil
 	}
 	return draft, "", nil
+}
+
+type seasonSummary struct {
+	ID, Name, Winner string
+	Season           int32
+	Current          bool
+	Players, Points  int
+}
+
+// seasonsPage lists the league's seasons, newest first, with each winner.
+func (s *Server) seasonsPage(c *gin.Context) {
+	data, ok := s.siteData(c)
+	if !ok {
+		return
+	}
+	if !data.Allowed {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+	ctx := c.Request.Context()
+	rows, err := s.pool.Query(ctx, `SELECT public_id::text, name, season FROM instances WHERE public_id::text = ANY($1) ORDER BY season DESC, created_at DESC`, s.leagueInstanceIDs())
+	if err == nil {
+		data.Seasons, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (seasonSummary, error) {
+			var season seasonSummary
+			err := row.Scan(&season.ID, &season.Name, &season.Season)
+			return season, err
+		})
+	}
+	for i := range data.Seasons {
+		if err != nil {
+			break
+		}
+		season := &data.Seasons[i]
+		season.Current = season.ID == s.public.InstanceID
+		var board []leaderboardRow
+		board, err = s.leaderboardRows(ctx, season.ID)
+		season.Players = len(board)
+		if len(board) > 0 && !season.Current {
+			season.Winner, season.Points = board[0].Name, board[0].Total
+			for _, r := range board[1:] {
+				if r.Rank == 1 {
+					season.Winner += " & " + r.Name
+				}
+			}
+		}
+	}
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not load the page")
+		return
+	}
+	renderSite(c, "seasons.html", data)
+}
+
+// seasonPage shows a league season's scoreboard, like Scores does for the current season.
+func (s *Server) seasonPage(c *gin.Context) {
+	data, ok := s.siteData(c)
+	if !ok {
+		return
+	}
+	if !data.Allowed {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+	id, err := uuid.Parse(c.Param("instanceID"))
+	if err != nil {
+		c.String(http.StatusNotFound, "season not found")
+		return
+	}
+	if id.String() == s.public.InstanceID {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+	err = s.pool.QueryRow(c.Request.Context(), `SELECT name FROM instances WHERE public_id::text = ANY($1) AND public_id = $2`, s.public.LeagueInstanceIDs, id).Scan(&data.SeasonName)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.String(http.StatusNotFound, "season not found")
+		return
+	}
+	var board []leaderboardRow
+	if err == nil {
+		board, err = s.leaderboardRows(c.Request.Context(), id.String())
+	}
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not load the page")
+		return
+	}
+	for _, r := range board {
+		data.Rows = append(data.Rows, homeRow{Rank: r.Rank, ID: r.ParticipantID, Name: r.Name, Tribe: r.Tribe, Total: r.Total, Draft: r.Draft, Bonus: r.Bonus})
+	}
+	renderSite(c, "home.html", data)
 }
