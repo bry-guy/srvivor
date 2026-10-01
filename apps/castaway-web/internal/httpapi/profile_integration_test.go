@@ -125,9 +125,9 @@ func TestProfiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	has(get("/me", "alice", 200), "<em>Torchy</em> <span class=\"muted small\">(+1 − 1)</span>", `aria-label="How picks score"`)
+	has(get("/me", "alice", 200), "<em>Torchy</em> <span class=\"muted small\" title=\"(+1 − 1)\">+0</span>", `aria-label="How picks score"`)
 	pastProfile := get("/players/"+id(people["alice"].past), "alice", 200)
-	has(pastProfile, "Old Legend <span class=\"muted small\">(+1 − 0)</span>")
+	has(pastProfile, "Old Legend <span class=\"muted small\" title=\"(+1 − 0)\">+1</span>")
 	lacks(pastProfile, "<em>")
 	lacks(get("/seasons/"+id(past.ID), "alice", 200), ">Tribe</th>")
 	has(get("/players/"+id(people["carol"].cur), "alice", 200), "Unavailable", "No draft on record.")

@@ -32,6 +32,7 @@ type profilePick struct {
 	Value      int  // finishing value: last place 1 ... winner N
 	Distance   int  // |drafted position - finishing position|
 	Eliminated bool // scored and the season is still running (shown italic)
+	Points     int  // max(0, Value - Distance)
 }
 
 type profileView struct {
@@ -259,6 +260,7 @@ func (s *Server) profileDraft(ctx context.Context, data sitePageData, view profi
 			if p.Distance < 0 {
 				p.Distance = -p.Distance
 			}
+			p.Points = max(0, p.Value-p.Distance)
 		}
 		draft = append(draft, p)
 	}
