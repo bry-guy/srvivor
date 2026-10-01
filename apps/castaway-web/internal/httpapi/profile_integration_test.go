@@ -123,9 +123,9 @@ func TestProfiles(t *testing.T) {
 	get("/seasons/"+id(current.ID), "bob", 302)
 	get("/seasons", "dave", 302)
 	// Past standings: trophy only for the winner; Bonus column only when the season had bonuses
-	// (this fixture's past season has a revealed bonus). Games hub links to Castawordle.
+	// (this fixture's past bonus is secret, so the column is hidden). Games hub links to Castawordle.
 	pastPage := get("/seasons/"+id(past.ID), "bob", 200)
-	if strings.Count(pastPage, "🏆") < 1 || !strings.Contains(pastPage, ">Bonus</th>") {
+	if !strings.Contains(pastPage, `Alice (S50)</a> <span aria-label="Winner">🏆`) || strings.Contains(pastPage, ">Bonus</th>") {
 		t.Fatalf("past standings missing trophy or bonus column: %s", pastPage)
 	}
 	lacks(get("/", "bob", 200), "🏆")
