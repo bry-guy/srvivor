@@ -93,7 +93,7 @@ func TestProfiles(t *testing.T) {
 	}
 
 	me := get("/me", "alice", 200)
-	has(me, "Season 51 · NowThisIsPodracing", "Me · alice", "Torch Bearer", "2 bonus", "Season 50", "Current", "/players/"+id(people["alice"].past))
+	has(me, "Season 51</a> · NowThisIsPodracing", "Me · alice", "Torch Bearer", "2 bonus", "Season 50", "Current", "/players/"+id(people["alice"].past))
 	lacks(me, "BrainLand", "42<span", "40 bonus", "42 bonus")
 	has(get("/", "alice", 200), `href="/players/`+id(people["bob"].cur)+`"`, `href="/me"`)
 
@@ -122,6 +122,16 @@ func TestProfiles(t *testing.T) {
 	get("/seasons/"+id(other.ID), "bob", 404)
 	get("/seasons/"+id(current.ID), "bob", 302)
 	get("/seasons", "dave", 302)
+	// Past standings: trophy only for the winner; Bonus column only when the season had bonuses
+	// (this fixture's past season has a revealed bonus). Games hub links to Castawordle.
+	pastPage := get("/seasons/"+id(past.ID), "bob", 200)
+	if strings.Count(pastPage, "🏆") < 1 || !strings.Contains(pastPage, ">Bonus</th>") {
+		t.Fatalf("past standings missing trophy or bonus column: %s", pastPage)
+	}
+	lacks(get("/", "bob", 200), "🏆")
+	has(get("/games", "bob", 200), `href="/castawordle"`)
+	has(get("/me", "bob", 200), `href="/games">Games</a>`)
+	lacks(get("/me", "bob", 200), ">standings<")
 
 	// Pronouns: only the player sees (and edits) their own; saving updates every league season they played.
 	post := func(path, body, user, origin string, status int) {

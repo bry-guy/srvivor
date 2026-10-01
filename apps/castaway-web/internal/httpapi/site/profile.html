@@ -1,6 +1,6 @@
 {{template "header" .}}
 {{with .Profile}}
-<p class="eyebrow">{{.Season.InstanceName}}{{if .LeagueName}} · {{.LeagueName}}{{end}}</p>
+<p class="eyebrow"><a href="{{if .Season.Current}}/{{else}}/seasons/{{.Season.InstanceID}}{{end}}">{{.Season.InstanceName}}</a>{{if .LeagueName}} · {{.LeagueName}}{{end}}</p>
 <h1>{{if .Self}}Me · {{end}}{{.PlayerName}}</h1>
 {{if .Self}}<details class="pronouns"><summary aria-label="Edit pronouns">{{if .Pronouns}}{{.Pronouns}}{{else}}add pronouns{{end}} <span class="edit-icon" aria-hidden="true">✎</span></summary>
 <form method="post" action="/me/pronouns"><select name="pronouns" aria-label="Pronouns">
@@ -19,7 +19,7 @@
 {{if .DraftHidden}}<p class="muted">{{.DraftHidden}}</p>{{else}}<ol class="draft-list">{{range .Draft}}<li value="{{.Position}}">{{.Name}}</li>{{end}}</ol>{{end}}</section>
 </div>
 <section aria-labelledby="seasons-heading"><h2 id="seasons-heading">Seasons</h2>
-<ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><span><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a>{{if .Current}} <span class="badge">Current</span>{{end}} <a class="muted small" href="{{if .Current}}/{{else}}/seasons/{{.InstanceID}}{{end}}">standings</a></span>
+<ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><span><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a>{{if .Current}} <span class="badge">Current</span>{{end}}</span>
 <span class="muted">{{if .Scored}}Rank {{.Rank}} · {{.Total}} pts{{else}}Unavailable{{end}}</span></li>{{end}}</ul></section>
 {{end}}
 {{template "footer" .}}

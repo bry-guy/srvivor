@@ -318,6 +318,12 @@ func (s *Server) seasonPage(c *gin.Context) {
 	for _, r := range board {
 		data.Rows = append(data.Rows, homeRow{Rank: r.Rank, ID: r.ParticipantID, Name: r.Name, Tribe: r.Tribe, Total: r.Total, Draft: r.Draft, Bonus: r.Bonus})
 	}
+	data.NoBonus = true
+	for _, r := range board {
+		if r.Bonus != 0 {
+			data.NoBonus = false
+		}
+	}
 	renderSite(c, "home.html", data)
 }
 

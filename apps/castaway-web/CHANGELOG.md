@@ -7,6 +7,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Nav "Castawordle" is now "Games" (/games hub); past standings show a 🏆 for winners and hide Bonus when a season had none; profile season header links to standings.
 - Players can view and change their own pronouns on Me; pronouns are never shown to other players.
 - Seasons page lists league seasons with winners; past seasons have standings pages, and past league players have profiles. Participants gain a hidden pronouns field (migration 023).
 - Profiles: Me page and clickable Scores names show a season score and draft plus league history (secret points hidden; current drafts revealed after drafts close). Castawordle guesses submit with Enter. Cookieless mobile sign-in asks to confirm the Discord account.
