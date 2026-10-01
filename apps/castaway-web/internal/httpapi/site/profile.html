@@ -2,12 +2,13 @@
 {{with .Profile}}
 <p class="eyebrow">{{.Season.InstanceName}}{{if .LeagueName}} · {{.LeagueName}}{{end}}</p>
 <h1>{{if .Self}}Me · {{end}}{{.PlayerName}}</h1>
-{{if .Self}}<form class="pronouns-form" method="post" action="/me/pronouns"><label>Pronouns <select name="pronouns">
+{{if .Self}}<details class="pronouns"><summary aria-label="Edit pronouns">{{if .Pronouns}}{{.Pronouns}}{{else}}add pronouns{{end}} <span class="edit-icon" aria-hidden="true">✎</span></summary>
+<form method="post" action="/me/pronouns"><select name="pronouns" aria-label="Pronouns">
 <option value=""{{if not .Pronouns}} selected{{end}}>Not set</option>
 <option value="he/him"{{if eq .Pronouns "he/him"}} selected{{end}}>he/him</option>
 <option value="she/her"{{if eq .Pronouns "she/her"}} selected{{end}}>she/her</option>
 <option value="they/them"{{if eq .Pronouns "they/them"}} selected{{end}}>they/them</option>
-</select></label> <button type="submit">Save</button> <span class="muted">Only you see this. Probst uses it when writing about you.</span></form>{{end}}
+</select> <button type="submit" class="quiet">Save</button></form></details>{{end}}
 <div class="profile-grid">
 <section class="profile-card" aria-labelledby="score-heading"><h2 id="score-heading">Score</h2>
 {{if .Season.Scored}}<p class="profile-total">{{.Season.Total}}<span> pts</span></p>
@@ -18,7 +19,7 @@
 {{if .DraftHidden}}<p class="muted">{{.DraftHidden}}</p>{{else}}<ol class="draft-list">{{range .Draft}}<li value="{{.Position}}">{{.Name}}</li>{{end}}</ol>{{end}}</section>
 </div>
 <section aria-labelledby="seasons-heading"><h2 id="seasons-heading">Seasons</h2>
-<ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a> <a class="muted" href="/seasons/{{.InstanceID}}">standings</a>{{if .Current}} <span class="badge">Current</span>{{end}}
+<ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><span><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a>{{if .Current}} <span class="badge">Current</span>{{end}} <a class="muted small" href="{{if .Current}}/{{else}}/seasons/{{.InstanceID}}{{end}}">standings</a></span>
 <span class="muted">{{if .Scored}}Rank {{.Rank}} · {{.Total}} pts{{else}}Unavailable{{end}}</span></li>{{end}}</ul></section>
 {{end}}
 {{template "footer" .}}

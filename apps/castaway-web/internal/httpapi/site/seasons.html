@@ -1,5 +1,5 @@
 {{template "header" .}}
 <p class="eyebrow">NowThisIsPodracing</p><h1>Seasons</h1>
-<ul class="season-list">{{range .Seasons}}<li><a href="{{if .Current}}/{{else}}/seasons/{{.ID}}{{end}}">{{.Name}}</a>{{if .Current}} <span class="badge">Current</span>{{end}}
+<ul class="season-list">{{range .Seasons}}<li><span><a href="{{if .Current}}/{{else}}/seasons/{{.ID}}{{end}}">{{.Name}}</a>{{if .Current}} <span class="badge">Current</span>{{end}}</span>
 <span class="muted">{{.Players}} players{{if .Winner}} · 🏆 {{.Winner}} ({{.Points}}){{end}}</span></li>{{end}}</ul>
 {{template "footer" .}}

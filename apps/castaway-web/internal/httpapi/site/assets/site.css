@@ -77,6 +77,13 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 .profile-total span { font-size: 1rem; font-weight: 400; }
 .draft-list { margin: 0; padding-left: 2rem; columns: 2 10rem; }
 .season-list { list-style: none; padding: 0; }
-.season-list li { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; padding: .5rem 0; border-bottom: 1px solid var(--border, #ccc); }
-.season-list li[aria-current] a { font-weight: 700; }
-.pronouns-form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 0 0 1rem; }
+.season-list li { display: flex; flex-wrap: wrap; gap: .25rem 1rem; justify-content: space-between; align-items: baseline; padding: .5rem 0; border-bottom: 1px solid var(--border, #ccc); }
+.season-list li[aria-current] > span > a:first-child { font-weight: 700; }
+.small { font-size: .875rem; }
+.pronouns { margin: -.25rem 0 1rem; color: var(--muted); font-size: .9rem; }
+.pronouns summary { display: inline-flex; gap: .35rem; align-items: center; cursor: pointer; list-style: none; }
+.pronouns summary::-webkit-details-marker { display: none; }
+.pronouns .edit-icon { opacity: 0; transition: opacity .15s; }
+.pronouns summary:hover .edit-icon, .pronouns summary:focus-visible .edit-icon, .pronouns[open] .edit-icon { opacity: 1; }
+@media (hover: none) { .pronouns .edit-icon { opacity: .6; } }
+.pronouns form { display: flex; gap: .5rem; align-items: center; margin-top: .4rem; }

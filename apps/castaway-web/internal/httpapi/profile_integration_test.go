@@ -139,9 +139,9 @@ func TestProfiles(t *testing.T) {
 	post("/me/pronouns", "pronouns=they%2Fthem", "alice", "https://castaway.example", 303)
 	post("/me/pronouns", "pronouns=she%2Fher", "alice", "https://evil.example", 403)
 	post("/me/pronouns", "pronouns=xe%2Fxem", "alice", "https://castaway.example", 400)
-	has(get("/me", "alice", 200), `value="they/them" selected`, "Only you see this")
+	has(get("/me", "alice", 200), `value="they/them" selected`, `class="pronouns"`)
 	for _, path := range []string{"/players/" + id(people["alice"].cur), "/players/" + id(people["alice"].past), "/seasons/" + id(past.ID), "/"} {
-		lacks(get(path, "bob", 200), "they/them", "pronouns")
+		lacks(get(path, "bob", 200), "they/them", `class="pronouns"`, "/me/pronouns")
 	}
 	var counts [2]int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE pronouns = 'they/them'), count(*) FILTER (WHERE pronouns IS NOT NULL) FROM participants`).Scan(&counts[0], &counts[1]); err != nil || counts != [2]int{2, 2} {
