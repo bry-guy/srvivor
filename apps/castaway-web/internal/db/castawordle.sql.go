@@ -16,7 +16,7 @@ INSERT INTO castawordle_games (instance_id, name, answer, dictionary_version, op
 SELECT i.id, $1, $2, $3, $4, $5, $6
 FROM instances i WHERE i.public_id = $7
 RETURNING public_id AS id, (SELECT public_id FROM instances WHERE id = instance_id) AS instance_id,
-    name, answer, dictionary_version, opens_at, cutoff_at, episode_number
+    name, answer, dictionary_version, opens_at, cutoff_at, episode_number, wordle_round_id
 `
 
 type CreateCastawordleGameParams struct {
@@ -38,6 +38,7 @@ type CreateCastawordleGameRow struct {
 	OpensAt           pgtype.Timestamptz `json:"opens_at"`
 	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
 	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
+	WordleRoundID     pgtype.UUID        `json:"wordle_round_id"`
 }
 
 func (q *Queries) CreateCastawordleGame(ctx context.Context, arg CreateCastawordleGameParams) (CreateCastawordleGameRow, error) {
@@ -60,6 +61,7 @@ func (q *Queries) CreateCastawordleGame(ctx context.Context, arg CreateCastaword
 		&i.OpensAt,
 		&i.CutoffAt,
 		&i.EpisodeNumber,
+		&i.WordleRoundID,
 	)
 	return i, err
 }
@@ -83,7 +85,7 @@ func (q *Queries) EnsureCastawordlePlay(ctx context.Context, arg EnsureCastaword
 }
 
 const getCastawordleGame = `-- name: GetCastawordleGame :one
-SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number
+SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
 FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
 WHERE g.public_id = $1
 `
@@ -97,6 +99,7 @@ type GetCastawordleGameRow struct {
 	OpensAt           pgtype.Timestamptz `json:"opens_at"`
 	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
 	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
+	WordleRoundID     pgtype.UUID        `json:"wordle_round_id"`
 }
 
 func (q *Queries) GetCastawordleGame(ctx context.Context, id pgtype.UUID) (GetCastawordleGameRow, error) {
@@ -111,8 +114,62 @@ func (q *Queries) GetCastawordleGame(ctx context.Context, id pgtype.UUID) (GetCa
 		&i.OpensAt,
 		&i.CutoffAt,
 		&i.EpisodeNumber,
+		&i.WordleRoundID,
 	)
 	return i, err
+}
+
+const getCastawordleGameByEpisode = `-- name: GetCastawordleGameByEpisode :one
+SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
+FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
+WHERE i.public_id = $1 AND g.episode_number = $2
+`
+
+type GetCastawordleGameByEpisodeParams struct {
+	InstanceID    pgtype.UUID `json:"instance_id"`
+	EpisodeNumber pgtype.Int4 `json:"episode_number"`
+}
+
+type GetCastawordleGameByEpisodeRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	InstanceID        pgtype.UUID        `json:"instance_id"`
+	Name              string             `json:"name"`
+	Answer            string             `json:"answer"`
+	DictionaryVersion string             `json:"dictionary_version"`
+	OpensAt           pgtype.Timestamptz `json:"opens_at"`
+	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
+	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
+	WordleRoundID     pgtype.UUID        `json:"wordle_round_id"`
+}
+
+func (q *Queries) GetCastawordleGameByEpisode(ctx context.Context, arg GetCastawordleGameByEpisodeParams) (GetCastawordleGameByEpisodeRow, error) {
+	row := q.db.QueryRow(ctx, getCastawordleGameByEpisode, arg.InstanceID, arg.EpisodeNumber)
+	var i GetCastawordleGameByEpisodeRow
+	err := row.Scan(
+		&i.ID,
+		&i.InstanceID,
+		&i.Name,
+		&i.Answer,
+		&i.DictionaryVersion,
+		&i.OpensAt,
+		&i.CutoffAt,
+		&i.EpisodeNumber,
+		&i.WordleRoundID,
+	)
+	return i, err
+}
+
+const getCastawordleGameByWordleRound = `-- name: GetCastawordleGameByWordleRound :one
+SELECT public_id AS id
+FROM castawordle_games
+WHERE wordle_round_id = $1
+`
+
+func (q *Queries) GetCastawordleGameByWordleRound(ctx context.Context, wordleRoundID pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getCastawordleGameByWordleRound, wordleRoundID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getCastawordlePlay = `-- name: GetCastawordlePlay :one
@@ -141,7 +198,7 @@ func (q *Queries) GetCastawordlePlay(ctx context.Context, arg GetCastawordlePlay
 
 const listCastawordleGames = `-- name: ListCastawordleGames :many
 SELECT g.public_id AS id, i.public_id AS instance_id, g.name, char_length(g.answer)::integer AS word_length,
-    g.opens_at, g.cutoff_at, g.episode_number
+    g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
 FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
 WHERE i.public_id = $1
     AND (g.episode_number IS NOT NULL OR $2::boolean)
@@ -161,6 +218,7 @@ type ListCastawordleGamesRow struct {
 	OpensAt       pgtype.Timestamptz `json:"opens_at"`
 	CutoffAt      pgtype.Timestamptz `json:"cutoff_at"`
 	EpisodeNumber pgtype.Int4        `json:"episode_number"`
+	WordleRoundID pgtype.UUID        `json:"wordle_round_id"`
 }
 
 func (q *Queries) ListCastawordleGames(ctx context.Context, arg ListCastawordleGamesParams) ([]ListCastawordleGamesRow, error) {
@@ -180,6 +238,7 @@ func (q *Queries) ListCastawordleGames(ctx context.Context, arg ListCastawordleG
 			&i.OpensAt,
 			&i.CutoffAt,
 			&i.EpisodeNumber,
+			&i.WordleRoundID,
 		); err != nil {
 			return nil, err
 		}
@@ -189,6 +248,77 @@ func (q *Queries) ListCastawordleGames(ctx context.Context, arg ListCastawordleG
 		return nil, err
 	}
 	return items, nil
+}
+
+const listCastawordlePlays = `-- name: ListCastawordlePlays :many
+SELECT p.public_id AS participant_id, cp.guesses, cp.status
+FROM castawordle_plays cp
+JOIN castawordle_games g ON g.id = cp.game_id
+JOIN participants p ON p.id = cp.participant_id
+WHERE g.public_id = $1
+ORDER BY p.id
+`
+
+type ListCastawordlePlaysRow struct {
+	ParticipantID pgtype.UUID `json:"participant_id"`
+	Guesses       []byte      `json:"guesses"`
+	Status        string      `json:"status"`
+}
+
+func (q *Queries) ListCastawordlePlays(ctx context.Context, gameID pgtype.UUID) ([]ListCastawordlePlaysRow, error) {
+	rows, err := q.db.Query(ctx, listCastawordlePlays, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCastawordlePlaysRow{}
+	for rows.Next() {
+		var i ListCastawordlePlaysRow
+		if err := rows.Scan(&i.ParticipantID, &i.Guesses, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockCastawordleGame = `-- name: LockCastawordleGame :one
+SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
+FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
+WHERE g.public_id = $1
+FOR UPDATE OF g
+`
+
+type LockCastawordleGameRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	InstanceID        pgtype.UUID        `json:"instance_id"`
+	Name              string             `json:"name"`
+	Answer            string             `json:"answer"`
+	DictionaryVersion string             `json:"dictionary_version"`
+	OpensAt           pgtype.Timestamptz `json:"opens_at"`
+	CutoffAt          pgtype.Timestamptz `json:"cutoff_at"`
+	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
+	WordleRoundID     pgtype.UUID        `json:"wordle_round_id"`
+}
+
+func (q *Queries) LockCastawordleGame(ctx context.Context, id pgtype.UUID) (LockCastawordleGameRow, error) {
+	row := q.db.QueryRow(ctx, lockCastawordleGame, id)
+	var i LockCastawordleGameRow
+	err := row.Scan(
+		&i.ID,
+		&i.InstanceID,
+		&i.Name,
+		&i.Answer,
+		&i.DictionaryVersion,
+		&i.OpensAt,
+		&i.CutoffAt,
+		&i.EpisodeNumber,
+		&i.WordleRoundID,
+	)
+	return i, err
 }
 
 const lockCastawordlePlay = `-- name: LockCastawordlePlay :one
@@ -214,6 +344,22 @@ func (q *Queries) LockCastawordlePlay(ctx context.Context, arg LockCastawordlePl
 	var i LockCastawordlePlayRow
 	err := row.Scan(&i.Guesses, &i.Status)
 	return i, err
+}
+
+const updateCastawordleGameWordleRound = `-- name: UpdateCastawordleGameWordleRound :exec
+UPDATE castawordle_games
+SET wordle_round_id = $1
+WHERE public_id = $2
+`
+
+type UpdateCastawordleGameWordleRoundParams struct {
+	WordleRoundID pgtype.UUID `json:"wordle_round_id"`
+	ID            pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateCastawordleGameWordleRound(ctx context.Context, arg UpdateCastawordleGameWordleRoundParams) error {
+	_, err := q.db.Exec(ctx, updateCastawordleGameWordleRound, arg.WordleRoundID, arg.ID)
+	return err
 }
 
 const updateCastawordlePlay = `-- name: UpdateCastawordlePlay :exec

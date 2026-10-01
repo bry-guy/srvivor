@@ -1,6 +1,6 @@
 {{template "header" .}}
 <div class="game-heading"><a class="back-link" href="/castawordle">← All puzzles</a><p class="eyebrow">Last Torch</p><h1>{{.Game.Name}}</h1><p class="muted">{{.Game.WordLength}} letters. {{.Game.GuessLimit}} guesses. Keep your torch lit.</p></div>
-<p class="notice compact"><strong>{{if .Game.Test}}Admin-only test.{{else}}Unscored scheduled puzzle.{{end}}</strong> No season points are awarded.</p>
+<p class="notice compact">{{if .Game.Test}}<strong>Admin-only test.</strong> No season points are awarded.{{else if .Game.Unscored}}<strong>Unscored puzzle.</strong> No season points are awarded.{{else}}<strong>Scored puzzle.</strong> Finish before it closes to earn points.{{end}}</p>
 <castawordle-game game-id="{{.Game.ID}}"><p role="status">Loading your saved game…</p></castawordle-game>
 <noscript><p>Castawordle needs JavaScript to submit guesses. Scores and account access still work without it.</p></noscript>
 <details class="game-help"><summary>How to play</summary><p>Guess the hidden word in six tries. Use your keyboard or tap the letters below. A full word is checked automatically; no Enter needed. If rejected, use backspace to edit it.</p><ul><li><strong>Green / correct:</strong> the letter is in the right spot.</li><li><strong>Gold / present:</strong> the letter is in the word, but elsewhere.</li><li><strong>Gray / absent:</strong> no unused copy of this letter is in the word.</li></ul><p>Each incorrect accepted guess extinguishes a torch. Invalid words don't cost a turn. Your game follows you across devices.</p></details>

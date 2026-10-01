@@ -3,12 +3,14 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/castawordle"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/gameplay"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -49,7 +51,7 @@ func castawordleGame(row db.GetCastawordleGameRow) castawordleGameView {
 	return castawordleGameView{
 		ID: pgUUIDString(row.ID), InstanceID: pgUUIDString(row.InstanceID), Name: row.Name,
 		WordLength: len(row.Answer), GuessLimit: castawordle.GuessLimit,
-		OpensAt: row.OpensAt.Time, CutoffAt: row.CutoffAt.Time, Unscored: true,
+		OpensAt: easternTime(row.OpensAt.Time), CutoffAt: easternTime(row.CutoffAt.Time), Unscored: !row.WordleRoundID.Valid,
 		Test: !row.EpisodeNumber.Valid, EpisodeNumber: episodeNumber,
 	}
 }
@@ -90,6 +92,11 @@ func (s *Server) createCastawordle(c *gin.Context) {
 		OpensAt       time.Time `json:"opens_at"`
 		CutoffAt      time.Time `json:"cutoff_at"`
 		EpisodeNumber *int32    `json:"episode_number"`
+		Scored        bool      `json:"scored"`
+		Window        *struct {
+			OpensAt  time.Time `json:"opens_at"`
+			CutoffAt time.Time `json:"cutoff_at"`
+		} `json:"window"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2048)
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -102,42 +109,145 @@ func (s *Server) createCastawordle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "use a name up to 80 characters and a dictionary answer of 4–8 letters"})
 		return
 	}
+	if req.Scored && req.EpisodeNumber == nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "scored games require an episode number"})
+		return
+	}
+	if req.EpisodeNumber != nil && (!req.OpensAt.IsZero() || !req.CutoffAt.IsZero()) {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled puzzle times come from the instance schedule"})
+		return
+	}
+	if req.EpisodeNumber == nil && req.Window != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "custom windows require an episode number"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	defer rollbackTx(c, tx)
+	qtx := s.queries.WithTx(tx)
+	instance, err := qtx.LockInstanceForProgression(ctx, toPGUUID(instanceID))
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	if err := requireWordleInstanceAdmin(ctx, qtx, instance.ID, c.Request); err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	if req.Scored && instance.ProgressionMode != "legacy" {
+		c.JSON(http.StatusConflict, errorResponse{Error: "scored Castawordle requires a legacy instance"})
+		return
+	}
+
+	now := s.now().UTC().Truncate(time.Microsecond)
 	var episodeNumber pgtype.Int4
 	if req.EpisodeNumber != nil {
-		if !req.OpensAt.IsZero() || !req.CutoffAt.IsZero() {
-			c.JSON(http.StatusBadRequest, errorResponse{Error: "scheduled puzzle times come from the instance schedule"})
-			return
-		}
-		episodes, err := s.queries.ListInstanceEpisodes(c.Request.Context(), toPGUUID(instanceID))
+		episodeNumber = pgtype.Int4{Int32: *req.EpisodeNumber, Valid: true}
+		episodes, err := qtx.ListInstanceEpisodes(ctx, toPGUUID(instanceID))
 		if err != nil {
 			castawordleError(c, err)
 			return
 		}
-		req.OpensAt, req.CutoffAt, err = castawordleEpisodeWindow(episodes, *req.EpisodeNumber)
+		defaultOpens, defaultCutoff, err := castawordleEpisodeWindow(episodes, *req.EpisodeNumber)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 			return
 		}
-		if !s.now().Before(req.CutoffAt) {
-			c.JSON(http.StatusBadRequest, errorResponse{Error: "this episode's game window has already closed"})
+		req.OpensAt, req.CutoffAt = defaultOpens, defaultCutoff
+		if req.Window != nil {
+			if req.Window.OpensAt.IsZero() || req.Window.CutoffAt.IsZero() {
+				c.JSON(http.StatusBadRequest, errorResponse{Error: "window requires opens_at and cutoff_at"})
+				return
+			}
+			req.OpensAt = req.Window.OpensAt
+			req.CutoffAt = req.Window.CutoffAt
+		}
+		defaultOpens = defaultOpens.UTC().Truncate(time.Microsecond)
+		defaultCutoff = defaultCutoff.UTC().Truncate(time.Microsecond)
+		req.OpensAt = req.OpensAt.UTC().Truncate(time.Microsecond)
+		req.CutoffAt = req.CutoffAt.UTC().Truncate(time.Microsecond)
+		if req.OpensAt.Before(defaultOpens) || req.OpensAt.After(defaultCutoff) || req.CutoffAt.Before(defaultOpens) || req.CutoffAt.After(defaultCutoff) {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "custom window must be within the episode window"})
 			return
 		}
-		episodeNumber = pgtype.Int4{Int32: *req.EpisodeNumber, Valid: true}
 	} else {
 		if req.OpensAt.IsZero() {
-			req.OpensAt = s.now()
+			req.OpensAt = now
 		}
 		if req.CutoffAt.IsZero() {
 			req.CutoffAt = req.OpensAt.AddDate(0, 0, 7)
 		}
+		req.OpensAt = req.OpensAt.UTC().Truncate(time.Microsecond)
+		req.CutoffAt = req.CutoffAt.UTC().Truncate(time.Microsecond)
 	}
 	if !req.CutoffAt.After(req.OpensAt) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "cutoff must be after opening"})
 		return
 	}
-	row, err := s.queries.CreateCastawordleGame(c.Request.Context(), db.CreateCastawordleGameParams{
-		InstanceID: toPGUUID(instanceID), Name: req.Name, Answer: req.Answer, DictionaryVersion: castawordle.DictionaryVersion, EpisodeNumber: episodeNumber,
-		OpensAt: pgtype.Timestamptz{Time: req.OpensAt, Valid: true}, CutoffAt: pgtype.Timestamptz{Time: req.CutoffAt, Valid: true},
+	if req.EpisodeNumber != nil {
+		existing, err := qtx.GetCastawordleGameByEpisode(ctx, db.GetCastawordleGameByEpisodeParams{
+			InstanceID: toPGUUID(instanceID), EpisodeNumber: episodeNumber,
+		})
+		if err == nil {
+			if req.Scored && existing.WordleRoundID.Valid && existing.Name == req.Name && existing.Answer == req.Answer && existing.OpensAt.Time.Equal(req.OpensAt) && existing.CutoffAt.Time.Equal(req.CutoffAt) {
+				if err := tx.Commit(ctx); err != nil {
+					castawordleError(c, err)
+					return
+				}
+				c.JSON(http.StatusOK, castawordleGame(db.GetCastawordleGameRow(existing)))
+				return
+			}
+			c.JSON(http.StatusConflict, errorResponse{Error: "a puzzle is already prepared for this episode"})
+			return
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			castawordleError(c, err)
+			return
+		}
+		if !now.Before(req.CutoffAt) {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "this episode's game window has already closed"})
+			return
+		}
+	}
+
+	var roundID pgtype.UUID
+	if req.Scored {
+		activity, err := qtx.CreateInstanceActivity(ctx, db.CreateInstanceActivityParams{
+			InstanceID: toPGUUID(instanceID), ActivityType: wordleActivityType, Name: req.Name, Status: "active",
+			StartsAt: wordleTimestamp(req.OpensAt), EndsAt: wordleTimestamp(req.CutoffAt),
+			Metadata: []byte(`{"scoring":"individual_and_tribe_average","castawordle":true}`),
+		})
+		if err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		occurrence, err := qtx.CreateActivityOccurrence(ctx, db.CreateActivityOccurrenceParams{
+			ActivityID: activity.ID, OccurrenceType: wordleActivityType, Name: req.Name,
+			EffectiveAt: wordleTimestamp(req.CutoffAt), Status: "recorded", Metadata: []byte(`{}`),
+		})
+		if err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		roundID, err = qtx.CreateWordleRound(ctx, db.CreateWordleRoundParams{
+			ActivityID: activity.ID, ActivityOccurrenceID: occurrence.ID,
+			RoundKey: fmt.Sprintf("episode-%d", *req.EpisodeNumber),
+			OpensAt:  wordleTimestamp(req.OpensAt), CutoffAt: wordleTimestamp(req.CutoffAt),
+		})
+		if err != nil {
+			writeWordleError(c, err)
+			return
+		}
+	}
+	row, err := qtx.CreateCastawordleGame(ctx, db.CreateCastawordleGameParams{
+		InstanceID: toPGUUID(instanceID), Name: req.Name, Answer: req.Answer,
+		DictionaryVersion: castawordle.DictionaryVersion, EpisodeNumber: episodeNumber,
+		OpensAt: wordleTimestamp(req.OpensAt), CutoffAt: wordleTimestamp(req.CutoffAt),
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -145,6 +255,17 @@ func (s *Server) createCastawordle(c *gin.Context) {
 			c.JSON(http.StatusConflict, errorResponse{Error: "a puzzle is already prepared for this episode"})
 			return
 		}
+		castawordleError(c, err)
+		return
+	}
+	if req.Scored {
+		if err := qtx.UpdateCastawordleGameWordleRound(ctx, db.UpdateCastawordleGameWordleRoundParams{ID: row.ID, WordleRoundID: roundID}); err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		row.WordleRoundID = roundID
+	}
+	if err := tx.Commit(ctx); err != nil {
 		castawordleError(c, err)
 		return
 	}
@@ -237,6 +358,12 @@ func (s *Server) guessCastawordle(c *gin.Context) {
 	}
 	defer rollbackTx(c, tx)
 	qtx := s.queries.WithTx(tx)
+	lockedGame, err := qtx.LockCastawordleGame(c.Request.Context(), game.ID)
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	game = db.GetCastawordleGameRow(lockedGame)
 	if err := qtx.EnsureCastawordlePlay(c.Request.Context(), db.EnsureCastawordlePlayParams{GameID: game.ID, ParticipantID: participantID}); err != nil {
 		castawordleError(c, err)
 		return
@@ -295,6 +422,216 @@ func (s *Server) guessCastawordle(c *gin.Context) {
 	c.JSON(http.StatusOK, s.castawordlePlay(game, guesses, status))
 }
 
+func (s *Server) resolveCastawordle(c *gin.Context) {
+	gameID, ok := parseUUIDPath(c, "gameID")
+	if !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	game, err := s.queries.GetCastawordleGame(ctx, toPGUUID(gameID))
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	if strings.HasPrefix(c.FullPath(), "/api/") && s.public.InstanceID != pgUUIDString(game.InstanceID) {
+		c.JSON(http.StatusForbidden, errorResponse{Error: "this game belongs to a different season"})
+		return
+	}
+	if !s.requireInstanceAdminRequest(c, uuid.UUID(game.InstanceID.Bytes)) {
+		return
+	}
+	if !game.WordleRoundID.Valid {
+		c.JSON(http.StatusConflict, errorResponse{Error: "unscored games cannot be resolved"})
+		return
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	defer rollbackTx(c, tx)
+	qtx := s.queries.WithTx(tx)
+	instance, err := qtx.LockInstanceForProgression(ctx, game.InstanceID)
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	if instance.ProgressionMode != "legacy" {
+		c.JSON(http.StatusConflict, errorResponse{Error: "Wordle lifecycle is only supported for legacy instances"})
+		return
+	}
+	if err := requireWordleInstanceAdmin(ctx, qtx, instance.ID, c.Request); err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	round, err := qtx.LockWordleRound(ctx, game.WordleRoundID)
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	if !sameWordleUUID(round.InstanceID, game.InstanceID) || round.ActivityType != wordleActivityType {
+		c.JSON(http.StatusConflict, errorResponse{Error: "game is not linked to a tribe Wordle round"})
+		return
+	}
+	lockedGame, err := qtx.LockCastawordleGame(ctx, game.ID)
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	if !lockedGame.WordleRoundID.Valid || !sameWordleUUID(lockedGame.WordleRoundID, game.WordleRoundID) {
+		c.JSON(http.StatusConflict, errorResponse{Error: "game scoring link changed"})
+		return
+	}
+	if len(round.ResolutionResponse) > 0 {
+		payload := append([]byte(nil), round.ResolutionResponse...)
+		if err := tx.Commit(ctx); err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		c.Data(http.StatusOK, "application/json; charset=utf-8", payload)
+		return
+	}
+	now := s.now().UTC().Truncate(time.Microsecond)
+	if now.Before(round.CutoffAt.Time) {
+		c.JSON(http.StatusConflict, errorResponse{Error: "Castawordle cannot resolve before cutoff"})
+		return
+	}
+	if round.OccurrenceStatus != "recorded" {
+		c.JSON(http.StatusConflict, errorResponse{Error: "Castawordle round is not resolvable"})
+		return
+	}
+	if !round.OpensAt.Time.Equal(lockedGame.OpensAt.Time) || !round.CutoffAt.Time.Equal(lockedGame.CutoffAt.Time) {
+		c.JSON(http.StatusConflict, errorResponse{Error: "Castawordle game and round windows do not match"})
+		return
+	}
+
+	plays, err := qtx.ListCastawordlePlays(ctx, lockedGame.ID)
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	type completedPlay struct {
+		participantID pgtype.UUID
+		guessCount    int32
+	}
+	completed := make([]completedPlay, 0, len(plays))
+	for _, play := range plays {
+		var guesses []string
+		if err := json.Unmarshal(play.Guesses, &guesses); err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		switch play.Status {
+		case "solved":
+			if len(guesses) < 1 || len(guesses) > castawordle.GuessLimit || guesses[len(guesses)-1] != lockedGame.Answer {
+				c.JSON(http.StatusConflict, errorResponse{Error: "saved Castawordle result is invalid"})
+				return
+			}
+			completed = append(completed, completedPlay{participantID: play.ParticipantID, guessCount: int32(len(guesses))}) // #nosec G115 -- bounded by GuessLimit above
+		case "exhausted":
+			if len(guesses) != castawordle.GuessLimit {
+				c.JSON(http.StatusConflict, errorResponse{Error: "saved Castawordle result is invalid"})
+				return
+			}
+			completed = append(completed, completedPlay{participantID: play.ParticipantID, guessCount: 7})
+		case "in_progress":
+		default:
+			c.JSON(http.StatusConflict, errorResponse{Error: "saved Castawordle result is invalid"})
+			return
+		}
+	}
+
+	if len(completed) > 0 {
+		memberships, err := qtx.ListInstanceTribeMembershipsAt(ctx, db.ListInstanceTribeMembershipsAtParams{
+			InstanceID: game.InstanceID, At: wordleTimestamp(round.CutoffAt.Time),
+		})
+		if err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		byParticipant := make(map[pgtype.UUID][]db.ListInstanceTribeMembershipsAtRow, len(memberships))
+		for _, membership := range memberships {
+			byParticipant[membership.ParticipantID] = append(byParticipant[membership.ParticipantID], membership)
+		}
+		for _, result := range completed {
+			eligible := byParticipant[result.participantID]
+			if len(eligible) != 1 {
+				c.JSON(http.StatusConflict, errorResponse{Error: "completed players must have exactly one tribe at cutoff"})
+				return
+			}
+			metadata, err := json.Marshal(map[string]int32{"guess_count": result.guessCount})
+			if err != nil {
+				writeWordleError(c, err)
+				return
+			}
+			if _, err := qtx.UpsertActivityOccurrenceParticipant(ctx, db.UpsertActivityOccurrenceParticipantParams{
+				ActivityOccurrenceID: game.WordleRoundID,
+				ParticipantID:        result.participantID, ParticipantGroupID: eligible[0].ParticipantGroupID,
+				Role: wordleParticipantRole, Metadata: metadata,
+			}); err != nil {
+				writeWordleError(c, err)
+				return
+			}
+		}
+	}
+
+	if !round.ClosedAt.Valid {
+		closed, err := qtx.UpdateWordleRoundClosedAt(ctx, db.UpdateWordleRoundClosedAtParams{ID: game.WordleRoundID, ClosedAt: wordleTimestamp(now)})
+		if err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		round.ClosedAt = closed.ClosedAt
+	}
+	var createdEntries []db.CreateBonusPointLedgerEntryRow
+	if len(completed) == 0 {
+		occurrence, err := qtx.GetActivityOccurrence(ctx, game.WordleRoundID)
+		if err != nil {
+			writeWordleError(c, err)
+			return
+		}
+		if _, err := qtx.UpdateActivityOccurrenceStatusAndMetadata(ctx, db.UpdateActivityOccurrenceStatusAndMetadataParams{
+			ID: game.WordleRoundID, Status: "resolved", EndsAt: wordleTimestamp(now), Metadata: occurrence.Metadata,
+		}); err != nil {
+			writeWordleError(c, err)
+			return
+		}
+	} else {
+		createdEntries, err = gameplay.NewService(qtx).ResolveActivityOccurrence(ctx, game.WordleRoundID)
+		if err != nil {
+			writeWordleError(c, err)
+			return
+		}
+	}
+	entries := make([]gin.H, 0, len(createdEntries))
+	for _, entry := range createdEntries {
+		entries = append(entries, gin.H{
+			"id": pgUUIDString(entry.ID), "instance_id": pgUUIDString(entry.InstanceID),
+			"participant_id": pgUUIDString(entry.ParticipantID), "activity_occurrence_id": pgUUIDString(entry.ActivityOccurrenceID),
+			"source_group_id": pgUUIDPointer(entry.SourceGroupID), "entry_kind": entry.EntryKind, "points": entry.Points,
+			"visibility": entry.Visibility, "reason": entry.Reason, "effective_at": formatTimestamp(entry.EffectiveAt),
+			"award_key": pgTextPointer(entry.AwardKey), "metadata": json.RawMessage(entry.Metadata), "created_at": formatTimestamp(entry.CreatedAt),
+		})
+	}
+	payload, err := json.Marshal(gin.H{"created_entries": entries, "created_count": len(entries)})
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	stored, err := qtx.UpdateWordleRoundResolution(ctx, db.UpdateWordleRoundResolutionParams{ID: game.WordleRoundID, ResolutionResponse: payload})
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	payload = append([]byte(nil), stored.ResolutionResponse...)
+	if err := tx.Commit(ctx); err != nil {
+		writeWordleError(c, err)
+		return
+	}
+	c.Data(http.StatusOK, "application/json; charset=utf-8", payload)
+}
+
 func (s *Server) castawordleListPage(c *gin.Context) {
 	data, ok := s.siteData(c)
 	if !ok {
@@ -322,7 +659,7 @@ func (s *Server) castawordleListPage(c *gin.Context) {
 		data.Games = append(data.Games, castawordleGameView{
 			ID: pgUUIDString(row.ID), InstanceID: pgUUIDString(row.InstanceID), Name: row.Name,
 			WordLength: int(row.WordLength), GuessLimit: castawordle.GuessLimit,
-			OpensAt: row.OpensAt.Time, CutoffAt: row.CutoffAt.Time, Unscored: true,
+			OpensAt: easternTime(row.OpensAt.Time), CutoffAt: easternTime(row.CutoffAt.Time), Unscored: !row.WordleRoundID.Valid,
 			Test: !row.EpisodeNumber.Valid, EpisodeNumber: episodeNumber,
 		})
 	}
@@ -373,4 +710,12 @@ func (s *Server) castawordlePage(c *gin.Context) {
 	game := castawordleGame(row)
 	data.Game = &game
 	renderSite(c, "game.html", data)
+}
+
+// easternTime shows game times in the season's Eastern time zone.
+func easternTime(t time.Time) time.Time {
+	if location, err := time.LoadLocation("America/New_York"); err == nil {
+		return t.In(location)
+	}
+	return t
 }

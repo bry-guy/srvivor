@@ -3,20 +3,41 @@ INSERT INTO castawordle_games (instance_id, name, answer, dictionary_version, op
 SELECT i.id, sqlc.arg(name), sqlc.arg(answer), sqlc.arg(dictionary_version), sqlc.arg(opens_at), sqlc.arg(cutoff_at), sqlc.narg(episode_number)
 FROM instances i WHERE i.public_id = sqlc.arg(instance_id)
 RETURNING public_id AS id, (SELECT public_id FROM instances WHERE id = instance_id) AS instance_id,
-    name, answer, dictionary_version, opens_at, cutoff_at, episode_number;
+    name, answer, dictionary_version, opens_at, cutoff_at, episode_number, wordle_round_id;
 
 -- name: GetCastawordleGame :one
-SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number
+SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
 FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
 WHERE g.public_id = sqlc.arg(id);
 
 -- name: ListCastawordleGames :many
 SELECT g.public_id AS id, i.public_id AS instance_id, g.name, char_length(g.answer)::integer AS word_length,
-    g.opens_at, g.cutoff_at, g.episode_number
+    g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
 FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
 WHERE i.public_id = sqlc.arg(instance_id)
     AND (g.episode_number IS NOT NULL OR sqlc.arg(include_tests)::boolean)
 ORDER BY g.opens_at DESC, g.id DESC;
+
+-- name: GetCastawordleGameByEpisode :one
+SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
+FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
+WHERE i.public_id = sqlc.arg(instance_id) AND g.episode_number = sqlc.arg(episode_number);
+
+-- name: LockCastawordleGame :one
+SELECT g.public_id AS id, i.public_id AS instance_id, g.name, g.answer, g.dictionary_version, g.opens_at, g.cutoff_at, g.episode_number, g.wordle_round_id
+FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
+WHERE g.public_id = sqlc.arg(id)
+FOR UPDATE OF g;
+
+-- name: GetCastawordleGameByWordleRound :one
+SELECT public_id AS id
+FROM castawordle_games
+WHERE wordle_round_id = sqlc.arg(wordle_round_id);
+
+-- name: UpdateCastawordleGameWordleRound :exec
+UPDATE castawordle_games
+SET wordle_round_id = sqlc.arg(wordle_round_id)
+WHERE public_id = sqlc.arg(id);
 
 -- name: EnsureCastawordlePlay :exec
 INSERT INTO castawordle_plays (game_id, participant_id)
@@ -42,3 +63,11 @@ FOR UPDATE OF p;
 UPDATE castawordle_plays SET guesses = sqlc.arg(guesses), status = sqlc.arg(status), updated_at = sqlc.arg(updated_at)
 WHERE game_id = (SELECT g.id FROM castawordle_games g WHERE g.public_id = sqlc.arg(game_id))
 AND participant_id = (SELECT p.id FROM participants p WHERE p.public_id = sqlc.arg(participant_id));
+
+-- name: ListCastawordlePlays :many
+SELECT p.public_id AS participant_id, cp.guesses, cp.status
+FROM castawordle_plays cp
+JOIN castawordle_games g ON g.id = cp.game_id
+JOIN participants p ON p.id = cp.participant_id
+WHERE g.public_id = sqlc.arg(game_id)
+ORDER BY p.id;

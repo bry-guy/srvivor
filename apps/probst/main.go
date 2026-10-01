@@ -151,6 +151,7 @@ func newCommand() *cobra.Command {
 	add := func(parent *cobra.Command, use string, count int, run func(*cobra.Command, []string) error) {
 		parent.AddCommand(&cobra.Command{Use: use, Args: cobra.ExactArgs(count), RunE: run})
 	}
+	root.AddCommand(newWeekCommand(call, &instance, &yes))
 	auth := &cobra.Command{Use: "auth"}
 	root.AddCommand(auth)
 	add(auth, "status", 0, func(c *cobra.Command, _ []string) error { return request(c, "GET", "/admin/session", nil) })

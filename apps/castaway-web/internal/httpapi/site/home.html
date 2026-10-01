@@ -6,7 +6,7 @@
 <p class="eyebrow">The tribe has spoken</p><h1>Scores</h1><p class="muted">Your season, at a glance.</p>
 <div class="table-wrap" tabindex="0" role="region" aria-label="Season scores"><table>
 <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Tribe</th><th scope="col">Total</th><th scope="col">Bonus</th></tr></thead>
-<tbody>{{range .Rows}}<tr><td>{{.Rank}}</td><th scope="row">{{.Name}}</th><td>{{.Tribe}}</td><td class="total">{{.Total}}</td><td>{{.Bonus}}</td></tr>{{else}}<tr><td colspan="5" class="muted">No scores yet. Check back after drafts are in.</td></tr>{{end}}</tbody>
+<tbody>{{range .Rows}}<tr><td>{{.Rank}}</td><th scope="row">{{if eq .Tribe "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Tribe "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}{{.Name}}</th><td>{{.Tribe}}</td><td class="total">{{.Total}}</td><td>{{.Bonus}}</td></tr>{{else}}<tr><td colspan="5" class="muted">No scores yet. Check back after drafts are in.</td></tr>{{end}}</tbody>
 </table></div>
 {{end}}
 {{template "footer" .}}

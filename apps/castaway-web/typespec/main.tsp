@@ -39,8 +39,12 @@ model CastawordlePlay {
 @post
 op createCastawordle(
   @path instanceID: string,
-  @body body: { name: string; answer: string; episode_number?: int32 | null; opens_at?: utcDateTime; cutoff_at?: utcDateTime; },
-): { @statusCode statusCode: 201; ...CastawordleGame; } | ErrorResponse;
+  @body body: { name: string; answer: string; episode_number?: int32 | null; opens_at?: utcDateTime; cutoff_at?: utcDateTime; scored?: boolean; window?: { opens_at: utcDateTime; cutoff_at: utcDateTime; }; },
+): { @statusCode statusCode: 201; ...CastawordleGame; } | { @statusCode statusCode: 200; ...CastawordleGame; } | ErrorResponse;
+
+@route("/castawordle/{gameID}/resolve")
+@post
+op resolveCastawordle(@path gameID: string): WordleRoundResolution | ErrorResponse;
 
 @route("/castawordle/{gameID}/play")
 @get

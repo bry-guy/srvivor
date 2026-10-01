@@ -232,6 +232,24 @@ paths:
               required:
                 - guess
                 - position
+  /castawordle/{gameID}/resolve:
+    post:
+      operationId: resolveCastawordle
+      parameters:
+        - name: gameID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/WordleRoundResolution'
+                  - $ref: '#/components/schemas/ErrorResponse'
   /discord/guilds/{guildID}/channels/{channelID}:
     get:
       operationId: getDiscordChannelBinding
@@ -858,7 +876,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                anyOf:
+                  - $ref: '#/components/schemas/CastawordleGame'
+                  - $ref: '#/components/schemas/ErrorResponse'
         '201':
           description: The request has succeeded and a new resource has been created as a result.
           content:
@@ -886,6 +906,20 @@ paths:
                 cutoff_at:
                   type: string
                   format: date-time
+                scored:
+                  type: boolean
+                window:
+                  type: object
+                  properties:
+                    opens_at:
+                      type: string
+                      format: date-time
+                    cutoff_at:
+                      type: string
+                      format: date-time
+                  required:
+                    - opens_at
+                    - cutoff_at
               required:
                 - name
                 - answer

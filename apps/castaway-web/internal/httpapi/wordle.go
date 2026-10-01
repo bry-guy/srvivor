@@ -74,6 +74,19 @@ func (s *Server) rejectWordleRoundOperation(c *gin.Context, roundID uuid.UUID, o
 	return true
 }
 
+func (s *Server) rejectCastawordleRoundOperation(c *gin.Context, q *db.Queries, roundID uuid.UUID, operation string) bool {
+	_, err := q.GetCastawordleGameByWordleRound(c.Request.Context(), toPGUUID(roundID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false
+	}
+	if err != nil {
+		writeWordleError(c, err)
+		return true
+	}
+	c.JSON(http.StatusConflict, errorResponse{Error: operation + " must use the Castawordle resolve endpoint"})
+	return true
+}
+
 func (s *Server) createWordleRound(c *gin.Context) {
 	if !s.requireWordleServicePrincipal(c) {
 		return
@@ -286,6 +299,9 @@ func (s *Server) putWordleParticipant(c *gin.Context) {
 		return
 	}
 	defer rollbackTx(c, tx)
+	if s.rejectCastawordleRoundOperation(c, qtx, roundID, "participant result writes") {
+		return
+	}
 	now := wordleClockNow(s)
 	if now.Before(round.OpensAt.Time) || !now.Before(round.CutoffAt.Time) {
 		c.JSON(http.StatusConflict, errorResponse{Error: "Wordle submissions are closed outside the round window"})
@@ -387,6 +403,9 @@ func (s *Server) closeWordleRound(c *gin.Context) {
 		return
 	}
 	defer rollbackTx(c, tx)
+	if s.rejectCastawordleRoundOperation(c, qtx, roundID, "round closure") {
+		return
+	}
 	if !round.ClosedAt.Valid {
 		now := wordleClockNow(s)
 		closed, err := qtx.UpdateWordleRoundClosedAt(c.Request.Context(), db.UpdateWordleRoundClosedAtParams{
@@ -417,6 +436,9 @@ func (s *Server) resolveWordleRound(c *gin.Context) {
 		return
 	}
 	defer rollbackTx(c, tx)
+	if s.rejectCastawordleRoundOperation(c, qtx, roundID, "round resolution") {
+		return
+	}
 	if len(round.ResolutionResponse) > 0 {
 		payload := append([]byte(nil), round.ResolutionResponse...)
 		if err := tx.Commit(c.Request.Context()); err != nil {

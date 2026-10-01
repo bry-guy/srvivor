@@ -83,6 +83,21 @@ func (s *Service) resolveTribeChallenge(ctx context.Context, resolverCtx resolve
 // don't count toward averages.
 func (s *Service) resolveWordleIndividualAndTribeAverage(ctx context.Context, resolverCtx resolverContext, guessCountsByGroup map[pgtype.UUID][]int, groupNames map[pgtype.UUID]string) ([]resolvedLedgerEntry, error) {
 	entries := make([]resolvedLedgerEntry, 0)
+	var activityMetadata struct {
+		Castawordle bool `json:"castawordle"`
+	}
+	if err := parseJSON(resolverCtx.activity.Metadata, &activityMetadata); err != nil {
+		return nil, fmt.Errorf("parse tribe_wordle activity metadata: %w", err)
+	}
+	submittedByGroup := make(map[pgtype.UUID]map[pgtype.UUID]struct{})
+	if activityMetadata.Castawordle {
+		for _, row := range resolverCtx.occurrenceParticipants {
+			if submittedByGroup[row.ParticipantGroupID] == nil {
+				submittedByGroup[row.ParticipantGroupID] = make(map[pgtype.UUID]struct{})
+			}
+			submittedByGroup[row.ParticipantGroupID][row.ParticipantID] = struct{}{}
+		}
+	}
 
 	best := 0
 	guessCounts := make([]int, len(resolverCtx.occurrenceParticipants))
@@ -132,6 +147,11 @@ func (s *Service) resolveWordleIndividualAndTribeAverage(ctx context.Context, re
 			return nil, fmt.Errorf("list active members for winning wordle group %q: %w", winner.GroupName, err)
 		}
 		for _, member := range members {
+			if activityMetadata.Castawordle {
+				if _, submitted := submittedByGroup[winner.GroupID][member.ParticipantID]; !submitted {
+					continue
+				}
+			}
 			entries = append(entries, resolvedLedgerEntry{
 				ParticipantID:  member.ParticipantID,
 				SourceGroupID:  winner.GroupID,

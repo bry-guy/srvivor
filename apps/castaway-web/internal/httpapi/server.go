@@ -169,6 +169,7 @@ func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.POST("/instances/:instanceID/castawordle", s.createCastawordle)
 	protected.GET("/castawordle/:gameID/play", s.getCastawordlePlay)
 	protected.POST("/castawordle/:gameID/play/guesses", s.guessCastawordle)
+	protected.POST("/castawordle/:gameID/resolve", s.resolveCastawordle)
 	protected.POST("/activities/:activityID/wordle-rounds", s.createWordleRound)
 	protected.GET("/wordle-rounds/:roundID", s.getWordleRound)
 	protected.PUT("/wordle-rounds/:roundID/participants/:participantID", s.putWordleParticipant)

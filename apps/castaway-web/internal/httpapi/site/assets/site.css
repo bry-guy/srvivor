@@ -32,6 +32,8 @@ th, td { padding: .85rem 1rem; border-bottom: 1px solid var(--border); white-spa
 thead th { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 tr:last-child td, tr:last-child th { border-bottom: 0; }
 tbody th { font-weight: 650; } .total { font-weight: 800; }
+.tribe-dot { display: inline-block; width: .55rem; height: .55rem; margin-right: .5rem; border-radius: 50%; vertical-align: middle; }
+.tribe-dot-savu { background: #9b70c4; } .tribe-dot-toka { background: #b58900; }
 .game-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; margin: 1.5rem 0 2rem; }
 .game-card { border: 1px solid var(--border); padding: 1.25rem; border-radius: .6rem; background: var(--surface); text-decoration: none; color: var(--text); }
 .game-card:hover { border-color: var(--accent); } .game-card p { font-size: .85rem; }
