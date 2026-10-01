@@ -24,6 +24,7 @@ type sitePageData struct {
 	Admin              bool
 	InstanceID         string
 	Rows               []homeRow
+	Profile            *profileView
 	Games              []castawordleGameView
 	Episodes           []castawordleEpisodeOption
 	Game               *castawordleGameView

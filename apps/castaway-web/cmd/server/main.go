@@ -63,6 +63,8 @@ func run() error {
 		DiscordClientID:     cfg.DiscordClientID,
 		DiscordClientSecret: cfg.DiscordClientSecret,
 		InstanceID:          cfg.PublicInstanceID,
+		LeagueName:          cfg.PublicLeagueName,
+		LeagueInstanceIDs:   cfg.PublicLeagueIDs,
 	}))
 	router := server.Router()
 	httpServer := &http.Server{

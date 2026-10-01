@@ -130,7 +130,7 @@ Players use `GET /api/castawordle/{gameID}/play` and `POST .../play/guesses` wit
 
 The preview uses SCOWL/English Speller Database size 70, pinned revision `1e5b7d3a72f47a71da5d28686c1dd4b397178485`, with American/British spellings and inflections: **59,212** alphabetic 4–8-letter guesses. It includes `SWADDLE`; no individual-word patches or runtime downloads. Curate familiar answers separately. [Source, generation and license](internal/castawordle/data/README.md). Existing CMUdict-backed unscored trials require a guarded answer-compatibility check and explicit dictionary-metadata upgrade; answers, progress and scoring remain unchanged. Historical saved guesses remain replayable even if absent from the new list.
 
-Full guesses submit automatically. Invalid words show `invalid word, try again`, consume no turn, and the message clears when the guess changes. The Scores page shows total and bonus points without a separate Draft column. See [the implementation plan](../../plans/castawordle-and-responsive-site.md).
+Press Enter (keyboard or on-screen) to submit a guess. Invalid words show `invalid word, try again`, consume no turn, and the message clears when the guess changes. The Scores page shows total and bonus points without a separate Draft column. See [the implementation plan](../../plans/castawordle-and-responsive-site.md).
 
 For the one-time unscored preview dictionary upgrade, supply `DATABASE_URL` through your credential provider and run the read-only check before rollout:
 
@@ -139,6 +139,12 @@ mise exec -- go run ./cmd/upgrade-preview-dictionary
 ```
 
 After deploying the compatible SCOWL web image, explicitly apply with `--apply --rollback-file /private/local/path/dictionary-rollback.json`. The command rechecks answers under row locks, blocks incompatible answers without printing them, and updates only the legacy trial dictionary version. The new rollback file is mode 0600 and contains versions/game IDs, not answers or guesses. Keep it untracked. To restore metadata, use its recorded IDs and old version in a guarded transaction after restoring a compatible image; do not rewrite answers or plays. No schema migration or score award is involved.
+
+### Profiles
+
+**Me** (`/me`) and player profiles (`/players/<participant-id>`, linked from Scores) show one season's score and draft plus the player's seasons in this league. Seasons are joined by Discord account and limited to `PUBLIC_INSTANCE_ID` plus `PUBLIC_LEAGUE_INSTANCE_IDS` (`PUBLIC_LEAGUE_NAME` labels them); only current-season players and their league history are viewable. Scores use visible bonus only (secret points never show). Drafts are soft-closed, so other players' current-season drafts appear only after draft submissions close and the viewer has saved a draft; owners and admins always see them, and past seasons are open. Missing data shows "Unavailable".
+
+To link past seasons' unlinked players to the Discord account of the same-named (ignoring case) current player, run `go run ./cmd/link-league-history` (dry run) then `--apply`, with `DATABASE_URL` and the public league variables set. Ambiguous or conflicting names are skipped.
 
 Optional browser checks use an already-installed Node/Playwright runtime, without installing global tools:
 

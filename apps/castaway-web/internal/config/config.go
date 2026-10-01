@@ -24,6 +24,8 @@ type Config struct {
 	DiscordClientID     string
 	DiscordClientSecret string
 	PublicInstanceID    string
+	PublicLeagueName    string
+	PublicLeagueIDs     []string
 }
 
 func Load() (*Config, error) {
@@ -43,6 +45,16 @@ func Load() (*Config, error) {
 		if _, err := uuid.Parse(cfg.PublicInstanceID); err != nil {
 			return nil, fmt.Errorf("PUBLIC_INSTANCE_ID must be the instance's public UUID: %w", err)
 		}
+	}
+	cfg.PublicLeagueName = strings.TrimSpace(getEnv("PUBLIC_LEAGUE_NAME", ""))
+	for _, id := range strings.Split(getEnv("PUBLIC_LEAGUE_INSTANCE_IDS", ""), ",") {
+		if id = strings.TrimSpace(id); id == "" {
+			continue
+		}
+		if _, err := uuid.Parse(id); err != nil {
+			return nil, fmt.Errorf("PUBLIC_LEAGUE_INSTANCE_IDS must be public instance UUIDs: %w", err)
+		}
+		cfg.PublicLeagueIDs = append(cfg.PublicLeagueIDs, id)
 	}
 	if cfg.PublicPort != "" && (cfg.PublicBaseURL == "" || cfg.DiscordClientID == "" || cfg.DiscordClientSecret == "") {
 		return nil, fmt.Errorf("PUBLIC_PORT needs PUBLIC_BASE_URL, DISCORD_OAUTH_CLIENT_ID and DISCORD_OAUTH_CLIENT_SECRET")

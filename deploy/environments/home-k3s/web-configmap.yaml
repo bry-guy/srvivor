@@ -17,3 +17,6 @@ data:
   PUBLIC_BASE_URL: https://castaway.bry-guy.net
   DISCORD_OAUTH_CLIENT_ID: "658231035246673931"
   PUBLIC_INSTANCE_ID: ee0a0884-37ad-47bb-820b-cf111bec3a39  # Season 51
+  PUBLIC_LEAGUE_NAME: NowThisIsPodracing
+  # Past Podracing seasons (50, 49–44); BrainLand is a separate game and is excluded from profiles.
+  PUBLIC_LEAGUE_INSTANCE_IDS: 9226f36f-1be7-4726-b9d8-3ee626a570de,fa12e023-8cc6-4fc3-b9f5-dd2e5bd2100a,52da9fb7-6045-477b-a2e4-104c6638e82f,10cd1d4c-311a-4d31-84cf-b1a49d24a81a,071e36a2-0cdd-4214-b8af-da890a16295d,618c39e3-a027-4eed-92cd-2c05650a2946,e90eb30c-6240-4e48-ac5d-a892b9ec1623

@@ -13,7 +13,6 @@ import (
 	"html"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
@@ -28,9 +27,11 @@ type PublicConfig struct {
 	BaseURL             string // e.g. https://castaway.bry-guy.net
 	DiscordClientID     string
 	DiscordClientSecret string
-	DiscordAPIBaseURL   string // default https://discord.com/api/v10
-	DiscordAuthorizeURL string // default https://discord.com/oauth2/authorize
-	InstanceID          string // the season the site shows
+	DiscordAPIBaseURL   string   // default https://discord.com/api/v10
+	DiscordAuthorizeURL string   // default https://discord.com/oauth2/authorize
+	InstanceID          string   // the season the site shows
+	LeagueName          string   // shown beside season names, e.g. NowThisIsPodracing
+	LeagueInstanceIDs   []string // past seasons of the same league; profiles show only these and InstanceID
 }
 
 func WithPublic(cfg PublicConfig) Option {
@@ -92,6 +93,8 @@ func (s *Server) PublicRouter() *gin.Engine {
 	pages := r.Group("/")
 	pages.Use(s.requirePageSession())
 	pages.GET("/", s.home)
+	pages.GET("/me", s.mePage)
+	pages.GET("/players/:participantID", s.playerPage)
 	pages.GET("/castawordle", s.castawordleListPage)
 	pages.GET("/castawordle/:gameID", s.castawordlePage)
 	r.GET("/auth/login", s.startLogin)
@@ -502,7 +505,7 @@ func (s *Server) requestAccess(c *gin.Context) {
 
 type homeRow struct {
 	Rank                int
-	Name, Tribe         string
+	ID, Name, Tribe     string
 	Total, Draft, Bonus int
 }
 
@@ -522,44 +525,14 @@ func (s *Server) home(c *gin.Context) {
 	renderSite(c, "home.html", data)
 }
 
-// homeLeaderboard reads the configured season's leaderboard through /api as the signed-in user.
-// ponytail: in-process sub-request to reuse the handler; extract a leaderboard function when pages multiply.
 func (s *Server) homeLeaderboard(c *gin.Context) ([]homeRow, error) {
 	if s.public.InstanceID == "" {
 		return nil, nil
 	}
-	req := httptest.NewRequest("GET", "/api/instances/"+url.PathEscape(s.public.InstanceID)+"/leaderboard", nil).WithContext(c.Request.Context())
-	for _, cookie := range c.Request.Cookies() {
-		req.AddCookie(cookie)
+	board, err := s.leaderboardRows(c.Request.Context(), s.public.InstanceID)
+	rows := make([]homeRow, 0, len(board))
+	for _, r := range board {
+		rows = append(rows, homeRow{Rank: r.Rank, ID: r.ParticipantID, Name: r.Name, Tribe: r.Tribe, Total: r.Total, Draft: r.Draft, Bonus: r.Bonus})
 	}
-	rec := httptest.NewRecorder()
-	s.publicEngine.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		return nil, fmt.Errorf("leaderboard HTTP %d", rec.Code)
-	}
-	var res struct {
-		Leaderboard []struct {
-			Name     string `json:"participant_name"`
-			Tribe    string `json:"current_tribe_name"`
-			Draft    int    `json:"draft_points"`
-			Bonus    int    `json:"bonus_points"`
-			Total    int    `json:"total_points"`
-			HasDraft bool   `json:"has_draft"`
-		} `json:"leaderboard"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
-		return nil, err
-	}
-	var rows []homeRow
-	for _, r := range res.Leaderboard {
-		if !r.HasDraft {
-			continue
-		}
-		rank := len(rows) + 1
-		if len(rows) > 0 && rows[len(rows)-1].Total == r.Total {
-			rank = rows[len(rows)-1].Rank
-		}
-		rows = append(rows, homeRow{Rank: rank, Name: r.Name, Tribe: r.Tribe, Total: r.Total, Draft: r.Draft, Bonus: r.Bonus})
-	}
-	return rows, nil
+	return rows, err
 }

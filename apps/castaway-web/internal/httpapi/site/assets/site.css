@@ -68,3 +68,14 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 @media (max-width: 480px) { .site-header { gap: .65rem; } .theme-control { margin-left: auto; } nav { order: 3; width: 100%; } .page { margin-top: 1.6rem; } th, td { padding: .7rem .65rem; } .board, .board-row { gap: .25rem; } }
 @media (prefers-reduced-motion: no-preference) { .torch::before { transition: opacity .15s; } }
 @media (prefers-contrast: more) { .tile.correct { border-style: double; border-width: 5px; } .tile.present { border-style: dashed; } .tile.absent { border-color: var(--text); } }
+
+/* Profiles */
+.profile-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); align-items: start; margin-bottom: 1.5rem; }
+.profile-card { border: 1px solid var(--border, #ccc); border-radius: .75rem; padding: 1rem 1.25rem; }
+.profile-card h2 { margin-top: 0; }
+.profile-total { font-size: 2.5rem; font-weight: 700; margin: 0; }
+.profile-total span { font-size: 1rem; font-weight: 400; }
+.draft-list { margin: 0; padding-left: 2rem; columns: 2 10rem; }
+.season-list { list-style: none; padding: 0; }
+.season-list li { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; padding: .5rem 0; border-bottom: 1px solid var(--border, #ccc); }
+.season-list li[aria-current] a { font-weight: 700; }
