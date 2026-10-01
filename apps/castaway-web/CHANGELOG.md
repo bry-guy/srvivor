@@ -7,6 +7,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Profile drafts use short names (survivoR `castaway`, migration 024) and show each scored pick as (+value − distance) with an ⓘ explainer; current-season eliminations are italic once scored. Past standings hide Tribe when a season had none.
 - Nav "Castawordle" is now "Games" (/games hub); past standings show a 🏆 for winners and hide Bonus when a season had none; profile season header links to standings.
 - Players can view and change their own pronouns on Me; pronouns are never shown to other players.
 - Seasons page lists league seasons with winners; past seasons have standings pages, and past league players have profiles. Participants gain a hidden pronouns field (migration 023).

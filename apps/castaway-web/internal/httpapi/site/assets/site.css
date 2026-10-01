@@ -88,3 +88,5 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 @media (hover: none) { .pronouns .edit-icon { opacity: .6; } }
 .pronouns form { display: flex; gap: .5rem; align-items: center; margin-top: .4rem; }
 .season-list li > :last-child { margin-left: auto; text-align: right; }
+#draft-heading { display: flex; justify-content: space-between; align-items: baseline; }
+.info { font-size: .9rem; font-weight: 400; color: var(--muted); cursor: help; }

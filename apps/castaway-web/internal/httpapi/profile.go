@@ -26,8 +26,12 @@ type profileSeason struct {
 }
 
 type profilePick struct {
-	Position int32
-	Name     string
+	Position   int32
+	Name       string
+	Scored     bool // this castaway's finishing position has been scored
+	Value      int  // finishing value: last place 1 ... winner N
+	Distance   int  // |drafted position - finishing position|
+	Eliminated bool // scored and the season is still running (shown italic)
 }
 
 type profileView struct {
@@ -214,17 +218,49 @@ func (s *Server) profileDraft(ctx context.Context, data sitePageData, view profi
 	if err != nil {
 		return nil, "", err
 	}
-	contestants, err := s.queries.ListContestantsByInstance(ctx, toPGUUID(uuid.MustParse(instanceID)))
+	// Short names as on the show; finishing positions exist only once an elimination has been scored, so
+	// eliminations appear when scores are entered, not when an episode airs.
+	rows, err := s.pool.Query(ctx, `SELECT c.public_id, COALESCE(c.short_name, c.name), op.position
+		FROM instance_contestants ic JOIN instances i ON i.id = ic.instance_id JOIN contestants c ON c.id = ic.contestant_id
+		LEFT JOIN outcome_positions op ON op.instance_id = ic.instance_id AND op.contestant_id = c.id
+		WHERE i.public_id = $1`, instanceID)
 	if err != nil {
 		return nil, "", err
 	}
-	names := make(map[[16]byte]string, len(contestants))
-	for _, contestant := range contestants {
-		names[contestant.ID.Bytes] = contestant.Name
+	type castaway struct {
+		name   string
+		finish *int32
 	}
+	byID := map[[16]byte]castaway{}
+	for rows.Next() {
+		var id uuid.UUID
+		var cw castaway
+		if err := rows.Scan(&id, &cw.name, &cw.finish); err != nil {
+			rows.Close()
+			return nil, "", err
+		}
+		byID[id] = cw
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+	total := len(byID)
+	running := instanceID == s.public.InstanceID
 	draft := make([]profilePick, 0, len(picks))
 	for _, pick := range picks {
-		draft = append(draft, profilePick{Position: pick.Position, Name: names[pick.ContestantID.Bytes]})
+		cw := byID[pick.ContestantID.Bytes]
+		p := profilePick{Position: pick.Position, Name: cw.name}
+		if cw.finish != nil {
+			// Mirrors scoring.calculateCurrentScore: max(0, value - distance).
+			p.Scored, p.Eliminated = true, running
+			p.Value = total - int(*cw.finish) + 1
+			p.Distance = int(pick.Position - *cw.finish)
+			if p.Distance < 0 {
+				p.Distance = -p.Distance
+			}
+		}
+		draft = append(draft, p)
 	}
 	if len(draft) == 0 {
 		return nil, "No draft on record.", nil
@@ -318,11 +354,10 @@ func (s *Server) seasonPage(c *gin.Context) {
 	for _, r := range board {
 		data.Rows = append(data.Rows, homeRow{Rank: r.Rank, ID: r.ParticipantID, Name: r.Name, Tribe: r.Tribe, Total: r.Total, Draft: r.Draft, Bonus: r.Bonus})
 	}
-	data.NoBonus = true
+	data.NoBonus, data.NoTribe = true, true
 	for _, r := range board {
-		if r.Bonus != 0 {
-			data.NoBonus = false
-		}
+		data.NoBonus = data.NoBonus && r.Bonus == 0
+		data.NoTribe = data.NoTribe && r.Tribe == ""
 	}
 	renderSite(c, "home.html", data)
 }

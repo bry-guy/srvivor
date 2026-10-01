@@ -15,8 +15,8 @@
 <p>{{.Season.DraftPoints}} draft · {{.Season.Bonus}} bonus</p>
 <p class="muted">Rank {{.Season.Rank}} of {{.Season.Players}}{{if .Season.Tribe}} · {{if eq .Season.Tribe "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Season.Tribe "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}{{.Season.Tribe}}{{end}}</p>
 {{else}}<p class="muted">Unavailable</p>{{end}}</section>
-<section class="profile-card" aria-labelledby="draft-heading"><h2 id="draft-heading">Draft</h2>
-{{if .DraftHidden}}<p class="muted">{{.DraftHidden}}</p>{{else}}<ol class="draft-list">{{range .Draft}}<li value="{{.Position}}">{{.Name}}</li>{{end}}</ol>{{end}}</section>
+<section class="profile-card" aria-labelledby="draft-heading"><h2 id="draft-heading">Draft <span class="info" tabindex="0" role="img" aria-label="How picks score" title="Each pick scores its castaway's finishing value (last place 1, up to the winner) minus how far your pick was from where they finished: (+value − distance), never below 0.">ⓘ</span></h2>
+{{if .DraftHidden}}<p class="muted">{{.DraftHidden}}</p>{{else}}<ol class="draft-list">{{range .Draft}}<li value="{{.Position}}">{{if .Eliminated}}<em>{{.Name}}</em>{{else}}{{.Name}}{{end}}{{if .Scored}} <span class="muted small">(+{{.Value}} − {{.Distance}})</span>{{end}}</li>{{end}}</ol>{{end}}</section>
 </div>
 <section aria-labelledby="seasons-heading"><h2 id="seasons-heading">Seasons</h2>
 <ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><span><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a>{{if .Current}} <span class="badge">Current</span>{{end}}</span>

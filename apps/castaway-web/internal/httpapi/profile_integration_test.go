@@ -107,6 +107,29 @@ func TestProfiles(t *testing.T) {
 	has(get("/players/"+id(people["alice"].cur), "bob", 200), "Torch Bearer")
 	has(get("/players/"+id(people["alice"].cur), "carol", 200), "Submit your own draft")
 	has(get("/players/"+id(people["alice"].past), "carol", 200), "Old Legend", "Season 50")
+
+	// Scored picks show (+value − distance); eliminations are italic only while the season runs; short names win.
+	second := createContestantForTest(t, ctx, q, current.ID, "Second Banana")
+	createDraftPickForTest(t, ctx, q, current.ID, people["alice"].cur, second.ID, 2)
+	if _, err := pool.Exec(ctx, `UPDATE contestants SET short_name = 'Torchy' WHERE public_id = $1`, torch.ID); err != nil {
+		t.Fatal(err)
+	}
+	has(get("/me", "alice", 200), "Torchy", "Second Banana")
+	lacks(get("/me", "alice", 200), "<em>", `small">(+`)
+	for _, o := range []struct {
+		inst, cont pgtype.UUID
+		pos        int
+	}{{current.ID, torch.ID, 2}, {past.ID, pastPick.ID, 1}} {
+		if _, err := pool.Exec(ctx, `INSERT INTO outcome_positions (instance_id, position, contestant_id)
+			SELECT i.id, $3, c.id FROM instances i, contestants c WHERE i.public_id = $1 AND c.public_id = $2`, o.inst, o.cont, o.pos); err != nil {
+			t.Fatal(err)
+		}
+	}
+	has(get("/me", "alice", 200), "<em>Torchy</em> <span class=\"muted small\">(+1 − 1)</span>", `aria-label="How picks score"`)
+	pastProfile := get("/players/"+id(people["alice"].past), "alice", 200)
+	has(pastProfile, "Old Legend <span class=\"muted small\">(+1 − 0)</span>")
+	lacks(pastProfile, "<em>")
+	lacks(get("/seasons/"+id(past.ID), "alice", 200), ">Tribe</th>")
 	has(get("/players/"+id(people["carol"].cur), "alice", 200), "Unavailable", "No draft on record.")
 
 	// Past league players are viewable; other instances are not. Not a player this season → no Me page.

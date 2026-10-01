@@ -28,6 +28,7 @@ type sitePageData struct {
 	Seasons            []seasonSummary
 	SeasonName         string // set when showing a past season's scoreboard
 	NoBonus            bool   // past season with no bonus points (bonuses started in Season 50)
+	NoTribe            bool   // past season without tribes (tribes started in Season 50)
 	Games              []castawordleGameView
 	Episodes           []castawordleEpisodeOption
 	Game               *castawordleGameView
