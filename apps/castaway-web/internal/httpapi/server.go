@@ -632,7 +632,11 @@ func (s *Server) listParticipants(c *gin.Context) {
 		if !matchesContainsFold(participant.Name, nameFilter) {
 			continue
 		}
-		participants = append(participants, participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID)))
+		summary := participantSummaryToJSON(participant.ID, participant.Name, pgTextString(participant.DiscordUserID))
+		if participant.Pronouns.Valid {
+			summary["pronouns"] = participant.Pronouns.String // for Probst message copy only; never shown on the site
+		}
+		participants = append(participants, summary)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"participants": participants})

@@ -78,6 +78,8 @@ model Participant {
   id: string;
   name: string;
   discord_user_id?: string;
+  /** Admin-only; used solely for Probst message copy. */
+  pronouns?: "he/him" | "she/her" | "they/them";
 }
 
 model DraftPick {

@@ -161,6 +161,7 @@ SELECT
     i.public_id AS instance_id,
     p.name,
     p.discord_user_id,
+    p.pronouns,
     p.created_at
 FROM participants p
 JOIN instances i ON i.id = p.instance_id
@@ -173,6 +174,7 @@ type ListParticipantsByInstanceRow struct {
 	InstanceID    pgtype.UUID        `json:"instance_id"`
 	Name          string             `json:"name"`
 	DiscordUserID pgtype.Text        `json:"discord_user_id"`
+	Pronouns      pgtype.Text        `json:"pronouns"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -190,6 +192,7 @@ func (q *Queries) ListParticipantsByInstance(ctx context.Context, instanceID pgt
 			&i.InstanceID,
 			&i.Name,
 			&i.DiscordUserID,
+			&i.Pronouns,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

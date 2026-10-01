@@ -146,6 +146,10 @@ After deploying the compatible SCOWL web image, explicitly apply with `--apply -
 
 To link past seasons' unlinked players to the Discord account of the same-named (ignoring case) current player, run `go run ./cmd/link-league-history` (dry run) then `--apply`, with `DATABASE_URL` and the public league variables set. Ambiguous or conflicting names are skipped.
 
+### Pronouns
+
+Participants carry an optional `pronouns` value (`he/him`, `she/her`, `they/them`; migration 023). Pronouns are used **only** in Probst-authored Discord message copy and are never displayed on the site. They appear only in the admin-only participant list (`GET /instances/{id}/participants`, e.g. `probst player list --json`). Agents follow the project skill [`castaway-pronouns`](../../.agents/skills/castaway-pronouns/SKILL.md).
+
 Optional browser checks use an already-installed Node/Playwright runtime, without installing global tools:
 
 ```bash

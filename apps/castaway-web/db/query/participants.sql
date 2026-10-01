@@ -16,6 +16,7 @@ SELECT
     i.public_id AS instance_id,
     p.name,
     p.discord_user_id,
+    p.pronouns,
     p.created_at
 FROM participants p
 JOIN instances i ON i.id = p.instance_id

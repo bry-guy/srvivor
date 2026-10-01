@@ -176,3 +176,7 @@ The integration task uses a fresh disposable PostgreSQL container and invokes th
 `TestDraftThreadKeelingOriginalMessage` and `TestDraftThreadMooneyOriginalMessage` exercise captured, unedited messages without contacting Discord. They verify all 21 ranks, pending submission credit, and replay safety; Mooney's weak matches require a corrected revision before any picks or rewards are saved. See [the matching plan](plans/contextual-draft-name-matching.md) and [fixture provenance](testdata/README.md).
 
 See [requirements](functional-requirements.md), [security requirements](non-functional-requirements.md), [readiness](production-readiness-checklist.md), [administration plan](plans/player-administration.md), [private-endpoint proposal](plans/private-api-endpoint.md), and [changelog](CHANGELOG.md).
+
+## Pronouns
+
+`probst player list --json` includes each player's `pronouns` (`he/him`, `she/her`, `they/them`) when set. Use them only when writing Discord message copy about a player, never anywhere else; see the [`castaway-pronouns`](../../.agents/skills/castaway-pronouns/SKILL.md) skill.

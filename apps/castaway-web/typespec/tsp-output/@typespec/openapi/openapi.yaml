@@ -3485,6 +3485,13 @@ components:
           type: string
         discord_user_id:
           type: string
+        pronouns:
+          type: string
+          enum:
+            - he/him
+            - she/her
+            - they/them
+          description: Admin-only; used solely for Probst message copy.
     ParticipantActivityHistoryActivity:
       type: object
       required:
