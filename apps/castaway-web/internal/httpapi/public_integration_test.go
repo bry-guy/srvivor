@@ -107,6 +107,18 @@ func TestPublicListener(t *testing.T) {
 	want(serve("GET", "/auth/callback?code="+player+"&state=forged", nil), 400)
 
 	playerCookie := sessionOf(login("/auth/login", player))
+
+	// Mobile: Discord finishes in another browser without the OAuth cookie; a signed browser state still works
+	// and returns to the requested puzzle, but a tampered state or a cookieless CLI login does not.
+	start := serve("GET", "/auth/login?next=/castawordle", nil)
+	state := parse(start.Header().Get("Location")).Query().Get("state")
+	mobile := serve("GET", "/auth/callback?code="+player+"&state="+url.QueryEscape(state), nil)
+	if sessionOf(mobile); mobile.Header().Get("Location") != "/castawordle" {
+		t.Fatalf("cookieless browser callback: %d %s", mobile.Code, mobile.Header().Get("Location"))
+	}
+	want(serve("GET", "/auth/callback?code="+player+"&state="+url.QueryEscape(state[:len(state)-2]+"AA"), nil), 400)
+	cliStart := serve("GET", "/auth/cli?port=45678&state=xyz", nil)
+	want(serve("GET", "/auth/callback?code="+admin+"&state="+url.QueryEscape(parse(cliStart.Header().Get("Location")).Query().Get("state")), nil), 400)
 	want(serve("GET", leaderboard, nil, playerCookie), 200)
 	want(serve("GET", "/api/instances/"+instanceID+"/participants/me", map[string]string{"X-Discord-User-ID": admin}, playerCookie), 200)
 	want(serve("GET", "/api/instances/"+instanceID+"/announcements", nil, playerCookie), 403)

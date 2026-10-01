@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -156,7 +157,7 @@ func (s *Server) startLogin(c *gin.Context) {
 		}
 		mode = fmt.Sprintf("cli|%d|%s", port, cliState)
 	}
-	state := randomToken()
+	state := s.signLoginState(mode)
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(oauthCookie, state+"|"+mode, 600, "/auth", "", s.secureCookies(), true)
 	q := url.Values{"response_type": {"code"}, "client_id": {s.public.DiscordClientID}, "scope": {"identify"}, "state": {state}, "redirect_uri": {s.public.BaseURL + "/auth/callback"}, "prompt": {"none"}}
@@ -217,8 +218,13 @@ func (s *Server) loginCallback(c *gin.Context) {
 	}
 	c.SetCookie(oauthCookie, "", -1, "/auth", "", s.secureCookies(), true)
 	state, mode, _ := strings.Cut(cookie, "|")
-	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(c.Query("state"))) != 1 || c.Query("code") == "" {
-		c.String(http.StatusBadRequest, "Login expired or was tampered with. Try again.")
+	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(c.Query("state"))) != 1 {
+		// Mobile Discord often finishes sign-in in a different browser than the one that started it, so
+		// the cookie is missing; a server-signed browser state is still accepted there.
+		mode = s.verifyLoginState(c.Query("state"))
+	}
+	if mode == "" || c.Query("code") == "" {
+		s.loginRetryPage(c)
 		return
 	}
 	ctx := c.Request.Context()
@@ -255,6 +261,44 @@ func (s *Server) loginCallback(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(sessionCookie, token, int(browserTTL.Seconds()), "/", "", s.secureCookies(), true)
 	c.Redirect(http.StatusFound, loginReturnTo(strings.TrimPrefix(mode, "browser|")))
+}
+
+const loginStateTTL = 10 * time.Minute
+
+// signLoginState returns an OAuth state of nonce.expiry.mode.mac, verifiable without the browser cookie.
+func (s *Server) signLoginState(mode string) string {
+	payload := randomToken() + "." + strconv.FormatInt(s.now().Add(loginStateTTL).Unix(), 10) + "." + base64.RawURLEncoding.EncodeToString([]byte(mode))
+	return payload + "." + s.loginStateMAC(payload)
+}
+
+// verifyLoginState returns the browser mode of a validly signed, unexpired state, or "".
+// CLI logins still require the cookie.
+func (s *Server) verifyLoginState(state string) string {
+	i := strings.LastIndex(state, ".")
+	if i < 0 || !hmac.Equal([]byte(state[i+1:]), []byte(s.loginStateMAC(state[:i]))) {
+		return ""
+	}
+	parts := strings.Split(state[:i], ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	expiry, err := strconv.ParseInt(parts[1], 10, 64)
+	mode, decodeErr := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || decodeErr != nil || s.now().Unix() > expiry || !strings.HasPrefix(string(mode), "browser|") {
+		return ""
+	}
+	return string(mode)
+}
+
+func (s *Server) loginStateMAC(payload string) string {
+	mac := hmac.New(sha256.New, []byte("castaway-login-state|"+s.public.DiscordClientSecret))
+	mac.Write([]byte(payload))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func (s *Server) loginRetryPage(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in again · Castaway</title><link rel="stylesheet" href="/assets/site.css"></head><body><main><h1>Sign-in didn't finish</h1><p>Your Discord sign-in expired or was interrupted. Please try again.</p><p><a class="button" href="/auth/login?next=/castawordle">Sign in with Discord</a></p></main></body></html>`))
 }
 
 func (s *Server) createSession(ctx context.Context, discordUserID, username, kind string, ttl time.Duration) (string, error) {
