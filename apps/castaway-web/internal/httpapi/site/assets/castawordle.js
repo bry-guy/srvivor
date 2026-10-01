@@ -54,7 +54,6 @@ class CastawordleGame extends HTMLElement {
     else if (addingLetter) this.draft += key.toUpperCase();
     if (this.draft !== previousDraft) this.message.textContent = '';
     this.renderBoard();
-    if (addingLetter && this.draft.length === this.state.game.word_length) this.submit();
   }
   async submit() {
     if (this.draft.length !== this.state.game.word_length) {
