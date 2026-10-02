@@ -1,0 +1,83 @@
+# Castaway Season 51 — the whole season in one file.  (PROPOSAL — not yet read by anything.)
+#
+# Conventions
+#   - All times are America/New_York. A bare time ("12:00") on a weekly item is relative to that week's
+#     episode Wednesday; "+7d 11:59" means the following Wednesday.
+#   - Anything whose value is `TBD` (or an item with `tbd: true`) is a PLACEHOLDER: it is shown on the
+#     timeline as ⚠ unset, never creates/opens/sends anything, and is flagged to you 3 days before it's due.
+#   - Posts never send unless `approved: true`. Unapproved posts are held and you get a DM at send time.
+#   - `probst season plan seasons/51.yaml` shows the timeline + diff; `probst season apply` makes it so.
+
+season: 51
+instance: ee0a0884-37ad-47bb-820b-cf111bec3a39   # Podracing · Season 51
+channel: survivor
+ping: castaway                                   # @castaway role, used only on posts that say `ping: role`
+
+episodes:                      # Wednesdays 8:00pm. Ep N's results are scored in the Week N scores post.
+  first: 2026-09-23 20:00      # Ep 1; one per week through the finale
+  count: 13
+  skip: []                     # e.g. [2026-11-25] for a holiday week — later episodes shift by a week
+  finale: 13
+
+draft:
+  opens: 2026-09-23 20:00
+  soft_close: 2026-09-30 20:00   # peers' drafts become visible; late drafts still accepted
+  buffs: {first: 2, second: 1, last: 0}   # draft-reward bonus points (third+ go in the shared thread)
+
+scoring:                        # player-facing words: "your Tribe", "your Champion" — never "pony"
+  tribe: {immunity: 2, reward: 1, from_episode: 2, until: merge}   # players score when their Tribe wins
+  champion: {immunity: 3, reward: 1, from: merge}                  # Pick Your Champion; any castaway, shareable
+  merge_episode: TBD            # tribe scoring ends; Pick Your Champion opens
+
+# ── Recurring every week ─────────────────────────────────────────────────────────────────────────────
+weekly:
+  results:                      # entered by you (later: fetched from survivoR); scores won't post without them
+    due: "+6d 23:59"            # Tue night before scores
+    needs: [elimination, immunity, reward]
+  game:                         # one game/event a week; opens at the episode, closes before scores
+    opens: "20:00"
+    closes: "+7d 11:59"
+    resolve: "+7d 11:59"        # awarded automatically at close
+  scores_post:
+    at: "+7d 12:00"             # Wednesday noon, after the game resolves
+    template: scores            # header, spoiler-hidden boots, short top-5 + site link, next game
+    ping: [top3, last]          # mention only the top 3 and last place (not the role)
+    callouts:                   # same shape every week, fresh wording each week (no repeats within the season)
+      - praise: leader          # top player overall
+      - praise: biggest_gainer  # largest week-over-week rise
+      - rib: biggest_slider     # gentle; largest drop
+
+# ── Week by week (only what differs from `weekly`) ───────────────────────────────────────────────────
+weeks:
+  1: {game: none, scores_post: {at: 2026-09-30 21:52, sent: true}}      # draft week; posted
+  2: {game: {type: castawordle, answer_file: answers/ep2.txt}}            # live now, closes Oct 7 11:59
+  3: {game: TBD}
+  4: {game: TBD}
+  5: {game: TBD}
+  6: {game: TBD}
+  7: {game: TBD}
+  8: {game: TBD}
+  9: {game: TBD}
+  10: {game: TBD}
+  11: {game: TBD}
+  12: {game: TBD}
+  13: # finale: last game is the finale event; final scores the following Wednesday
+    game: {type: event, name: TBD, tbd: true}   # e.g. finale bingo — one simple thing
+    scores_post: {template: final, at: "+7d 12:00"}
+
+# ── One-offs ─────────────────────────────────────────────────────────────────────────────────────────
+posts:
+  - {name: kickoff, at: 2026-09-23 23:25, sent: true}
+  - {name: draft-reminder, at: 2026-09-27 17:00, sent: true}
+  - name: draft-last-call
+    at: 2026-09-30 12:00
+    sent: true                  # folded into that day's messages
+  - name: merge                 # week of `merge_episode`, with that week's scores:
+    at: TBD                     # "Drop your buffs" — Tribes end, Pick Your Champion opens
+    tbd: true
+  - name: champion-picks-close
+    at: TBD                     # suggested: the next episode, 8pm
+    tbd: true
+  - name: finale-hype
+    at: 2026-12-16 12:00
+    approved: false
