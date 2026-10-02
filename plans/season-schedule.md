@@ -1,6 +1,6 @@
 # Declarative season schedule
 
-Status: planning
+Status: in-progress
 
 ## Goal
 
@@ -71,7 +71,8 @@ not yet decided stays a visible placeholder instead of an ad-hoc post.
 
 0. Champion picks: a pick flow (web and/or Discord) plus scoring on top of the existing ownership ledger. Rename
    player-facing "pony" copy to Tribe/Champion. Needed before the merge.
-1. Schema and parser with a `plan` timeline (read-only), validated against the live Season 51 state.
+1. ✅ Schema and parser with a `plan` timeline (read-only), validated against the live Season 51 state
+   (`probst season plan`).
 2. `apply` for episodes, draft and games (Castawordle first). Unknown game types must stay placeholders.
 3. Scheduled posts with approval and template fill, using the existing announcement store plus bot sending.
 4. Runner: auto-resolve at close, then send, then nags.

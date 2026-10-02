@@ -180,3 +180,12 @@ See [requirements](functional-requirements.md), [security requirements](non-func
 ## Pronouns
 
 `probst player list --json` includes each player's `pronouns` (`he/him`, `she/her`, `they/them`) when set. Use them only when writing Discord message copy about a player, never anywhere else; see the [`castaway-pronouns`](../../.agents/skills/castaway-pronouns/SKILL.md) skill.
+
+## Season schedule (`probst season plan`)
+
+`probst season plan seasons/51.yaml` prints the whole season as a dated timeline in Eastern time
+(episodes, draft window, weekly game open/close, results due, scores posts, one-off posts). It then lists
+how the file differs from the live instance (episode air times, unsent announcements not in the file).
+It's read-only. `TBD` values are placeholders: they're listed with ⚠ and never acted on. Posts show
+⚠ until `approved: true`. Unknown fields are rejected so typos surface. See `plans/season-schedule.md`
+for the format and the `apply`/runner steps that follow.
