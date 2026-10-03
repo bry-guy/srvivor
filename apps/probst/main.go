@@ -153,6 +153,7 @@ func newCommand() *cobra.Command {
 	}
 	root.AddCommand(newWeekCommand(call, &instance, &yes))
 	root.AddCommand(newSeasonCommand(call, &guild, &yes))
+	root.AddCommand(newGameAdminCommands(call, &yes)...)
 	auth := &cobra.Command{Use: "auth"}
 	root.AddCommand(auth)
 	add(auth, "status", 0, func(c *cobra.Command, _ []string) error { return request(c, "GET", "/admin/session", nil) })

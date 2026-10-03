@@ -187,3 +187,38 @@ func latestAiredWeek(airs []time.Time, now time.Time) int {
 	}
 	return week
 }
+
+// newGameAdminCommands adds `castawordle private` and `button test`, thin wrappers over the admin API.
+func newGameAdminCommands(call apiCall, yes *bool) []*cobra.Command {
+	cw := &cobra.Command{Use: "castawordle", Short: "Castawordle admin"}
+	var player, name, answerFile string
+	private := &cobra.Command{
+		Use:   "private GAME_ID --player PARTICIPANT_ID --answer-file FILE",
+		Short: "Give one player their own puzzle that replaces their result in GAME_ID (answer read from a file, never printed)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, a []string) error {
+			raw, err := os.ReadFile(answerFile) // #nosec G304 -- operator-chosen local file
+			if err != nil {
+				return err
+			}
+			if !*yes {
+				_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — would give %s a private %d-letter puzzle %q replacing their result in %s. Re-run with --yes.\n", player, len(strings.TrimSpace(string(raw))), name, a[0])
+				return err
+			}
+			var out struct {
+				ID         string `json:"id"`
+				WordLength int    `json:"word_length"`
+			}
+			if err := call(c.Context(), "POST", "/castawordle/"+a[0]+"/private", map[string]string{"participant_id": player, "name": name, "answer": strings.TrimSpace(string(raw))}, &out); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(c.OutOrStdout(), "Created %d-letter private puzzle: https://castaway.bry-guy.net/castawordle/%s\n", out.WordLength, out.ID)
+			return err
+		},
+	}
+	private.Flags().StringVar(&player, "player", "", "Participant ID")
+	private.Flags().StringVar(&name, "name", "Your Castawordle", "Puzzle name")
+	private.Flags().StringVar(&answerFile, "answer-file", "", "File holding the answer")
+	cw.AddCommand(private)
+	return []*cobra.Command{cw}
+}
