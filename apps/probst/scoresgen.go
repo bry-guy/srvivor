@@ -41,7 +41,8 @@ func runPi(skill string) flavorWriter {
 	return func(ctx context.Context, brief []byte) ([]byte, error) {
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 		defer cancel()
-		prompt := "Write this week's flavor lines following the castaway-scores-flavor skill. Reply with the JSON object only.\n\n" + string(brief)
+		prompt := "Write this week's flavor lines following the castaway-scores-flavor skill. Reply with the JSON object only. " +
+			"The intro must contain no digits (not even the week number). Each other line must include its facts' names and number.\n\n" + string(brief)
 		cmd := exec.CommandContext(ctx, "pi", "-p", "--no-session", "--no-tools", "--skill", skill, prompt)
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
