@@ -139,7 +139,10 @@ func buildScoresPost(season, week int, now, prev []scoreRow, booted []string, si
 	p.Leader = fmt.Sprintf(weekLine(leaderLines, week), joinNames(who(func(r scoreRow) bool { return r.Total == rows[0].Total })), rows[0].Total)
 	p.Gainer = fmt.Sprintf(weekLine(gainerLines, week), joinNames(who(func(r scoreRow) bool { return gain(r) == best })), best)
 	sliders := joinNames(who(func(r scoreRow) bool { return gain(r) == worst }))
-	if worst < 0 {
+	if best == worst { // nobody separated from anybody: one line instead of three ties
+		p.Gainer, p.Slider = "", ""
+		p.Leader += " Nobody else moved an inch this week."
+	} else if worst < 0 {
 		p.Slider = fmt.Sprintf(weekLine(sliderLines, week), sliders, -worst)
 	} else { // nobody lost points: rib the slowest climber instead
 		p.Slider = fmt.Sprintf("%s managed just +%d. Slow and steady… mostly slow.", sliders, worst)

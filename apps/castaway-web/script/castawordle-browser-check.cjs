@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
+const os = require('node:os');
+const path = require('node:path');
 const base = process.argv[2];
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -102,6 +104,17 @@ const base = process.argv[2];
       assert.equal(prepared.guesses.length, 0);
       await page.goto(`${base}/castawordle`);
       assert.equal(await page.locator(`select[name="episode_number"] option[value="${episode}"]`).count(), 0);
+      await page.goto(`${base}/button`);
+      const main = await page.locator('main').innerText();
+      assert.equal(main.trim(), '', 'the button page has no text');
+      const presses = mobile ? 2 : 3;
+      for (let i = 0; i < presses; i++) {
+        const pressed = page.waitForResponse(r => r.url().endsWith('/button') && r.request().method() === 'POST');
+        await page.locator('.the-button').click();
+        assert.equal((await pressed).status(), 204);
+      }
+      assert.equal(new URL(page.url()).pathname, '/button');
+      await page.screenshot({ path: path.join(os.tmpdir(), `button-${mobile ? 'phone' : 'desktop'}.png`) });
       console.log(`${mobile ? '320px phone' : 'desktop'}: OAuth, themes, 7/8-column layout, dictionary, input, retry/resume, solve, scheduled episode preparation passed; ${screenshot}`);
       await context.close();
     }

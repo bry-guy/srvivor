@@ -56,3 +56,15 @@ func TestWeeklyLinesDontRepeat(t *testing.T) {
 		}
 	}
 }
+
+func TestScoresPostNoMovement(t *testing.T) {
+	rows := []scoreRow{{ID: "a", Name: "Ann", Total: 3, HasDraft: true}, {ID: "b", Name: "Bo", Total: 1, HasDraft: true}}
+	p, err := buildScoresPost(51, 2, rows, rows, nil, "https://x", "")
+	if err != nil || p.Gainer != "" || p.Slider != "" || !strings.Contains(p.Leader, "Nobody else moved") {
+		t.Fatalf("%+v %v", p, err)
+	}
+	text, err := renderScoresPost("../../seasons/51-scores.md", p)
+	if err != nil || strings.Contains(text, "📈") || strings.Contains(text, "📉") {
+		t.Fatalf("%q %v", text, err)
+	}
+}

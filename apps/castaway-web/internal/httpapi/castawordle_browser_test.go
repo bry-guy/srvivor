@@ -58,10 +58,18 @@ func TestCastawordleBrowser(t *testing.T) {
 	})).PublicRouter()
 	site.Start()
 	defer site.Close()
+	if _, err := pool.Exec(ctx, `INSERT INTO button_games (instance_id, episode_number, opens_at, cutoff_at)
+		SELECT id, 3, '2026-09-30T00:00:00Z', '2026-10-07T15:59:00Z' FROM instances WHERE public_id = $1`, instance.ID); err != nil {
+		t.Fatal(err)
+	}
 	cmd := exec.CommandContext(ctx, "node", "../../script/castawordle-browser-check.cjs", base)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("browser checks: %v\n%s", err, out)
 	}
 	t.Log(string(out))
+	var presses int
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(SUM(presses), 0) FROM button_presses`).Scan(&presses); err != nil || presses != 5 {
+		t.Fatalf("button presses = %d (%v), want 5 from the browser check", presses, err)
+	}
 }

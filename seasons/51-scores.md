@@ -5,8 +5,10 @@
 {{.Boots}}
 {{end}}
 👑 {{.Leader}}
-📈 {{.Gainer}}
-📉 {{.Slider}}
+{{- if .Gainer}}
+📈 {{.Gainer}}{{end}}
+{{- if .Slider}}
+📉 {{.Slider}}{{end}}
 
 🥇 {{index .Top 0}}
 {{- if gt (len .Top) 1}}
