@@ -22,6 +22,7 @@ description: Use when `probst scores generate` asks for the flavor lines of a we
 - `leader` must contain every name in `facts.leader_names` and the number `facts.leader_total`.
 - `gainer` must contain every name in `facts.gainer_names` and the number `facts.gain`.
 - `slider` must contain every name in `facts.slider_names` and the number `facts.slide`.
+- `intro` contains no digits at all (not even the week number; the header already has it).
 - If `facts.nobody_moved` is true, return `""` for `gainer` and `slider`.
 - Use names exactly as given. No @mentions, links, emoji, standings, or other numbers. Probst adds those.
 - Refer to players by name; no pronouns needed.
