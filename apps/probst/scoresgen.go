@@ -132,7 +132,7 @@ func addScoresGenerateCommand(scores *cobra.Command, call apiCall) {
 			if !noAI {
 				skill := filepath.Join(filepath.Dir(file), "..", ".agents", "skills", "castaway-scores-flavor", "SKILL.md")
 				if err := addFlavor(c.Context(), &p, runPi(skill)); err != nil {
-					fmt.Fprintf(stderr, "AI flavor skipped (%v); using template lines.\n", err)
+					fmt.Fprintf(stderr, "AI flavor: %v.\n", err)
 				}
 			}
 			text, err := renderScoresPost(tmpl, p)

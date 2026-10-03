@@ -259,8 +259,11 @@ func (s *Server) RunButtonResolver(ctx context.Context) {
 // buttonPresses is the signed-in player's press count in a game.
 func (s *Server) buttonPresses(ctx context.Context, gameID int64, discordID string) int64 {
 	var n int64
-	_ = s.pool.QueryRow(ctx, `SELECT b.presses FROM button_presses b JOIN participants p ON p.id = b.participant_id
-		WHERE b.game_id = $1 AND p.discord_user_id = $2`, gameID, discordID).Scan(&n) // no row: 0
+	err := s.pool.QueryRow(ctx, `SELECT b.presses FROM button_presses b JOIN participants p ON p.id = b.participant_id
+		WHERE b.game_id = $1 AND p.discord_user_id = $2`, gameID, discordID).Scan(&n)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		requestLogger.Error("load button presses", "error", err)
+	}
 	return n
 }
 
