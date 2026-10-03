@@ -2,3 +2,4 @@ srvivor
 apps/**/bin/
 apps/**/data/
 apps/castaway-web/typespec/node_modules/
+seasons/drafts/

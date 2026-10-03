@@ -48,7 +48,7 @@ op resolveCastawordle(@path gameID: string): WordleRoundResolution | ErrorRespon
 
 model ButtonGame {
   id: string;
-  episode_number: int32;
+  episode_number: int32 | null;
   opens_at: utcDateTime;
   cutoff_at: utcDateTime;
   resolved: boolean;
@@ -58,12 +58,19 @@ model ButtonGame {
 @post
 op createButtonGame(
   @path instanceID: string,
-  @body body: { episode_number: int32; opens_at: utcDateTime; cutoff_at: utcDateTime; },
+  @body body: { episode_number?: int32; opens_at: utcDateTime; cutoff_at: utcDateTime; },
 ): ButtonGame | ErrorResponse;
 
 @route("/button-games/{gameID}/resolve")
 @post
 op resolveButtonGame(@path gameID: string): { awards: Record<int32>; } | ErrorResponse;
+
+@route("/castawordle/{gameID}/private")
+@post
+op createPrivateCastawordle(
+  @path gameID: string,
+  @body body: { participant_id: string; name: string; answer: string; },
+): { @statusCode statusCode: 201; id: string; word_length: int32; } | ErrorResponse;
 
 @route("/castawordle/{gameID}/play")
 @get

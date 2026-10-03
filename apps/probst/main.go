@@ -570,6 +570,11 @@ func newCommand() *cobra.Command {
 	addLoginCommands(root, &server)
 	admins := &cobra.Command{Use: "admin", Short: "Instance admins (Discord users)"}
 	root.AddCommand(admins)
+	for _, cmd := range root.Commands() {
+		if cmd.Name() == "scores" {
+			addScoresGenerateCommand(cmd, call)
+		}
+	}
 	add(admins, "add DISCORD_USER", 1, func(c *cobra.Command, a []string) error {
 		p, e := instancePath()
 		if e != nil {

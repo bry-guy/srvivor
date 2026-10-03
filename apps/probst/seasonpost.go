@@ -90,6 +90,7 @@ type scoresPost struct {
 	Intro, Boots, Leader, Gainer, Slider, Last string
 	Top                                        []string
 	Site, NextGame                             string
+	Facts                                      scoresFacts
 }
 
 func weekLine(lines []string, week int) string { return lines[(week-1)%len(lines)] }
@@ -139,6 +140,11 @@ func buildScoresPost(season, week int, now, prev []scoreRow, booted []string, si
 	p.Leader = fmt.Sprintf(weekLine(leaderLines, week), joinNames(who(func(r scoreRow) bool { return r.Total == rows[0].Total })), rows[0].Total)
 	p.Gainer = fmt.Sprintf(weekLine(gainerLines, week), joinNames(who(func(r scoreRow) bool { return gain(r) == best })), best)
 	sliders := joinNames(who(func(r scoreRow) bool { return gain(r) == worst }))
+	p.Facts = scoresFacts{
+		LeaderNames: who(func(r scoreRow) bool { return r.Total == rows[0].Total }), LeaderTotal: rows[0].Total,
+		GainerNames: who(func(r scoreRow) bool { return gain(r) == best }), Gain: best,
+		SliderNames: who(func(r scoreRow) bool { return gain(r) == worst }), Slide: -worst, NobodyMoved: best == worst,
+	}
 	if best == worst { // nobody separated from anybody: one line instead of three ties
 		p.Gainer, p.Slider = "", ""
 		p.Leader += " Nobody else moved an inch this week."
@@ -205,6 +211,7 @@ func seasonFilePaths(file string) (string, error) {
 
 func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, yes *bool) {
 	var week int
+	var body string
 	cmd := &cobra.Command{
 		Use:   "post FILE --week N",
 		Short: "Render a week's scores post from the template; --yes saves and schedules it at the file's time",
@@ -226,8 +233,14 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 			if err != nil {
 				return err
 			}
-			text, err := composeScoresPost(c.Context(), call, f, airs, week, tmpl)
-			if err != nil {
+			var text string
+			if body != "" { // an edited draft from `probst scores generate`
+				raw, err := os.ReadFile(body) // #nosec G304 -- operator-chosen local draft
+				if err != nil {
+					return err
+				}
+				text = strings.TrimSpace(string(raw)) + "\n"
+			} else if text, err = composeScoresPost(c.Context(), call, f, airs, week, tmpl); err != nil {
 				return err
 			}
 			out := c.OutOrStdout()
@@ -263,26 +276,36 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 		},
 	}
 	cmd.Flags().IntVar(&week, "week", 0, "Week N (scores through Episode N)")
+	cmd.Flags().StringVar(&body, "body", "", "Post this edited draft instead of rendering the template")
 	season.AddCommand(cmd)
 }
 
 func composeScoresPost(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, week int, tmpl string) (string, error) {
+	p, err := composeScoresData(ctx, call, f, airs, week)
+	if err != nil {
+		return "", err
+	}
+	return renderScoresPost(tmpl, p)
+}
+
+// composeScoresData gathers the week's standings, movers, boots and next game from the API.
+func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, week int) (scoresPost, error) {
 	path := "/instances/" + url.PathEscape(f.Instance)
 	var now, prev struct {
 		Leaderboard []scoreRow `json:"leaderboard"`
 	}
 	if err := call(ctx, "GET", path+"/leaderboard", nil, &now); err != nil {
-		return "", err
+		return scoresPost{}, err
 	}
 	since := time.Time{}
 	if week > 1 {
 		t, err := weekPostTime(f, airs, week-1)
 		if err != nil {
-			return "", err
+			return scoresPost{}, err
 		}
 		since = t
 		if err := call(ctx, "GET", path+"/leaderboard?at="+url.QueryEscape(since.UTC().Format(time.RFC3339)), nil, &prev); err != nil {
-			return "", err
+			return scoresPost{}, err
 		}
 	}
 	var outs struct {
@@ -292,7 +315,7 @@ func composeScoresPost(ctx context.Context, call apiCall, f seasonFile, airs []t
 		} `json:"outcomes"`
 	}
 	if err := call(ctx, "GET", path+"/outcomes", nil, &outs); err != nil {
-		return "", err
+		return scoresPost{}, err
 	}
 	var booted []string
 	for _, o := range outs.Outcomes {
@@ -305,17 +328,13 @@ func composeScoresPost(ctx context.Context, call apiCall, f seasonFile, airs []t
 		if line, ok := gameLines[g]; ok {
 			opens, err := planTime(f.Weekly.Game.Opens, airs[week])
 			if err != nil {
-				return "", err
+				return scoresPost{}, err
 			}
 			when := "tonight at " + strings.TrimSuffix(opens.Format("3:04pm"), ":00pm") + "pm ET"
 			next = fmt.Sprintf(line, when, "https://castaway.bry-guy.net")
 		}
 	}
-	p, err := buildScoresPost(f.Season, week, now.Leaderboard, prev.Leaderboard, booted, "https://castaway.bry-guy.net", next)
-	if err != nil {
-		return "", err
-	}
-	return renderScoresPost(tmpl, p)
+	return buildScoresPost(f.Season, week, now.Leaderboard, prev.Leaderboard, booted, "https://castaway.bry-guy.net", next)
 }
 
 func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {

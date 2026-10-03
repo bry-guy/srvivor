@@ -24,6 +24,20 @@ func CalculateLeaderboard(
 	finalPositions map[string]int,
 	visibleBonusByParticipant map[string]int,
 ) []LeaderboardEntry {
+	return CalculateStandings(totalPositions, participantNames, draftsByParticipant, finalPositions, visibleBonusByParticipant, nil)
+}
+
+// CalculateStandings orders players by the league tiebreakers: total, then draft points (without bonus),
+// then who first submitted a draft earliest (draftOrder is 1-based; players without one sort after),
+// then name and ID so exact ties stay stable.
+func CalculateStandings(
+	totalPositions int,
+	participantNames map[string]string,
+	draftsByParticipant map[string][]DraftPick,
+	finalPositions map[string]int,
+	visibleBonusByParticipant map[string]int,
+	draftOrder map[string]int,
+) []LeaderboardEntry {
 	entries := make([]LeaderboardEntry, 0, len(participantNames))
 	for participantID, participantName := range participantNames {
 		draft := draftsByParticipant[participantID]
@@ -42,11 +56,27 @@ func CalculateLeaderboard(
 		entries = append(entries, entry)
 	}
 
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].TotalPoints != entries[j].TotalPoints {
-			return entries[i].TotalPoints > entries[j].TotalPoints
+	order := func(id string) int {
+		if n, ok := draftOrder[id]; ok && n > 0 {
+			return n
 		}
-		return entries[i].ParticipantName < entries[j].ParticipantName
+		return int(^uint(0) >> 1)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		a, b := entries[i], entries[j]
+		if a.TotalPoints != b.TotalPoints {
+			return a.TotalPoints > b.TotalPoints
+		}
+		if a.DraftPoints != b.DraftPoints {
+			return a.DraftPoints > b.DraftPoints
+		}
+		if oa, ob := order(a.ParticipantID), order(b.ParticipantID); oa != ob {
+			return oa < ob
+		}
+		if a.ParticipantName != b.ParticipantName {
+			return a.ParticipantName < b.ParticipantName
+		}
+		return a.ParticipantID < b.ParticipantID
 	})
 
 	return entries

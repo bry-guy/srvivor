@@ -330,3 +330,27 @@ func (s *Server) queueDraftAnnouncement(ctx context.Context, tx pgx.Tx, instance
 		toPGUUID(instanceID), config.GuildID, config.ChannelID, prefix+"-"+pgUUIDString(participantID), draftCopy(template, player, tribe), s.now(), thread)
 	return err
 }
+
+// firstDraftOrders maps participant ID to the order of their first draft submission (kept across
+// corrections), the standings tiebreaker after draft points. Seasons without submissions return none.
+func firstDraftOrders(ctx context.Context, q *db.Queries, instanceID pgtype.UUID) (map[string]int, error) {
+	activity, _, err := draftSubmissionActivity(ctx, q, instanceID)
+	if err != nil || activity == nil {
+		return nil, err
+	}
+	occurrences, err := q.ListActivityOccurrencesByActivity(ctx, activity.ID)
+	if err != nil {
+		return nil, err
+	}
+	orders := map[string]int{}
+	for _, o := range occurrences {
+		var result draftSubmissionResult
+		if o.Status != "resolved" || !o.SourceRef.Valid || json.Unmarshal(o.Metadata, &result) != nil || result.Order < 1 {
+			continue
+		}
+		if prior, ok := orders[o.SourceRef.String]; !ok || result.Order < prior {
+			orders[o.SourceRef.String] = result.Order
+		}
+	}
+	return orders, nil
+}

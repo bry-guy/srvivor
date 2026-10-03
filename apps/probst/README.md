@@ -195,3 +195,9 @@ needs `castawordle week` for its answer). `probst season post FILE --week N [--y
 scores post from `seasons/NN-scores.md` — leader, biggest gainer, biggest slider (wording rotates weekly),
 top 3 + last place pinged, boots since last week's post, next game — and with `--yes` saves and schedules it
 at the file's time. Re-run before then to refresh numbers.
+
+`probst scores generate [--week N] [--no-ai]` drafts the week's scores post to `seasons/drafts/`: Probst renders
+the numbers, order (league tiebreakers), mentions, boots and next game; `pi` (skill
+`.agents/skills/castaway-scores-flavor`) writes only the intro/leader/gainer/slider lines, and any line missing
+a required name or number falls back to the template. Edit the draft, then
+`probst season post seasons/51.yaml --week N --body DRAFT --yes` saves and schedules it.

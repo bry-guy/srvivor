@@ -170,6 +170,7 @@ func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.GET("/castawordle/:gameID/play", s.getCastawordlePlay)
 	protected.POST("/castawordle/:gameID/play/guesses", s.guessCastawordle)
 	protected.POST("/castawordle/:gameID/resolve", s.resolveCastawordle)
+	protected.POST("/castawordle/:gameID/private", s.createPrivateCastawordle)
 	protected.POST("/instances/:instanceID/button-games", s.createButtonGame)
 	protected.POST("/button-games/:gameID/resolve", s.resolveButtonGameRequest)
 	protected.POST("/activities/:activityID/wordle-rounds", s.createWordleRound)
@@ -1130,7 +1131,12 @@ func (s *Server) leaderboard(c *gin.Context) {
 		visibleBonusByParticipant[participantID] = int(bonusPoints)
 	}
 
-	leaderboard := scoring.CalculateLeaderboard(len(contestants), participantNames, draftsByParticipant, finalPositions, visibleBonusByParticipant)
+	draftOrder, err := firstDraftOrders(c.Request.Context(), s.queries, toPGUUID(instanceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	leaderboard := scoring.CalculateStandings(len(contestants), participantNames, draftsByParticipant, finalPositions, visibleBonusByParticipant, draftOrder)
 
 	response := make([]gin.H, 0, len(leaderboard))
 	for _, row := range leaderboard {

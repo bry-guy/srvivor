@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -66,5 +67,40 @@ func TestScoresPostNoMovement(t *testing.T) {
 	text, err := renderScoresPost("../../seasons/51-scores.md", p)
 	if err != nil || strings.Contains(text, "📈") || strings.Contains(text, "📉") {
 		t.Fatalf("%q %v", text, err)
+	}
+}
+
+func TestScoresFlavorGuardrails(t *testing.T) {
+	prev := []scoreRow{{ID: "a", Total: 10}, {ID: "b", Total: 9}}
+	now := []scoreRow{{ID: "a", Name: "Ann", DiscordID: "1", Total: 15, HasDraft: true}, {ID: "b", Name: "Bo", DiscordID: "2", Total: 7, HasDraft: true}}
+	base, err := buildScoresPost(51, 3, now, prev, nil, "https://x", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := base.Facts; f.LeaderTotal != 15 || f.Gain != 5 || f.Slide != 2 || f.LeaderNames[0] != "Ann" || f.SliderNames[0] != "Bo" {
+		t.Fatalf("facts: %+v", f)
+	}
+	write := func(reply string) flavorWriter {
+		return func(context.Context, []byte) ([]byte, error) { return []byte(reply), nil }
+	}
+
+	good := base
+	reply := "Sure!\n" + `{"intro":"Torches up, castaways.","leader":"Ann rules with 15.","gainer":"Ann surged 5.","slider":"Bo slid 2, but the fire's still lit."}`
+	if err := addFlavor(context.Background(), &good, write(reply)); err != nil || good.Leader != "Ann rules with 15." || good.Slider != "Bo slid 2, but the fire's still lit." {
+		t.Fatalf("good reply: %v %+v", err, good)
+	}
+
+	bad := base
+	reply = `{"intro":"Week 3!","leader":"Ann rules with 16.","gainer":"<@1> surged 5.","slider":"Bo, the worst pony, slid 2."}`
+	if err := addFlavor(context.Background(), &bad, write(reply)); err == nil {
+		t.Fatal("wrong numbers, mentions and banned words should fall back")
+	}
+	if bad.Intro != base.Intro || bad.Leader != base.Leader || bad.Gainer != base.Gainer || bad.Slider != base.Slider {
+		t.Fatalf("rejected lines must keep the template wording: %+v", bad)
+	}
+
+	garbage := base
+	if err := addFlavor(context.Background(), &garbage, write("no json here")); err == nil || garbage.Leader != base.Leader {
+		t.Fatalf("garbage reply: %v %+v", err, garbage)
 	}
 }

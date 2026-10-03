@@ -33,6 +33,7 @@ type sitePageData struct {
 	Episodes           []castawordleEpisodeOption
 	Game               *castawordleGameView
 	ButtonOpen         bool
+	ButtonAction       string
 }
 
 func loginReturnTo(candidate string) string {

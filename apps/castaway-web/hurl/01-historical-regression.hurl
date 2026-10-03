@@ -99,9 +99,9 @@ jsonpath "$.leaderboard[1].participant_name" == "Kyle"
 jsonpath "$.leaderboard[1].draft_points" == 12
 jsonpath "$.leaderboard[1].bonus_points" == 5
 jsonpath "$.leaderboard[1].total_points" == 17
-jsonpath "$.leaderboard[2].participant_name" == "Mooney"
+jsonpath "$.leaderboard[2].participant_name" == "Yacob"
 jsonpath "$.leaderboard[2].total_points" == 17
-jsonpath "$.leaderboard[3].participant_name" == "Yacob"
+jsonpath "$.leaderboard[3].participant_name" == "Mooney"
 jsonpath "$.leaderboard[3].total_points" == 17
 
 GET {{base_url}}/instances/{{season50_instance_id}}/participants/{{season50_katie_id}}/bonus-ledger

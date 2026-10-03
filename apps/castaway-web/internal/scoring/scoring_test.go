@@ -22,11 +22,12 @@ func TestCalculateLeaderboardSort(t *testing.T) {
 	if len(leaderboard) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(leaderboard))
 	}
-	if leaderboard[0].ParticipantID != "p2" {
-		t.Fatalf("expected p2 first after bonus points, got %s", leaderboard[0].ParticipantID)
+	// Tied at 5 total: p1's 5 draft points beat p2's 3 draft + 2 bonus.
+	if leaderboard[0].ParticipantID != "p1" {
+		t.Fatalf("expected p1 first on the draft-points tiebreaker, got %s", leaderboard[0].ParticipantID)
 	}
-	if leaderboard[0].DraftPoints != 3 || leaderboard[0].BonusPoints != 2 || leaderboard[0].TotalPoints != 5 || leaderboard[0].Score != 5 {
-		t.Fatalf("unexpected leaderboard totals: %+v", leaderboard[0])
+	if leaderboard[1].DraftPoints != 3 || leaderboard[1].BonusPoints != 2 || leaderboard[1].TotalPoints != 5 || leaderboard[1].Score != 5 {
+		t.Fatalf("unexpected leaderboard totals: %+v", leaderboard[1])
 	}
 }
 

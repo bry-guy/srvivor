@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,7 +29,56 @@ type castawordleGameView struct {
 	CutoffAt      time.Time `json:"cutoff_at"`
 	Unscored      bool      `json:"unscored"`
 	Test          bool      `json:"test"`
+	Private       bool      `json:"private,omitempty"` // one player's own scored puzzle (see castawordlePrivateGames)
 	EpisodeNumber *int32    `json:"episode_number,omitempty"`
+}
+
+// castawordlePrivateGame describes a private puzzle: its owner and the scored game it stands in for.
+type castawordlePrivateGame struct {
+	OwnerDiscordID string
+	ReplacesID     string
+	Episode        *int32
+}
+
+// castawordlePrivateGames maps game ID to private-puzzle details for an instance (or one game when gameID
+// is set). Only the owner may see or play a private puzzle; its result counts in the original's round.
+func (s *Server) castawordlePrivateGames(ctx context.Context, instanceID pgtype.UUID, gameID pgtype.UUID) (map[string]castawordlePrivateGame, error) {
+	rows, err := s.pool.Query(ctx, `SELECT g.public_id::text, COALESCE(p.discord_user_id, ''), o.public_id::text, o.episode_number
+		FROM castawordle_games g JOIN instances i ON i.id = g.instance_id
+		JOIN participants p ON p.id = g.player_id JOIN castawordle_games o ON o.id = g.replaces_game_id
+		WHERE (i.public_id = $1 OR $1 IS NULL) AND (g.public_id = $2 OR $2 IS NULL)`, instanceID, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	games := map[string]castawordlePrivateGame{}
+	for rows.Next() {
+		var id string
+		var game castawordlePrivateGame
+		if err := rows.Scan(&id, &game.OwnerDiscordID, &game.ReplacesID, &game.Episode); err != nil {
+			return nil, err
+		}
+		games[id] = game
+	}
+	return games, rows.Err()
+}
+
+// castawordleVisible applies the visibility rules: private puzzles are for their owner only, tests for
+// admins only, and a player with a private puzzle doesn't see the game it replaces.
+func castawordleVisible(id string, test, admin bool, discordID string, private map[string]castawordlePrivateGame) bool {
+	if game, ok := private[id]; ok {
+		return game.OwnerDiscordID != "" && game.OwnerDiscordID == discordID
+	}
+	for _, game := range private {
+		if game.ReplacesID == id && game.OwnerDiscordID == discordID {
+			return false
+		}
+	}
+	return !test || admin
+}
+
+func (view *castawordleGameView) markPrivate(game castawordlePrivateGame) {
+	view.Private, view.Test, view.Unscored, view.EpisodeNumber = true, false, false, game.Episode
 }
 
 type castawordleGuessView struct {
@@ -286,16 +336,21 @@ func (s *Server) castawordlePlayer(c *gin.Context) (db.GetCastawordleGameRow, pg
 		c.JSON(http.StatusForbidden, errorResponse{Error: "this game belongs to a different season"})
 		return game, pgtype.UUID{}, false
 	}
-	if !game.EpisodeNumber.Valid {
-		admin, err := s.isInstanceAdmin(c.Request.Context(), game.InstanceID, discordUserIDFromRequest(c.Request))
-		if err != nil {
+	private, err := s.castawordlePrivateGames(c.Request.Context(), game.InstanceID, pgtype.UUID{})
+	if err != nil {
+		castawordleError(c, err)
+		return game, pgtype.UUID{}, false
+	}
+	admin := false
+	if _, isPrivate := private[pgUUIDString(game.ID)]; !game.EpisodeNumber.Valid && !isPrivate {
+		if admin, err = s.isInstanceAdmin(c.Request.Context(), game.InstanceID, discordUserIDFromRequest(c.Request)); err != nil {
 			castawordleError(c, err)
 			return game, pgtype.UUID{}, false
 		}
-		if !admin {
-			c.JSON(http.StatusNotFound, errorResponse{Error: "game not found"})
-			return game, pgtype.UUID{}, false
-		}
+	}
+	if !castawordleVisible(pgUUIDString(game.ID), !game.EpisodeNumber.Valid, admin, discordUserIDFromRequest(c.Request), private) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "game not found"})
+		return game, pgtype.UUID{}, false
 	}
 	player, err := s.queries.GetParticipantByDiscordUserID(c.Request.Context(), db.GetParticipantByDiscordUserIDParams{
 		InstanceID:    game.InstanceID,
@@ -511,6 +566,11 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 		writeWordleError(c, err)
 		return
 	}
+	plays, answers, err := withPrivateCastawordlePlays(ctx, tx, lockedGame.ID, lockedGame.Answer, plays)
+	if err != nil {
+		writeWordleError(c, err)
+		return
+	}
 	type completedPlay struct {
 		participantID pgtype.UUID
 		guessCount    int32
@@ -524,7 +584,7 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 		}
 		switch play.Status {
 		case "solved":
-			if len(guesses) < 1 || len(guesses) > castawordle.GuessLimit || guesses[len(guesses)-1] != lockedGame.Answer {
+			if len(guesses) < 1 || len(guesses) > castawordle.GuessLimit || guesses[len(guesses)-1] != answers[play.ParticipantID] {
 				c.JSON(http.StatusConflict, errorResponse{Error: "saved Castawordle result is invalid"})
 				return
 			}
@@ -646,12 +706,21 @@ func (s *Server) castawordleListPage(c *gin.Context) {
 		castawordleError(c, err)
 		return
 	}
-	rows, err := s.queries.ListCastawordleGames(c.Request.Context(), db.ListCastawordleGamesParams{InstanceID: toPGUUID(id), IncludeTests: data.Admin})
+	rows, err := s.queries.ListCastawordleGames(c.Request.Context(), db.ListCastawordleGamesParams{InstanceID: toPGUUID(id), IncludeTests: true})
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	private, err := s.castawordlePrivateGames(c.Request.Context(), toPGUUID(id), pgtype.UUID{})
 	if err != nil {
 		castawordleError(c, err)
 		return
 	}
 	for _, row := range rows {
+		gameID := pgUUIDString(row.ID)
+		if !castawordleVisible(gameID, !row.EpisodeNumber.Valid, data.Admin, data.User.DiscordUserID, private) {
+			continue
+		}
 		var episodeNumber *int32
 		if row.EpisodeNumber.Valid {
 			episodeNumber = &row.EpisodeNumber.Int32
@@ -662,6 +731,9 @@ func (s *Server) castawordleListPage(c *gin.Context) {
 			OpensAt: easternTime(row.OpensAt.Time), CutoffAt: easternTime(row.CutoffAt.Time), Unscored: !row.WordleRoundID.Valid,
 			Test: !row.EpisodeNumber.Valid, EpisodeNumber: episodeNumber,
 		})
+		if game, ok := private[gameID]; ok {
+			data.Games[len(data.Games)-1].markPrivate(game)
+		}
 	}
 	if data.Admin {
 		episodes, err := s.queries.ListInstanceEpisodes(c.Request.Context(), toPGUUID(id))
@@ -703,11 +775,19 @@ func (s *Server) castawordlePage(c *gin.Context) {
 		castawordleError(c, err)
 		return
 	}
-	if pgUUIDString(row.InstanceID) != s.public.InstanceID || (!row.EpisodeNumber.Valid && !data.Admin) {
+	private, err := s.castawordlePrivateGames(c.Request.Context(), row.InstanceID, pgtype.UUID{})
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	if pgUUIDString(row.InstanceID) != s.public.InstanceID || !castawordleVisible(pgUUIDString(row.ID), !row.EpisodeNumber.Valid, data.Admin, data.User.DiscordUserID, private) {
 		c.String(http.StatusNotFound, "game not found")
 		return
 	}
 	game := castawordleGame(row)
+	if p, ok := private[pgUUIDString(row.ID)]; ok {
+		game.markPrivate(p)
+	}
 	data.Game = &game
 	renderSite(c, "game.html", data)
 }
@@ -718,4 +798,122 @@ func easternTime(t time.Time) time.Time {
 		return t.In(location)
 	}
 	return t
+}
+
+// withPrivateCastawordlePlays swaps in private-puzzle results: a player with a private puzzle for this game
+// is scored on it (against its own answer), never on the original. It returns each player's answer.
+func withPrivateCastawordlePlays(ctx context.Context, tx pgx.Tx, gameID pgtype.UUID, answer string, plays []db.ListCastawordlePlaysRow) ([]db.ListCastawordlePlaysRow, map[pgtype.UUID]string, error) {
+	rows, err := tx.Query(ctx, `SELECT p.public_id, g.answer, cp.guesses, cp.status
+		FROM castawordle_games g JOIN castawordle_games o ON o.id = g.replaces_game_id
+		JOIN participants p ON p.id = g.player_id
+		LEFT JOIN castawordle_plays cp ON cp.game_id = g.id AND cp.participant_id = g.player_id
+		WHERE o.public_id = $1 FOR UPDATE OF g`, gameID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	answers := map[pgtype.UUID]string{}
+	var private []db.ListCastawordlePlaysRow
+	for rows.Next() {
+		var play db.ListCastawordlePlaysRow
+		var own string
+		var status *string
+		if err := rows.Scan(&play.ParticipantID, &own, &play.Guesses, &status); err != nil {
+			return nil, nil, err
+		}
+		answers[play.ParticipantID] = own
+		if status != nil {
+			play.Status = *status
+			private = append(private, play)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	merged := private
+	for _, play := range plays {
+		if _, replaced := answers[play.ParticipantID]; !replaced {
+			answers[play.ParticipantID] = answer
+			merged = append(merged, play)
+		}
+	}
+	return merged, answers, nil
+}
+
+// createPrivateCastawordle gives one player their own puzzle for a scored game: same window, their result
+// replaces their result in the original's round. It refuses once they've started the original or it closed.
+func (s *Server) createPrivateCastawordle(c *gin.Context) {
+	gameID, ok := parseUUIDPath(c, "gameID")
+	if !ok {
+		return
+	}
+	var req struct {
+		ParticipantID uuid.UUID `json:"participant_id" binding:"required"`
+		Name          string    `json:"name"`
+		Answer        string    `json:"answer"`
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2048)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "participant_id, name and answer are required"})
+		return
+	}
+	req.Name, req.Answer = strings.TrimSpace(req.Name), castawordle.Normalize(req.Answer)
+	if req.Name == "" || len(req.Name) > 80 || !castawordle.ValidWord(req.Answer) {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "use a name up to 80 characters and a dictionary answer of 4–8 letters"})
+		return
+	}
+	ctx := c.Request.Context()
+	game, err := s.queries.GetCastawordleGame(ctx, toPGUUID(gameID))
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	if !s.requireInstanceAdminRequest(c, uuid.UUID(game.InstanceID.Bytes)) {
+		return
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	defer rollbackTx(c, tx)
+	locked, err := s.queries.WithTx(tx).LockCastawordleGame(ctx, game.ID) // guesses lock this row too
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	if !locked.WordleRoundID.Valid || !s.now().Before(locked.CutoffAt.Time) {
+		c.JSON(http.StatusConflict, errorResponse{Error: "private puzzles replace results in an open, scored game"})
+		return
+	}
+	var started bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM castawordle_plays cp JOIN castawordle_games g ON g.id = cp.game_id
+		JOIN participants p ON p.id = cp.participant_id WHERE g.public_id = $1 AND p.public_id = $2 AND jsonb_array_length(cp.guesses) > 0)`,
+		game.ID, req.ParticipantID).Scan(&started); err != nil {
+		castawordleError(c, err)
+		return
+	}
+	if started {
+		c.JSON(http.StatusConflict, errorResponse{Error: "that player already started this puzzle"})
+		return
+	}
+	var id uuid.UUID
+	err = tx.QueryRow(ctx, `INSERT INTO castawordle_games (instance_id, name, answer, dictionary_version, opens_at, cutoff_at, replaces_game_id, player_id)
+		SELECT o.instance_id, $2, $3, $4, o.opens_at, o.cutoff_at, o.id, p.id
+		FROM castawordle_games o JOIN participants p ON p.instance_id = o.instance_id AND p.public_id = $5
+		WHERE o.public_id = $1 ON CONFLICT DO NOTHING RETURNING public_id`,
+		game.ID, req.Name, req.Answer, castawordle.DictionaryVersion, req.ParticipantID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusConflict, errorResponse{Error: "that player isn't in this season or already has a private puzzle for this game"})
+		return
+	}
+	if err != nil {
+		castawordleError(c, err)
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		castawordleError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"id": id, "word_length": len(req.Answer)})
 }

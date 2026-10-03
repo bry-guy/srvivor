@@ -690,7 +690,11 @@ func (s *Server) calculateLeaderboardAt(ctx context.Context, q *db.Queries, inst
 			finalPositions[uuid.UUID(outcome.ContestantID.Bytes).String()] = int(outcome.Position)
 		}
 	}
-	entries := scoring.CalculateLeaderboard(len(contestants), participantNames, draftsByParticipant, finalPositions, visibleBonus)
+	draftOrder, err := firstDraftOrders(ctx, q, toPGUUID(instanceID))
+	if err != nil {
+		return calculatedLeaderboard{}, err
+	}
+	entries := scoring.CalculateStandings(len(contestants), participantNames, draftsByParticipant, finalPositions, visibleBonus, draftOrder)
 	return calculatedLeaderboard{
 		Entries:        entries,
 		ParticipantIDs: participantIDs,

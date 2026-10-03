@@ -7,6 +7,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Standings tiebreakers everywhere: total, then draft points (without bonus), then earliest first draft submission.
+- Private Castawordle (`POST /castawordle/{id}/private`, migration 026): one player's own puzzle for a scored week. Only they see it, it hides the original from them, and its result replaces theirs in the original's round.
+- Press the Button admin test games: "Test Press the Button" on Games makes a one-hour admin-only game at `/button/{id}` that never scores.
 - Press the Button (/button, migration 025): one big button, presses counted per player, scored at cutoff (most +2, 2nd most -1, least +1, shared counts +group size up to 3); resolves itself each minute. Leaderboard accepts `?at=`; outcomes include `updated_at`.
 - Profile drafts use short names (survivoR `castaway`, migration 024) and show each scored pick as (+value − distance) with an ⓘ explainer; current-season eliminations are italic once scored. Past standings hide Tribe when a season had none.
 - Nav "Castawordle" is now "Games" (/games hub); past standings show a 🏆 for winners and hide Bonus when a season had none; profile season header links to standings.

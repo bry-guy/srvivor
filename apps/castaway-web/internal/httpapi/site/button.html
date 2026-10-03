@@ -1,4 +1,4 @@
 {{template "header" .}}
-{{if .ButtonOpen}}<form class="button-stage" method="post" action="/button"><button class="the-button" type="submit" aria-label="Press the button"></button></form>
+{{if .ButtonOpen}}<form class="button-stage" method="post" action="{{.ButtonAction}}"><button class="the-button" type="submit" aria-label="Press the button"></button></form>
 <script src="/assets/button.js" defer></script>{{end}}
 {{template "footer" .}}
