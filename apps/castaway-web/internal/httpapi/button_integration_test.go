@@ -74,8 +74,8 @@ func TestPressTheButton(t *testing.T) {
 	serve("POST", "/button", "", "most", 409, "X-Press", "1")
 	now = time.Date(2026, 10, 8, 1, 0, 0, 0, time.UTC)
 	page := serve("GET", "/button", "", "most", 200)
-	if !strings.Contains(page, `class="the-button"`) || strings.Contains(page, "<p") {
-		t.Fatalf("button page should be just the button: %s", page)
+	if !strings.Contains(page, `class="the-button"`) || strings.Contains(page, "<p") || !strings.Contains(page, "count: 0") {
+		t.Fatalf("button page should be just the button and its count: %s", page)
 	}
 	press := func(user string, n int) {
 		for range n {
@@ -87,6 +87,9 @@ func TestPressTheButton(t *testing.T) {
 	press("twinA", 4)
 	press("twinB", 4)
 	press("least", 1)
+	if page := serve("GET", "/button", "", "most", 200); !strings.Contains(page, "count: 9") {
+		t.Fatalf("count after 9 presses: %s", page)
+	}
 	serve("POST", "/button", "", "least", 303)                               // plain form post redirects back
 	press("least", 0)                                                        // least now has 2 presses
 	serve("POST", "/api/button-games/"+game.ID+"/resolve", "", "admin", 409) // before cutoff

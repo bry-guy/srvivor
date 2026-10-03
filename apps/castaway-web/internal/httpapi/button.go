@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
@@ -19,7 +20,8 @@ import (
 // buttonAwards scores Press the Button. Players with zero presses have no result (they aren't in presses).
 // Players who share a press count earn the group's size, at most 3. Everyone else is ranked by distinct
 // press count: the most earns +2, the second most -1 and the least +1. A count gets only the first that
-// applies, so with two distinct counts the lower one is "second most".
+// applies, so with two distinct counts the lower one is "second most". On top of that, everyone earns +1
+// per order of magnitude past 10 presses (100: +1, 1,000: +2, 10,000+: +3).
 func buttonAwards(presses map[string]int64) map[string]int {
 	byCount := map[int64][]string{}
 	for player, n := range presses {
@@ -44,6 +46,7 @@ func buttonAwards(presses map[string]int64) map[string]int {
 		case i == len(counts)-1:
 			points = 1
 		}
+		points += pressBonus(n)
 		for _, player := range group {
 			if points != 0 {
 				awards[player] = points
@@ -51,6 +54,14 @@ func buttonAwards(presses map[string]int64) map[string]int {
 		}
 	}
 	return awards
+}
+
+func pressBonus(presses int64) int {
+	bonus := 0
+	for n := int64(100); presses >= n && bonus < 3; n *= 10 {
+		bonus++
+	}
+	return bonus
 }
 
 type buttonGame struct {
@@ -245,6 +256,14 @@ func (s *Server) RunButtonResolver(ctx context.Context) {
 	}
 }
 
+// buttonPresses is the signed-in player's press count in a game.
+func (s *Server) buttonPresses(ctx context.Context, gameID int64, discordID string) int64 {
+	var n int64
+	_ = s.pool.QueryRow(ctx, `SELECT b.presses FROM button_presses b JOIN participants p ON p.id = b.participant_id
+		WHERE b.game_id = $1 AND p.discord_user_id = $2`, gameID, discordID).Scan(&n) // no row: 0
+	return n
+}
+
 // openButtonGame is the current season's game that's open now, if any.
 func (s *Server) openButtonGame(ctx context.Context) (int64, bool, error) {
 	var id int64
@@ -285,7 +304,7 @@ func (s *Server) buttonPage(c *gin.Context) {
 	}
 	data.ButtonAction = c.Request.URL.Path
 	if data.Allowed {
-		_, open, err := s.buttonGameFor(c, data)
+		gameID, open, err := s.buttonGameFor(c, data)
 		if errors.Is(err, errButtonNotFound) {
 			c.String(http.StatusNotFound, "game not found")
 			return
@@ -295,6 +314,9 @@ func (s *Server) buttonPage(c *gin.Context) {
 			return
 		}
 		data.ButtonOpen = open
+		if open {
+			data.ButtonPresses = s.buttonPresses(c.Request.Context(), gameID, data.User.DiscordUserID)
+		}
 	}
 	renderSite(c, "button.html", data)
 }
@@ -320,16 +342,18 @@ func (s *Server) pressButton(c *gin.Context) {
 		c.Status(http.StatusConflict)
 		return
 	}
-	tag, err := s.pool.Exec(ctx, `INSERT INTO button_presses (game_id, participant_id, presses)
+	var count int64
+	err = s.pool.QueryRow(ctx, `INSERT INTO button_presses (game_id, participant_id, presses)
 		SELECT $1, p.id, 1 FROM participants p JOIN instances i ON i.id = p.instance_id
 		WHERE i.public_id = $2 AND p.discord_user_id = $3
-		ON CONFLICT (game_id, participant_id) DO UPDATE SET presses = button_presses.presses + 1`,
-		gameID, s.public.InstanceID, data.User.DiscordUserID)
-	if err != nil || tag.RowsAffected() != 1 {
+		ON CONFLICT (game_id, participant_id) DO UPDATE SET presses = button_presses.presses + 1
+		RETURNING presses`, gameID, s.public.InstanceID, data.User.DiscordUserID).Scan(&count)
+	if err != nil {
 		c.Status(http.StatusConflict)
 		return
 	}
 	if c.GetHeader("X-Press") != "" {
+		c.Header("X-Press-Count", strconv.FormatInt(count, 10))
 		c.Status(http.StatusNoContent)
 		return
 	}

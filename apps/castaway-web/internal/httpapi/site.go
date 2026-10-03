@@ -34,6 +34,7 @@ type sitePageData struct {
 	Game               *castawordleGameView
 	ButtonOpen         bool
 	ButtonAction       string
+	ButtonPresses      int64
 }
 
 func loginReturnTo(candidate string) string {

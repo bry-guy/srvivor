@@ -7,6 +7,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Press the Button shows a small "count: N" under the button, and players earn +1 per order of magnitude past 10 presses (100: +1, 1,000: +2, 10,000+: +3), on top of the ranking rules.
 - Standings tiebreakers everywhere: total, then draft points (without bonus), then earliest first draft submission.
 - Private Castawordle (`POST /castawordle/{id}/private`, migration 026): one player's own puzzle for a scored week. Only they see it, it hides the original from them, and its result replaces theirs in the original's round.
 - Press the Button admin test games: "Test Press the Button" on Games makes a one-hour admin-only game at `/button/{id}` that never scores.

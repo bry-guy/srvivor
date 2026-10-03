@@ -22,3 +22,16 @@ func TestButtonAwards(t *testing.T) {
 		}
 	}
 }
+
+func TestButtonPressBonus(t *testing.T) {
+	for presses, want := range map[int64]int{1: 0, 99: 0, 100: 1, 999: 1, 1000: 2, 9999: 2, 10000: 3, 1000000: 3} {
+		if got := pressBonus(presses); got != want {
+			t.Errorf("pressBonus(%d) = %d, want %d", presses, got, want)
+		}
+	}
+	// The bonus adds to the ranking rules: most +2+2, second -1+1, least +1+0.
+	got := buttonAwards(map[string]int64{"a": 1500, "b": 120, "c": 3})
+	if want := map[string]int{"a": 4, "c": 1}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
