@@ -67,6 +67,7 @@ func run() error {
 		LeagueInstanceIDs:   cfg.PublicLeagueIDs,
 	}))
 	router := server.Router()
+	go server.RunButtonResolver(ctx)
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

@@ -189,3 +189,9 @@ how the file differs from the live instance (episode air times, unsent announcem
 It's read-only. `TBD` values are placeholders: they're listed with ⚠ and never acted on. Posts show
 ⚠ until `approved: true`. Unknown fields are rejected so typos surface. See `plans/season-schedule.md`
 for the format and the `apply`/runner steps that follow.
+
+`probst season apply FILE [--yes]` creates/reschedules the file's games (Press the Button; Castawordle still
+needs `castawordle week` for its answer). `probst season post FILE --week N [--yes]` renders that week's
+scores post from `seasons/NN-scores.md` — leader, biggest gainer, biggest slider (wording rotates weekly),
+top 3 + last place pinged, boots since last week's post, next game — and with `--yes` saves and schedules it
+at the file's time. Re-run before then to refresh numbers.

@@ -32,10 +32,11 @@ type sitePageData struct {
 	Games              []castawordleGameView
 	Episodes           []castawordleEpisodeOption
 	Game               *castawordleGameView
+	ButtonOpen         bool
 }
 
 func loginReturnTo(candidate string) string {
-	if candidate == "/castawordle" || candidate == "/me" {
+	if candidate == "/castawordle" || candidate == "/me" || candidate == "/button" {
 		return candidate
 	}
 	for _, prefix := range []string{"/castawordle/", "/players/"} {

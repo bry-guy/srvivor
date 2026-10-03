@@ -99,6 +99,8 @@ func (s *Server) PublicRouter() *gin.Engine {
 	pages.GET("/seasons/:instanceID", s.seasonPage)
 	pages.GET("/players/:participantID", s.playerPage)
 	pages.GET("/games", s.gamesPage)
+	pages.GET("/button", s.buttonPage)
+	pages.POST("/button", s.requireSameOrigin(), s.pressButton)
 	pages.GET("/castawordle", s.castawordleListPage)
 	pages.GET("/castawordle/:gameID", s.castawordlePage)
 	r.GET("/auth/login", s.startLogin)

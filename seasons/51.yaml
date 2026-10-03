@@ -37,10 +37,10 @@ weekly:
   game:                         # one game/event a week; opens at the episode, closes before scores
     opens: "20:00"
     closes: "+7d 11:59"
-    resolve: "+7d 11:59"        # awarded automatically at close
+    resolve: "+7d 11:59"        # awarded at close (Press the Button resolves itself; Castawordle via `probst castawordle resolve`)
   scores_post:
     at: "+7d 12:00"             # Wednesday noon, after the game resolves
-    template: scores            # header, spoiler-hidden boots, short top-5 + site link, next game
+    template: scores            # seasons/51-scores.md, filled by `probst season post seasons/51.yaml --week N`
     ping: [top3, last]          # mention only the top 3 and last place (not the role)
     callouts:                   # same shape every week, fresh wording each week (no repeats within the season)
       - praise: leader          # top player overall
@@ -51,7 +51,7 @@ weekly:
 weeks:
   1: {game: none, scores_post: {at: 2026-09-30 21:52, sent: true}}      # draft week; posted
   2: {game: {type: castawordle, answer_file: answers/ep2.txt}}            # live now, closes Oct 7 11:59
-  3: {game: TBD}
+  3: {game: {type: press_the_button}}                                        # most +2, 2nd most -1, least +1, ties +size (max 3)
   4: {game: TBD}
   5: {game: TBD}
   6: {game: TBD}

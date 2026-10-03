@@ -46,6 +46,25 @@ op createCastawordle(
 @post
 op resolveCastawordle(@path gameID: string): WordleRoundResolution | ErrorResponse;
 
+model ButtonGame {
+  id: string;
+  episode_number: int32;
+  opens_at: utcDateTime;
+  cutoff_at: utcDateTime;
+  resolved: boolean;
+}
+
+@route("/instances/{instanceID}/button-games")
+@post
+op createButtonGame(
+  @path instanceID: string,
+  @body body: { episode_number: int32; opens_at: utcDateTime; cutoff_at: utcDateTime; },
+): ButtonGame | ErrorResponse;
+
+@route("/button-games/{gameID}/resolve")
+@post
+op resolveButtonGame(@path gameID: string): { awards: Record<int32>; } | ErrorResponse;
+
 @route("/castawordle/{gameID}/play")
 @get
 op getCastawordlePlay(@path gameID: string): CastawordlePlay | ErrorResponse;

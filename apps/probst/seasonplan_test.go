@@ -23,7 +23,9 @@ func TestSeasonPlanTimeline(t *testing.T) {
 	printTimeline(&b, items)
 	out := b.String()
 	for _, want := range []string{
-		"Wed Oct 07 11:59am     Game: castawordle closes + awards",
+		"Wed Oct 07 11:59am     Game: Castawordle closes + awards",
+		"Wed Oct 07 8:00pm      Game: Press the Button opens",
+		"Wed Oct 14 11:59am     Game: Press the Button closes + awards",
 		"Wed Oct 07 12:00pm     Week 2 scores post",
 		"Episode 13 airs — FINALE",
 		"Wed Dec 23 12:00pm     FINAL scores post",

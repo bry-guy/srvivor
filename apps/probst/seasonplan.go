@@ -184,6 +184,9 @@ func expandSeason(f seasonFile, now time.Time) ([]planItem, []time.Time, error) 
 			if m, ok := g.(map[string]any); ok {
 				if t, ok := m["type"].(string); ok {
 					name = "Game: " + t
+					if n, ok := gameNames[t]; ok {
+						name = "Game: " + n
+					}
 				}
 				if m["tbd"] == true || isTBD(m["name"]) && m["name"] != nil {
 					add(air, ep, name, "⚠ TBD")
@@ -291,7 +294,7 @@ func printTimeline(w io.Writer, items []planItem) {
 	}
 }
 
-func newSeasonCommand(call apiCall) *cobra.Command {
+func newSeasonCommand(call apiCall, guild *string, yes *bool) *cobra.Command {
 	season := &cobra.Command{Use: "season", Short: "Declarative season schedule (seasons/NN.yaml)"}
 	season.AddCommand(&cobra.Command{
 		Use:   "plan FILE",
@@ -323,6 +326,8 @@ func newSeasonCommand(call apiCall) *cobra.Command {
 			return nil
 		},
 	})
+	addSeasonPostCommand(season, call, guild, yes)
+	addSeasonApplyCommand(season, call, yes)
 	return season
 }
 

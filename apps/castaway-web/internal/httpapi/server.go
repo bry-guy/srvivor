@@ -170,6 +170,8 @@ func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.GET("/castawordle/:gameID/play", s.getCastawordlePlay)
 	protected.POST("/castawordle/:gameID/play/guesses", s.guessCastawordle)
 	protected.POST("/castawordle/:gameID/resolve", s.resolveCastawordle)
+	protected.POST("/instances/:instanceID/button-games", s.createButtonGame)
+	protected.POST("/button-games/:gameID/resolve", s.resolveButtonGameRequest)
 	protected.POST("/activities/:activityID/wordle-rounds", s.createWordleRound)
 	protected.GET("/wordle-rounds/:roundID", s.getWordleRound)
 	protected.PUT("/wordle-rounds/:roundID/participants/:participantID", s.putWordleParticipant)
@@ -1006,7 +1008,7 @@ func (s *Server) listOutcomes(c *gin.Context) {
 
 	response := make([]gin.H, 0, len(outcomes))
 	for _, outcome := range outcomes {
-		row := gin.H{"position": outcome.Position}
+		row := gin.H{"position": outcome.Position, "updated_at": formatTimestamp(outcome.UpdatedAt)}
 		if outcome.ContestantID.Valid {
 			contestantID := uuid.UUID(outcome.ContestantID.Bytes)
 			row["contestant_id"] = contestantID.String()
@@ -1030,6 +1032,16 @@ func (s *Server) leaderboard(c *gin.Context) {
 	participantFilter, ok := parseOptionalParticipantIDQuery(c)
 	if !ok {
 		return
+	}
+	// ?at=RFC3339 scores the board as it stood then: outcomes recorded and bonuses effective by that time.
+	var asOf *time.Time
+	if raw := c.Query("at"); raw != "" {
+		t, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "at must be RFC3339"})
+			return
+		}
+		asOf = &t
 	}
 
 	mode, err := s.queries.GetInstanceProgressionMode(c.Request.Context(), toPGUUID(instanceID))
@@ -1097,7 +1109,7 @@ func (s *Server) leaderboard(c *gin.Context) {
 
 	finalPositions := map[string]int{}
 	for _, outcome := range outcomes {
-		if !outcome.ContestantID.Valid {
+		if !outcome.ContestantID.Valid || asOf != nil && outcome.UpdatedAt.Time.After(*asOf) {
 			continue
 		}
 		finalPositions[uuid.UUID(outcome.ContestantID.Bytes).String()] = int(outcome.Position)
@@ -1108,6 +1120,9 @@ func (s *Server) leaderboard(c *gin.Context) {
 	for _, participant := range participants {
 		participantID := uuid.UUID(participant.ID.Bytes).String()
 		bonusPoints, err := gameplayService.VisibleBonusTotalByParticipant(c.Request.Context(), toPGUUID(instanceID), participant.ID)
+		if asOf != nil {
+			bonusPoints, err = gameplayService.VisibleBonusTotalByParticipantAsOf(c.Request.Context(), toPGUUID(instanceID), participant.ID, *asOf)
+		}
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 			return

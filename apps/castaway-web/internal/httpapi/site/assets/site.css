@@ -90,3 +90,10 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 .season-list li > :last-child { margin-left: auto; text-align: right; }
 #draft-heading { display: flex; justify-content: space-between; align-items: baseline; }
 .info { font-size: .9rem; font-weight: 400; color: var(--muted); cursor: help; }
+.button-stage { display: grid; place-items: center; min-height: 55vh; }
+.the-button { width: min(60vw, 14rem); aspect-ratio: 1; border-radius: 50%; padding: 0; cursor: pointer;
+  border: .9rem solid #6b4a2b; background: radial-gradient(circle at 35% 30%, #ffb15c, #e2541c 45%, #8f2a0c);
+  box-shadow: 0 .55rem 0 #4a3019, 0 1rem 2rem rgb(0 0 0 / .25), inset 0 -.5rem 1rem rgb(0 0 0 / .25);
+  transition: transform .06s, box-shadow .06s; }
+.the-button:active { transform: translateY(.45rem); box-shadow: 0 .1rem 0 #4a3019, 0 .4rem 1rem rgb(0 0 0 / .25), inset 0 -.3rem .8rem rgb(0 0 0 / .3); }
+.the-button:focus-visible { outline: 3px solid var(--accent, #2d5a3d); outline-offset: .5rem; }
