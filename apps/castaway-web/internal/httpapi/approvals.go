@@ -42,8 +42,8 @@ func (s *Server) instanceAdminIDs(c *gin.Context, instanceID pgtype.UUID) ([]str
 	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
-// claimAnnouncementApproval returns one announcement whose approval DM hasn't gone out, with the admins to
-// DM, marking it notified.
+// claimAnnouncementApproval leases one announcement whose approval DM hasn't been delivered (until the bot
+// confirms delivery), with the admins to DM.
 func (s *Server) claimAnnouncementApproval(c *gin.Context) {
 	if !requireAdminService(c) {
 		return
