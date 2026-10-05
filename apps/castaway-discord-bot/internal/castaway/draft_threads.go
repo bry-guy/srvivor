@@ -16,6 +16,8 @@ type DraftThreadResult struct {
 	Player   string   `json:"player"`
 	Problems []string `json:"problems"`
 	Admins   []string `json:"admin_discord_user_ids"`
+	// SavedPicks fingerprints the player's saved draft when a fix would replace it ("conflict").
+	SavedPicks string `json:"saved_picks"`
 }
 
 func (c *Client) ListDraftThreads(ctx context.Context) ([]DraftThread, error) {
@@ -34,9 +36,10 @@ func (c *Client) PostDraftThreadMessage(ctx context.Context, threadID, messageID
 }
 
 // FixDraftThreadMessage resubmits an admin-corrected draft post as its author's draft.
-func (c *Client) FixDraftThreadMessage(ctx context.Context, threadID, messageID, version, authorID, content, adminID string) (DraftThreadResult, error) {
+// overwritePicks, when set, replaces the saved draft with that fingerprint.
+func (c *Client) FixDraftThreadMessage(ctx context.Context, threadID, messageID, version, authorID, content, adminID, overwritePicks string) (DraftThreadResult, error) {
 	var result DraftThreadResult
-	body := map[string]string{"message_id": messageID, "version": version, "author_discord_user_id": authorID, "content": content, "fixed_by_discord_user_id": adminID}
+	body := map[string]string{"message_id": messageID, "version": version, "author_discord_user_id": authorID, "content": content, "fixed_by_discord_user_id": adminID, "overwrite_picks": overwritePicks}
 	err := c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/draft-threads", threadID, "messages")), nil, body, &result)
 	return result, err
 }

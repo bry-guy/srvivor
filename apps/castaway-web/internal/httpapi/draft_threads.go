@@ -86,6 +86,9 @@ type draftThreadMessage struct {
 	Content   string `json:"content"`
 	// FixedBy is the admin who corrected this draft by DM; the corrected post is saved as the author's draft.
 	FixedBy string `json:"fixed_by_discord_user_id"`
+	// OverwritePicks lets an admin's fix replace a saved draft, but only the one they were shown (its
+	// fingerprint from the "conflict" response), never a newer one.
+	OverwritePicks string `json:"overwrite_picks"`
 }
 
 // receiveDraftThreadMessage handles one post in a watched thread. Chat is ignored. A complete draft from a
@@ -150,15 +153,17 @@ func (s *Server) receiveDraftThreadMessage(c *gin.Context) {
 		c.JSON(http.StatusOK, body)
 	}
 	if req.FixedBy != "" {
-		var fixed bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM draft_thread_messages WHERE message_id = $1 AND status IN ('saved', 'unchanged'))
-			OR EXISTS (SELECT 1 FROM draft_picks d JOIN participants p ON p.id = d.participant_id JOIN instances i ON i.id = p.instance_id
-				WHERE i.public_id = $2 AND p.discord_user_id = $3)`, req.MessageID, instanceID, req.AuthorID).Scan(&fixed); err != nil {
+		// A fix never silently replaces a saved draft: the admin is shown a fingerprint of the saved picks and
+		// must confirm overwriting exactly those.
+		var saved string
+		if err := tx.QueryRow(ctx, `SELECT COALESCE(md5(string_agg(d.contestant_id::text, ',' ORDER BY d.position)), '')
+			FROM draft_picks d JOIN participants p ON p.id = d.participant_id JOIN instances i ON i.id = p.instance_id
+			WHERE i.public_id = $1 AND p.discord_user_id = $2`, instanceID, req.AuthorID).Scan(&saved); err != nil {
 			writeTribeError(c, err)
 			return
 		}
-		if fixed {
-			c.JSON(http.StatusConflict, errorResponse{Error: "this player already has a saved draft (another admin's fix, or their own); fix it with probst draft import"})
+		if saved != "" && saved != req.OverwritePicks {
+			c.JSON(http.StatusOK, gin.H{"status": "conflict", "instance_id": pgUUIDString(instanceID), "saved_picks": saved})
 			return
 		}
 	}

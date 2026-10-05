@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,7 @@ func TestAdminDMActions(t *testing.T) {
 		Admins      []string `json:"admin_discord_user_ids"`
 		ScheduledAt string   `json:"scheduled_at"`
 		Status      string   `json:"status"`
+		SavedPicks  string   `json:"saved_picks"`
 	}
 	call := func(method, url, body, actor string, want int) reply {
 		t.Helper()
@@ -147,8 +149,9 @@ func TestAdminDMActions(t *testing.T) {
 	// Admin draft fixes.
 	call(http.MethodPost, path+"/draft-submissions", `{"tribes":["Savu","Toka"],"guild_id":"7001","channel_id":"7002"}`, "2001", http.StatusCreated)
 	call(http.MethodPut, path+"/draft-submissions/thread", `{"thread_id":"8001"}`, "2001", http.StatusOK)
+	overwrite := ""
 	post := func(version, content, fixedBy string, want int) reply {
-		body, err := json.Marshal(map[string]string{"message_id": "9001", "version": version, "author_discord_user_id": "1000", "content": content, "fixed_by_discord_user_id": fixedBy})
+		body, err := json.Marshal(map[string]string{"message_id": "9001", "version": version, "author_discord_user_id": "1000", "content": content, "fixed_by_discord_user_id": fixedBy, "overwrite_picks": overwrite})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -163,7 +166,23 @@ func TestAdminDMActions(t *testing.T) {
 		t.Fatalf("admin fix: %v", saved)
 	}
 	// A later fix (another admin's, or after the player saved through any post) doesn't overwrite saved picks.
-	post("fix-3", "1. Cyd\n2. Thien An\n3. Ann", "2001", http.StatusConflict)
+	// It's offered as a conflict with the saved draft's fingerprint; overwriting needs that exact fingerprint.
+	conflict := post("fix-3", "1. Cyd\n2. Thien An\n3. Ann", "2001", http.StatusOK)
+	if conflict.Status != "conflict" || len(conflict.SavedPicks) != 32 {
+		t.Fatalf("expected a conflict with a fingerprint: %v", conflict)
+	}
+	overwrite = strings.Repeat("0", 32) // a stale fingerprint (the draft changed since the DM)
+	if stale := post("fix-4", "1. Cyd\n2. Thien An\n3. Ann", "2001", http.StatusOK); stale.Status != "conflict" {
+		t.Fatalf("stale overwrite should be refused: %v", stale)
+	}
+	overwrite = conflict.SavedPicks
+	if replaced := post("fix-5", "1. Cyd\n2. Thien An\n3. Ann", "2001", http.StatusOK); replaced.Status != "saved" {
+		t.Fatalf("overwrite: %v", replaced)
+	}
+	overwrite = conflict.SavedPicks // now stale: the replaced draft is different
+	if again := post("fix-6", "1. Ann\n2. Thien An\n3. Cyd", "2002", http.StatusOK); again.Status != "conflict" {
+		t.Fatalf("a second admin's overwrite of the old draft should be refused: %v", again)
+	}
 	var picks int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM draft_picks d JOIN participants p ON p.id = d.participant_id WHERE p.public_id = $1`, player.ID).Scan(&picks); err != nil || picks != 3 {
 		t.Fatalf("saved picks = %d (%v), want 3", picks, err)

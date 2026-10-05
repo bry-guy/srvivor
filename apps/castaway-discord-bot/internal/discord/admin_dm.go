@@ -18,6 +18,8 @@ import (
 //   - an approval DM ends with "approval <id> <revision>"; "yes" approves exactly that revision.
 //   - a draft DM links the player's post and (after a fix) quotes the working draft; "7. Thien An" lines
 //     replace those ranks in the working draft (the post on first reply) and resubmit it.
+//   - if the player already has a saved draft, the answer quotes the working draft and the saved draft's
+//     fingerprint ("overwrite <fp>"); replying "overwrite" replaces exactly that saved draft.
 //
 // The server rejects stale actions: an approval of a changed post, or a fix after the draft was saved.
 
@@ -26,6 +28,7 @@ var (
 	approvalRef = regexp.MustCompile("approval `([0-9a-f-]{36})` `([0-9a-f]{32})`")
 	rankLine    = regexp.MustCompile(`^\s*0*(\d{1,2})\s*[.):\-]?\s+(\S.*?)\s*$`)
 	workingCopy = regexp.MustCompile("(?s)Working draft:\n```\n(.*)\n```")
+	overwriteOf = regexp.MustCompile("overwrite `([0-9a-f]{32})`")
 )
 
 // dmAdmins sends text to each admin, reporting failures.
@@ -132,22 +135,33 @@ func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 	if w := workingCopy.FindStringSubmatch(asked.Content); w != nil {
 		working = w[1]
 	}
-	fixed, err := applyFixes(working, m.Content)
+	var fixed, overwrite string
+	if ref := overwriteOf.FindStringSubmatch(asked.Content); ref != nil && strings.EqualFold(strings.Trim(strings.TrimSpace(m.Content), ".!"), "overwrite") {
+		fixed, overwrite = working, ref[1]
+	} else if fixed, err = applyFixes(working, m.Content); err != nil {
+		answer("Nothing changed: " + err.Error())
+		return
+	}
+	result, err := b.castaway.FixDraftThreadMessage(ctx, link[1], original.ID, "fix-"+m.ID, original.Author.ID, fixed, m.Author.ID, overwrite)
 	if err != nil {
 		answer("Nothing changed: " + err.Error())
 		return
 	}
-	result, err := b.castaway.FixDraftThreadMessage(ctx, link[1], original.ID, "fix-"+m.ID, original.Author.ID, fixed, m.Author.ID)
-	if err != nil {
-		answer("Nothing changed: " + err.Error())
-		return
-	}
+	post := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", original.GuildID, link[1], link[2])
 	switch result.Status {
+	case "conflict":
+		text := fmt.Sprintf("%s already has a saved draft: %s\nReply **overwrite** to this message to replace it with the draft below, or reply with more fixes.\n\nWorking draft:\n```\n%s\n```\noverwrite `%s`",
+			original.Author.Mention(), post, fixed, result.SavedPicks)
+		if len(text) > 2000 {
+			answer("This player already has a saved draft, and the new one is too long to show here. Use `probst draft import`.")
+			return
+		}
+		answer(text)
 	case "saved", "unchanged":
 		answer(fmt.Sprintf("✅ Saved %s's draft.", result.Player))
 	case "problem":
-		text := fmt.Sprintf("Still not right (%s): https://discord.com/channels/%s/%s/%s\n- %s\nReply to this with more fixes, like `7. Thien An`.\n\nWorking draft:\n```\n%s\n```",
-			result.Player, original.GuildID, link[1], link[2], strings.Join(result.Problems, "\n- "), fixed)
+		text := fmt.Sprintf("Still not right (%s): %s\n- %s\nReply to this with more fixes, like `7. Thien An`.\n\nWorking draft:\n```\n%s\n```",
+			result.Player, post, strings.Join(result.Problems, "\n- "), fixed)
 		if len(text) > 2000 {
 			answer("Still not right, and the draft is too long to show here. Fix it with `probst draft import`.")
 			return

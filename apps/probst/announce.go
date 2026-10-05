@@ -130,6 +130,7 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 	}})
 
 	var at string
+	var approval bool
 	schedule := &cobra.Command{Use: "schedule NAME", Aliases: []string{"reschedule"}, Short: "Send a saved announcement at --at, or now with --yes", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
 		p, err := instancePath()
 		if err != nil {
@@ -149,6 +150,15 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 		if err != nil {
 			return err
 		}
+		if approval {
+			if at == "" {
+				return fmt.Errorf("--approval needs --at")
+			}
+			if err := call(c.Context(), "PUT", p+"/announcements/"+url.PathEscape(found.ID)+"/approval", map[string]any{"send_at": body["scheduled_at"]}, nil); err != nil {
+				return err
+			}
+			return out(c, "%q is waiting for approval: every admin gets a DM, and it posts at %s once one replies \"yes\".\n", a[0], at)
+		}
 		var res struct {
 			Announcement announcement `json:"announcement"`
 		}
@@ -158,6 +168,7 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 		return out(c, "%q: %s.\n", a[0], describeStatus(res.Announcement))
 	}}
 	schedule.Flags().StringVar(&at, "at", "", `Send at "2006-01-02 15:04" America/New_York, or RFC3339`)
+	schedule.Flags().BoolVar(&approval, "approval", false, "Hold it until an admin replies \"yes\" to the bot's DM, then send at --at")
 	parent.AddCommand(schedule)
 
 	simple := func(use, short, method, suffix, done string, confirm bool) {
