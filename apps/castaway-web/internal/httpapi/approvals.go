@@ -24,11 +24,11 @@ func (s *Server) requestAnnouncementApproval(c *gin.Context) {
 	var req struct {
 		SendAt time.Time `json:"send_at" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "send_at is required"})
+	if err := c.ShouldBindJSON(&req); err != nil || !req.SendAt.After(s.now()) {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "a future send_at is required"})
 		return
 	}
-	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'draft', scheduled_at = NULL, approval_send_at = $3, approval_notified_at = NULL`,
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'draft', scheduled_at = NULL, approval_gated = true, approval_send_at = $3, approval_claimed_at = NULL, approval_notified_at = NULL`,
 		"", "", req.SendAt.UTC())
 }
 
@@ -48,7 +48,6 @@ func (s *Server) claimAnnouncementApproval(c *gin.Context) {
 	if !requireAdminService(c) {
 		return
 	}
-	var a announcementRecord
 	var req struct {
 		GuildIDs []string `json:"guild_ids"`
 	}
@@ -56,11 +55,19 @@ func (s *Server) claimAnnouncementApproval(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "guild_ids are required"})
 		return
 	}
-	a, err := scanAnnouncement(s.pool.QueryRow(c.Request.Context(), `
-		UPDATE announcements a SET approval_notified_at = $1 FROM instances i
+	// Body, time and revision come from the same row version, so the DM shows exactly what "yes" approves.
+	// The claim is a 10-minute lease: until the bot confirms delivery it's offered again.
+	var a announcementRecord
+	var sendAt time.Time
+	var revision string
+	var id, instanceID pgtype.UUID
+	err := s.pool.QueryRow(c.Request.Context(), `
+		UPDATE announcements a SET approval_claimed_at = $1 FROM instances i
 		WHERE i.id = a.instance_id AND a.id = (SELECT id FROM announcements WHERE status = 'draft' AND approval_send_at > $1
-			AND approval_notified_at IS NULL AND guild_id = ANY($2::text[]) ORDER BY approval_send_at LIMIT 1 FOR UPDATE SKIP LOCKED)
-		RETURNING `+announcementColumns, s.now(), req.GuildIDs))
+			AND approval_notified_at IS NULL AND (approval_claimed_at IS NULL OR approval_claimed_at < $1 - interval '10 minutes')
+			AND guild_id = ANY($2::text[]) ORDER BY approval_send_at LIMIT 1 FOR UPDATE SKIP LOCKED)
+		RETURNING a.id, i.public_id, a.channel_id, a.body, a.notify_users, a.approval_send_at, `+approvalRevision,
+		s.now(), req.GuildIDs).Scan(&id, &instanceID, &a.ChannelID, &a.Body, &a.NotifyUsers, &sendAt, &revision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusOK, gin.H{"announcement": nil})
 		return
@@ -69,12 +76,7 @@ func (s *Server) claimAnnouncementApproval(c *gin.Context) {
 		writeAnnouncementError(c, err)
 		return
 	}
-	var sendAt time.Time
-	var revision string
-	if err := s.pool.QueryRow(c.Request.Context(), `SELECT a.approval_send_at, `+approvalRevision+` FROM announcements a WHERE a.id = $1`, a.ID).Scan(&sendAt, &revision); err != nil {
-		writeAnnouncementError(c, err)
-		return
-	}
+	a.ID, a.InstanceID = uuid.UUID(id.Bytes), uuid.UUID(instanceID.Bytes)
 	admins, err := s.instanceAdminIDs(c, toPGUUID(a.InstanceID))
 	if err != nil {
 		writeAnnouncementError(c, err)
@@ -112,4 +114,25 @@ func (s *Server) approveAnnouncement(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"scheduled_at": at.UTC()})
+}
+
+// confirmApprovalDelivery records that every admin got the approval DM for this revision.
+func (s *Server) confirmApprovalDelivery(c *gin.Context) {
+	if !requireAdminService(c) {
+		return
+	}
+	id, err := uuid.Parse(c.Param("announcementID"))
+	var req struct {
+		Revision string `json:"revision" binding:"required"`
+	}
+	if err != nil || c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "announcement id and revision are required"})
+		return
+	}
+	if _, err := s.pool.Exec(c.Request.Context(), `UPDATE announcements a SET approval_notified_at = $3
+		WHERE a.id = $1 AND a.status = 'draft' AND `+approvalRevision+` = $2`, id, req.Revision, s.now()); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

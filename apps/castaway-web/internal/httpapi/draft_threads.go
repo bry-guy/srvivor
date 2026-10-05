@@ -151,12 +151,14 @@ func (s *Server) receiveDraftThreadMessage(c *gin.Context) {
 	}
 	if req.FixedBy != "" {
 		var fixed bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM draft_thread_messages WHERE message_id = $1 AND status IN ('saved', 'unchanged'))`, req.MessageID).Scan(&fixed); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM draft_thread_messages WHERE message_id = $1 AND status IN ('saved', 'unchanged'))
+			OR EXISTS (SELECT 1 FROM draft_picks d JOIN participants p ON p.id = d.participant_id JOIN instances i ON i.id = p.instance_id
+				WHERE i.public_id = $2 AND p.discord_user_id = $3)`, req.MessageID, instanceID, req.AuthorID).Scan(&fixed); err != nil {
 			writeTribeError(c, err)
 			return
 		}
 		if fixed {
-			c.JSON(http.StatusConflict, errorResponse{Error: "this draft was already saved (another admin's fix, or the player's own edit)"})
+			c.JSON(http.StatusConflict, errorResponse{Error: "this player already has a saved draft (another admin's fix, or their own); fix it with probst draft import"})
 			return
 		}
 	}

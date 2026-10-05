@@ -199,6 +199,40 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ClaimAnnouncementRequest'
+  /announcements/{announcementID}/approval-delivered:
+    post:
+      operationId: confirmApprovalDelivery
+      parameters:
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      ok:
+                        type: boolean
+                    required:
+                      - ok
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revision:
+                  type: string
+              required:
+                - revision
   /announcements/{announcementID}/approve:
     post:
       operationId: approveAnnouncement

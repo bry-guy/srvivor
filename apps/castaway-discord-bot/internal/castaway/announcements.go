@@ -80,3 +80,9 @@ func (c *Client) ApproveAnnouncement(ctx context.Context, id, revision, adminID 
 	err := c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "approve")), nil, map[string]any{"admin_discord_user_id": adminID, "revision": revision}, &response)
 	return response.ScheduledAt, err
 }
+
+// ConfirmApprovalDelivery records that every admin got this revision's approval DM.
+func (c *Client) ConfirmApprovalDelivery(ctx context.Context, id, revision string) error {
+	var response map[string]any
+	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "approval-delivered")), nil, map[string]any{"revision": revision}, &response)
+}

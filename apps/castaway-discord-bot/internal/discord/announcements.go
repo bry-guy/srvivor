@@ -154,10 +154,16 @@ func (b *Bot) notifyApproval(ctx context.Context) error {
 	}
 	ask := fmt.Sprintf("📝 The post above goes to <#%s> %s (%s). Reply **yes** to this message to approve it.\n\napproval `%s` `%s`",
 		a.Announcement.ChannelID, eastern(a.SendAt), pings, a.Announcement.ID, a.Revision)
-	err1 := b.dmAdmins(ctx, a.Admins, a.Announcement.Body)
-	err2 := b.dmAdmins(ctx, a.Admins, ask)
-	if err1 != nil || err2 != nil {
-		return fmt.Errorf("approval DM for %s: %v %v (re-run `probst season post --yes` to re-send)", a.Announcement.ID, err1, err2)
+	// Each admin gets the prompt only after the post itself reached them. If anyone missed either, delivery
+	// isn't confirmed and the API offers it again in 10 minutes (admins who got it may get a repeat).
+	var failed []string
+	for _, admin := range a.Admins {
+		if b.dmAdmins(ctx, []string{admin}, a.Announcement.Body) != nil || b.dmAdmins(ctx, []string{admin}, ask) != nil {
+			failed = append(failed, admin)
+		}
 	}
-	return nil
+	if len(failed) > 0 {
+		return fmt.Errorf("approval DM for %s didn't reach %v; retrying in 10 minutes", a.Announcement.ID, failed)
+	}
+	return b.castaway.ConfirmApprovalDelivery(ctx, a.Announcement.ID, a.Revision)
 }

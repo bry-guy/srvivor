@@ -105,6 +105,7 @@ func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.POST("/announcements/claim", s.claimAnnouncement)
 	protected.POST("/announcements/approvals/claim", s.claimAnnouncementApproval)
 	protected.POST("/announcements/:announcementID/approve", s.approveAnnouncement)
+	protected.POST("/announcements/:announcementID/approval-delivered", s.confirmApprovalDelivery)
 	protected.PUT("/instances/:instanceID/announcements/:announcementID/approval", s.requestAnnouncementApproval)
 	protected.POST("/access-requests/claim", s.claimAccessRequest)
 	protected.GET("/access-requests", s.listAccessRequests)

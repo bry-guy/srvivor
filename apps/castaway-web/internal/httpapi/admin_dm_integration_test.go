@@ -69,6 +69,8 @@ func TestAdminDMActions(t *testing.T) {
 	created := call(http.MethodPost, path+"/announcements", `{"guild_id":"7001","channel_id":"7002","request_key":"w2","body":"Week 2 scores","draft":true}`, "2001", http.StatusOK)
 	id := created.Announcement.ID
 	call(http.MethodPut, path+"/announcements/"+id+"/approval", `{"send_at":"2026-10-07T16:00:00Z"}`, "2001", http.StatusOK)
+	call(http.MethodPut, path+"/announcements/"+id+"/approval", `{"send_at":"2026-10-07T03:00:00Z"}`, "2001", http.StatusBadRequest)    // past
+	call(http.MethodPut, path+"/announcements/"+id+"/schedule", `{"scheduled_at":"2026-10-07T16:00:00Z"}`, "2001", http.StatusConflict) // can't bypass the gate
 	claimPath, claimBody := "/announcements/approvals/claim", `{"guild_ids":["7001"]}`
 	claim := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK)
 	if claim.Announcement == nil || fmt.Sprint(claim.Admins) != "[2001 2002]" {
@@ -76,7 +78,16 @@ func TestAdminDMActions(t *testing.T) {
 	}
 	oldRevision := claim.Revision
 	if again := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK); again.Announcement != nil {
-		t.Fatalf("approval DM went out twice: %v", again)
+		t.Fatalf("approval DM claimed twice within its lease: %v", again)
+	}
+	now = now.Add(11 * time.Minute) // undelivered: offered again after the lease
+	if retry := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK); retry.Revision != oldRevision {
+		t.Fatalf("undelivered approval DM should be retried: %v", retry)
+	}
+	call(http.MethodPost, "/announcements/"+id+"/approval-delivered", fmt.Sprintf(`{"revision":%q}`, oldRevision), "", http.StatusOK)
+	now = now.Add(11 * time.Minute)
+	if again := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK); again.Announcement != nil {
+		t.Fatalf("delivered approval DM was offered again: %v", again)
 	}
 	if got := call(http.MethodPost, "/announcements/claim", `{"guild_ids":["7001"]}`, "", http.StatusOK); got.Announcement != nil {
 		t.Fatal("an unapproved post was claimed for sending")
@@ -123,6 +134,16 @@ func TestAdminDMActions(t *testing.T) {
 		t.Fatal("a late, unapproved post was sent")
 	}
 
+	// An approved post whose time passed while the bot was down expires instead of sending late.
+	down := call(http.MethodPost, path+"/announcements", `{"guild_id":"7001","channel_id":"7002","request_key":"down","body":"Down post","draft":true}`, "2001", http.StatusOK)
+	call(http.MethodPut, path+"/announcements/"+down.Announcement.ID+"/approval", `{"send_at":"2026-10-07T18:00:00Z"}`, "2001", http.StatusOK)
+	downRevision := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK).Revision
+	call(http.MethodPost, "/announcements/"+down.Announcement.ID+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"2001","revision":%q}`, downRevision), "", http.StatusOK)
+	now = time.Date(2026, 10, 7, 19, 0, 0, 0, time.UTC)
+	if got := call(http.MethodPost, "/announcements/claim", `{"guild_ids":["7001"]}`, "", http.StatusOK); got.Announcement != nil {
+		t.Fatal("an approved post was sent an hour late")
+	}
+
 	// Admin draft fixes.
 	call(http.MethodPost, path+"/draft-submissions", `{"tribes":["Savu","Toka"],"guild_id":"7001","channel_id":"7002"}`, "2001", http.StatusCreated)
 	call(http.MethodPut, path+"/draft-submissions/thread", `{"thread_id":"8001"}`, "2001", http.StatusOK)
@@ -141,7 +162,8 @@ func TestAdminDMActions(t *testing.T) {
 	if saved := post("fix-2", "1. Ann\n2. Thien An\n3. Cyd", "2002", http.StatusOK); saved.Status != "saved" {
 		t.Fatalf("admin fix: %v", saved)
 	}
-	post("fix-3", "1. Cyd\n2. Thien An\n3. Ann", "2001", http.StatusConflict) // a second admin's stale fix doesn't overwrite
+	// A later fix (another admin's, or after the player saved through any post) doesn't overwrite saved picks.
+	post("fix-3", "1. Cyd\n2. Thien An\n3. Ann", "2001", http.StatusConflict)
 	var picks int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM draft_picks d JOIN participants p ON p.id = d.participant_id WHERE p.public_id = $1`, player.ID).Scan(&picks); err != nil || picks != 3 {
 		t.Fatalf("saved picks = %d (%v), want 3", picks, err)

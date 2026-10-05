@@ -73,6 +73,10 @@ op claimAnnouncementApproval(@body body: { guild_ids: string[]; }): { announceme
 @post
 op approveAnnouncement(@path announcementID: string, @body body: { admin_discord_user_id: string; revision: string; }): { scheduled_at: utcDateTime; } | ErrorResponse;
 
+@route("/announcements/{announcementID}/approval-delivered")
+@post
+op confirmApprovalDelivery(@path announcementID: string, @body body: { revision: string; }): { ok: boolean; } | ErrorResponse;
+
 @route("/instances/{instanceID}/announcements/{announcementID}/approval")
 @put
 op requestAnnouncementApproval(@path instanceID: string, @path announcementID: string, @body body: { send_at: utcDateTime; }): unknown | ErrorResponse;

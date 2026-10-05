@@ -186,6 +186,7 @@ func (s *Server) claimAnnouncement(c *gin.Context) {
 		SELECT a.id, a.guild_id, a.channel_id FROM announcements a JOIN discord_channel_bindings b
 		ON b.instance_id = a.instance_id AND b.guild_id = a.guild_id AND b.channel_id = a.channel_id
 		WHERE a.status = 'pending' AND a.due_at <= $1 AND a.guild_id = ANY($2::text[])
+			AND NOT (a.approval_gated AND a.due_at < $1 - interval '5 minutes')
 		ORDER BY a.due_at, a.id LIMIT 1`, s.now(), req.GuildIDs).Scan(&candidate, &guildID, &channelID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		commitEmpty()
@@ -204,7 +205,7 @@ func (s *Server) claimAnnouncement(c *gin.Context) {
 	err = tx.QueryRow(c.Request.Context(), `
 		SELECT a.id FROM announcements a JOIN discord_channel_bindings b
 		ON b.instance_id = a.instance_id AND b.guild_id = a.guild_id AND b.channel_id = a.channel_id
-		WHERE a.id = $1 AND a.status = 'pending' AND a.due_at <= $2
+		WHERE a.id = $1 AND a.status = 'pending' AND a.due_at <= $2 AND NOT (a.approval_gated AND a.due_at < $2 - interval '5 minutes')
 		FOR UPDATE OF a SKIP LOCKED`, candidate, s.now()).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		commitEmpty()
@@ -344,14 +345,14 @@ func (s *Server) scheduleAnnouncement(c *gin.Context) {
 		at, due = &v, v
 	}
 	// A draft may have outlived its channel binding; the bot only sends to bound channels, so refuse rather than queue forever.
-	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'pending', scheduled_at = $3, due_at = $4, approval_send_at = NULL`,
-		` AND EXISTS (SELECT 1 FROM discord_channel_bindings b WHERE b.instance_id = announcements.instance_id AND b.guild_id = announcements.guild_id AND b.channel_id = announcements.channel_id)`,
-		"no unsent announcement with that id whose channel is still bound to this instance", at, due)
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'pending', scheduled_at = $3, due_at = $4`,
+		` AND NOT approval_gated AND EXISTS (SELECT 1 FROM discord_channel_bindings b WHERE b.instance_id = announcements.instance_id AND b.guild_id = announcements.guild_id AND b.channel_id = announcements.channel_id)`,
+		"no unsent, ungated announcement with that id whose channel is still bound to this instance (approval-gated posts are scheduled by approving them)", at, due)
 }
 
 // unscheduleAnnouncement turns a scheduled announcement back into a draft.
 func (s *Server) unscheduleAnnouncement(c *gin.Context) {
-	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'draft', scheduled_at = NULL`, "", "")
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'draft', scheduled_at = NULL, approval_claimed_at = NULL, approval_notified_at = NULL`, "", "")
 }
 
 // editAnnouncement replaces the text of an announcement that hasn't been sent.
@@ -364,9 +365,9 @@ func (s *Server) editAnnouncement(c *gin.Context) {
 		return
 	}
 	// A gated draft whose text changes is re-sent to admins for approval of the new copy.
-	s.changeUnsentAnnouncement(c, `UPDATE announcements SET body = $3, approval_notified_at = NULL,
-		status = CASE WHEN approval_send_at IS NULL THEN status ELSE 'draft' END,
-		scheduled_at = CASE WHEN approval_send_at IS NULL THEN scheduled_at END`, "", "", req.Body)
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET body = $3, approval_claimed_at = NULL, approval_notified_at = NULL,
+		status = CASE WHEN approval_gated THEN 'draft' ELSE status END,
+		scheduled_at = CASE WHEN approval_gated THEN NULL ELSE scheduled_at END`, "", "", req.Body)
 }
 
 // markAnnouncementSent records an announcement the operator posted some other way, so the bot never sends it.
