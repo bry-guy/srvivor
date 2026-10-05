@@ -149,7 +149,7 @@ func addScoresGenerateCommand(scores *cobra.Command, call apiCall) {
 			if err := os.WriteFile(out, []byte(text), 0o600); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(c.OutOrStdout(), "%s\nDraft saved to %s. Edit it, then save and schedule it with:\n  probst season post %s --week %d --body %s --yes\n", text, out, file, week, out)
+			_, err = fmt.Fprintf(c.OutOrStdout(), "%s\nDraft saved to %s. Edit it, then save it for approval with:\n  probst season post %s --week %d --body %s --yes\n", text, out, file, week, out)
 			return err
 		},
 	}

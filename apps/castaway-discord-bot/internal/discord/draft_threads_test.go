@@ -75,7 +75,7 @@ func TestDraftThreadMessages(t *testing.T) {
 	if len(posted) != 1 || posted[0]["author_discord_user_id"] != "555" || posted[0]["version"] != "2026-09-28T01:00:00Z" {
 		t.Fatalf("forwarded = %v", posted)
 	}
-	want := "⚠️ Problem with Kate's draft: https://discord.com/channels/101/301/401\n- missing Rob\n- \"Jely\" matches no contestant"
+	want := "⚠️ Problem with Kate's draft: https://discord.com/channels/101/301/401\n- missing Rob\n- \"Jely\" matches no contestant\n\nReply to this message with fixes, one per line, like `7. Thien An`."
 	if len(dms) != 1 || dms[0] != want {
 		t.Fatalf("DMs = %q", dms)
 	}

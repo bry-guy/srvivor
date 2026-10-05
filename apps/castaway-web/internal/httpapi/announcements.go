@@ -344,7 +344,7 @@ func (s *Server) scheduleAnnouncement(c *gin.Context) {
 		at, due = &v, v
 	}
 	// A draft may have outlived its channel binding; the bot only sends to bound channels, so refuse rather than queue forever.
-	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'pending', scheduled_at = $3, due_at = $4`,
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET status = 'pending', scheduled_at = $3, due_at = $4, approval_send_at = NULL`,
 		` AND EXISTS (SELECT 1 FROM discord_channel_bindings b WHERE b.instance_id = announcements.instance_id AND b.guild_id = announcements.guild_id AND b.channel_id = announcements.channel_id)`,
 		"no unsent announcement with that id whose channel is still bound to this instance", at, due)
 }
@@ -363,7 +363,10 @@ func (s *Server) editAnnouncement(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "body must be nonblank and at most 2000 characters"})
 		return
 	}
-	s.changeUnsentAnnouncement(c, `UPDATE announcements SET body = $3`, "", "", req.Body)
+	// A gated draft whose text changes is re-sent to admins for approval of the new copy.
+	s.changeUnsentAnnouncement(c, `UPDATE announcements SET body = $3, approval_notified_at = NULL,
+		status = CASE WHEN approval_send_at IS NULL THEN status ELSE 'draft' END,
+		scheduled_at = CASE WHEN approval_send_at IS NULL THEN scheduled_at END`, "", "", req.Body)
 }
 
 // markAnnouncementSent records an announcement the operator posted some other way, so the bot never sends it.

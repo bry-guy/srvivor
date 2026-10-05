@@ -3,6 +3,7 @@ package castaway
 import (
 	"context"
 	"path"
+	"time"
 )
 
 type Announcement struct {
@@ -51,4 +52,31 @@ func (c *Client) ClaimAccessRequest(ctx context.Context) (*AccessRequest, error)
 	}
 	err := c.doJSONBody(ctx, "POST", c.endpoint("/access-requests/claim"), nil, map[string]any{}, &response)
 	return response.AccessRequest, err
+}
+
+// AnnouncementApproval is a post waiting for an admin's "yes" before it sends at SendAt.
+type AnnouncementApproval struct {
+	Announcement *Announcement `json:"announcement"`
+	SendAt       time.Time     `json:"send_at"`
+	Revision     string        `json:"revision"`
+	Admins       []string      `json:"admin_discord_user_ids"`
+}
+
+// ClaimAnnouncementApproval returns the next post whose approval DM hasn't gone out, marking it notified.
+func (c *Client) ClaimAnnouncementApproval(ctx context.Context, guildIDs []string) (*AnnouncementApproval, error) {
+	var response AnnouncementApproval
+	err := c.doJSONBody(ctx, "POST", c.endpoint("/announcements/approvals/claim"), nil, map[string]any{"guild_ids": guildIDs}, &response)
+	if err != nil || response.Announcement == nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// ApproveAnnouncement lets an approval-gated post send; it returns when it will.
+func (c *Client) ApproveAnnouncement(ctx context.Context, id, revision, adminID string) (time.Time, error) {
+	var response struct {
+		ScheduledAt time.Time `json:"scheduled_at"`
+	}
+	err := c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "approve")), nil, map[string]any{"admin_discord_user_id": adminID, "revision": revision}, &response)
+	return response.ScheduledAt, err
 }

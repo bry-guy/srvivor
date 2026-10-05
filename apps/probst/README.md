@@ -201,3 +201,8 @@ the numbers, order (league tiebreakers), mentions, boots and next game; `pi` (sk
 `.agents/skills/castaway-scores-flavor`) writes only the intro/leader/gainer/slider lines, and any line missing
 a required name or number falls back to the template. Edit the draft, then
 `probst season post seasons/51.yaml --week N --body DRAFT --yes` saves and schedules it.
+
+**Admin DMs.** `season post --yes` saves the post behind an approval gate: the bot DMs every instance admin the
+exact text, and it posts at its scheduled time once one replies **yes** to that DM (editing the text re-asks).
+When a draft post has problems, every admin gets a DM; reply to it with fixes, one per line (`7. Thien An`), and
+the bot resubmits the corrected draft for the player.

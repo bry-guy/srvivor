@@ -21,6 +21,9 @@ func (b *Bot) pollAnnouncements(ctx context.Context) {
 		if err := b.notifyAccessRequest(ctx); err != nil && ctx.Err() == nil {
 			b.log.Error("access request DM", "error", err)
 		}
+		if err := b.notifyApproval(ctx); err != nil && ctx.Err() == nil {
+			b.log.Error("approval DM", "error", err)
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -132,4 +135,29 @@ func (b *Bot) notifyAccessRequest(ctx context.Context) error {
 		_, err = b.session.ChannelMessageSendComplex(dm.ID, &discordgo.MessageSend{Content: text, AllowedMentions: allowedMentions(false)}, discordgo.WithContext(ctx))
 	}
 	return err
+}
+
+// notifyApproval DMs every admin a post waiting for approval (once per version of its text): the full text
+// first, then a short message saying where and when it posts. Replying "yes" to that one approves exactly
+// this text; it's never truncated, so admins approve what will post.
+func (b *Bot) notifyApproval(ctx context.Context) error {
+	a, err := b.castaway.ClaimAnnouncementApproval(ctx, b.targetServerIDs)
+	if err != nil || a == nil {
+		return err
+	}
+	if len(a.Admins) == 0 {
+		return fmt.Errorf("announcement %s needs approval but its season has no admins", a.Announcement.ID)
+	}
+	pings := "no pings"
+	if a.Announcement.NotifyUsers {
+		pings = "@mentions ping those players"
+	}
+	ask := fmt.Sprintf("📝 The post above goes to <#%s> %s (%s). Reply **yes** to this message to approve it.\n\napproval `%s` `%s`",
+		a.Announcement.ChannelID, eastern(a.SendAt), pings, a.Announcement.ID, a.Revision)
+	err1 := b.dmAdmins(ctx, a.Admins, a.Announcement.Body)
+	err2 := b.dmAdmins(ctx, a.Admins, ask)
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("approval DM for %s: %v %v (re-run `probst season post --yes` to re-send)", a.Announcement.ID, err1, err2)
+	}
+	return nil
 }

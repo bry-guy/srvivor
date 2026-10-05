@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/draftparse"
@@ -83,6 +84,8 @@ type draftThreadMessage struct {
 	Version   string `json:"version"` // edited timestamp, or created timestamp when never edited
 	AuthorID  string `json:"author_discord_user_id"`
 	Content   string `json:"content"`
+	// FixedBy is the admin who corrected this draft by DM; the corrected post is saved as the author's draft.
+	FixedBy string `json:"fixed_by_discord_user_id"`
 }
 
 // receiveDraftThreadMessage handles one post in a watched thread. Chat is ignored. A complete draft from a
@@ -110,6 +113,15 @@ func (s *Server) receiveDraftThreadMessage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
+	admins, err := s.instanceAdminIDs(c, instanceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+	if req.FixedBy != "" && !slices.Contains(admins, req.FixedBy) {
+		c.JSON(http.StatusForbidden, errorResponse{Error: "only an admin of this season can fix drafts"})
+		return
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -132,7 +144,21 @@ func (s *Server) receiveDraftThreadMessage(c *gin.Context) {
 		}
 		body["status"] = status
 		body["instance_id"] = pgUUIDString(instanceID)
+		if status == "problem" {
+			body["admin_discord_user_ids"] = admins
+		}
 		c.JSON(http.StatusOK, body)
+	}
+	if req.FixedBy != "" {
+		var fixed bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM draft_thread_messages WHERE message_id = $1 AND status IN ('saved', 'unchanged'))`, req.MessageID).Scan(&fixed); err != nil {
+			writeTribeError(c, err)
+			return
+		}
+		if fixed {
+			c.JSON(http.StatusConflict, errorResponse{Error: "this draft was already saved (another admin's fix, or the player's own edit)"})
+			return
+		}
 	}
 	var seen string
 	if err := tx.QueryRow(ctx, `SELECT status FROM draft_thread_messages WHERE message_id = $1 AND version = $2`, req.MessageID, req.Version).Scan(&seen); err == nil {

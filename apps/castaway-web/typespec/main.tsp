@@ -65,6 +65,18 @@ op createButtonGame(
 @post
 op resolveButtonGame(@path gameID: string): { awards: Record<int32>; } | ErrorResponse;
 
+@route("/announcements/approvals/claim")
+@post
+op claimAnnouncementApproval(@body body: { guild_ids: string[]; }): { announcement: unknown | null; send_at?: utcDateTime; revision?: string; admin_discord_user_ids?: string[]; } | ErrorResponse;
+
+@route("/announcements/{announcementID}/approve")
+@post
+op approveAnnouncement(@path announcementID: string, @body body: { admin_discord_user_id: string; revision: string; }): { scheduled_at: utcDateTime; } | ErrorResponse;
+
+@route("/instances/{instanceID}/announcements/{announcementID}/approval")
+@put
+op requestAnnouncementApproval(@path instanceID: string, @path announcementID: string, @body body: { send_at: utcDateTime; }): unknown | ErrorResponse;
+
 @route("/castawordle/{gameID}/private")
 @post
 op createPrivateCastawordle(

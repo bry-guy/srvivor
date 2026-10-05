@@ -29,7 +29,7 @@ func New(cfg *config.Config, client *castaway.Client, store state.Store, logger 
 	if err != nil {
 		return nil, fmt.Errorf("create discord session: %w", err)
 	}
-	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
+	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages | discordgo.IntentsMessageContent
 
 	bot := &Bot{
 		appID:                 cfg.DiscordApplicationID,

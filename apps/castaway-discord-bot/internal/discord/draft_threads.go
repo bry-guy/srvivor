@@ -81,6 +81,7 @@ func (b *Bot) replayDraftThread(ctx context.Context, threadID string) {
 }
 
 func (b *Bot) onMessageCreate(_ *discordgo.Session, m *discordgo.MessageCreate) {
+	b.handleAdminReply(context.Background(), m.Message)
 	b.handleDraftMessage(context.Background(), m.Message)
 }
 
@@ -116,14 +117,15 @@ func (b *Bot) handleDraftMessage(ctx context.Context, m *discordgo.Message) {
 		}
 	}
 	text := fmt.Sprintf("⚠️ Problem with %s's draft: https://discord.com/channels/%s/%s/%s\n- %s", result.Player, guild, m.ChannelID, m.ID, strings.Join(result.Problems, "\n- "))
-	if len(text) > 2000 {
-		text = text[:1990] + "\n…"
+	const hint = "\n\nReply to this message with fixes, one per line, like `7. Thien An`."
+	if len(text)+len(hint) > 2000 {
+		text = text[:1990-len(hint)] + "\n…"
 	}
-	dm, err := b.session.UserChannelCreate(b.adminContactID, discordgo.WithContext(ctx))
-	if err == nil {
-		_, err = b.session.ChannelMessageSendComplex(dm.ID, &discordgo.MessageSend{Content: text, AllowedMentions: allowedMentions(false)}, discordgo.WithContext(ctx))
+	admins := result.Admins
+	if len(admins) == 0 {
+		admins = []string{b.adminContactID}
 	}
-	if err != nil {
+	if err := b.dmAdmins(ctx, admins, text+hint); err != nil {
 		b.log.Error("DM draft problem", "message_id", m.ID, "error", err)
 	}
 }

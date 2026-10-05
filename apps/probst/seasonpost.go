@@ -214,7 +214,7 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 	var body string
 	cmd := &cobra.Command{
 		Use:   "post FILE --week N",
-		Short: "Render a week's scores post from the template; --yes saves and schedules it at the file's time",
+		Short: "Render a week's scores post from the template; --yes saves it for admin approval (DM) at the file's time",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, a []string) error {
 			f, err := loadSeasonFile(a[0])
@@ -268,10 +268,11 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 			if err != nil {
 				return err
 			}
-			if err := call(c.Context(), "PUT", path+"/announcements/"+url.PathEscape(found.ID)+"/schedule", map[string]any{"scheduled_at": at.UTC().Format(time.RFC3339)}, nil); err != nil {
+			// Saved behind the approval gate: every admin gets a DM and it sends at its time once one replies "yes".
+			if err := call(c.Context(), "PUT", path+"/announcements/"+url.PathEscape(found.ID)+"/approval", map[string]any{"send_at": at.UTC().Format(time.RFC3339)}, nil); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(out, "Scheduled %s for %s ET. Re-run any time before then to refresh it with the latest scores.\n", key, at.Format("Mon Jan 02 3:04pm"))
+			_, err = fmt.Fprintf(out, "Saved %s for %s ET, waiting for approval: admins get a DM and it posts once one replies \"yes\". Re-run before then to refresh it (that re-asks).\n", key, at.Format("Mon Jan 02 3:04pm"))
 			return err
 		},
 	}

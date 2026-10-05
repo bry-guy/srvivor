@@ -142,6 +142,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminSessionResponse'
+  /announcements/approvals/claim:
+    post:
+      operationId: claimAnnouncementApproval
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      announcement:
+                        nullable: true
+                      send_at:
+                        type: string
+                        format: date-time
+                      revision:
+                        type: string
+                      admin_discord_user_ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - announcement
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guild_ids:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - guild_ids
   /announcements/claim:
     post:
       operationId: claimAnnouncement
@@ -159,6 +199,44 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ClaimAnnouncementRequest'
+  /announcements/{announcementID}/approve:
+    post:
+      operationId: approveAnnouncement
+      parameters:
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      scheduled_at:
+                        type: string
+                        format: date-time
+                    required:
+                      - scheduled_at
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                admin_discord_user_id:
+                  type: string
+                revision:
+                  type: string
+              required:
+                - admin_discord_user_id
+                - revision
   /announcements/{announcementID}/finish:
     post:
       operationId: finishAnnouncement
@@ -723,6 +801,41 @@ paths:
                     required:
                       - deleted
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/announcements/{announcementID}/approval:
+    put:
+      operationId: requestAnnouncementApproval
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: announcementID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                send_at:
+                  type: string
+                  format: date-time
+              required:
+                - send_at
   /instances/{instanceID}/announcements/{announcementID}/body:
     put:
       operationId: editAnnouncement
