@@ -18,6 +18,8 @@
 <section class="profile-card" aria-labelledby="draft-heading"><h2 id="draft-heading">Draft <span class="info" tabindex="0" role="img" aria-label="How picks score" title="Each pick scores its castaway's finishing value (last place 1, up to the winner) minus how far your pick was from where they finished: (+value − distance), never below 0.">ⓘ</span></h2>
 {{if .DraftHidden}}<p class="muted">{{.DraftHidden}}</p>{{else}}<ol class="draft-list">{{range .Draft}}<li value="{{.Position}}">{{if .Eliminated}}<em>{{.Name}}</em>{{else}}{{.Name}}{{end}}{{if .Scored}} <span class="muted small" title="(+{{.Value}} − {{.Distance}})">+{{.Points}}</span>{{end}}</li>{{end}}</ol>{{end}}</section>
 </div>
+{{if .Games}}<section aria-labelledby="games-heading"><h2 id="games-heading">Games</h2>
+<ul class="season-list">{{range .Games}}<li><span><a href="{{.URL}}">Episode {{.Episode}} · {{.Kind}}</a></span><span class="muted">{{.Result}}</span></li>{{end}}</ul></section>{{end}}
 <section aria-labelledby="seasons-heading"><h2 id="seasons-heading">Seasons</h2>
 <ul class="season-list">{{range .Seasons}}<li{{if .Selected}} aria-current="page"{{end}}><span><a href="/players/{{.ParticipantID}}">{{.InstanceName}}</a>{{if .Current}} <span class="badge">Current</span>{{end}}</span>
 <span class="muted">{{if .Scored}}Rank {{.Rank}} · {{.Total}} pts{{else}}Unavailable{{end}}</span></li>{{end}}</ul></section>

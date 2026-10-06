@@ -76,7 +76,7 @@ func TestCastawordleVisibilityAndSchedule(t *testing.T) {
 		return result.ID
 	}
 	testID := create(`{"name":"Private practice","answer":"TORCH"}`)
-	testPage := "/castawordle/" + testID
+	testPage := "/games/castawordle/" + testID
 	testPlay := "/api/castawordle/" + testID + "/play"
 	for _, path := range []string{testPage, testPlay} {
 		serve("GET", path, "", "admin", 200)
@@ -89,10 +89,10 @@ func TestCastawordleVisibilityAndSchedule(t *testing.T) {
 	if rec := serve("GET", testPlay, "", "admin", 200); strings.Count(rec.Body.String(), `"word":`) != 1 {
 		t.Fatal("private test progress was changed or lost")
 	}
-	if page := serve("GET", "/castawordle", "", "player", 200); strings.Contains(page.Body.String(), testID) || strings.Contains(page.Body.String(), "Private practice") || strings.Contains(page.Body.String(), "create-game") {
+	if page := serve("GET", "/games", "", "player", 200); strings.Contains(page.Body.String(), testID) || strings.Contains(page.Body.String(), "Private practice") || strings.Contains(page.Body.String(), "create-game") {
 		t.Fatal("ordinary player discovered an admin test or creation form")
 	}
-	if page := serve("GET", "/castawordle", "", "admin", 200); !strings.Contains(page.Body.String(), testID) || !strings.Contains(page.Body.String(), `name="episode_number"`) || !strings.Contains(page.Body.String(), `value="13"`) {
+	if page := serve("GET", "/games", "", "admin", 200); !strings.Contains(page.Body.String(), testID) || !strings.Contains(page.Body.String(), `name="episode_number"`) || !strings.Contains(page.Body.String(), `value="13"`) {
 		t.Fatal("admin cannot discover tests or prepare episode puzzles")
 	}
 	serve("POST", createPath, `{"name":"No","answer":"TORCH","episode_number":2}`, "player", 403)
@@ -128,10 +128,10 @@ func TestCastawordleVisibilityAndSchedule(t *testing.T) {
 	if err != nil || unchanged.Answer != "TORCH" {
 		t.Fatalf("duplicate preparation overwrote existing puzzle: %v", err)
 	}
-	if page := serve("GET", "/castawordle", "", "player", 200); !strings.Contains(page.Body.String(), gameID) || strings.Contains(page.Body.String(), testID) {
+	if page := serve("GET", "/games", "", "player", 200); !strings.Contains(page.Body.String(), gameID) || strings.Contains(page.Body.String(), testID) {
 		t.Fatal("player list did not distinguish scheduled games and tests")
 	}
-	serve("GET", "/castawordle/"+gameID, "", "player", 200)
+	serve("GET", "/games/castawordle/"+gameID, "", "player", 200)
 	playPath := "/api/castawordle/" + gameID + "/play"
 	if rec := serve("GET", playPath, "", "player", 200); !strings.Contains(rec.Body.String(), `"status":"not_open"`) || strings.Contains(rec.Body.String(), `"answer"`) {
 		t.Fatal("prepared game leaked answer or failed to report not_open")
@@ -158,7 +158,7 @@ func TestCastawordleVisibilityAndSchedule(t *testing.T) {
 		t.Fatal(err)
 	}
 	foreignID := uuid.UUID(foreignGame.ID.Bytes).String()
-	serve("GET", "/castawordle/"+foreignID, "", "player", 404)
+	serve("GET", "/games/castawordle/"+foreignID, "", "player", 404)
 	serve("GET", "/api/castawordle/"+foreignID+"/play", "", "player", 403)
 	serve("POST", "/api/castawordle/"+foreignID+"/play/guesses", `{"guess":"TORCH","position":1}`, "player", 403)
 	var scoringRows int

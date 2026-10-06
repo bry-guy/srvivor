@@ -69,7 +69,7 @@ func TestCastawordleBrowser(t *testing.T) {
 	}
 	t.Log(string(out))
 	var presses int
-	if err := pool.QueryRow(ctx, `SELECT COALESCE(SUM(presses), 0) FROM button_presses`).Scan(&presses); err != nil || presses != 5 {
-		t.Fatalf("button presses = %d (%v), want 5 from the browser check", presses, err)
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(SUM(presses), 0) FROM button_presses`).Scan(&presses); err != nil || presses != 10 {
+		t.Fatalf("button presses = %d (%v), want 10 from the browser check (one player presses to the first hint)", presses, err)
 	}
 }

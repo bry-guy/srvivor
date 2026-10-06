@@ -99,13 +99,15 @@ func (s *Server) PublicRouter() *gin.Engine {
 	pages.GET("/seasons/:instanceID", s.seasonPage)
 	pages.GET("/players/:participantID", s.playerPage)
 	pages.GET("/games", s.gamesPage)
-	pages.GET("/button", s.buttonPage)
-	pages.POST("/button", s.requireSameOrigin(), s.pressButton)
-	pages.POST("/button/tests", s.requireSameOrigin(), s.createButtonTest)
-	pages.GET("/button/:gameID", s.buttonPage)
-	pages.POST("/button/:gameID", s.requireSameOrigin(), s.pressButton)
-	pages.GET("/castawordle", s.castawordleListPage)
-	pages.GET("/castawordle/:gameID", s.castawordlePage)
+	pages.GET("/games/castawordle/:gameID", s.castawordlePage)
+	pages.GET("/games/button", s.buttonPage)
+	pages.POST("/games/button/tests", s.requireSameOrigin(), s.createButtonTest)
+	pages.GET("/games/button/:gameID", s.buttonPage)
+	pages.POST("/games/button/:gameID", s.requireSameOrigin(), s.pressButton)
+	// Old links (already posted in Discord) redirect to /games.
+	for _, old := range []string{"/castawordle", "/castawordle/:gameID", "/button", "/button/:gameID"} {
+		pages.GET(old, legacyGameRedirect)
+	}
 	r.GET("/auth/login", s.startLogin)
 	r.GET("/auth/cli", s.startLogin)
 	r.GET("/auth/callback", s.loginCallback)
@@ -544,10 +546,4 @@ func (s *Server) homeLeaderboard(c *gin.Context) ([]homeRow, error) {
 		rows = append(rows, homeRow{Rank: r.Rank, ID: r.ParticipantID, Name: r.Name, Tribe: r.Tribe, Total: r.Total, Draft: r.Draft, Bonus: r.Bonus})
 	}
 	return rows, err
-}
-
-func (s *Server) gamesPage(c *gin.Context) {
-	if data, ok := s.siteData(c); ok {
-		renderSite(c, "hub.html", data)
-	}
 }

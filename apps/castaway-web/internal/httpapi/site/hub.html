@@ -1,7 +1,0 @@
-{{template "header" .}}
-<p class="eyebrow">Play</p><h1>Games</h1>
-<ul class="season-list"><li><a href="/castawordle">Castawordle</a><span class="muted">One word. Six torches.</span></li>
-<li><a href="/button">Press the Button</a><span class="muted">🔴</span></li></ul>
-{{if .Admin}}<form method="post" action="/button/tests"><button class="button" type="submit">Test Press the Button</button></form>
-<p class="muted">Admin-only and unscored. Castawordle tests are made from the Castawordle page.</p>{{end}}
-{{template "footer" .}}

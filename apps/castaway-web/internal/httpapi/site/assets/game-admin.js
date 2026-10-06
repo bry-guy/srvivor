@@ -14,7 +14,7 @@ form?.addEventListener('submit', async event => {
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || 'Could not create the puzzle.');
     form.reset();
-    location.assign(`/castawordle/${encodeURIComponent(body.id)}`);
+    location.assign(`/games/castawordle/${encodeURIComponent(body.id)}`);
   } catch (error) {
     message.textContent = error.message || 'Connection lost. Try again.';
     button.disabled = false;

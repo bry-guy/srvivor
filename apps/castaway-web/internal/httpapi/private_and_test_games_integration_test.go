@@ -92,20 +92,20 @@ func TestPrivateCastawordleAndButtonTests(t *testing.T) {
 	serve("POST", private, fmt.Sprintf(`{"participant_id":%q,"name":"again","answer":"GARDEN"}`, ids["bryan"]), "bryan", 409)
 
 	// Only Bryan sees his puzzle; he no longer sees the original. Other admins can't see or play his.
-	list := serve("GET", "/castawordle", "", "bryan", 200)
+	list := serve("GET", "/games", "", "bryan", 200)
 	if !strings.Contains(list, mine.ID) || strings.Contains(list, game.ID) || !strings.Contains(list, "Just for you") {
 		t.Fatalf("bryan's list: %s", list)
 	}
 	for _, user := range []string{"admin2", "player"} {
-		if l := serve("GET", "/castawordle", "", user, 200); strings.Contains(l, mine.ID) || !strings.Contains(l, game.ID) {
+		if l := serve("GET", "/games", "", user, 200); strings.Contains(l, mine.ID) || !strings.Contains(l, game.ID) {
 			t.Fatalf("%s's list: %s", user, l)
 		}
-		serve("GET", "/castawordle/"+mine.ID, "", user, 404)
+		serve("GET", "/games/castawordle/"+mine.ID, "", user, 404)
 		serve("GET", "/api/castawordle/"+mine.ID+"/play", "", user, 404)
 		serve("POST", "/api/castawordle/"+mine.ID+"/play/guesses", `{"guess":"CRANES","position":1}`, user, 404)
 	}
 	serve("GET", "/api/castawordle/"+game.ID+"/play", "", "bryan", 404)
-	if page := serve("GET", "/castawordle/"+mine.ID, "", "bryan", 200); !strings.Contains(page, "counts as your Episode 2") {
+	if page := serve("GET", "/games/castawordle/"+mine.ID, "", "bryan", 200); !strings.Contains(page, "counts as your Episode 2") {
 		t.Fatalf("bryan's puzzle page: %s", page)
 	}
 	minePlay := "/api/castawordle/" + mine.ID + "/play/guesses"
@@ -117,9 +117,9 @@ func TestPrivateCastawordleAndButtonTests(t *testing.T) {
 	}
 
 	// Press the Button tests: admin-only, a stable URL, and no points.
-	serve("POST", "/button/tests", "", "player", 404)
-	testURL := serve("POST", "/button/tests", "", "admin2", 303)
-	if !strings.HasPrefix(testURL, "/button/") {
+	serve("POST", "/games/button/tests", "", "player", 404)
+	testURL := serve("POST", "/games/button/tests", "", "admin2", 303)
+	if !strings.HasPrefix(testURL, "/games/button/") {
 		t.Fatalf("test game redirect: %q", testURL)
 	}
 	serve("GET", testURL, "", "player", 404)
@@ -128,13 +128,17 @@ func TestPrivateCastawordleAndButtonTests(t *testing.T) {
 		t.Fatalf("test page should post to itself: %s", page)
 	}
 	for range 3 {
-		serve("POST", testURL, "", "bryan", 204, "X-Press", "1")
+		serve("POST", testURL, "", "bryan", 200, "X-Press", "1")
 	}
-	serve("POST", testURL, "", "admin2", 204, "X-Press", "1")
-	serve("POST", "/button", "", "bryan", 409, "X-Press", "1") // the test game isn't the scheduled one
+	serve("POST", testURL, "", "admin2", 200, "X-Press", "1")
+	serve("GET", "/games/button", "", "bryan", 302) // the test game isn't the scheduled one
 
 	now = time.Date(2026, 10, 7, 16, 0, 0, 0, time.UTC)
 	serve("POST", "/api/castawordle/"+game.ID+"/resolve", "", "admin2", 200)
+	// After close, the season's players see the answer and everyone's result (Bryan's private result stands in).
+	if page := serve("GET", "/games/castawordle/"+game.ID, "", "admin2", 200); !strings.Contains(page, "SCHISM") || !strings.Contains(page, "Torch out") || !strings.Contains(page, ">bryan<") {
+		t.Fatalf("closed castawordle results: %s", page)
+	}
 	if _, err := pool.Exec(ctx, `UPDATE button_games SET cutoff_at = $1, opens_at = $2`, now.Add(-time.Minute), now.Add(-2*time.Minute)); err != nil {
 		t.Fatal(err)
 	}

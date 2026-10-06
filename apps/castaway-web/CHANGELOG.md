@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Games hub: every game lives under `/games` (episode list, `?season=` for past seasons), `/games/castawordle/:id` and `/games/button/:id`; old `/castawordle` and `/button` links redirect. Closed games show everyone's results to the season (Castawordle after close with the answer; Press the Button once scored), and profiles list a player's game results.
+- Press the Button (migration 028): count readout, Savu/Toka press totals, hints at 10/50/100/250/500/1,000 presses (no points), daily streaks (3/4/5+ Eastern days: +1/+2/+3), first presser +1, last presser −1.
 - Admin DM approvals (migration 027): `PUT .../announcements/{id}/approval` holds a post until an instance admin replies "yes" to the bot's DM; it then sends at exactly its time (never late, never other text; edits re-ask).
 - Draft problems DM every instance admin; replying with `7. Thien An` lines resubmits the corrected draft as the player's (admins only; never over a saved draft).
 - Press the Button shows a small "count: N" under the button, and players earn +1 per order of magnitude past 10 presses (100: +1, 1,000: +2, 10,000+: +3), on top of the ranking rules.

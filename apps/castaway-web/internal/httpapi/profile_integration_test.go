@@ -152,7 +152,7 @@ func TestProfiles(t *testing.T) {
 		t.Fatalf("past standings missing trophy or bonus column: %s", pastPage)
 	}
 	lacks(get("/", "bob", 200), "🏆")
-	has(get("/games", "bob", 200), `href="/castawordle"`)
+	has(get("/games", "bob", 200), `<h1>Games</h1>`)
 	has(get("/me", "bob", 200), `href="/games">Games</a>`)
 	lacks(get("/me", "bob", 200), ">standings<")
 

@@ -98,3 +98,11 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
   transition: transform .06s, box-shadow .06s; }
 .the-button:active { transform: translateY(.45rem); box-shadow: 0 .1rem 0 #4a3019, 0 .4rem 1rem rgb(0 0 0 / .25), inset 0 -.3rem .8rem rgb(0 0 0 / .3); }
 .the-button:focus-visible { outline: 3px solid var(--accent, #2d5a3d); outline-offset: .5rem; }
+
+/* Press the Button: hint fades in/out under the button; tribe totals are quiet. */
+.button-hint { min-height: 1.5em; margin: .5rem 0 0; text-align: center; font-style: italic; opacity: 0; transition: opacity .8s ease; }
+.button-hint.shown { opacity: 1; }
+.tribe-presses { text-align: center; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.game-episode h2 { margin-top: 1.5rem; }
+.game-card h3 { margin: .25rem 0; }
+.answer { letter-spacing: .2em; font-weight: 700; }

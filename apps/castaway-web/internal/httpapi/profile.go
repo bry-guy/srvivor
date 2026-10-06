@@ -43,6 +43,7 @@ type profileView struct {
 	Draft                  []profilePick
 	DraftHidden            string
 	Seasons                []profileSeason
+	Games                  []profileGame
 }
 
 type leaderboardRow struct {
@@ -185,6 +186,9 @@ func (s *Server) renderProfile(c *gin.Context, data sitePageData, participantID 
 	}
 	if err == nil {
 		view.Draft, view.DraftHidden, err = s.profileDraft(ctx, data, view, targetInstance, participantID)
+	}
+	if err == nil {
+		view.Games, err = s.profileGames(ctx, participantID)
 	}
 	if err != nil {
 		c.String(http.StatusInternalServerError, "could not load the page")
@@ -341,6 +345,7 @@ func (s *Server) seasonPage(c *gin.Context) {
 		return
 	}
 	err = s.pool.QueryRow(c.Request.Context(), `SELECT name FROM instances WHERE public_id::text = ANY($1) AND public_id = $2`, s.public.LeagueInstanceIDs, id).Scan(&data.SeasonName)
+	data.SeasonID = id.String()
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.String(http.StatusNotFound, "season not found")
 		return

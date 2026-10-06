@@ -90,7 +90,7 @@ func TestCastawordle(t *testing.T) {
 	guess := func(word string, position int, user string) *httptest.ResponseRecorder {
 		return serve("POST", playPath+"/guesses", fmt.Sprintf(`{"guess":%q,"position":%d}`, word, position), user, base)
 	}
-	for _, path := range []string{"/", "/castawordle", "/castawordle/" + gameID} {
+	for _, path := range []string{"/", "/games", "/games/castawordle/" + gameID} {
 		rec := serve("GET", path, "", "", "")
 		want(rec, 302)
 		if !strings.HasPrefix(rec.Header().Get("Location"), "/auth/login?next=") {
@@ -120,7 +120,7 @@ func TestCastawordle(t *testing.T) {
 	if strings.Contains(initial.Body.String(), "CACAO") || !strings.Contains(initial.Body.String(), `"not_started"`) {
 		t.Fatalf("initial state leaked or changed: %s", initial.Body)
 	}
-	page := serve("GET", "/castawordle/"+gameID, "", "cw-player", "")
+	page := serve("GET", "/games/castawordle/"+gameID, "", "cw-player", "")
 	if strings.Contains(page.Body.String(), "CACAO") {
 		t.Fatal("HTML leaked answer")
 	}

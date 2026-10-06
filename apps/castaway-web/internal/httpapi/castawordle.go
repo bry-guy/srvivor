@@ -692,7 +692,8 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 	c.Data(http.StatusOK, "application/json; charset=utf-8", payload)
 }
 
-func (s *Server) castawordleListPage(c *gin.Context) {
+// gamesPage lists a season's games by episode: the current season, or a past league season with ?season=.
+func (s *Server) gamesPage(c *gin.Context) {
 	data, ok := s.siteData(c)
 	if !ok {
 		return
@@ -702,11 +703,22 @@ func (s *Server) castawordleListPage(c *gin.Context) {
 		return
 	}
 	id, err := uuid.Parse(s.public.InstanceID)
+	if season := c.Query("season"); season != "" && season != s.public.InstanceID {
+		id, err = uuid.Parse(season)
+		if err == nil {
+			err = s.pool.QueryRow(c.Request.Context(), `SELECT name FROM instances WHERE public_id::text = ANY($1) AND public_id = $2`, s.public.LeagueInstanceIDs, id).Scan(&data.SeasonName)
+		}
+		if err != nil {
+			c.String(http.StatusNotFound, "season not found")
+			return
+		}
+		data.SeasonID, data.Admin = id.String(), false // past seasons: read-only, no tests
+	}
 	if err != nil {
 		castawordleError(c, err)
 		return
 	}
-	rows, err := s.queries.ListCastawordleGames(c.Request.Context(), db.ListCastawordleGamesParams{InstanceID: toPGUUID(id), IncludeTests: true})
+	rows, err := s.queries.ListCastawordleGames(c.Request.Context(), db.ListCastawordleGamesParams{InstanceID: toPGUUID(id), IncludeTests: data.Admin})
 	if err != nil {
 		castawordleError(c, err)
 		return
@@ -754,6 +766,11 @@ func (s *Server) castawordleListPage(c *gin.Context) {
 			}
 		}
 	}
+	s.castawordleEntries(&data)
+	if err := s.addButtonGames(c.Request.Context(), &data, id.String()); err != nil {
+		castawordleError(c, err)
+		return
+	}
 	renderSite(c, "games.html", data)
 }
 
@@ -789,6 +806,13 @@ func (s *Server) castawordlePage(c *gin.Context) {
 		game.markPrivate(p)
 	}
 	data.Game = &game
+	if data.Closed = !s.now().Before(row.CutoffAt.Time); data.Closed {
+		data.Answer = row.Answer
+		if data.CastawordleResults, err = s.castawordleResults(c.Request.Context(), row.ID, row.Answer); err != nil {
+			castawordleError(c, err)
+			return
+		}
+	}
 	renderSite(c, "game.html", data)
 }
 

@@ -68,37 +68,64 @@ func TestPressTheButton(t *testing.T) {
 	}
 	serve("POST", create, window, "admin", 200) // re-apply is fine
 
-	if strings.Contains(serve("GET", "/button", "", "most", 200), "the-button") {
+	gameURL := "/games/button/" + game.ID
+	serve("GET", "/games/button", "", "most", 302) // nothing open yet: back to the games list
+	if strings.Contains(serve("GET", gameURL, "", "most", 200), "the-button") {
 		t.Fatal("button shown before the game opens")
 	}
-	serve("POST", "/button", "", "most", 409, "X-Press", "1")
+	serve("POST", gameURL, "", "most", 409, "X-Press", "1")
 	now = time.Date(2026, 10, 8, 1, 0, 0, 0, time.UTC)
-	page := serve("GET", "/button", "", "most", 200)
-	if !strings.Contains(page, `class="the-button"`) || strings.Contains(page, "<p") || !strings.Contains(page, "count: 0") {
-		t.Fatalf("button page should be just the button and its count: %s", page)
+	page := serve("GET", "/games/button", "", "most", 200)
+	if !strings.Contains(page, `class="the-button"`) || !strings.Contains(page, "count: 0") || !strings.Contains(page, `action="`+gameURL+`"`) ||
+		!strings.Contains(page, "The tribe has spoken") || !strings.Contains(page, `<p class="button-hint" role="status" aria-live="polite"></p>`) {
+		t.Fatalf("button page should be the button, its count, and a hidden hint: %s", page)
 	}
 	press := func(user string, n int) {
 		for range n {
-			serve("POST", "/button", "", user, 204, "X-Press", "1")
+			var body struct {
+				Count int `json:"count"`
+			}
+			if err := json.Unmarshal([]byte(serve("POST", gameURL, "", user, 200, "X-Press", "1")), &body); err != nil || body.Count == 0 {
+				t.Fatalf("press response: %v %v", body, err)
+			}
+			now = now.Add(time.Second)
 		}
 	}
-	press("most", 9)
+	press("most", 9) // first presser
 	press("second", 6)
 	press("twinA", 4)
 	press("twinB", 4)
 	press("least", 1)
-	if page := serve("GET", "/button", "", "most", 200); !strings.Contains(page, "count: 9") {
+	if page := serve("GET", "/games/button", "", "most", 200); !strings.Contains(page, "count: 9") {
 		t.Fatalf("count after 9 presses: %s", page)
 	}
-	serve("POST", "/button", "", "least", 303)                               // plain form post redirects back
-	press("least", 0)                                                        // least now has 2 presses
+	// second presses on two more Eastern days: a 3-day streak.
+	now = time.Date(2026, 10, 9, 1, 0, 0, 0, time.UTC)
+	press("second", 1)
+	now = time.Date(2026, 10, 10, 1, 0, 0, 0, time.UTC)
+	press("second", 1)
+	serve("POST", gameURL, "", "least", 303)                                 // plain form post redirects back; least is now the last presser
+	serve("GET", gameURL, "", "idle", 200)                                   // others' counts aren't shown while it's open
 	serve("POST", "/api/button-games/"+game.ID+"/resolve", "", "admin", 409) // before cutoff
 
 	now = time.Date(2026, 10, 14, 15, 0, 0, 0, time.UTC)
-	serve("POST", "/button", "", "idle", 409) // closed
+	serve("POST", gameURL, "", "idle", 409) // closed
+	if page := serve("GET", gameURL, "", "idle", 200); strings.Contains(page, "twinA") || !strings.Contains(page, "once the game is scored") {
+		t.Fatalf("results shown before scoring: %s", page)
+	}
 	serve("POST", "/api/button-games/"+game.ID+"/resolve", "", "admin", 200)
 	serve("POST", "/api/button-games/"+game.ID+"/resolve", "", "admin", 200)
 	serve("POST", create, window, "admin", 409) // resolved games can't be rescheduled
+	// Once scored, every player in the season sees everyone's results, and each player's profile lists it.
+	if page := serve("GET", gameURL, "", "idle", 200); !strings.Contains(page, "twinA") || !strings.Contains(page, "first +1") || !strings.Contains(page, "last −1") {
+		t.Fatalf("results page: %s", page)
+	}
+	if page := serve("GET", "/players/"+ids["most"], "", "idle", 200); !strings.Contains(page, `href="`+gameURL+`">Episode 3 · Press the Button`) || !strings.Contains(page, "9 presses · &#43;3 pts") {
+		t.Fatalf("profile games: %s", page)
+	}
+	if page := serve("GET", "/games", "", "idle", 200); !strings.Contains(page, gameURL) || !strings.Contains(page, "Episode 3") {
+		t.Fatalf("games list: %s", page)
+	}
 
 	totals := map[string]int{}
 	rows, err := pool.Query(ctx, `SELECT p.public_id::text, COALESCE(SUM(l.points),0) FROM participants p LEFT JOIN bonus_point_ledger_entries l ON l.participant_id = p.id GROUP BY 1`)
@@ -114,7 +141,9 @@ func TestPressTheButton(t *testing.T) {
 		totals[id] = points
 	}
 	rows.Close()
-	want := map[string]int{"most": 2, "second": -1, "twinA": 2, "twinB": 2, "least": 1, "idle": 0, "admin": 0}
+	// most: most presses +2, first presser +1. second: second most -1, 3-day streak +1. twins: pair +2.
+	// least: fewest +1, last presser -1. idle never pressed.
+	want := map[string]int{"most": 3, "second": 0, "twinA": 2, "twinB": 2, "least": 0, "idle": 0, "admin": 0}
 	for user, points := range want {
 		if totals[ids[user]] != points {
 			t.Errorf("%s earned %d, want %d", user, totals[ids[user]], points)

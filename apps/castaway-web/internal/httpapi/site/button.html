@@ -1,4 +1,13 @@
 {{template "header" .}}
-{{if .ButtonOpen}}<form class="button-stage" method="post" action="{{.ButtonAction}}"><button class="the-button" type="submit" aria-label="Press the button"></button><output class="press-count muted">count: {{.ButtonPresses}}</output></form>
-<script src="/assets/button.js?v=2" defer></script>{{end}}
+{{with .Button}}{{if .Open}}<form class="button-stage" method="post" action="{{.Action}}" data-hints="{{.HintsJSON}}"><button class="the-button" type="submit" aria-label="Press the button"></button><output class="press-count muted">count: {{.Count}}</output>
+<p class="button-hint" role="status" aria-live="polite"></p>
+<p class="tribe-presses muted">{{range .Tribes}}<span data-tribe="{{.Name}}">{{if eq .Name "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Name "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}{{.Name}} <b>{{.Presses}}</b></span> {{end}}</p></form>
+<script src="/assets/button.js?v=3" defer></script>
+{{else}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">{{if .Test}}Admin-only test{{else}}Episode {{.Episode}}{{end}}</p><h1>Press the Button</h1>
+<p class="muted">{{if .Upcoming}}Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}{{else}}Closed {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}{{end}}</p></div>
+{{if .ResultsWait}}<p class="notice">Results appear once the game is scored.</p>{{end}}
+{{if .Results}}<p class="tribe-presses muted">{{range .Tribes}}{{if eq .Name "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Name "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}{{.Name}} <b>{{.Presses}}</b> {{end}}</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Presses</th><th scope="col" title="Place and volume">Place</th><th scope="col">Streak</th><th scope="col" title="First and last presser">First/last</th><th scope="col">Points</th></tr></thead>
+<tbody>{{range .Results}}<tr><td>{{.Rank}}</td><th scope="row">{{if eq .Tribe "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Tribe "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}<a href="/players/{{.ID}}">{{.Name}}</a></th><td>{{.Presses}}</td><td>{{printf "%+d" .PlaceVolume}}</td><td>{{.StreakDays}}d {{printf "%+d" .Streak}}</td><td>{{if .First}}first +1{{end}}{{if .Last}} last −1{{end}}</td><td class="total">{{printf "%+d" .Total}}</td></tr>{{end}}</tbody></table></div>
+{{else if not .ResultsWait}}{{if not .Upcoming}}<p class="muted">Nobody pressed.</p>{{end}}{{end}}{{end}}{{end}}
 {{template "footer" .}}
