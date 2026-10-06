@@ -111,7 +111,7 @@ const base = process.argv[2];
       assert.match(count, /^count: \d+$/);
       assert.equal(await page.locator('.button-hint').innerText(), '', 'no hint before a threshold');
       const before = Number(count.slice('count: '.length));
-      // Press to the first hint (10): it appears, then fades after ~12s.
+      // Press to the first noise count (10): its hint appears.
       const presses = 10 - before;
       for (let i = 0; i < presses; i++) {
         const pressed = page.waitForResponse(r => r.url().endsWith(buttonPath) && r.request().method() === 'POST');

@@ -7,6 +7,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Press the Button hints now come from the server and hint at every scoring rule without explaining it: first press, landing on a shared count, taking first or second place, a first press at the bottom, 3–5 day streaks, and 100/1,000/10,000 presses, plus 10/50/250/500 as no-points noise.
 - Games hub: every game lives under `/games` (episode list, `?season=` for past seasons), `/games/castawordle/:id` and `/games/button/:id`; old `/castawordle` and `/button` links redirect. Closed games show everyone's results to the season (Castawordle after close with the answer; Press the Button once scored), and profiles list a player's game results.
 - Press the Button (migration 028): count readout, Savu/Toka press totals, hints at 10/50/100/250/500/1,000 presses (no points), daily streaks (3/4/5+ Eastern days: +1/+2/+3), first presser +1, last presser −1.
 - Admin DM approvals (migration 027): `PUT .../announcements/{id}/approval` holds a post until an instance admin replies "yes" to the bot's DM; it then sends at exactly its time (never late, never other text; edits re-ask).

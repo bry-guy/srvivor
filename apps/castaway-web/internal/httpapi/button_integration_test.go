@@ -77,24 +77,33 @@ func TestPressTheButton(t *testing.T) {
 	now = time.Date(2026, 10, 8, 1, 0, 0, 0, time.UTC)
 	page := serve("GET", "/games/button", "", "most", 200)
 	if !strings.Contains(page, `class="the-button"`) || !strings.Contains(page, "count: 0") || !strings.Contains(page, `action="`+gameURL+`"`) ||
-		!strings.Contains(page, "The tribe has spoken") || !strings.Contains(page, `<p class="button-hint" role="status" aria-live="polite"></p>`) {
+		strings.Contains(page, "The tribe has spoken") || !strings.Contains(page, `<p class="button-hint" role="status" aria-live="polite"></p>`) {
 		t.Fatalf("button page should be the button, its count, and a hidden hint: %s", page)
 	}
+	hints := map[string][]string{}
 	press := func(user string, n int) {
 		for range n {
 			var body struct {
-				Count int `json:"count"`
+				Count int    `json:"count"`
+				Hint  string `json:"hint"`
 			}
 			if err := json.Unmarshal([]byte(serve("POST", gameURL, "", user, 200, "X-Press", "1")), &body); err != nil || body.Count == 0 {
 				t.Fatalf("press response: %v %v", body, err)
 			}
+			hints[user] = append(hints[user], body.Hint)
 			now = now.Add(time.Second)
 		}
 	}
 	press("most", 9) // first presser
+	if hints["most"][0] != "Get this trailblazer a machete" {
+		t.Fatalf("first press hint: %q", hints["most"][0])
+	}
 	press("second", 6)
 	press("twinA", 4)
 	press("twinB", 4)
+	if h := hints["twinB"][3]; h != "There's something in the air" && h != "You're not alone out here" && h != "Footprints in the sand" {
+		t.Fatalf("landing on a shared count should hint at it, got %q", h)
+	}
 	press("least", 1)
 	if page := serve("GET", "/games/button", "", "most", 200); !strings.Contains(page, "count: 9") {
 		t.Fatalf("count after 9 presses: %s", page)

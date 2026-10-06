@@ -55,3 +55,32 @@ func TestButtonScores(t *testing.T) {
 		t.Error("nobody pressed should score nobody")
 	}
 }
+
+func TestButtonHint(t *testing.T) {
+	first := func(lines []string) string { return lines[0] }
+	p := func(id string, n int64, ds ...int) buttonPlayer {
+		return buttonPlayer{ID: id, Presses: n, Days: days(ds...)}
+	}
+	for name, tc := range map[string]struct {
+		players []buttonPlayer
+		newDay  bool
+		want    string
+	}{
+		"very first press":           {[]buttonPlayer{p("me", 1, 7)}, true, "Get this trailblazer a machete"},
+		"landed on a shared one":     {[]buttonPlayer{p("me", 5, 7), p("b", 5, 7), p("c", 9, 7)}, false, "There's something in the air"},
+		"took the top":               {[]buttonPlayer{p("me", 10, 7), p("b", 9, 7)}, false, "The view is better from up here"},
+		"still on top: quiet":        {[]buttonPlayer{p("me", 12, 7), p("b", 9, 7)}, false, ""},
+		"moved into second":          {[]buttonPlayer{p("me", 6, 7), p("b", 5, 7), p("c", 9, 7)}, false, "So close, and yet…"},
+		"first press, fewest":        {[]buttonPlayer{p("me", 1, 7), p("b", 5, 7), p("c", 9, 7)}, true, "Under the radar"},
+		"streak day 3":               {[]buttonPlayer{p("me", 7, 7, 8, 9), p("b", 2, 7), p("c", 99, 7)}, true, "The tide keeps coming back"},
+		"same day, no streak":        {[]buttonPlayer{p("me", 7, 7, 8, 9), p("b", 2, 7), p("c", 99, 7)}, false, ""},
+		"streak day 6: quiet":        {[]buttonPlayer{p("me", 7, 4, 5, 6, 7, 8, 9), p("b", 2, 7), p("c", 99, 7)}, true, ""},
+		"noise count":                {[]buttonPlayer{p("me", 50, 9), p("b", 2, 9), p("c", 99, 9)}, false, "Something shifted in the sand"},
+		"volume 10,000":              {[]buttonPlayer{p("me", 10000, 9), p("b", 2, 9), p("c", 99999, 9)}, false, "You've outlasted Ozzy"},
+		"shared beats a noise count": {[]buttonPlayer{p("me", 50, 9), p("b", 50, 9), p("c", 99, 9)}, false, "There's something in the air"},
+	} {
+		if got := buttonHint(tc.players, "me", tc.newDay, day(9), first); got != tc.want {
+			t.Errorf("%s: got %q, want %q", name, got, tc.want)
+		}
+	}
+}

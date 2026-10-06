@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
 	"sort"
 	"time"
@@ -317,6 +318,12 @@ func (s *Server) pressButton(c *gin.Context) {
 	var count int64
 	now := s.now()
 	day := easternTime(now).Format(time.DateOnly)
+	var newDay bool // first press today? (only picks a hint, so no lock needed)
+	if err := s.pool.QueryRow(ctx, `SELECT NOT EXISTS (SELECT 1 FROM button_presses b JOIN participants p ON p.id = b.participant_id
+		WHERE b.game_id = $1 AND p.discord_user_id = $2 AND $3::date = ANY(b.press_days))`, gameID, data.User.DiscordUserID, day).Scan(&newDay); err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
 	err = s.pool.QueryRow(ctx, `INSERT INTO button_presses (game_id, participant_id, presses, first_press_at, last_press_at, press_days)
 		SELECT $1, p.id, 1, $4, $4, ARRAY[$5::date] FROM participants p JOIN instances i ON i.id = p.instance_id
 		WHERE i.public_id = $2 AND p.discord_user_id = $3
@@ -334,7 +341,19 @@ func (s *Server) pressButton(c *gin.Context) {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"count": count, "tribes": tribePresses(players)})
+		var me string
+		if err := s.pool.QueryRow(ctx, `SELECT p.public_id::text FROM participants p JOIN instances i ON i.id = p.instance_id
+			WHERE i.public_id = $1 AND p.discord_user_id = $2`, s.public.InstanceID, data.User.DiscordUserID).Scan(&me); err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		today, err := time.Parse(time.DateOnly, day)
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		hint := buttonHint(players, me, newDay, today, func(lines []string) string { return lines[rand.IntN(len(lines))] }) // #nosec G404 -- flavor text
+		c.JSON(http.StatusOK, gin.H{"count": count, "tribes": tribePresses(players), "hint": hint})
 		return
 	}
 	c.Redirect(http.StatusSeeOther, view.Action)

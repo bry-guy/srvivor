@@ -1,8 +1,7 @@
-// Count presses without reloading (the form still works without script), update tribe totals, and flash a
-// hint for ~12 seconds when the count reaches a threshold.
+// Count presses without reloading (the form still works without script), update tribe totals, and flash
+// the server's hint, if any, for ~12 seconds.
 const stage = document.querySelector(".button-stage");
 if (stage) {
-  const hints = JSON.parse(stage.dataset.hints || "[]");
   const count = stage.querySelector(".press-count");
   const hint = stage.querySelector(".button-hint");
   let timer;
@@ -17,9 +16,8 @@ if (stage) {
           const total = stage.querySelector(`[data-tribe="${CSS.escape(tribe.name)}"] b`);
           if (total) total.textContent = tribe.presses;
         }
-        const reached = hints.find((h) => h.At === body.count);
-        if (reached) {
-          hint.textContent = reached.Text;
+        if (body.hint) {
+          hint.textContent = body.hint;
           hint.classList.add("shown");
           clearTimeout(timer);
           timer = setTimeout(() => hint.classList.remove("shown"), 12000);

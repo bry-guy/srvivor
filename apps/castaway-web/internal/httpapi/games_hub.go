@@ -176,7 +176,6 @@ type buttonView struct {
 	Action      string
 	Count       int64
 	Tribes      []buttonTribeTotal
-	HintsJSON   string
 	Results     []buttonResult // set once results are visible
 	ResultsWait bool           // closed, waiting to be scored
 }
@@ -240,11 +239,6 @@ func (s *Server) fillButtonView(ctx context.Context, view *buttonView, dbID int6
 	if view.Open {
 		view.Tribes = tribePresses(players)
 		view.Count = s.buttonPresses(ctx, dbID, discordID)
-		hints, err := json.Marshal(buttonHints)
-		if err != nil {
-			return err
-		}
-		view.HintsJSON = string(hints)
 		return nil
 	}
 	if view.Upcoming {

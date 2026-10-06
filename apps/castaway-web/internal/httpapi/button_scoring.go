@@ -94,17 +94,86 @@ func longestStreak(days []time.Time) int {
 	return best
 }
 
-// buttonHints are the lines the button page flashes when a player's count reaches each threshold.
-var buttonHints = []struct {
-	At   int64
-	Text string
-}{
-	{10, "The tribe has spoken"},
-	{50, "Something shifted in the sand"},
-	{100, "This isn't a reward challenge. Or is it?"},
-	{250, "The torch burns brighter"},
-	{500, "Medical has been called"},
-	{1000, "You've outlasted Ozzy"},
+// Hints flash under the button after a press. Each scoring rule has its own subtle lines, plus a few
+// no-points press counts for noise. A hint fires only when the player's situation changes; when several
+// apply, the first in buttonHint's order wins. They hint, they never explain.
+var (
+	hintFirst  = []string{"Get this trailblazer a machete"}
+	hintShared = []string{"There's something in the air", "You're not alone out here", "Footprints in the sand"}
+	hintMost   = []string{"The view is better from up here", "All eyes on you"}
+	hintSecond = []string{"So close, and yet…"}
+	hintFewest = []string{"Under the radar", "Quiet ones go far"}
+	hintStreak = []string{"The tide keeps coming back", "Day after day", "Old habits"}
+	hintCounts = map[int64]string{
+		10: "The tribe has spoken", 50: "Something shifted in the sand", // noise
+		100: "This isn't a reward challenge. Or is it?",                 // volume +1
+		250: "The torch burns brighter", 500: "Medical has been called", // noise
+		1000: "The island trembles", 10000: "You've outlasted Ozzy", // volume +2, +3
+	}
+)
+
+// buttonHint picks the hint for a player who just pressed (players is after the press). newDay says this
+// was their first press today; today is the Eastern date. pick chooses one line from a list.
+func buttonHint(players []buttonPlayer, me string, newDay bool, today time.Time, pick func([]string) string) string {
+	var count, total int64
+	var days []time.Time
+	others := map[int64]bool{}
+	for _, p := range players {
+		total += p.Presses
+		if p.ID == me {
+			count, days = p.Presses, p.Days
+		} else {
+			others[p.Presses] = true
+		}
+	}
+	// place is how many distinct other counts beat c (0 = most, 1 = second); -1 for no presses or a tie
+	// (a tied player doesn't hold a place on their own).
+	above := func(c int64) int {
+		if c == 0 || others[c] {
+			return -1
+		}
+		n := 0
+		for o := range others {
+			if o > c {
+				n++
+			}
+		}
+		return n
+	}
+	now, before := above(count), above(count-1)
+	switch {
+	case count == 0:
+		return ""
+	case total == 1:
+		return pick(hintFirst)
+	case others[count]:
+		return pick(hintShared)
+	case now == 0 && before != 0:
+		return pick(hintMost)
+	case now == 1 && before != 1:
+		return pick(hintSecond)
+	case count == 1 && now == len(others):
+		return pick(hintFewest)
+	}
+	if newDay {
+		if run := streakEnding(days, today); run >= 3 && run <= 5 {
+			return pick(hintStreak)
+		}
+	}
+	return hintCounts[count]
+}
+
+// streakEnding is the run of consecutive days ending on today.
+func streakEnding(days []time.Time, today time.Time) int {
+	have := map[string]bool{}
+	for _, d := range days {
+		have[d.Format(time.DateOnly)] = true
+	}
+	run := 0
+	for d := today; have[d.Format(time.DateOnly)]; d = d.AddDate(0, 0, -1) {
+		run++
+	}
+	return run
 }
 
 type buttonQuerier interface {
