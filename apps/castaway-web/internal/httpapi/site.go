@@ -43,10 +43,10 @@ type sitePageData struct {
 
 func loginReturnTo(candidate string) string {
 	// Old /castawordle links still return there (it redirects to /games).
-	if candidate == "/games" || candidate == "/me" || candidate == "/games/button" || candidate == "/castawordle" {
+	if candidate == "/games" || candidate == "/me" || candidate == "/games/button" || candidate == "/castawordle" || candidate == "/button" {
 		return candidate
 	}
-	for _, prefix := range []string{"/games/castawordle/", "/games/button/", "/castawordle/", "/players/"} {
+	for _, prefix := range []string{"/games/castawordle/", "/games/button/", "/castawordle/", "/button/", "/players/"} {
 		if suffix, ok := strings.CutPrefix(candidate, prefix); ok {
 			if id, err := uuid.Parse(suffix); err == nil {
 				return prefix + id.String()
