@@ -156,6 +156,9 @@ model LeaderboardRow {
   participant_name: string;
   participant_discord_user_id?: string;
   current_tribe_name?: string;
+  /** The tribe's buff color (purple, yellow, ...) and its emoji, for posts. */
+  current_tribe_color?: string;
+  current_tribe_emoji?: string;
   score: int32;
   draft_points: int32;
   bonus_points: int32;

@@ -52,6 +52,9 @@ func TestDraftSubmissionEvents(t *testing.T) {
 		Leaderboard []struct {
 			Name  string `json:"participant_name"`
 			Bonus int    `json:"bonus_points"`
+			Tribe string `json:"current_tribe_name"`
+			Color string `json:"current_tribe_color"`
+			Emoji string `json:"current_tribe_emoji"`
 		} `json:"leaderboard"`
 	}
 	call := func(method, url, body, actor string) (int, response) {
@@ -68,6 +71,11 @@ func TestDraftSubmissionEvents(t *testing.T) {
 		return call(http.MethodPut, path+"/drafts/"+players[i], fmt.Sprintf(`{"contestant_ids":["%s"]}`, strings.Join(contestants, `","`)), "admin")
 	}
 
+	// Tribe colors live on the tribe; posts use them for the buff emoji.
+	if _, err := pool.Exec(ctx, `INSERT INTO participant_groups (instance_id, name, kind, color)
+		SELECT id, t.name, 'tribe', t.color FROM instances, (VALUES ('Savu', 'purple'), ('Toka', 'yellow')) t(name, color) WHERE public_id = $1`, instanceID); err != nil {
+		t.Fatal(err)
+	}
 	// Without opening, drafts save as before with no event.
 	open := `{"tribes":["Savu","Toka"],"guild_id":"7001","channel_id":"7002"}`
 	if code, body := call(http.MethodPost, path+"/draft-submissions", open, "stranger"); code != http.StatusForbidden {
@@ -113,6 +121,10 @@ func TestDraftSubmissionEvents(t *testing.T) {
 	bonus := map[string]int{}
 	for _, row := range board.Leaderboard {
 		bonus[row.Name] = row.Bonus
+		want := map[string]string{"Savu": "purple 🟣", "Toka": "yellow 🟡"}[row.Tribe]
+		if row.Color+" "+row.Emoji != want {
+			t.Errorf("%s in %s: color %q emoji %q, want %q", row.Name, row.Tribe, row.Color, row.Emoji, want)
+		}
 	}
 	if bonus["P1"] != 2 || bonus["P2"] != 1 || bonus["P3"] != 0 || bonus["P5"] != 0 {
 		t.Fatalf("bonus = %v", bonus)
@@ -212,6 +224,9 @@ func TestDraftSubmissionEvents(t *testing.T) {
 		finish(id, `{"message_id":"3"}`)
 	}
 	all := strings.Join(bodies, "\n")
+	if strings.Contains(all, "🏝️") || strings.Count(all, "🟣 **Savu**")+strings.Count(all, "🟡 **Toka**") != len(bodies) {
+		t.Fatalf("buff emoji should come from the tribe's color: %q", bodies)
+	}
 	if len(bodies) != 6 || !strings.Contains(all, "🔥 <@1234567890> — first") || !strings.Contains(all, "**P2**, right behind") || !strings.Contains(all, "**P4**... last draft in") {
 		t.Fatalf("announcements = %q", bodies)
 	}

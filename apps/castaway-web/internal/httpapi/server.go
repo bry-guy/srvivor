@@ -1138,6 +1138,27 @@ func (s *Server) leaderboard(c *gin.Context) {
 		visibleBonusByParticipant[participantID] = int(bonusPoints)
 	}
 
+	tribeColors := map[string]string{}
+	colorRows, err := s.pool.Query(c.Request.Context(), `SELECT g.name, g.color FROM participant_groups g JOIN instances i ON i.id = g.instance_id
+		WHERE i.public_id = $1 AND g.kind = 'tribe' AND g.color IS NOT NULL`, toPGUUID(instanceID))
+	if err == nil {
+		for colorRows.Next() {
+			var name, color string
+			if err = colorRows.Scan(&name, &color); err != nil {
+				break
+			}
+			tribeColors[name] = color
+		}
+		colorRows.Close()
+		if err == nil {
+			err = colorRows.Err()
+		}
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		return
+	}
+
 	draftOrder, err := firstDraftOrders(c.Request.Context(), s.queries, toPGUUID(instanceID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -1155,6 +1176,8 @@ func (s *Server) leaderboard(c *gin.Context) {
 			"participant_name":            row.ParticipantName,
 			"participant_discord_user_id": participantDiscordUserIDs[row.ParticipantID],
 			"current_tribe_name":          currentTribeNames[row.ParticipantID],
+			"current_tribe_color":         tribeColors[currentTribeNames[row.ParticipantID]],
+			"current_tribe_emoji":         tribeColorEmoji[tribeColors[currentTribeNames[row.ParticipantID]]],
 			"score":                       row.Score,
 			"draft_points":                row.DraftPoints,
 			"bonus_points":                row.BonusPoints,

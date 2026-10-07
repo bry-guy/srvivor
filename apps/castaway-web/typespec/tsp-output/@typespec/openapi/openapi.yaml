@@ -3517,6 +3517,11 @@ components:
           type: string
         current_tribe_name:
           type: string
+        current_tribe_color:
+          type: string
+          description: The tribe's buff color (purple, yellow, ...) and its emoji, for posts.
+        current_tribe_emoji:
+          type: string
         score:
           type: integer
           format: int32

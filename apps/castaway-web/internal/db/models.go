@@ -76,21 +76,25 @@ type ActivityParticipantAssignment struct {
 }
 
 type Announcement struct {
-	ID          pgtype.UUID        `json:"id"`
-	InstanceID  int64              `json:"instance_id"`
-	GuildID     string             `json:"guild_id"`
-	ChannelID   string             `json:"channel_id"`
-	RequestKey  string             `json:"request_key"`
-	Body        string             `json:"body"`
-	ScheduledAt pgtype.Timestamptz `json:"scheduled_at"`
-	DueAt       pgtype.Timestamptz `json:"due_at"`
-	Status      string             `json:"status"`
-	ClaimedAt   pgtype.Timestamptz `json:"claimed_at"`
-	MessageID   pgtype.Text        `json:"message_id"`
-	SentAt      pgtype.Timestamptz `json:"sent_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	NotifyUsers bool               `json:"notify_users"`
-	Thread      []byte             `json:"thread"`
+	ID                 pgtype.UUID        `json:"id"`
+	InstanceID         int64              `json:"instance_id"`
+	GuildID            string             `json:"guild_id"`
+	ChannelID          string             `json:"channel_id"`
+	RequestKey         string             `json:"request_key"`
+	Body               string             `json:"body"`
+	ScheduledAt        pgtype.Timestamptz `json:"scheduled_at"`
+	DueAt              pgtype.Timestamptz `json:"due_at"`
+	Status             string             `json:"status"`
+	ClaimedAt          pgtype.Timestamptz `json:"claimed_at"`
+	MessageID          pgtype.Text        `json:"message_id"`
+	SentAt             pgtype.Timestamptz `json:"sent_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	NotifyUsers        bool               `json:"notify_users"`
+	Thread             []byte             `json:"thread"`
+	ApprovalSendAt     pgtype.Timestamptz `json:"approval_send_at"`
+	ApprovalClaimedAt  pgtype.Timestamptz `json:"approval_claimed_at"`
+	ApprovalNotifiedAt pgtype.Timestamptz `json:"approval_notified_at"`
+	ApprovalGated      bool               `json:"approval_gated"`
 }
 
 type AnnouncementThread struct {
@@ -118,6 +122,26 @@ type BonusPointLedgerEntry struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 }
 
+type ButtonGame struct {
+	ID            int64              `json:"id"`
+	PublicID      pgtype.UUID        `json:"public_id"`
+	InstanceID    int64              `json:"instance_id"`
+	EpisodeNumber pgtype.Int4        `json:"episode_number"`
+	OpensAt       pgtype.Timestamptz `json:"opens_at"`
+	CutoffAt      pgtype.Timestamptz `json:"cutoff_at"`
+	ResolvedAt    pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type ButtonPress struct {
+	GameID        int64              `json:"game_id"`
+	ParticipantID int64              `json:"participant_id"`
+	Presses       int64              `json:"presses"`
+	FirstPressAt  pgtype.Timestamptz `json:"first_press_at"`
+	LastPressAt   pgtype.Timestamptz `json:"last_press_at"`
+	PressDays     []pgtype.Date      `json:"press_days"`
+}
+
 type CastawordleGame struct {
 	ID                int64              `json:"id"`
 	PublicID          pgtype.UUID        `json:"public_id"`
@@ -130,6 +154,8 @@ type CastawordleGame struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	EpisodeNumber     pgtype.Int4        `json:"episode_number"`
 	WordleRoundID     pgtype.UUID        `json:"wordle_round_id"`
+	ReplacesGameID    pgtype.Int8        `json:"replaces_game_id"`
+	PlayerID          pgtype.Int8        `json:"player_id"`
 }
 
 type CastawordlePlay struct {
@@ -145,6 +171,7 @@ type Contestant struct {
 	PublicID  pgtype.UUID        `json:"public_id"`
 	Name      string             `json:"name"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ShortName pgtype.Text        `json:"short_name"`
 }
 
 type DiscordChannelBinding struct {
@@ -330,6 +357,7 @@ type ParticipantGroup struct {
 	Metadata   []byte             `json:"metadata"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	Color      pgtype.Text        `json:"color"`
 }
 
 type ParticipantGroupMembershipPeriod struct {
@@ -375,6 +403,28 @@ type ParticipantPonyOwnership struct {
 	Metadata                   []byte             `json:"metadata"`
 	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ScrambleGame struct {
+	ID            int64              `json:"id"`
+	PublicID      pgtype.UUID        `json:"public_id"`
+	InstanceID    int64              `json:"instance_id"`
+	EpisodeNumber pgtype.Int4        `json:"episode_number"`
+	Phrase        string             `json:"phrase"`
+	Decoys        string             `json:"decoys"`
+	OpensAt       pgtype.Timestamptz `json:"opens_at"`
+	CutoffAt      pgtype.Timestamptz `json:"cutoff_at"`
+	ResolvedAt    pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type ScramblePlay struct {
+	GameID        int64              `json:"game_id"`
+	ParticipantID int64              `json:"participant_id"`
+	Tiles         string             `json:"tiles"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	SolvedAt      pgtype.Timestamptz `json:"solved_at"`
+	WrongChecks   int32              `json:"wrong_checks"`
 }
 
 type WebCliCode struct {

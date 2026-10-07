@@ -50,10 +50,14 @@ var draftRestCopy = []string{
 	"%[1]s Draft received. Welcome to the Open Era. Reach in, grab a buff... it's %[2]s **%[3]s**.",
 }
 
-var tribeColorEmoji = map[string]string{"savu": "🟣", "toka": "🟡"}
+// tribeColorEmoji maps a tribe's stored color (participant_groups.color) to its emoji in posts.
+var tribeColorEmoji = map[string]string{
+	"red": "🔴", "orange": "🟠", "yellow": "🟡", "green": "🟢", "blue": "🔵",
+	"purple": "🟣", "brown": "🟤", "black": "⚫", "white": "⚪",
+}
 
-func draftCopy(template, player, tribe string) string {
-	emoji := tribeColorEmoji[strings.ToLower(tribe)]
+func draftCopy(template, player, tribe, color string) string {
+	emoji := tribeColorEmoji[color]
 	if emoji == "" {
 		emoji = "🏝️"
 	}
@@ -319,6 +323,11 @@ func (s *Server) queueDraftAnnouncement(ctx context.Context, tx pgx.Tx, instance
 	if err := tx.QueryRow(ctx, `SELECT name, discord_user_id FROM participants WHERE public_id = $1`, participantID).Scan(&name, &discordID); err != nil {
 		return err
 	}
+	var color pgtype.Text
+	if err := tx.QueryRow(ctx, `SELECT g.color FROM participant_groups g JOIN instances i ON i.id = g.instance_id
+		WHERE i.public_id = $1 AND g.kind = 'tribe' AND lower(g.name) = lower($2)`, toPGUUID(instanceID), tribe).Scan(&color); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
 	player := "**" + name + "**"
 	if discordID.Valid && discordID.String != "" {
 		player = "<@" + discordID.String + ">"
@@ -327,7 +336,7 @@ func (s *Server) queueDraftAnnouncement(ctx context.Context, tx pgx.Tx, instance
 		INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, due_at, status, notify_users, thread)
 		SELECT id, $2, $3, $4, $5, $6, 'pending', true, $7 FROM instances WHERE public_id = $1
 		ON CONFLICT (instance_id, request_key) DO NOTHING`,
-		toPGUUID(instanceID), config.GuildID, config.ChannelID, prefix+"-"+pgUUIDString(participantID), draftCopy(template, player, tribe), s.now(), thread)
+		toPGUUID(instanceID), config.GuildID, config.ChannelID, prefix+"-"+pgUUIDString(participantID), draftCopy(template, player, tribe, color.String), s.now(), thread)
 	return err
 }
 
