@@ -1,0 +1,20 @@
+{{template "header" .}}
+{{with .Scramble}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">{{if .Test}}Admin-only test{{else}}Episode {{.Episode}}{{end}}</p><h1>Spell It Out</h1>
+<p class="muted">{{len .Words}} {{if eq (len .Words) 1}}word{{else}}words{{end}}. Some tiles are decoys.</p></div>
+{{if .Open}}{{if .Solved}}<div class="scramble-board" aria-label="Solved">{{template "slots" .}}</div><p class="scramble-result">Solved in {{.Time}}{{if .WrongChecks}} · {{.WrongChecks}} wrong {{if eq .WrongChecks 1}}check{{else}}checks{{end}}{{end}} 🔥</p><p class="muted center">Results when it closes {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}.</p>
+{{else if .Started}}<form class="scramble" action="{{.Action}}/check" data-started="{{.StartedAt}}">
+<div class="scramble-board">{{template "slots" .}}</div>
+<p class="scramble-status" role="status" aria-live="polite"></p>
+<div class="scramble-tray" aria-label="Your tiles">{{range $i, $t := .Tiles}}<button type="button" class="scramble-tile" data-tile="{{$i}}">{{$t}}</button>{{end}}</div>
+<div class="scramble-tools"><button type="button" data-action="sort">Sort A–Z</button><button type="button" data-action="shuffle">Shuffle</button><button type="button" data-action="clear">Clear</button><button type="submit" class="primary">Check</button></div>
+<p class="muted center"><span class="scramble-clock">0:00</span> · wrong checks: <span class="scramble-wrong">{{.WrongChecks}}</span></p></form>
+<script src="/assets/scramble.js?v=1" defer></script>
+{{else}}<form class="scramble-start" method="post" action="{{.Action}}/start"><div class="scramble-board" aria-hidden="true">{{template "slots" .}}</div><button type="submit" class="primary">Start</button><p class="muted">Your clock starts when you reveal the tiles. Fastest three solves score +3, +2 and +1.</p></form>{{end}}
+{{else}}<p class="muted center">{{if .Upcoming}}Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}{{else}}Closed {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}{{end}}</p>
+{{if .ResultsWait}}<p class="notice compact">Results appear once the game is scored.</p>{{end}}
+{{if .Phrase}}{{if not .Open}}<p class="center">The phrase was <span class="answer">{{.Phrase}}</span>.</p>{{end}}{{end}}
+{{if .Results}}<div class="table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Time</th><th scope="col">Wrong checks</th><th scope="col">Points</th></tr></thead>
+<tbody>{{range .Results}}<tr><td>{{if .Place}}{{.Place}}{{else}}–{{end}}</td><th scope="row">{{if eq .Tribe "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Tribe "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}<a href="/players/{{.ID}}">{{.Name}}</a></th><td>{{if .Time}}{{.Time}}{{else}}Unsolved{{end}}</td><td>{{.Wrong}}</td><td class="total">{{if .Points}}+{{.Points}}{{else}}0{{end}}</td></tr>{{end}}</tbody></table></div>
+{{else if not .ResultsWait}}{{if not .Upcoming}}<p class="muted center">Nobody played.</p>{{end}}{{end}}{{end}}{{end}}
+{{template "footer" .}}
+{{define "slots"}}{{$letters := .Letters}}{{range .Words}}<div class="scramble-word">{{range $r, $row := .}}<div class="scramble-row{{if $r}} wrapped{{end}}">{{range $row}}<span class="scramble-slot" data-slot="{{.}}">{{if $letters}}{{index $letters .}}{{end}}</span>{{end}}</div>{{end}}</div>{{end}}{{end}}

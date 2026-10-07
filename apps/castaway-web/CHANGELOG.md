@@ -7,6 +7,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Spell It Out (migration 029): arrange letter tiles (the phrase plus random decoys) into a hidden phrase at `/games/scramble/:id`. Tiles stay hidden until the player presses Start, which starts their clock; checks only say right or wrong. At cutoff the three fastest solves earn +3/+2/+1 (fewer wrong checks breaks a time tie; exact ties share). Admins create games with `POST /api/instances/:id/scramble-games` (or Probst `season apply` with `type: spell_it_out, phrase_file, decoys`) and one-hour admin-only tests from `/games`. Phrases are A–Z and spaces, up to 30 tiles with decoys; words longer than 9 letters wrap.
 - Press the Button hints now come from the server and hint at every scoring rule without explaining it: first press, landing on a shared count, taking first or second place, a first press at the bottom, 3–5 day streaks, and 100/1,000/10,000 presses, plus 10/50/250/500 as no-points noise.
 - Games hub: every game lives under `/games` (episode list, `?season=` for past seasons), `/games/castawordle/:id` and `/games/button/:id`; old `/castawordle` and `/button` links redirect. Closed games show everyone's results to the season (Castawordle after close with the answer; Press the Button once scored), and profiles list a player's game results.
 - Press the Button (migration 028): count readout, Savu/Toka press totals, hints at 10/50/100/250/500/1,000 presses (no points), daily streaks (3/4/5+ Eastern days: +1/+2/+3), first presser +1, last presser −1.

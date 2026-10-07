@@ -234,13 +234,24 @@ func (s *Server) resolveDueButtonGames(ctx context.Context) error {
 	return nil
 }
 
-// RunButtonResolver resolves Press the Button games at their cutoff until ctx ends.
+// ResolveDueGames scores every scheduled Press the Button and Spell It Out game past its cutoff.
+func (s *Server) ResolveDueGames(ctx context.Context) error {
+	if err := s.resolveDueButtonGames(ctx); err != nil {
+		return err
+	}
+	return s.resolveDueScrambleGames(ctx)
+}
+
+// RunButtonResolver resolves Press the Button and Spell It Out games at their cutoff until ctx ends.
 func (s *Server) RunButtonResolver(ctx context.Context) {
 	tick := time.NewTicker(time.Minute)
 	defer tick.Stop()
 	for {
 		if err := s.resolveDueButtonGames(ctx); err != nil && ctx.Err() == nil {
 			requestLogger.Error("resolve button games", "error", err)
+		}
+		if err := s.resolveDueScrambleGames(ctx); err != nil && ctx.Err() == nil {
+			requestLogger.Error("resolve spell it out games", "error", err)
 		}
 		select {
 		case <-ctx.Done():

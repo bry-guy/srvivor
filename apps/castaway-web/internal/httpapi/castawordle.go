@@ -767,6 +767,10 @@ func (s *Server) gamesPage(c *gin.Context) {
 		}
 	}
 	s.castawordleEntries(&data)
+	if err := s.addScrambleGames(c.Request.Context(), &data, id.String()); err != nil {
+		castawordleError(c, err)
+		return
+	}
 	if err := s.addButtonGames(c.Request.Context(), &data, id.String()); err != nil {
 		castawordleError(c, err)
 		return

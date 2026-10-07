@@ -334,6 +334,11 @@ func (s *Server) profileGames(ctx context.Context, participantID string) ([]prof
 		games = append(games, profileGame{Episode: r.episode, Kind: "Press the Button", URL: "/games/button/" + r.id,
 			Result: fmt.Sprintf("%d presses · %+d pts", score.Presses, score.Total)})
 	}
+	scramble, err := s.scrambleProfileGames(ctx, participantID)
+	if err != nil {
+		return nil, err
+	}
+	games = append(games, scramble...)
 	sort.SliceStable(games, func(i, j int) bool {
 		if games[i].Episode != games[j].Episode {
 			return games[i].Episode > games[j].Episode

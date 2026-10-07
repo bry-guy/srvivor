@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 func TestSeasonPlanTimeline(t *testing.T) {
@@ -51,5 +56,42 @@ func TestPlanTime(t *testing.T) {
 	}
 	if _, err := planTime("TBD", base); err == nil {
 		t.Fatal("TBD must not parse as a time")
+	}
+}
+
+func TestSeasonApplySpellItOut(t *testing.T) {
+	dir := t.TempDir()
+	plan, err := os.ReadFile("../../seasons/51.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan = []byte(strings.Replace(string(plan), "  4: {game: TBD}", "  4: {game: {type: spell_it_out, phrase_file: ep4.txt, decoys: 4}}", 1))
+	if err := os.WriteFile(filepath.Join(dir, "51.yaml"), plan, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ep4.txt"), []byte("the tribe has spoken\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var sent map[string]any
+	call := func(_ context.Context, method, path string, body, _ any) error {
+		if strings.HasSuffix(path, "/scramble-games") {
+			sent = body.(map[string]any)
+		}
+		return nil
+	}
+	yes := true
+	season := &cobra.Command{Use: "season"}
+	addSeasonApplyCommand(season, call, &yes)
+	var out strings.Builder
+	season.SetOut(&out)
+	season.SetArgs([]string{"apply", filepath.Join(dir, "51.yaml")})
+	if err := season.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if sent["phrase"] != "the tribe has spoken" || sent["decoys"] != 4 || sent["episode_number"] != 4 || sent["opens_at"] != "2026-10-15T00:00:00Z" {
+		t.Fatalf("sent %v", sent)
+	}
+	if !strings.Contains(out.String(), "applied Week 4 Spell It Out") || strings.Contains(out.String(), "spoken") {
+		t.Fatalf("output %s", out.String())
 	}
 }

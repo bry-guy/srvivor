@@ -106,3 +106,19 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 .game-episode h2 { margin-top: 1.5rem; }
 .game-card h3 { margin: .25rem 0; }
 .answer { letter-spacing: .2em; font-weight: 700; }
+/* Spell It Out: slots grouped by word (long words wrap, marked ↵), a tray of tiles, and tools. Tiles are at
+   least 30px so nine fit a 320px phone row. */
+.scramble, .scramble-start, .scramble-board, .scramble-result { max-width: 32rem; margin-left: auto; margin-right: auto; }
+.scramble-start { text-align: center; } .center { text-align: center; }
+.scramble-board { display: grid; gap: .7rem; justify-items: center; margin: 1rem auto; }
+.scramble-word { display: grid; gap: .25rem; justify-items: start; }
+.scramble-row { display: flex; gap: .25rem; } .scramble-row.wrapped::before { content: "↵"; color: var(--muted); width: 1rem; margin-left: -1.25rem; align-self: center; }
+.scramble-slot, .scramble-tile { width: clamp(1.9rem, 9vw, 2.6rem); aspect-ratio: 1; display: grid; place-items: center; padding: 0; font-family: Impact, Haettenschweiler, "Arial Narrow Bold", ui-sans-serif, sans-serif; font-size: clamp(1rem, 5vw, 1.4rem); font-weight: 900; }
+.scramble-slot { border-bottom: 3px solid var(--border); } .scramble-slot.filled { border-color: var(--muted); cursor: pointer; }
+.scramble-tray { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; margin: .5rem 0 1rem; touch-action: manipulation; }
+.scramble-tile { border: 2px solid var(--border); border-radius: .2rem; background: var(--surface); color: var(--text); box-shadow: inset 0 -3px 0 #00000012; }
+.scramble-tile.used { visibility: hidden; }
+.scramble-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; }
+.scramble-tools button:not(.primary) { background: var(--key); color: var(--text); }
+.scramble-status { min-height: 1.5em; text-align: center; font-style: italic; }
+.scramble-result { text-align: center; font-weight: 700; }

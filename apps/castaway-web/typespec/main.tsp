@@ -65,6 +65,17 @@ op createButtonGame(
 @post
 op resolveButtonGame(@path gameID: string): { awards: Record<int32>; } | ErrorResponse;
 
+@route("/instances/{instanceID}/scramble-games")
+@post
+op createScrambleGame(
+  @path instanceID: string,
+  @body body: { episode_number?: int32; phrase: string; decoys?: int32; decoy_letters?: string; opens_at: utcDateTime; cutoff_at: utcDateTime; },
+): ButtonGame | ErrorResponse;
+
+@route("/scramble-games/{gameID}/resolve")
+@post
+op resolveScrambleGame(@path gameID: string): { awards: Record<int32>; } | ErrorResponse;
+
 @route("/announcements/approvals/claim")
 @post
 op claimAnnouncementApproval(@body body: { guild_ids: string[]; }): { announcement: unknown | null; send_at?: utcDateTime; revision?: string; admin_discord_user_ids?: string[]; } | ErrorResponse;

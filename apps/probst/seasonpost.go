@@ -81,8 +81,9 @@ var (
 	gameLines = map[string]string{ // %s is the open time; games open with the episode
 		"press_the_button": "🔴 This week's game: **Press the Button**, open %s at <%s/button>.",
 		"castawordle":      "🔤 This week's game: **Castawordle**, open %s at <%s/castawordle>.",
+		"spell_it_out":     "🔠 This week's game: **Spell It Out**, open %s at <%s/games>.",
 	}
-	gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle"}
+	gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Spell It Out"}
 )
 
 type scoresPost struct {
@@ -372,6 +373,28 @@ func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
 					}
 					body := map[string]any{"episode_number": week, "opens_at": opens.UTC().Format(time.RFC3339), "cutoff_at": closes.UTC().Format(time.RFC3339)}
 					if err := call(c.Context(), "POST", "/instances/"+url.PathEscape(f.Instance)+"/button-games", body, nil); err != nil {
+						return fmt.Errorf("%s: %w", line, err)
+					}
+					fmt.Fprintln(out, "applied "+line)
+				case "spell_it_out":
+					// phrase_file (relative to the season file) keeps the phrase out of the committed plan.
+					m, _ := f.Weeks[week].Game.(map[string]any)
+					phraseFile, _ := m["phrase_file"].(string)
+					decoys, _ := m["decoys"].(int)
+					if phraseFile == "" {
+						return fmt.Errorf("week %d: spell_it_out needs phrase_file", week)
+					}
+					if !*yes {
+						fmt.Fprintf(out, "would apply %s (phrase from %s, %d decoys)\n", line, phraseFile, decoys)
+						continue
+					}
+					phrase, err := os.ReadFile(filepath.Join(filepath.Dir(a[0]), phraseFile))
+					if err != nil {
+						return fmt.Errorf("week %d: %w", week, err)
+					}
+					body := map[string]any{"episode_number": week, "phrase": strings.TrimSpace(string(phrase)), "decoys": decoys,
+						"opens_at": opens.UTC().Format(time.RFC3339), "cutoff_at": closes.UTC().Format(time.RFC3339)}
+					if err := call(c.Context(), "POST", "/instances/"+url.PathEscape(f.Instance)+"/scramble-games", body, nil); err != nil {
 						return fmt.Errorf("%s: %w", line, err)
 					}
 					fmt.Fprintln(out, "applied "+line)

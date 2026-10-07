@@ -103,6 +103,11 @@ func (s *Server) PublicRouter() *gin.Engine {
 	pages.GET("/games/button", s.buttonPage)
 	pages.POST("/games/button/tests", s.requireSameOrigin(), s.createButtonTest)
 	pages.GET("/games/button/:gameID", s.buttonPage)
+	pages.GET("/games/scramble", s.scramblePage)
+	pages.POST("/games/scramble/tests", s.requireSameOrigin(), s.createScrambleTest)
+	pages.GET("/games/scramble/:gameID", s.scramblePage)
+	pages.POST("/games/scramble/:gameID/start", s.requireSameOrigin(), s.startScramble)
+	pages.POST("/games/scramble/:gameID/check", s.requireSameOrigin(), s.checkScramble)
 	pages.POST("/games/button/:gameID", s.requireSameOrigin(), s.pressButton)
 	// Old links (already posted in Discord) redirect to /games.
 	for _, old := range []string{"/castawordle", "/castawordle/:gameID", "/button", "/button/:gameID"} {

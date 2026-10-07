@@ -2071,6 +2071,51 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ProgressionCommandRequest'
+  /instances/{instanceID}/scramble-games:
+    post:
+      operationId: createScrambleGame
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ButtonGame'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                episode_number:
+                  type: integer
+                  format: int32
+                phrase:
+                  type: string
+                decoys:
+                  type: integer
+                  format: int32
+                decoy_letters:
+                  type: string
+                opens_at:
+                  type: string
+                  format: date-time
+                cutoff_at:
+                  type: string
+                  format: date-time
+              required:
+                - phrase
+                - opens_at
+                - cutoff_at
   /instances/{instanceID}/stir-the-pot/close:
     post:
       operationId: closeStirThePotRound
@@ -2364,6 +2409,32 @@ paths:
               schema:
                 anyOf:
                   - $ref: '#/components/schemas/ResolveOccurrenceResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /scramble-games/{gameID}/resolve:
+    post:
+      operationId: resolveScrambleGame
+      parameters:
+        - name: gameID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      awards:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                          format: int32
+                    required:
+                      - awards
                   - $ref: '#/components/schemas/ErrorResponse'
   /wordle-rounds/{roundID}:
     get:
