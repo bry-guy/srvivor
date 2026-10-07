@@ -8,7 +8,7 @@
 <div class="scramble-tray" aria-label="Your tiles">{{range $i, $t := .Tiles}}<button type="button" class="scramble-tile" data-tile="{{$i}}">{{$t}}</button>{{end}}</div>
 <div class="scramble-tools"><button type="button" data-action="sort">Sort A–Z</button><button type="button" data-action="shuffle">Shuffle</button><button type="button" data-action="clear">Clear</button><button type="submit" class="primary">Check</button></div>
 <p class="muted center"><span class="scramble-clock">0:00</span> · wrong checks: <span class="scramble-wrong">{{.WrongChecks}}</span></p></form>
-<script src="/assets/scramble.js?v=1" defer></script>
+<script src="/assets/scramble.js?v=2" defer></script>
 {{else}}<form class="scramble-start" method="post" action="{{.Action}}/start"><div class="scramble-board" aria-hidden="true">{{template "slots" .}}</div><button type="submit" class="primary">Start</button><p class="muted">Your clock starts when you reveal the tiles. Fastest three solves score +3, +2 and +1.</p></form>{{end}}
 {{else}}<p class="muted center">{{if .Upcoming}}Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}{{else}}Closed {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}{{end}}</p>
 {{if .ResultsWait}}<p class="notice compact">Results appear once the game is scored.</p>{{end}}

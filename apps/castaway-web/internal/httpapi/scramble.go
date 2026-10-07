@@ -24,17 +24,18 @@ import (
 // +3/+2/+1; fewer wrong checks breaks a tie on time, and exact ties share the place.
 
 const (
-	scrambleMaxTiles = 30 // phrase letters plus decoys; about four tray rows on an iPhone SE
+	scrambleMaxLetters = 30 // phrase letters
+	scrambleMaxDecoys  = 10 // so the tray is at most 40 tiles, about five rows on an iPhone SE
 	scrambleRowWidth = 9  // slots per row on a 320px phone; longer words wrap
 )
 
-var errScramblePhrase = fmt.Errorf("phrase must be letters A–Z and spaces, with at most %d tiles including decoys", scrambleMaxTiles)
+var errScramblePhrase = fmt.Errorf("phrase must be letters A–Z and spaces, at most %d letters, with at most %d decoys", scrambleMaxLetters, scrambleMaxDecoys)
 
-// scramblePhrase upper-cases a phrase, collapses its spaces, and checks it fits with decoys more tiles.
+// scramblePhrase upper-cases a phrase, collapses its spaces, and checks the letter and decoy limits.
 func scramblePhrase(raw string, decoys int) (string, error) {
 	phrase := strings.Join(strings.Fields(strings.ToUpper(raw)), " ")
 	letters := strings.ReplaceAll(phrase, " ", "")
-	if letters == "" || decoys < 0 || len(letters)+decoys > scrambleMaxTiles || strings.Trim(letters, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") != "" {
+	if letters == "" || decoys < 0 || decoys > scrambleMaxDecoys || len(letters) > scrambleMaxLetters || strings.Trim(letters, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") != "" {
 		return "", errScramblePhrase
 	}
 	return phrase, nil

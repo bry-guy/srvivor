@@ -55,7 +55,7 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 [data-length="6"] .board-row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 [data-length="7"] .board-row { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 [data-length="8"] .board-row { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-.tile { aspect-ratio: 1; display: grid; place-items: center; min-width: 0; border: 2px solid var(--border); border-radius: .12rem .25rem .15rem .2rem; background: var(--surface); font-family: Impact, Haettenschweiler, "Arial Narrow Bold", ui-sans-serif, sans-serif; font-weight: 900; font-size: clamp(1.15rem, 5vw, 2rem); letter-spacing: .02em; box-shadow: inset 0 -3px 0 #00000012; }
+.tile { aspect-ratio: 1; display: grid; place-items: center; min-width: 0; border: 2px solid var(--border); border-radius: .12rem .25rem .15rem .2rem; background: var(--surface); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-weight: 700; font-size: clamp(1.15rem, 5vw, 2rem); letter-spacing: .02em; box-shadow: inset 0 -3px 0 #00000012; }
 .tile.filled { border-color: var(--muted); } .tile.correct, .key.correct { background: var(--correct); color: #fff; border-color: var(--correct); }
 .tile.present, .key.present { background: var(--present); color: #fff; border-color: var(--present); }
 .tile.absent { background: var(--absent); color: #fff; border-color: var(--absent); }
@@ -113,7 +113,7 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 .scramble-board { display: grid; gap: .7rem; justify-items: center; margin: 1rem auto; }
 .scramble-word { display: grid; gap: .25rem; justify-items: start; }
 .scramble-row { display: flex; gap: .25rem; } .scramble-row.wrapped::before { content: "↵"; color: var(--muted); width: 1rem; margin-left: -1.25rem; align-self: center; }
-.scramble-slot, .scramble-tile { width: clamp(1.9rem, 9vw, 2.6rem); aspect-ratio: 1; display: grid; place-items: center; padding: 0; font-family: Impact, Haettenschweiler, "Arial Narrow Bold", ui-sans-serif, sans-serif; font-size: clamp(1rem, 5vw, 1.4rem); font-weight: 900; }
+.scramble-slot, .scramble-tile { width: clamp(1.9rem, 9vw, 2.6rem); aspect-ratio: 1; display: grid; place-items: center; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: clamp(1rem, 5vw, 1.4rem); font-weight: 700; }
 .scramble-slot { border-bottom: 3px solid var(--border); } .scramble-slot.filled { border-color: var(--muted); cursor: pointer; }
 .scramble-tray { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; margin: .5rem 0 1rem; touch-action: manipulation; }
 .scramble-tile { border: 2px solid var(--border); border-radius: .2rem; background: var(--surface); color: var(--text); box-shadow: inset 0 -3px 0 #00000012; }
@@ -122,3 +122,7 @@ castawordle-game { display: block; } .game-help { margin-top: 1.5rem; font-size:
 .scramble-tools button:not(.primary) { background: var(--key); color: var(--text); }
 .scramble-status { min-height: 1.5em; text-align: center; font-style: italic; }
 .scramble-result { text-align: center; font-weight: 700; }
+.scramble-tile, .scramble-slot.filled { touch-action: none; user-select: none; -webkit-user-select: none; }
+.scramble-tile.dragging, .scramble-slot.dragging { opacity: .35; }
+.scramble-slot.drop { border-color: var(--accent); background: var(--notice); }
+.scramble-ghost { position: fixed; z-index: 10; pointer-events: none; transform: translate(-50%, -60%) scale(1.15); box-shadow: 0 .4rem 1rem rgb(0 0 0 / .25); }

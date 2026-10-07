@@ -10,13 +10,16 @@ func TestScramblePhrase(t *testing.T) {
 	if got, err := scramblePhrase("  the tribe   has spoken ", 4); err != nil || got != "THE TRIBE HAS SPOKEN" {
 		t.Fatalf("got %q, %v", got, err)
 	}
-	for _, bad := range []string{"", "let's go", "café", strings.Repeat("A", 27)} {
+	for _, bad := range []string{"", "let's go", "café", strings.Repeat("A", 31)} {
 		if _, err := scramblePhrase(bad, 4); err == nil {
 			t.Errorf("%q should be rejected", bad)
 		}
 	}
-	if _, err := scramblePhrase(strings.Repeat("A", 26), 4); err != nil {
-		t.Error("30 tiles should fit")
+	if _, err := scramblePhrase(strings.Repeat("A", 30), 10); err != nil {
+		t.Error("30 letters with 10 decoys should fit")
+	}
+	if _, err := scramblePhrase("SPOKEN", 11); err == nil {
+		t.Error("11 decoys should be rejected")
 	}
 }
 
