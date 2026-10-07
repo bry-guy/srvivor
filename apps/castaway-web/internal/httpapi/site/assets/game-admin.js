@@ -1,3 +1,4 @@
+{ // own block: page scripts share one global scope
 const form = document.querySelector('#create-game');
 form?.addEventListener('submit', async event => {
   event.preventDefault();
@@ -20,3 +21,4 @@ form?.addEventListener('submit', async event => {
     button.disabled = false;
   }
 });
+}

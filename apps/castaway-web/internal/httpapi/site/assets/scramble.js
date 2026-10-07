@@ -1,3 +1,4 @@
+{ // own block: page scripts share one global scope
 // Spell It Out: tap a tray tile to put it in the next empty slot, tap a slot to send its tile back, or drag
 // a tile onto any slot (swapping with what's there) or back to the tray. Sort and Shuffle only reorder the
 // tray. Check sends the arrangement; the server only says right or wrong. The
@@ -151,4 +152,5 @@ if (form) {
   tick();
   setInterval(tick, 1000);
   render();
+}
 }

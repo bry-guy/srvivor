@@ -9,6 +9,8 @@ const base = process.argv[2];
     for (const mobile of [true, false]) {
       const context = await browser.newContext({ viewport: mobile ? { width: 320, height: 800 } : { width: 1280, height: 900 }, isMobile: mobile, hasTouch: mobile, colorScheme: 'dark' });
       const page = await context.newPage();
+      page.on('pageerror', error => { throw new Error(`page error: ${error.message}`); });
+      page.on('console', msg => { if (msg.type() === 'error') console.log(`console error: ${msg.text()}`); });
       await page.goto(`${base}/games`);
       await page.waitForSelector('#create-game');
       assert.equal(new URL(page.url()).pathname, '/games');
@@ -104,13 +106,13 @@ const base = process.argv[2];
       assert.equal(prepared.guesses.length, 0);
       await page.goto(`${base}/games`);
       assert.equal(await page.locator(`select[name="episode_number"] option[value="${episode}"]`).count(), 0);
-      await page.goto(`${base}/games/button`);
-      const buttonPath = new URL(page.url()).pathname;
+      await page.goto(`${base}/games/button`); // shows the open game in place
+      const buttonPath = new URL(await page.locator('.button-stage').getAttribute('action'), base).pathname;
       assert.match(buttonPath, /^\/games\/button\/[0-9a-f-]+$/);
       const count = await page.locator('.press-count').innerText();
       assert.match(count, /^count: \d+$/);
-      if (before === 0) assert.equal(await page.locator('.button-hint').innerText(), 'Will you press the button?');
       const before = Number(count.slice('count: '.length));
+      if (before === 0) assert.equal(await page.locator('.button-hint').innerText(), 'Will you press the button?');
       // Press to the first noise count (10): its hint appears.
       const presses = 10 - before;
       for (let i = 0; i < presses; i++) {
@@ -119,10 +121,57 @@ const base = process.argv[2];
         assert.equal((await pressed).status(), 200);
       }
       await page.waitForFunction(() => document.querySelector('.press-count').textContent === 'count: 10');
-      await page.waitForFunction(() => document.querySelector('.button-hint.shown')?.textContent === 'The tribe has spoken');
+      if (presses > 0) await page.waitForFunction(() => document.querySelector('.button-hint.shown')?.textContent === 'The tribe has spoken'); // the second run shares the player
       assert.match(await page.locator('.tribe-presses').innerText(), /^$|\d/);
-      assert.equal(new URL(page.url()).pathname, buttonPath);
       await page.screenshot({ path: path.join(os.tmpdir(), `button-${mobile ? 'phone' : 'desktop'}.png`) });
+
+      // Spell It Out: a 30-letter phrase with 10 decoys fits; tiles are hidden until Start; drag fills,
+      // swaps and returns tiles; a wrong check counts, a right one solves.
+      const phrase = 'THE TRIBE HAS SPOKEN RESOURCEFULLY'; // 30 letters, one 13-letter word that wraps
+      const answer = phrase.replaceAll(' ', '');
+      await page.goto(`${base}/games`);
+      await page.locator('input[name="phrase"]').fill(phrase.toLowerCase());
+      await page.locator('input[name="decoys"]').fill('10');
+      await page.locator('form[action="/games/scramble/tests"] button').click();
+      await page.waitForSelector('.scramble-start');
+      assert.equal(await page.locator('.scramble-tile').count(), 0);
+      assert.equal(await page.locator('.scramble-slot').count(), 30);
+      await page.locator('.scramble-start button').click();
+      await page.waitForSelector('.scramble-tray');
+      assert.equal(await page.locator('.scramble-tile').count(), 40);
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no sideways scroll');
+      const tileBox = await page.locator('.scramble-tile').first().boundingBox();
+      assert(tileBox.width >= 30, `tiles at least 30px, got ${tileBox.width}`);
+      await page.screenshot({ path: path.join(os.tmpdir(), `scramble-${mobile ? 'phone' : 'desktop'}-start.png`), fullPage: true });
+      const drag = async (from, to) => {
+        const a = await from.boundingBox(), b = await to.boundingBox();
+        await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(a.x + a.width / 2 + 10, a.y + a.height / 2 + 10, { steps: 3 });
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
+        await page.mouse.up();
+      };
+      const slot = i => page.locator(`.scramble-slot[data-slot="${i}"]`);
+      const freeTile = letter => page.locator('.scramble-tile:not(.used)', { hasText: new RegExp(`^${letter}$`) }).first();
+      // Drag the answer in, but with slots 0 and 1 (T, H) reversed.
+      const order = ['H', 'T', ...answer.slice(2)];
+      for (let i = 0; i < order.length; i++) {
+        await drag(freeTile(order[i]), slot(i));
+        assert.equal(await slot(i).innerText(), order[i], `slot ${i} after drag`);
+      }
+      // Drag one back to the tray and back in again.
+      await drag(slot(29), page.locator('.scramble-tray'));
+      assert.equal(await slot(29).innerText(), '');
+      await drag(freeTile(answer[29]), slot(29));
+      await page.locator('.scramble-tools button[type="submit"]').click();
+      await page.waitForFunction(() => document.querySelector('.scramble-wrong').textContent === '1');
+      assert.match(await page.locator('.scramble-status').innerText(), /\S/);
+      // Swap the first two by dragging one onto the other, then check.
+      await drag(slot(0), slot(1));
+      assert.equal(await slot(0).innerText() + await slot(1).innerText(), 'TH');
+      await Promise.all([page.waitForNavigation(), page.locator('.scramble-tools button[type="submit"]').click()]);
+      assert.match(await page.locator('.scramble-result').innerText(), /^Solved in \d+:\d\d · 1 wrong check/);
+      await page.screenshot({ path: path.join(os.tmpdir(), `scramble-${mobile ? 'phone' : 'desktop'}-solved.png`), fullPage: true });
       console.log(`${mobile ? '320px phone' : 'desktop'}: OAuth, themes, 7/8-column layout, dictionary, input, retry/resume, solve, scheduled episode preparation passed; ${screenshot}`);
       await context.close();
     }
