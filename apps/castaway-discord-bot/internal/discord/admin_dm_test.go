@@ -25,3 +25,15 @@ func TestApplyFixes(t *testing.T) {
 		}
 	}
 }
+
+func TestIsReplacementCopy(t *testing.T) {
+	for text, want := range map[string]bool{
+		"no":                                     false,
+		"wait a sec":                             false,
+		"## Week 2 Scores\n\nToka swept it all!": true,
+	} {
+		if got := isReplacementCopy(text); got != want {
+			t.Errorf("isReplacementCopy(%q) = %v, want %v", text, got, want)
+		}
+	}
+}

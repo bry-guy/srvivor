@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -15,7 +16,8 @@ import (
 // Admin DMs: the bot DMs every instance admin about a problem draft or a post waiting for approval, and an
 // admin answers by replying (Discord's Reply) to that DM. Each DM carries what a reply acts on, so the bot
 // keeps no state:
-//   - an approval DM ends with "approval <id> <revision>"; "yes" approves exactly that revision.
+//   - an approval DM ends with "approval <id> <revision>"; "yes" approves exactly that revision, and a reply
+//     with complete new text replaces it (the new text gets its own approval DM).
 //   - a draft DM links the player's post and (after a fix) quotes the working draft; "7. Thien An" lines
 //     replace those ranks in the working draft (the post on first reply) and resubmit it.
 //   - if the player already has a saved draft, the answer quotes the working draft and the saved draft's
@@ -95,6 +97,12 @@ func applyFixes(draft, reply string) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
+// isReplacementCopy reports whether a non-"yes" reply is meant as new post text rather than a stray word
+// like "no" or "wait": anything under 20 characters is treated as a question, not copy.
+func isReplacementCopy(text string) bool {
+	return utf8.RuneCountInString(text) >= 20
+}
+
 // handleAdminReply acts on a DM reply to one of the bot's own admin DMs.
 func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 	if m == nil || m.GuildID != "" || m.Author == nil || m.Author.Bot || m.MessageReference == nil || b.session.State == nil || b.session.State.User == nil {
@@ -111,7 +119,16 @@ func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 	}
 	if ref := approvalRef.FindStringSubmatch(asked.Content); ref != nil {
 		if !strings.EqualFold(strings.Trim(strings.TrimSpace(m.Content), ".!"), "yes") {
-			answer("Reply **yes** to approve. To change it, edit it with `probst announcement edit` and you'll get a new DM.")
+			text := strings.TrimSpace(m.Content)
+			if !isReplacementCopy(text) {
+				answer("Reply **yes** to approve, or reply with the complete new text to replace it.")
+				return
+			}
+			if err := b.castaway.ReviseAnnouncement(ctx, ref[1], ref[2], m.Author.ID, text); err != nil {
+				answer("Not changed: " + err.Error())
+				return
+			}
+			answer("✏️ Replaced. A fresh copy is on its way for your **yes**.")
 			return
 		}
 		at, err := b.castaway.ApproveAnnouncement(ctx, ref[1], ref[2], m.Author.ID)

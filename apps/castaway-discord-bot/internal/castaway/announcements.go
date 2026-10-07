@@ -81,6 +81,12 @@ func (c *Client) ApproveAnnouncement(ctx context.Context, id, revision, adminID 
 	return response.ScheduledAt, err
 }
 
+// ReviseAnnouncement replaces a held post's text from an admin's DM reply; it needs a fresh approval.
+func (c *Client) ReviseAnnouncement(ctx context.Context, id, revision, adminID, body string) error {
+	var response map[string]any
+	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "revise")), nil, map[string]any{"admin_discord_user_id": adminID, "revision": revision, "body": body}, &response)
+}
+
 // ConfirmApprovalDelivery records that every admin got this revision's approval DM.
 func (c *Client) ConfirmApprovalDelivery(ctx context.Context, id, revision string) error {
 	var response map[string]any

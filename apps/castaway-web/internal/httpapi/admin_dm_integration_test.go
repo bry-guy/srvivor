@@ -103,6 +103,25 @@ func TestAdminDMActions(t *testing.T) {
 	approve := func(admin, rev string, want int) reply {
 		return call(http.MethodPost, "/announcements/"+id+"/approve", fmt.Sprintf(`{"admin_discord_user_id":%q,"revision":%q}`, admin, rev), "", want)
 	}
+	// An admin's DM reply with new text replaces it and re-asks; the replaced revision can't be approved.
+	revise := func(admin, rev, body string, want int) {
+		call(http.MethodPost, "/announcements/"+id+"/revise", fmt.Sprintf(`{"admin_discord_user_id":%q,"revision":%q,"body":%q}`, admin, rev, body), "", want)
+	}
+	revise("1000", revision, "Player copy", http.StatusConflict)   // not an admin
+	revise("2001", oldRevision, "Stale copy", http.StatusConflict) // a reply to an old DM
+	revise("2001", revision, "   ", http.StatusBadRequest)         // blank
+	revise("2001", revision, "Week 2 scores, by DM", http.StatusOK)
+	revise("2002", revision, "Week 2 scores, raced", http.StatusConflict) // the DM it answered is now stale
+	approve("2002", revision, http.StatusConflict)
+	byDM := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK)
+	if byDM.Announcement == nil || byDM.Revision == revision {
+		t.Fatalf("revised copy should be re-sent for approval: %v", byDM)
+	}
+	var body string
+	if err := pool.QueryRow(ctx, `SELECT body FROM announcements WHERE id = $1`, id).Scan(&body); err != nil || body != "Week 2 scores, by DM" {
+		t.Fatalf("revised body = %q (%v)", body, err)
+	}
+	revision = byDM.Revision
 	approve("2002", oldRevision, http.StatusConflict) // a reply to the old DM can't approve the new text
 	approve("1000", revision, http.StatusConflict)    // not an admin
 	if approved := approve("2002", revision, http.StatusOK); approved.ScheduledAt != "2026-10-07T16:00:00Z" {
@@ -125,16 +144,28 @@ func TestAdminDMActions(t *testing.T) {
 		t.Fatal("approved post didn't send at its time")
 	}
 
-	// Approval is only a gate: past its time it can't be approved and is never claimed.
+	// Approved after its time (within the late window), it posts right away; never before approval.
 	late := call(http.MethodPost, path+"/announcements", `{"guild_id":"7001","channel_id":"7002","request_key":"late","body":"Late post","draft":true}`, "2001", http.StatusOK)
 	lateID := late.Announcement.ID
 	call(http.MethodPut, path+"/announcements/"+lateID+"/approval", `{"send_at":"2026-10-07T17:00:00Z"}`, "2001", http.StatusOK)
 	lateRevision := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK).Revision
 	now = time.Date(2026, 10, 7, 17, 1, 0, 0, time.UTC)
-	call(http.MethodPost, "/announcements/"+lateID+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"2001","revision":%q}`, lateRevision), "", http.StatusConflict)
 	if got := call(http.MethodPost, "/announcements/claim", `{"guild_ids":["7001"]}`, "", http.StatusOK); got.Announcement != nil {
 		t.Fatal("a late, unapproved post was sent")
 	}
+	if approved := call(http.MethodPost, "/announcements/"+lateID+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"2001","revision":%q}`, lateRevision), "", http.StatusOK); approved.ScheduledAt != "2026-10-07T17:01:00Z" {
+		t.Fatalf("late approval should post now: %v", approved)
+	}
+	if got := call(http.MethodPost, "/announcements/claim", `{"guild_ids":["7001"]}`, "", http.StatusOK); got.Announcement == nil {
+		t.Fatal("a late-approved post didn't send")
+	}
+	// Past the late window it's stale: it can't be approved.
+	stale := call(http.MethodPost, path+"/announcements", `{"guild_id":"7001","channel_id":"7002","request_key":"stale","body":"Stale post","draft":true}`, "2001", http.StatusOK)
+	call(http.MethodPut, path+"/announcements/"+stale.Announcement.ID+"/approval", `{"send_at":"2026-10-07T17:30:00Z"}`, "2001", http.StatusOK)
+	staleRevision := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK).Revision
+	now = time.Date(2026, 10, 7, 20, 31, 0, 0, time.UTC)
+	call(http.MethodPost, "/announcements/"+stale.Announcement.ID+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"2001","revision":%q}`, staleRevision), "", http.StatusConflict)
+	now = time.Date(2026, 10, 7, 17, 1, 0, 0, time.UTC)
 
 	// An approved post whose time passed while the bot was down expires instead of sending late.
 	down := call(http.MethodPost, path+"/announcements", `{"guild_id":"7001","channel_id":"7002","request_key":"down","body":"Down post","draft":true}`, "2001", http.StatusOK)

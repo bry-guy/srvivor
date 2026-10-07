@@ -3,7 +3,9 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -17,6 +19,10 @@ import (
 // the text holds it again and re-asks, even after approval.
 
 // approvalRevision fingerprints what the admin reviewed.
+// approvalLateWindow is how long after its send time a held post can still be approved; approved late, it
+// posts right away. Past this it's stale and needs rescheduling.
+const approvalLateWindow = `interval '3 hours'`
+
 const approvalRevision = `md5(a.body || '|' || a.channel_id || '|' || a.approval_send_at::text || '|' || a.notify_users::text)`
 
 // requestAnnouncementApproval makes an unsent announcement wait for approval to send at send_at.
@@ -63,7 +69,7 @@ func (s *Server) claimAnnouncementApproval(c *gin.Context) {
 	var id, instanceID pgtype.UUID
 	err := s.pool.QueryRow(c.Request.Context(), `
 		UPDATE announcements a SET approval_claimed_at = $1 FROM instances i
-		WHERE i.id = a.instance_id AND a.id = (SELECT id FROM announcements WHERE status = 'draft' AND approval_send_at > $1
+		WHERE i.id = a.instance_id AND a.id = (SELECT id FROM announcements WHERE status = 'draft' AND approval_send_at > $1::timestamptz - `+approvalLateWindow+`
 			AND approval_notified_at IS NULL AND (approval_claimed_at IS NULL OR approval_claimed_at < $1 - interval '10 minutes')
 			AND guild_id = ANY($2::text[]) ORDER BY approval_send_at LIMIT 1 FOR UPDATE SKIP LOCKED)
 		RETURNING a.id, i.public_id, a.channel_id, a.body, a.notify_users, a.approval_send_at, `+approvalRevision,
@@ -101,8 +107,8 @@ func (s *Server) approveAnnouncement(c *gin.Context) {
 	}
 	var at time.Time
 	err = s.pool.QueryRow(c.Request.Context(), `
-		UPDATE announcements a SET status = 'pending', scheduled_at = a.approval_send_at, due_at = a.approval_send_at
-		WHERE a.id = $1 AND a.status = 'draft' AND a.approval_send_at > $3 AND `+approvalRevision+` = $4
+		UPDATE announcements a SET status = 'pending', scheduled_at = GREATEST(a.approval_send_at, $3), due_at = GREATEST(a.approval_send_at, $3)
+		WHERE a.id = $1 AND a.status = 'draft' AND a.approval_send_at > $3::timestamptz - `+approvalLateWindow+` AND `+approvalRevision+` = $4
 			AND EXISTS (SELECT 1 FROM instance_admins ad WHERE ad.instance_id = a.instance_id AND ad.discord_user_id = $2)
 		RETURNING a.due_at`, id, req.AdminID, s.now(), req.Revision).Scan(&at)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -114,6 +120,37 @@ func (s *Server) approveAnnouncement(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"scheduled_at": at.UTC()})
+}
+
+// reviseAnnouncement replaces a held post's text with an admin's DM reply; the new text needs its own "yes".
+func (s *Server) reviseAnnouncement(c *gin.Context) {
+	if !requireAdminService(c) {
+		return
+	}
+	id, err := uuid.Parse(c.Param("announcementID"))
+	var req struct {
+		AdminID  string `json:"admin_discord_user_id" binding:"required"`
+		Revision string `json:"revision" binding:"required"`
+		Body     string `json:"body" binding:"required"`
+	}
+	if err != nil || c.ShouldBindJSON(&req) != nil || strings.TrimSpace(req.Body) == "" || utf8.RuneCountInString(req.Body) > 2000 {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "announcement id, admin_discord_user_id, revision and a nonblank body of at most 2000 characters are required"})
+		return
+	}
+	tag, err := s.pool.Exec(c.Request.Context(), `
+		UPDATE announcements a SET body = $5, approval_claimed_at = NULL, approval_notified_at = NULL
+		WHERE a.id = $1 AND a.status = 'draft' AND a.approval_gated AND a.approval_send_at > $3::timestamptz - `+approvalLateWindow+` AND `+approvalRevision+` = $4
+			AND EXISTS (SELECT 1 FROM instance_admins ad WHERE ad.instance_id = a.instance_id AND ad.discord_user_id = $2)`,
+		id, req.AdminID, s.now(), req.Revision, req.Body)
+	if err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		c.JSON(http.StatusConflict, errorResponse{Error: "can't change it: it was already approved or changed since this DM (check for a newer one), its time has passed, or you aren't an admin of this season"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // confirmApprovalDelivery records that every admin got the approval DM for this revision.
