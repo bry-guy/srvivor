@@ -26,7 +26,7 @@ import (
 const (
 	scrambleMaxLetters = 30 // phrase letters
 	scrambleMaxDecoys  = 10 // so the tray is at most 40 tiles, about five rows on an iPhone SE
-	scrambleRowWidth = 9  // slots per row on a 320px phone; longer words wrap
+	scrambleRowWidth   = 9  // slots per row on a 320px phone; longer words wrap
 )
 
 var errScramblePhrase = fmt.Errorf("phrase must be letters A–Z and spaces, at most %d letters, with at most %d decoys", scrambleMaxLetters, scrambleMaxDecoys)
