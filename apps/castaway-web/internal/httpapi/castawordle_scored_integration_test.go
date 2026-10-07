@@ -45,7 +45,8 @@ func TestCastawordleScored(t *testing.T) {
 		t.Fatal(err)
 	}
 	const base = "https://castaway.example"
-	router := httpapi.New(pool, httpapi.WithClock(func() time.Time { return now }), httpapi.WithPublic(httpapi.PublicConfig{BaseURL: base, InstanceID: instanceID})).PublicRouter()
+	server := httpapi.New(pool, httpapi.WithClock(func() time.Time { return now }), httpapi.WithPublic(httpapi.PublicConfig{BaseURL: base, InstanceID: instanceID}))
+	router := server.PublicRouter()
 	serve := func(method, path, body, user string, status int) string {
 		t.Helper()
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -91,7 +92,13 @@ func TestCastawordleScored(t *testing.T) {
 	serve("POST", resolve, "", "admin", 409) // before cutoff
 	serve("POST", resolve, "", "partial", 403)
 
+	if err := server.ResolveDueGames(ctx); err != nil { // before cutoff: nothing to score
+		t.Fatal(err)
+	}
 	now = time.Date(2026, 10, 7, 16, 0, 0, 0, time.UTC)
+	if err := server.ResolveDueGames(ctx); err != nil { // the per-minute resolver scores it at cutoff
+		t.Fatal(err)
+	}
 	first := serve("POST", resolve, "", "admin", 200)
 	if second := serve("POST", resolve, "", "admin", 200); second != first {
 		t.Fatalf("repeat resolution changed: %s vs %s", first, second)

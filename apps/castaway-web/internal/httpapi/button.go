@@ -239,7 +239,34 @@ func (s *Server) ResolveDueGames(ctx context.Context) error {
 	if err := s.resolveDueButtonGames(ctx); err != nil {
 		return err
 	}
-	return s.resolveDueScrambleGames(ctx)
+	if err := s.resolveDueScrambleGames(ctx); err != nil {
+		return err
+	}
+	return s.resolveDueCastawordleGames(ctx)
+}
+
+// resolveDueCastawordleGames scores every scored Castawordle round past its cutoff.
+func (s *Server) resolveDueCastawordleGames(ctx context.Context) error {
+	rows, err := s.pool.Query(ctx, `SELECT g.public_id FROM castawordle_games g
+		JOIN activity_occurrences o ON o.public_id = g.wordle_round_id
+		WHERE o.status = 'recorded' AND g.cutoff_at <= $1`, s.now())
+	if err != nil {
+		return err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		game, err := s.queries.GetCastawordleGame(ctx, toPGUUID(id))
+		if err != nil {
+			return err
+		}
+		if _, err := s.resolveCastawordleGame(ctx, game, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RunButtonResolver resolves Press the Button and Spell It Out games at their cutoff until ctx ends.
@@ -252,6 +279,9 @@ func (s *Server) RunButtonResolver(ctx context.Context) {
 		}
 		if err := s.resolveDueScrambleGames(ctx); err != nil && ctx.Err() == nil {
 			requestLogger.Error("resolve spell it out games", "error", err)
+		}
+		if err := s.resolveDueCastawordleGames(ctx); err != nil && ctx.Err() == nil {
+			requestLogger.Error("resolve castawordle games", "error", err)
 		}
 		select {
 		case <-ctx.Done():

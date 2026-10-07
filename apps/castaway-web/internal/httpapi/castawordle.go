@@ -500,76 +500,74 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 		return
 	}
 
-	tx, err := s.pool.Begin(ctx)
+	payload, err := s.resolveCastawordleGame(ctx, game, c.Request)
 	if err != nil {
 		writeWordleError(c, err)
 		return
 	}
-	defer rollbackTx(c, tx)
+	c.Data(http.StatusOK, "application/json; charset=utf-8", payload)
+}
+
+// resolveCastawordleGame scores a scored game's round once past cutoff; authReq nil means the system resolver.
+func (s *Server) resolveCastawordleGame(ctx context.Context, game db.GetCastawordleGameRow, authReq *http.Request) ([]byte, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			requestLogger.Error("rollback castawordle resolve", "error", err)
+		}
+	}()
 	qtx := s.queries.WithTx(tx)
 	instance, err := qtx.LockInstanceForProgression(ctx, game.InstanceID)
 	if err != nil {
-		writeWordleError(c, err)
-		return
+		return nil, err
 	}
 	if instance.ProgressionMode != "legacy" {
-		c.JSON(http.StatusConflict, errorResponse{Error: "Wordle lifecycle is only supported for legacy instances"})
-		return
+		return nil, &progressionFailure{status: http.StatusConflict, message: "Wordle lifecycle is only supported for legacy instances"}
 	}
-	if err := requireWordleInstanceAdmin(ctx, qtx, instance.ID, c.Request); err != nil {
-		writeWordleError(c, err)
-		return
+	if authReq != nil {
+		if err := requireWordleInstanceAdmin(ctx, qtx, instance.ID, authReq); err != nil {
+			return nil, err
+		}
 	}
 	round, err := qtx.LockWordleRound(ctx, game.WordleRoundID)
 	if err != nil {
-		writeWordleError(c, err)
-		return
+		return nil, err
 	}
 	if !sameWordleUUID(round.InstanceID, game.InstanceID) || round.ActivityType != wordleActivityType {
-		c.JSON(http.StatusConflict, errorResponse{Error: "game is not linked to a tribe Wordle round"})
-		return
+		return nil, &progressionFailure{status: http.StatusConflict, message: "game is not linked to a tribe Wordle round"}
 	}
 	lockedGame, err := qtx.LockCastawordleGame(ctx, game.ID)
 	if err != nil {
-		writeWordleError(c, err)
-		return
+		return nil, err
 	}
 	if !lockedGame.WordleRoundID.Valid || !sameWordleUUID(lockedGame.WordleRoundID, game.WordleRoundID) {
-		c.JSON(http.StatusConflict, errorResponse{Error: "game scoring link changed"})
-		return
+		return nil, &progressionFailure{status: http.StatusConflict, message: "game scoring link changed"}
 	}
 	if len(round.ResolutionResponse) > 0 {
 		payload := append([]byte(nil), round.ResolutionResponse...)
-		if err := tx.Commit(ctx); err != nil {
-			writeWordleError(c, err)
-			return
-		}
-		c.Data(http.StatusOK, "application/json; charset=utf-8", payload)
-		return
+		return payload, tx.Commit(ctx)
 	}
 	now := s.now().UTC().Truncate(time.Microsecond)
 	if now.Before(round.CutoffAt.Time) {
-		c.JSON(http.StatusConflict, errorResponse{Error: "Castawordle cannot resolve before cutoff"})
-		return
+		return nil, &progressionFailure{status: http.StatusConflict, message: "Castawordle cannot resolve before cutoff"}
 	}
 	if round.OccurrenceStatus != "recorded" {
-		c.JSON(http.StatusConflict, errorResponse{Error: "Castawordle round is not resolvable"})
-		return
+		return nil, &progressionFailure{status: http.StatusConflict, message: "Castawordle round is not resolvable"}
 	}
 	if !round.OpensAt.Time.Equal(lockedGame.OpensAt.Time) || !round.CutoffAt.Time.Equal(lockedGame.CutoffAt.Time) {
-		c.JSON(http.StatusConflict, errorResponse{Error: "Castawordle game and round windows do not match"})
-		return
+		return nil, &progressionFailure{status: http.StatusConflict, message: "Castawordle game and round windows do not match"}
 	}
 
 	plays, err := qtx.ListCastawordlePlays(ctx, lockedGame.ID)
 	if err != nil {
-		writeWordleError(c, err)
-		return
+		return nil, err
 	}
 	plays, answers, err := withPrivateCastawordlePlays(ctx, tx, lockedGame.ID, lockedGame.Answer, plays)
 	if err != nil {
-		writeWordleError(c, err)
-		return
+		return nil, err
 	}
 	type completedPlay struct {
 		participantID pgtype.UUID
@@ -579,26 +577,22 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 	for _, play := range plays {
 		var guesses []string
 		if err := json.Unmarshal(play.Guesses, &guesses); err != nil {
-			writeWordleError(c, err)
-			return
+			return nil, err
 		}
 		switch play.Status {
 		case "solved":
 			if len(guesses) < 1 || len(guesses) > castawordle.GuessLimit || guesses[len(guesses)-1] != answers[play.ParticipantID] {
-				c.JSON(http.StatusConflict, errorResponse{Error: "saved Castawordle result is invalid"})
-				return
+				return nil, &progressionFailure{status: http.StatusConflict, message: "saved Castawordle result is invalid"}
 			}
 			completed = append(completed, completedPlay{participantID: play.ParticipantID, guessCount: int32(len(guesses))}) // #nosec G115 -- bounded by GuessLimit above
 		case "exhausted":
 			if len(guesses) != castawordle.GuessLimit {
-				c.JSON(http.StatusConflict, errorResponse{Error: "saved Castawordle result is invalid"})
-				return
+				return nil, &progressionFailure{status: http.StatusConflict, message: "saved Castawordle result is invalid"}
 			}
 			completed = append(completed, completedPlay{participantID: play.ParticipantID, guessCount: 7})
 		case "in_progress":
 		default:
-			c.JSON(http.StatusConflict, errorResponse{Error: "saved Castawordle result is invalid"})
-			return
+			return nil, &progressionFailure{status: http.StatusConflict, message: "saved Castawordle result is invalid"}
 		}
 	}
 
@@ -607,8 +601,7 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 			InstanceID: game.InstanceID, At: wordleTimestamp(round.CutoffAt.Time),
 		})
 		if err != nil {
-			writeWordleError(c, err)
-			return
+			return nil, err
 		}
 		byParticipant := make(map[pgtype.UUID][]db.ListInstanceTribeMembershipsAtRow, len(memberships))
 		for _, membership := range memberships {
@@ -617,21 +610,18 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 		for _, result := range completed {
 			eligible := byParticipant[result.participantID]
 			if len(eligible) != 1 {
-				c.JSON(http.StatusConflict, errorResponse{Error: "completed players must have exactly one tribe at cutoff"})
-				return
+				return nil, &progressionFailure{status: http.StatusConflict, message: "completed players must have exactly one tribe at cutoff"}
 			}
 			metadata, err := json.Marshal(map[string]int32{"guess_count": result.guessCount})
 			if err != nil {
-				writeWordleError(c, err)
-				return
+				return nil, err
 			}
 			if _, err := qtx.UpsertActivityOccurrenceParticipant(ctx, db.UpsertActivityOccurrenceParticipantParams{
 				ActivityOccurrenceID: game.WordleRoundID,
 				ParticipantID:        result.participantID, ParticipantGroupID: eligible[0].ParticipantGroupID,
 				Role: wordleParticipantRole, Metadata: metadata,
 			}); err != nil {
-				writeWordleError(c, err)
-				return
+				return nil, err
 			}
 		}
 	}
@@ -639,8 +629,7 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 	if !round.ClosedAt.Valid {
 		closed, err := qtx.UpdateWordleRoundClosedAt(ctx, db.UpdateWordleRoundClosedAtParams{ID: game.WordleRoundID, ClosedAt: wordleTimestamp(now)})
 		if err != nil {
-			writeWordleError(c, err)
-			return
+			return nil, err
 		}
 		round.ClosedAt = closed.ClosedAt
 	}
@@ -648,20 +637,17 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 	if len(completed) == 0 {
 		occurrence, err := qtx.GetActivityOccurrence(ctx, game.WordleRoundID)
 		if err != nil {
-			writeWordleError(c, err)
-			return
+			return nil, err
 		}
 		if _, err := qtx.UpdateActivityOccurrenceStatusAndMetadata(ctx, db.UpdateActivityOccurrenceStatusAndMetadataParams{
 			ID: game.WordleRoundID, Status: "resolved", EndsAt: wordleTimestamp(now), Metadata: occurrence.Metadata,
 		}); err != nil {
-			writeWordleError(c, err)
-			return
+			return nil, err
 		}
 	} else {
 		createdEntries, err = gameplay.NewService(qtx).ResolveActivityOccurrence(ctx, game.WordleRoundID)
 		if err != nil {
-			writeWordleError(c, err)
-			return
+			return nil, err
 		}
 	}
 	entries := make([]gin.H, 0, len(createdEntries))
@@ -676,20 +662,14 @@ func (s *Server) resolveCastawordle(c *gin.Context) {
 	}
 	payload, err := json.Marshal(gin.H{"created_entries": entries, "created_count": len(entries)})
 	if err != nil {
-		writeWordleError(c, err)
-		return
+		return nil, err
 	}
 	stored, err := qtx.UpdateWordleRoundResolution(ctx, db.UpdateWordleRoundResolutionParams{ID: game.WordleRoundID, ResolutionResponse: payload})
 	if err != nil {
-		writeWordleError(c, err)
-		return
+		return nil, err
 	}
 	payload = append([]byte(nil), stored.ResolutionResponse...)
-	if err := tx.Commit(ctx); err != nil {
-		writeWordleError(c, err)
-		return
-	}
-	c.Data(http.StatusOK, "application/json; charset=utf-8", payload)
+	return payload, tx.Commit(ctx)
 }
 
 // gamesPage lists a season's games by episode: the current season, or a past league season with ?season=.

@@ -10,7 +10,7 @@
 
 season: 51
 instance: ee0a0884-37ad-47bb-820b-cf111bec3a39   # Podracing · Season 51
-channel: survivor
+channel: "1330046490785087518"   # #survivor (Podracing announcement channel)
 ping: castaway                                   # @castaway role, used only on posts that say `ping: role`
 
 episodes:                      # Wednesdays 8:00pm. Ep N's results are scored in the Week N scores post.
@@ -36,8 +36,8 @@ weekly:
     needs: [elimination, immunity, reward]
   game:                         # one game/event a week; opens at the episode, closes before scores
     opens: "20:00"
-    closes: "+7d 11:59"
-    resolve: "+7d 11:59"        # awarded at close (Press the Button resolves itself; Castawordle via `probst castawordle resolve`)
+    closes: "+7d 19:59"         # episode to episode: closes 7:59pm before the next episode
+    resolve: "+7d 19:59"        # awarded at close; every game resolves itself
   scores_post:
     at: "+7d 12:00"             # Wednesday noon, after the game resolves
     template: scores            # seasons/51-scores.md, filled by `probst season post seasons/51.yaml --week N`
@@ -50,7 +50,7 @@ weekly:
 # ── Week by week (only what differs from `weekly`) ───────────────────────────────────────────────────
 weeks:
   1: {game: none, scores_post: {at: 2026-09-30 21:52, sent: true}}      # draft week; posted
-  2: {game: {type: castawordle, answer_file: answers/ep2.txt}}            # live now, closes Oct 7 11:59
+  2: {game: {type: castawordle, answer_file: answers/ep2.txt}, scores_post: {at: 2026-10-07 14:00}}   # scores post moved to 2pm (set up by hand)
   3: {game: {type: press_the_button}}                                        # most +2, 2nd most -1, least +1, ties +size (max 3); +1 each at 100/1,000/10,000 presses
   4: {game: TBD}                                  # e.g. {type: spell_it_out, phrase_file: answers/ep4.txt, decoys: 4}
   5: {game: TBD}
