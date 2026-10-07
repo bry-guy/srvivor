@@ -16,6 +16,7 @@ if (stage) {
           const total = stage.querySelector(`[data-tribe="${CSS.escape(tribe.name)}"] b`);
           if (total) total.textContent = tribe.presses;
         }
+        if (!body.hint && body.count === 1) hint.classList.remove("shown"); // the opening prompt goes on first press
         if (body.hint) {
           hint.textContent = body.hint;
           hint.classList.add("shown");

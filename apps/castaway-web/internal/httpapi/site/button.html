@@ -1,8 +1,8 @@
 {{template "header" .}}
 {{with .Button}}{{if .Open}}<form class="button-stage" method="post" action="{{.Action}}"><button class="the-button" type="submit" aria-label="Press the button"></button><output class="press-count muted">count: {{.Count}}</output>
-<p class="button-hint" role="status" aria-live="polite"></p>
+<p class="button-hint{{if eq .Count 0}} shown{{end}}" role="status" aria-live="polite">{{if eq .Count 0}}Will you press the button?{{end}}</p>
 <p class="tribe-presses muted">{{range .Tribes}}<span data-tribe="{{.Name}}">{{if eq .Name "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Name "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}{{.Name}} <b>{{.Presses}}</b></span> {{end}}</p></form>
-<script src="/assets/button.js?v=4" defer></script>
+<script src="/assets/button.js?v=5" defer></script>
 {{else}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">{{if .Test}}Admin-only test{{else}}Episode {{.Episode}}{{end}}</p><h1>Press the Button</h1>
 <p class="muted">{{if .Upcoming}}Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}{{else}}Closed {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}{{end}}</p></div>
 {{if .ResultsWait}}<p class="notice">Results appear once the game is scored.</p>{{end}}

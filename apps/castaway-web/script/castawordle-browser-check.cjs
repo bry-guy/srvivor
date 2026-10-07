@@ -109,7 +109,7 @@ const base = process.argv[2];
       assert.match(buttonPath, /^\/games\/button\/[0-9a-f-]+$/);
       const count = await page.locator('.press-count').innerText();
       assert.match(count, /^count: \d+$/);
-      assert.equal(await page.locator('.button-hint').innerText(), '', 'no hint before a threshold');
+      if (before === 0) assert.equal(await page.locator('.button-hint').innerText(), 'Will you press the button?');
       const before = Number(count.slice('count: '.length));
       // Press to the first noise count (10): its hint appears.
       const presses = 10 - before;

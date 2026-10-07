@@ -77,7 +77,7 @@ func TestPressTheButton(t *testing.T) {
 	now = time.Date(2026, 10, 8, 1, 0, 0, 0, time.UTC)
 	page := serve("GET", "/games/button", "", "most", 200)
 	if !strings.Contains(page, `class="the-button"`) || !strings.Contains(page, "count: 0") || !strings.Contains(page, `action="`+gameURL+`"`) ||
-		strings.Contains(page, "The tribe has spoken") || !strings.Contains(page, `<p class="button-hint" role="status" aria-live="polite"></p>`) {
+		strings.Contains(page, "The tribe has spoken") || !strings.Contains(page, `<p class="button-hint shown" role="status" aria-live="polite">Will you press the button?</p>`) {
 		t.Fatalf("button page should be the button, its count, and a hidden hint: %s", page)
 	}
 	hints := map[string][]string{}
@@ -105,7 +105,7 @@ func TestPressTheButton(t *testing.T) {
 		t.Fatalf("landing on a shared count should hint at it, got %q", h)
 	}
 	press("least", 1)
-	if page := serve("GET", "/games/button", "", "most", 200); !strings.Contains(page, "count: 9") {
+	if page := serve("GET", "/games/button", "", "most", 200); !strings.Contains(page, "count: 9") || strings.Contains(page, "Will you press") {
 		t.Fatalf("count after 9 presses: %s", page)
 	}
 	// second presses on two more Eastern days: a 3-day streak.
