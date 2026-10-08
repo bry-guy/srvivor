@@ -71,6 +71,14 @@ func TestCommandHTTPBoundary(t *testing.T) {
 	if _, err := run("auth", "status"); err == nil || !strings.Contains(err.Error(), "HTTPS") {
 		t.Fatalf("insecure URL: %v", err)
 	}
+	t.Setenv("PROBST_API_URL", "http://castaway-web.invalid-cluster-name-for-test")
+	if _, err := run("auth", "status"); err == nil || !strings.Contains(err.Error(), "HTTPS") {
+		t.Fatalf("dotted http host must still need HTTPS: %v", err)
+	}
+	t.Setenv("PROBST_API_URL", "http://castaway-web-test-service") // in-cluster service name: allowed (fails only on DNS here)
+	if _, err := run("auth", "status"); err == nil || strings.Contains(err.Error(), "HTTPS") {
+		t.Fatalf("in-cluster service name: %v", err)
+	}
 	t.Setenv("PROBST_TOKEN", "")
 	if _, err := run("auth", "status"); err == nil || !strings.Contains(err.Error(), "PROBST_TOKEN") {
 		t.Fatalf("missing credentials: %v", err)

@@ -89,8 +89,10 @@ func newCommand() *cobra.Command {
 			return fmt.Errorf("set --server or PROBST_API_URL to an API URL")
 		}
 		local := parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1" || parsed.Hostname() == "::1"
-		if parsed.Scheme != "https" && !(parsed.Scheme == "http" && local) {
-			return fmt.Errorf("HTTPS required except for loopback test servers")
+		// A single-label host (e.g. "castaway-web") only resolves inside the cluster, where the scheduled job runs.
+		inCluster := !strings.ContainsAny(parsed.Hostname(), ".:")
+		if parsed.Scheme != "https" && !(parsed.Scheme == "http" && (local || inCluster)) {
+			return fmt.Errorf("HTTPS required except for loopback test servers and in-cluster service names")
 		}
 		if strings.TrimSpace(actor) == "" {
 			return fmt.Errorf("set --actor or PROBST_DISCORD_USER_ID; this is trusted-service delegation, not human login")
