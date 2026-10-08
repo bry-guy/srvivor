@@ -79,8 +79,8 @@ var (
 		"%s dropped %d at the very end. Brutal. Beautiful.",
 	}
 	gameLines = map[string]string{ // %s is the open time; games open with the episode
-		"press_the_button": "🔴 This week's game: **Press the Button**, open %s at <%s/button>.",
-		"castawordle":      "🔤 This week's game: **Castawordle**, open %s at <%s/castawordle>.",
+		"press_the_button": "🔴 This week's game: **Press the Button**, open %s at <%s/games>.",
+		"castawordle":      "🔤 This week's game: **Castawordle**, open %s at <%s/games>.",
 		"spell_it_out":     "🔠 This week's game: **Spell It Out**, open %s at <%s/games>.",
 	}
 	gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Spell It Out"}
@@ -144,11 +144,14 @@ func buildScoresPost(season, week int, now, prev []scoreRow, booted []string, si
 	p.Facts = scoresFacts{
 		LeaderNames: who(func(r scoreRow) bool { return r.Total == rows[0].Total }), LeaderTotal: rows[0].Total,
 		GainerNames: who(func(r scoreRow) bool { return gain(r) == best }), Gain: best,
-		SliderNames: who(func(r scoreRow) bool { return gain(r) == worst }), Slide: -worst, NobodyMoved: best == worst,
+		SliderNames: who(func(r scoreRow) bool { return gain(r) == worst }), Slide: -worst, NobodyMoved: best == worst && best == 0,
 	}
-	if best == worst { // nobody separated from anybody: one line instead of three ties
+	if best == worst && best == 0 { // nobody moved: one line instead of three ties
 		p.Gainer, p.Slider = "", ""
 		p.Leader += " Nobody else moved an inch this week."
+	} else if best == worst { // everybody moved the same: nobody to praise or rib
+		p.Gainer, p.Slider = "", ""
+		p.Leader += fmt.Sprintf(" Everybody moved %+d this week, so nobody gained ground.", best)
 	} else if worst < 0 {
 		p.Slider = fmt.Sprintf(weekLine(sliderLines, week), sliders, -worst)
 	} else { // nobody lost points: rib the slowest climber instead

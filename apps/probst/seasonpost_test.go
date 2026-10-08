@@ -70,6 +70,15 @@ func TestScoresPostNoMovement(t *testing.T) {
 	}
 }
 
+func TestScoresPostEqualGains(t *testing.T) {
+	prev := []scoreRow{{ID: "a", Total: 3}, {ID: "b", Total: 1}}
+	now := []scoreRow{{ID: "a", Name: "Ann", Total: 5, HasDraft: true}, {ID: "b", Name: "Bo", Total: 3, HasDraft: true}}
+	p, err := buildScoresPost(51, 2, now, prev, nil, "https://x", "")
+	if err != nil || p.Gainer != "" || p.Slider != "" || strings.Contains(p.Leader, "Nobody") || !strings.Contains(p.Leader, "Everybody moved +2") || p.Facts.NobodyMoved {
+		t.Fatalf("%+v %v", p, err)
+	}
+}
+
 func TestScoresFlavorGuardrails(t *testing.T) {
 	prev := []scoreRow{{ID: "a", Total: 10}, {ID: "b", Total: 9}}
 	now := []scoreRow{{ID: "a", Name: "Ann", DiscordID: "1", Total: 15, HasDraft: true}, {ID: "b", Name: "Bo", DiscordID: "2", Total: 7, HasDraft: true}}

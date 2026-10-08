@@ -212,6 +212,22 @@ Missing episode results block only the scores post, not the next game.
 5. Image, CronJob and automation credential; BrainLand rehearsal; phased Podracing activation.
 6. Docs and changelogs for this and the Oct 7 changes.
 
+## Status (Oct 8)
+
+Built, BrainLand-only (`seasons/51-brainland.yaml`, `automation.enabled: true`); Podracing's file has
+`enabled: false`:
+
+- `probst season reconcile` CronJob every 5 minutes, on the bot's token (dedicated token still to do).
+- Next-game readiness alerts (once per week, no daily reminders yet).
+- survivoR import: pinned commit, completeness evidence, holds, all-or-nothing server apply, legacy-key reuse,
+  conflicts alert instead of overwriting.
+- Scores drafts: snapshot + fingerprint; stale posts can't be approved or sent; admin edits kept; drafting
+  up to 3 hours late; expiry and waiting alerts.
+
+Not yet: `automation_actions` leases (each step is idempotent on the server instead), reconciler-health and
+credential-rejected operator alerts, idempotent `season apply` in the reconciler, readiness `incomplete` /
+`invalid` states, `season plan` showing sent/holds, the stale comments in the season file.
+
 ## Decisions (Oct 7)
 
 - **First automated piece:** when a game opens, if the following week has no game set, DM the admins.

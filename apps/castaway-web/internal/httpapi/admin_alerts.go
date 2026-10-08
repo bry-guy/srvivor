@@ -116,10 +116,12 @@ func (s *Server) listScheduledGames(c *gin.Context) {
 		return
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT g.type, g.public_id, g.episode_number, g.opens_at, g.cutoff_at FROM (
-			SELECT 'castawordle' AS type, public_id, episode_number, opens_at, cutoff_at, instance_id FROM castawordle_games WHERE episode_number IS NOT NULL
-			UNION ALL SELECT 'press_the_button', public_id, episode_number, opens_at, cutoff_at, instance_id FROM button_games WHERE episode_number IS NOT NULL
-			UNION ALL SELECT 'spell_it_out', public_id, episode_number, opens_at, cutoff_at, instance_id FROM scramble_games WHERE episode_number IS NOT NULL
+		SELECT g.type, g.public_id, g.episode_number, g.opens_at, g.cutoff_at, g.scored FROM (
+			SELECT 'castawordle' AS type, w.public_id, w.episode_number, w.opens_at, w.cutoff_at, w.instance_id,
+				COALESCE(o.status = 'resolved', w.wordle_round_id IS NULL) AS scored
+				FROM castawordle_games w LEFT JOIN activity_occurrences o ON o.public_id = w.wordle_round_id WHERE w.episode_number IS NOT NULL
+			UNION ALL SELECT 'press_the_button', public_id, episode_number, opens_at, cutoff_at, instance_id, resolved_at IS NOT NULL FROM button_games WHERE episode_number IS NOT NULL
+			UNION ALL SELECT 'spell_it_out', public_id, episode_number, opens_at, cutoff_at, instance_id, resolved_at IS NOT NULL FROM scramble_games WHERE episode_number IS NOT NULL
 		) g JOIN instances i ON i.id = g.instance_id WHERE i.public_id = $1 ORDER BY g.episode_number, g.type`, toPGUUID(instanceID))
 	if err != nil {
 		writeAnnouncementError(c, err)
@@ -132,11 +134,12 @@ func (s *Server) listScheduledGames(c *gin.Context) {
 		var id uuid.UUID
 		var episode int32
 		var opens, cutoff time.Time
-		if err := rows.Scan(&kind, &id, &episode, &opens, &cutoff); err != nil {
+		var scored bool
+		if err := rows.Scan(&kind, &id, &episode, &opens, &cutoff, &scored); err != nil {
 			writeAnnouncementError(c, err)
 			return
 		}
-		games = append(games, gin.H{"type": kind, "id": id, "episode_number": episode, "opens_at": opens.UTC(), "cutoff_at": cutoff.UTC()})
+		games = append(games, gin.H{"type": kind, "id": id, "episode_number": episode, "opens_at": opens.UTC(), "cutoff_at": cutoff.UTC(), "scored": scored})
 	}
 	if err := rows.Err(); err != nil {
 		writeAnnouncementError(c, err)

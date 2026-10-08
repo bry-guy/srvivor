@@ -1629,6 +1629,113 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReplaceDraftRequest'
+  /instances/{instanceID}/episode-imports:
+    post:
+      operationId: importEpisode
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                      outcomes_recorded:
+                        type: integer
+                        format: int32
+                      challenge_awards:
+                        type: integer
+                        format: int32
+                    required:
+                      - status
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                episode_number:
+                  type: integer
+                  format: int32
+                source:
+                  type: string
+                source_revision:
+                  type: string
+                boots:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/EpisodeImportBoot'
+                challenges:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/EpisodeImportChallenge'
+              required:
+                - episode_number
+                - source
+                - boots
+                - challenges
+    get:
+      operationId: listEpisodeImports
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      imports:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            episode_number:
+                              type: integer
+                              format: int32
+                            source:
+                              type: string
+                            source_revision:
+                              type: string
+                            boot_positions:
+                              type: array
+                              items:
+                                type: integer
+                                format: int32
+                            challenge_keys:
+                              type: array
+                              items:
+                                type: string
+                            applied_at:
+                              type: string
+                              format: date-time
+                          required:
+                            - episode_number
+                            - source
+                            - source_revision
+                            - boot_positions
+                            - challenge_keys
+                            - applied_at
+                    required:
+                      - imports
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/finale-bingo/loan-sharks:
     post:
       operationId: recordFinaleBingoLoanSharks
@@ -2253,14 +2360,129 @@ paths:
                             cutoff_at:
                               type: string
                               format: date-time
+                            scored:
+                              type: boolean
                           required:
                             - type
                             - id
                             - episode_number
                             - opens_at
                             - cutoff_at
+                            - scored
                     required:
                       - games
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/score-posts/{requestKey}:
+    put:
+      operationId: upsertScorePost
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: requestKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      action:
+                        type: string
+                    required:
+                      - action
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guild_id:
+                  type: string
+                channel_id:
+                  type: string
+                body:
+                  type: string
+                send_at:
+                  type: string
+                  format: date-time
+                score_fingerprint:
+                  type: string
+                notify_users:
+                  type: boolean
+              required:
+                - guild_id
+                - channel_id
+                - body
+                - send_at
+                - score_fingerprint
+  /instances/{instanceID}/score-snapshots/{week}:
+    put:
+      operationId: takeScoreSnapshot
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: week
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ScoreSnapshot'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_key:
+                  type: string
+              required:
+                - request_key
+    get:
+      operationId: getScoreSnapshot
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: week
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ScoreSnapshot'
                   - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/scramble-games:
     post:
@@ -3428,6 +3650,40 @@ components:
       properties:
         body:
           type: string
+    EpisodeImportBoot:
+      type: object
+      required:
+        - position
+        - contestant_id
+      properties:
+        position:
+          type: integer
+          format: int32
+        contestant_id:
+          type: string
+    EpisodeImportChallenge:
+      type: object
+      required:
+        - key
+        - kind
+        - winning_tribes
+        - effective_at
+      properties:
+        key:
+          type: string
+        legacy_keys:
+          type: array
+          items:
+            type: string
+        kind:
+          type: string
+        winning_tribes:
+          type: array
+          items:
+            type: string
+        effective_at:
+          type: string
+          format: date-time
     ErrorResponse:
       type: object
       required:
@@ -4346,6 +4602,28 @@ components:
           type: string
           format: date-time
       description: Omit scheduled_at to send now. The bot reads the current text when it sends.
+    ScoreSnapshot:
+      type: object
+      required:
+        - week
+        - fingerprint
+        - leaderboard
+        - taken_at
+        - frozen
+      properties:
+        week:
+          type: integer
+          format: int32
+        fingerprint:
+          type: string
+        leaderboard:
+          type: array
+          items: {}
+        taken_at:
+          type: string
+          format: date-time
+        frozen:
+          type: boolean
     SetAuctionBidRequest:
       type: object
       required:

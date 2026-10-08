@@ -360,6 +360,39 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 	challenge.Flags().StringVar(&challengeKey, "key", "", "Override the default ep<N>-<kind> key, e.g. for a second reward in one episode")
 	root.AddCommand(challenge)
 
+	root.AddCommand(&cobra.Command{
+		Use:   "boot PLACE CONTESTANT",
+		Short: "Record who finished at PLACE (21 = first out), e.g. a medevac the import held; dry run unless --yes",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(c *cobra.Command, a []string) error {
+			p, err := instancePath()
+			if err != nil {
+				return err
+			}
+			place, err := strconv.Atoi(a[0])
+			if err != nil || place <= 0 {
+				return fmt.Errorf("PLACE must be a positive number")
+			}
+			roster, err := loadRoster(c.Context(), call, p)
+			if err != nil {
+				return err
+			}
+			match, method, _ := matchName(normalize(a[1]), roster)
+			if match == nil || method != "exact" {
+				return fmt.Errorf("%q doesn't exactly match one contestant", a[1])
+			}
+			if !*yes {
+				_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — would record %s at place %d. Re-run with --yes.\n", match.Name, place)
+				return err
+			}
+			if err := call(c.Context(), "PUT", p+"/outcomes/"+strconv.Itoa(place), map[string]any{"contestant_id": match.ID, "reason": "probst boot"}, nil); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(c.OutOrStdout(), "Recorded %s at place %d.\n", match.Name, place)
+			return err
+		},
+	})
+
 	wordle := &cobra.Command{Use: "wordle", Short: "Run the weekly Wordle: open, import, resolve"}
 	root.AddCommand(wordle)
 	var wordleEpisode int

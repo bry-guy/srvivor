@@ -215,6 +215,19 @@ func (s *Server) claimAnnouncement(c *gin.Context) {
 		writeAnnouncementError(c, err)
 		return
 	}
+	// An automated scores post whose standings moved since it was drafted (and approved) must not send:
+	// hold it again quietly; automation redrafts it and re-asks.
+	if current, err := s.scoresStillCurrent(c.Request.Context(), tx, id); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	} else if !current {
+		if _, err := tx.Exec(c.Request.Context(), `UPDATE announcements SET status = 'draft', scheduled_at = NULL, approval_notified_at = $2 WHERE id = $1`, id, s.now()); err != nil {
+			writeAnnouncementError(c, err)
+			return
+		}
+		commitEmpty()
+		return
+	}
 	a, err := scanAnnouncement(tx.QueryRow(c.Request.Context(), `
 		UPDATE announcements a SET status = 'sending', claimed_at = $2
 		FROM instances i WHERE a.id = $1 AND i.id = a.instance_id

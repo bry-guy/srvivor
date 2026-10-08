@@ -33,6 +33,10 @@ func fetchSurvivorEpisode(ctx context.Context, season, episode int) (survivorEpi
 	if base == "" {
 		base = "https://raw.githubusercontent.com/doehm/survivoR/master/dev/json"
 	}
+	return fetchSurvivorEpisodeFrom(ctx, base, season, episode)
+}
+
+func fetchSurvivorEpisodeFrom(ctx context.Context, base string, season, episode int) (survivorEpisode, error) {
 	result := survivorEpisode{Season: season, Episode: episode, Fetched: time.Now().UTC(), Tables: map[string][]map[string]any{}}
 	client := &http.Client{Timeout: 60 * time.Second}
 	want := fmt.Sprintf("US%d", season)

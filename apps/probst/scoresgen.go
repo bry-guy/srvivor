@@ -85,7 +85,7 @@ func applyFlavor(p *scoresPost, reply []byte) []string {
 	x := p.Facts
 	set("intro", &p.Intro, f.Intro, strings.TrimSpace(f.Intro) != "" && !strings.ContainsAny(f.Intro, "<@\n0123456789"))
 	set("leader", &p.Leader, f.Leader, keeps(f.Leader, x.LeaderNames, x.LeaderTotal))
-	if !x.NobodyMoved {
+	if p.Gainer != "" { // no gainer/slider lines when everybody moved the same
 		set("gainer", &p.Gainer, f.Gainer, keeps(f.Gainer, x.GainerNames, x.Gain))
 		set("slider", &p.Slider, f.Slider, keeps(f.Slider, x.SliderNames, abs(x.Slide)))
 	}

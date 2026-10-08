@@ -94,7 +94,32 @@ op raiseAdminAlert(@path instanceID: string, @path alertKey: string, @body body:
 
 @route("/instances/{instanceID}/scheduled-games")
 @get
-op listScheduledGames(@path instanceID: string): { games: { type: string; id: string; episode_number: int32; opens_at: utcDateTime; cutoff_at: utcDateTime; }[]; } | ErrorResponse;
+op listScheduledGames(@path instanceID: string): { games: { type: string; id: string; episode_number: int32; opens_at: utcDateTime; cutoff_at: utcDateTime; scored: boolean; }[]; } | ErrorResponse;
+
+model EpisodeImportBoot { position: int32; contestant_id: string; }
+model EpisodeImportChallenge { key: string; legacy_keys?: string[]; kind: string; winning_tribes: string[]; effective_at: utcDateTime; }
+
+@route("/instances/{instanceID}/episode-imports")
+@post
+op importEpisode(@path instanceID: string, @body body: { episode_number: int32; source: string; source_revision?: string; boots: EpisodeImportBoot[]; challenges: EpisodeImportChallenge[]; }): { status: string; outcomes_recorded?: int32; challenge_awards?: int32; } | ErrorResponse;
+
+@route("/instances/{instanceID}/episode-imports")
+@get
+op listEpisodeImports(@path instanceID: string): { imports: { episode_number: int32; source: string; source_revision: string; boot_positions: int32[]; challenge_keys: string[]; applied_at: utcDateTime; }[]; } | ErrorResponse;
+
+model ScoreSnapshot { week: int32; fingerprint: string; leaderboard: unknown[]; taken_at: utcDateTime; frozen: boolean; }
+
+@route("/instances/{instanceID}/score-snapshots/{week}")
+@put
+op takeScoreSnapshot(@path instanceID: string, @path week: int32, @body body: { request_key: string; }): ScoreSnapshot | ErrorResponse;
+
+@route("/instances/{instanceID}/score-snapshots/{week}")
+@get
+op getScoreSnapshot(@path instanceID: string, @path week: int32): ScoreSnapshot | ErrorResponse;
+
+@route("/instances/{instanceID}/score-posts/{requestKey}")
+@put
+op upsertScorePost(@path instanceID: string, @path requestKey: string, @body body: { guild_id: string; channel_id: string; body: string; send_at: utcDateTime; score_fingerprint: string; notify_users?: boolean; }): { action: string; } | ErrorResponse;
 
 @route("/admin-alerts/claim")
 @post

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -246,37 +247,54 @@ func (s *Server) recordTribeChallenge(c *gin.Context) {
 		return
 	}
 	defer rollbackTx(c, tx)
-	ctx := c.Request.Context()
-
-	current, err := qtx.ListInstanceTribeMembershipsAt(ctx, db.ListInstanceTribeMembershipsAtParams{InstanceID: toPGUUID(instanceID), At: wordleTimestamp(at)})
+	occurrenceID, awarded, created, err := applyTribeChallenge(c.Request.Context(), tx, qtx, instanceID, []string{key}, kind, req.WinningTribes, at)
 	if err != nil {
 		writeTribeError(c, err)
 		return
+	}
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		writeTribeError(c, err)
+		return
+	}
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	c.JSON(status, gin.H{"occurrence_id": occurrenceID, "awarded_count": awarded})
+}
+
+// applyTribeChallenge records a tribe challenge result inside the caller's locked transaction. keys[0] is
+// the key a new record gets; every key is checked first, so a result already recorded under any of them
+// (e.g. by hand under an older naming scheme) is reused if it matches and is a 409 conflict if it doesn't.
+// Otherwise a same-kind result recorded for the same moment (the same episode) by the other route (a
+// survivoR import's `survivor-` key versus a hand-entered key) may be the same challenge, so it's a 409 for
+// an admin rather than a second award. Two rewards from the same route are distinct challenges.
+func applyTribeChallenge(ctx context.Context, tx pgx.Tx, qtx *db.Queries, instanceID uuid.UUID, keys []string, kind string, winningTribes []string, at time.Time) (occurrenceID string, awarded int, created bool, err error) {
+	current, err := qtx.ListInstanceTribeMembershipsAt(ctx, db.ListInstanceTribeMembershipsAtParams{InstanceID: toPGUUID(instanceID), At: wordleTimestamp(at)})
+	if err != nil {
+		return "", 0, false, err
 	}
 	tribeIDs := map[string]string{}
 	for _, row := range current {
 		tribeIDs[strings.ToLower(row.ParticipantGroupName)] = pgUUIDString(row.ParticipantGroupID)
 	}
-	winningIDs := make([]string, 0, len(req.WinningTribes))
-	for _, tribe := range req.WinningTribes {
+	winningIDs := make([]string, 0, len(winningTribes))
+	for _, tribe := range winningTribes {
 		id, ok := tribeIDs[strings.ToLower(strings.TrimSpace(tribe))]
 		if !ok || slices.Contains(winningIDs, id) {
-			c.JSON(http.StatusBadRequest, errorResponse{Error: "tribe " + tribe + " has no members at effective_at, or is listed twice"})
-			return
+			return "", 0, false, progressionError(http.StatusBadRequest, "tribe "+tribe+" has no members at effective_at, or is listed twice")
 		}
 		winningIDs = append(winningIDs, id)
 	}
 	sort.Strings(winningIDs)
 	metadata, err := json.Marshal(map[string][]string{"winning_tribe_ids": winningIDs})
 	if err != nil {
-		writeTribeError(c, err)
-		return
+		return "", 0, false, err
 	}
 
 	activities, err := qtx.ListInstanceActivitiesByType(ctx, db.ListInstanceActivitiesByTypeParams{InstanceID: toPGUUID(instanceID), ActivityType: gameplay.TribeChallengeActivityType})
 	if err != nil {
-		writeTribeError(c, err)
-		return
+		return "", 0, false, err
 	}
 	var activityID pgtype.UUID
 	if len(activities) > 0 {
@@ -284,63 +302,65 @@ func (s *Server) recordTribeChallenge(c *gin.Context) {
 	} else {
 		activity, err := qtx.CreateInstanceActivity(ctx, db.CreateInstanceActivityParams{InstanceID: toPGUUID(instanceID), ActivityType: gameplay.TribeChallengeActivityType, Name: "Tribe challenges", Status: "active", StartsAt: wordleTimestamp(at), Metadata: []byte(`{}`)})
 		if err != nil {
-			writeTribeError(c, err)
-			return
+			return "", 0, false, err
 		}
 		activityID = activity.ID
 	}
 
-	existing, err := qtx.GetActivityOccurrenceBySourceRef(ctx, db.GetActivityOccurrenceBySourceRefParams{ActivityID: activityID, SourceRef: pgtype.Text{String: key, Valid: true}})
-	if err == nil {
+	for _, key := range keys {
+		existing, err := qtx.GetActivityOccurrenceBySourceRef(ctx, db.GetActivityOccurrenceBySourceRefParams{ActivityID: activityID, SourceRef: pgtype.Text{String: key, Valid: true}})
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return "", 0, false, err
+		}
 		var stored map[string][]string
 		if err := json.Unmarshal(existing.Metadata, &stored); err != nil {
-			writeTribeError(c, err)
-			return
+			return "", 0, false, err
 		}
 		if existing.OccurrenceType != kind || !existing.EffectiveAt.Time.Equal(at) || !slices.Equal(stored["winning_tribe_ids"], winningIDs) {
-			c.JSON(http.StatusConflict, errorResponse{Error: "key already recorded with a different result"})
-			return
+			return "", 0, false, progressionError(http.StatusConflict, "key "+key+" already recorded with a different result")
 		}
 		entries, err := qtx.ListVisibleBonusPointLedgerEntriesByOccurrence(ctx, existing.ID)
 		if err != nil {
-			writeTribeError(c, err)
-			return
+			return "", 0, false, err
 		}
-		if err := tx.Commit(ctx); err != nil {
-			writeTribeError(c, err)
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"occurrence_id": pgUUIDString(existing.ID), "awarded_count": len(entries)})
-		return
+		return pgUUIDString(existing.ID), len(entries), false, nil
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		writeTribeError(c, err)
-		return
+
+	others, err := tx.Query(ctx, `SELECT o.source_ref FROM activity_occurrences o JOIN instance_activities a ON a.id = o.activity_id WHERE a.public_id = $1 AND o.occurrence_type = $2 AND o.effective_at = $3`,
+		activityID, kind, wordleTimestamp(at))
+	if err != nil {
+		return "", 0, false, err
+	}
+	refs, err := pgx.CollectRows(others, pgx.RowTo[pgtype.Text])
+	if err != nil {
+		return "", 0, false, err
+	}
+	for _, ref := range refs {
+		if strings.HasPrefix(ref.String, "survivor-") != strings.HasPrefix(keys[0], "survivor-") {
+			return "", 0, false, progressionError(http.StatusConflict, "a "+kind+" for this episode is already recorded as "+ref.String+"; check whether it's the same challenge")
+		}
 	}
 
 	occurrence, err := qtx.CreateActivityOccurrence(ctx, db.CreateActivityOccurrenceParams{
 		ActivityID:     activityID,
 		OccurrenceType: kind,
-		Name:           strings.Join(req.WinningTribes, ", ") + " won " + kind,
+		Name:           strings.Join(winningTribes, ", ") + " won " + kind,
 		EffectiveAt:    wordleTimestamp(at),
 		Status:         "recorded",
-		SourceRef:      pgtype.Text{String: key, Valid: true},
+		SourceRef:      pgtype.Text{String: keys[0], Valid: true},
 		Metadata:       metadata,
 	})
 	if err != nil {
-		writeTribeError(c, err)
-		return
+		return "", 0, false, err
 	}
-	created, err := gameplay.NewService(qtx).ResolveActivityOccurrence(ctx, occurrence.ID)
+	resolved, err := gameplay.NewService(qtx).ResolveActivityOccurrence(ctx, occurrence.ID)
 	if err != nil {
-		writeTribeError(c, err)
-		return
+		return "", 0, false, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		writeTribeError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, gin.H{"occurrence_id": pgUUIDString(occurrence.ID), "awarded_count": len(created)})
+	return pgUUIDString(occurrence.ID), len(resolved), true, nil
 }
 
 func tribesJSON(at time.Time, rows []db.ListInstanceTribeMembershipsAtRow) gin.H {

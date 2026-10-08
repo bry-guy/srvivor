@@ -23,7 +23,9 @@ import (
 // posts right away. Past this it's stale and needs rescheduling.
 const approvalLateWindow = `interval '3 hours'`
 
-const approvalRevision = `md5(a.body || '|' || a.channel_id || '|' || a.approval_send_at::text || '|' || a.notify_users::text)`
+// An automated scores post also binds the standings it describes, so a DM sent before a rescore can't approve
+// the post afterwards (the fingerprint part is absent for other posts, keeping their revisions unchanged).
+const approvalRevision = `md5(a.body || '|' || a.channel_id || '|' || a.approval_send_at::text || '|' || a.notify_users::text || COALESCE('|' || a.score_fingerprint, ''))`
 
 // requestAnnouncementApproval makes an unsent announcement wait for approval to send at send_at.
 func (s *Server) requestAnnouncementApproval(c *gin.Context) {
@@ -103,6 +105,13 @@ func (s *Server) approveAnnouncement(c *gin.Context) {
 	}
 	if err != nil || c.ShouldBindJSON(&req) != nil {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "announcement id, admin_discord_user_id and revision are required"})
+		return
+	}
+	if current, err := s.scoresStillCurrent(c.Request.Context(), s.pool, id); err == nil && !current {
+		c.JSON(http.StatusConflict, errorResponse{Error: "can't approve: the scores changed since this draft; an updated draft is on its way"})
+		return
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		writeAnnouncementError(c, err)
 		return
 	}
 	var at time.Time

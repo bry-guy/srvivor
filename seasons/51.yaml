@@ -82,3 +82,9 @@ posts:
   - name: finale-hype
     at: 2026-12-16 12:00
     approved: false
+
+# ── Automation (`probst season reconcile`, the scheduled job) ────────────────────────────────────────
+automation:
+  enabled: false                # Podracing turns on only after the BrainLand rehearsal passes
+  from_week: 3                  # weeks 1-2 were done by hand
+  guild: "521073437779689474"

@@ -11,7 +11,7 @@
 
 season: 51
 instance: 605699c6-1f21-4741-8e0f-4864d5e62018   # BrainLand · Season 51 (test copy of 51.yaml)
-channel: "1330046490785087518"   # #survivor (Podracing announcement channel)
+channel: "1078197143501819918"   # BrainLand test channel
 ping: castaway                                   # @castaway role, used only on posts that say `ping: role`
 
 episodes:                      # Wednesdays 8:00pm. Ep N's results are scored in the Week N scores post.
@@ -82,3 +82,9 @@ posts:
   - name: finale-hype
     at: 2026-12-16 12:00
     approved: false
+
+# ── Automation (`probst season reconcile`, the scheduled job) ────────────────────────────────────────
+automation:
+  enabled: true                 # BrainLand rehearsal copy of 51.yaml
+  from_week: 3
+  guild: "1078197143501819915"

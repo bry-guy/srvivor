@@ -1,4 +1,4 @@
-# Scheduled Probst: every 5 minutes, DM admins (once) if next week's game isn't ready once this week's opens.
+# Scheduled Probst (`season reconcile`) every 5 minutes: readiness alerts, survivoR import, scores drafts for approval.
 # Reuses the bot's service token for now; PROBST_DISCORD_USER_ID is the admin it acts as.
 apiVersion: batch/v1
 kind: CronJob
@@ -27,8 +27,10 @@ spec:
           containers:
             - name: probst
               image: ghcr.io/bry-guy/probst
-              args: ["season", "check", "/app/seasons/51-brainland.yaml"]
+              args: ["season", "reconcile", "/app/seasons/51-brainland.yaml"]
               env:
+                - name: PROBST_ALLOW_HTTP_SERVER
+                  value: http://castaway-web:8080
                 - name: PROBST_DISCORD_USER_ID
                   value: "235246238382030849"
                 - name: PROBST_TOKEN

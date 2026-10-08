@@ -71,14 +71,19 @@ func TestCommandHTTPBoundary(t *testing.T) {
 	if _, err := run("auth", "status"); err == nil || !strings.Contains(err.Error(), "HTTPS") {
 		t.Fatalf("insecure URL: %v", err)
 	}
-	t.Setenv("PROBST_API_URL", "http://castaway-web.invalid-cluster-name-for-test")
+	t.Setenv("PROBST_API_URL", "http://castaway-web")
 	if _, err := run("auth", "status"); err == nil || !strings.Contains(err.Error(), "HTTPS") {
-		t.Fatalf("dotted http host must still need HTTPS: %v", err)
+		t.Fatalf("http without opt-in: %v", err)
 	}
-	t.Setenv("PROBST_API_URL", "http://castaway-web-test-service") // in-cluster service name: allowed (fails only on DNS here)
+	t.Setenv("PROBST_ALLOW_HTTP_SERVER", "http://other")
+	if _, err := run("auth", "status"); err == nil || !strings.Contains(err.Error(), "HTTPS") {
+		t.Fatalf("opt-in for another URL: %v", err)
+	}
+	t.Setenv("PROBST_ALLOW_HTTP_SERVER", "http://castaway-web") // opted in: fails only on DNS here
 	if _, err := run("auth", "status"); err == nil || strings.Contains(err.Error(), "HTTPS") {
-		t.Fatalf("in-cluster service name: %v", err)
+		t.Fatalf("opted-in http: %v", err)
 	}
+	t.Setenv("PROBST_ALLOW_HTTP_SERVER", "")
 	t.Setenv("PROBST_TOKEN", "")
 	if _, err := run("auth", "status"); err == nil || !strings.Contains(err.Error(), "PROBST_TOKEN") {
 		t.Fatalf("missing credentials: %v", err)

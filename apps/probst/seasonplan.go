@@ -50,7 +50,8 @@ type seasonFile struct {
 		Game       any       `yaml:"game"`
 		ScoresPost *planPost `yaml:"scores_post"`
 	} `yaml:"weeks"`
-	Posts []planPost `yaml:"posts"`
+	Posts      []planPost       `yaml:"posts"`
+	Automation automationConfig `yaml:"automation"`
 }
 
 type planGame struct {
@@ -329,6 +330,8 @@ func newSeasonCommand(call apiCall, guild *string, yes *bool) *cobra.Command {
 	addSeasonPostCommand(season, call, guild, yes)
 	addSeasonApplyCommand(season, call, yes)
 	addSeasonCheckCommand(season, call)
+	addSeasonReconcileCommand(season, call)
+	addEpisodeImportCommand(season, call, yes)
 	return season
 }
 

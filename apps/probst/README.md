@@ -206,3 +206,35 @@ a required name or number falls back to the template. Edit the draft, then
 exact text, and it posts at its scheduled time once one replies **yes** to that DM (editing the text re-asks).
 When a draft post has problems, every admin gets a DM; reply to it with fixes, one per line (`7. Thien An`), and
 the bot resubmits the corrected draft for the player.
+
+## Season automation (`probst season reconcile`)
+
+A Kubernetes CronJob (`deploy/base/probst/cronjob.yaml`) runs `probst season reconcile FILE` every 5 minutes.
+It only acts when the file has `automation: {enabled: true}` (plus `from_week` and the channel's `guild`), and
+it never sends anything itself: posts go through the admin approval DM, everything else is a one-time admin
+DM. Each run:
+
+1. **Next game:** once a week's game opens, DMs the admins if next week's game isn't picked in the file or
+   created on the server (`season check FILE` does just this step).
+2. **Results:** from 3 hours after each aired episode, imports it from survivoR once it's complete. All
+   tables come from one pinned survivoR commit. An episode is complete when survivoR lists it, its boot has
+   a final place, and every challenge it describes has results; missing results are never read as "no
+   challenge". The server applies boots and tribe immunity/reward wins in one transaction (or nothing),
+   reusing matching hand-entered results (`epN-immunity`/`epN-reward`) and refusing anything that
+   disagrees with what's recorded (admin DM). Medevacs/quits, double or missing boots, unmatched names,
+   non-tribal or tied challenges, and anything from `scoring.merge_episode` on are **holds**: the admins get
+   a DM listing them. Record those by hand, then `probst season import FILE --episode N --resolve-holds --yes`
+   imports the rest. If results are still missing at `weekly.results.due`, the admins get a DM.
+3. **Scores post:** from the week's post time (8pm), once its game is scored and its episode imported, it
+   saves the standings snapshot and drafts the post (`seasons/NN-scores.md`) for approval, pinging the top
+   3 and last place. Late results are fine: up to 3 hours after 8pm the post is drafted and sends as soon as
+   it's approved; after that, the admins get a DM instead. If scores change before it's sent, it can't be
+   approved or sent with the old numbers: an untouched draft is redrafted and re-asked; an admin-edited one
+   keeps the admin's text and re-asks with a DM to check the numbers.
+
+`probst season import FILE --episode N [--yes]` runs the same import by hand (dry run without `--yes`).
+Kill switch: `kubectl -n castaway patch cronjob probst-season-check -p '{"spec":{"suspend":true}}'` or
+`automation.enabled: false`. The job reuses the bot's service token (`CASTAWAY_API_AUTH_TOKEN`, by
+`secretKeyRef`) acting as an admin via `PROBST_DISCORD_USER_ID`, and reaches castaway-web over in-cluster
+HTTP only because `PROBST_ALLOW_HTTP_SERVER` names that exact URL. It runs `seasons/51-brainland.yaml`
+until Podracing is approved.
