@@ -212,14 +212,16 @@ Missing episode results block only the scores post, not the next game.
 5. Image, CronJob and automation credential; BrainLand rehearsal; phased Podracing activation.
 6. Docs and changelogs for this and the Oct 7 changes.
 
-## Decisions needed
+## Decisions (Oct 7)
 
-- **Weeks 4–12:** games are `TBD`. Week 4's game is already late by the readiness rule (due Oct 7, 8pm),
-  and it opens Oct 14 at 8pm. Pick it now, or say "none" for that week.
-- **Automation credential:** create a dedicated automation identity, or authorize a scoped token for your
-  admin account?
-- **Activation date:** turn on for Podracing once the BrainLand rehearsal passes, or wait for a specific
-  week?
+- **First automated piece:** when a game opens, if the following week has no game set, DM the admins.
+  Build this first (milestones 1–2 scope), then the rest.
+- **Automation login:** a scheduled k3s pod configured from env like the bot. It uses a **dedicated
+  service token** added to castaway-web's `SERVICE_AUTH_BEARER_TOKENS` (not the bot's token), stored in
+  1Password and synced to a Kubernetes secret like the other credentials. It acts as an instance admin via
+  `PROBST_DISCORD_USER_ID`. Revoke it by removing the token from the list.
+- **Activation:** Podracing is turned on only after a successful BrainLand test.
+- **Week 4:** the admin's prepared puzzle; set up separately.
 
 ## Earlier decisions (kept)
 
