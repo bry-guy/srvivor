@@ -1,6 +1,8 @@
 # Season automation plan
 
 Status: `planning`
+
+> Scheduling and automation now live in [season-schedule.md](season-schedule.md), which supersedes this plan for those parts.
 Owner: castaway-web + castaway-admin
 Last updated: 2026-04-16
 

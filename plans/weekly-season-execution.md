@@ -2,6 +2,8 @@
 
 Status: `in-progress`
 
+> Scheduling and automation now live in [season-schedule.md](season-schedule.md), which supersedes this plan for those parts.
+
 ## Goal and boundaries
 
 Deliver a predictable weekly game using existing scoring and point storage. Preserve the uncommitted YAML/Hurl scenario work as test infrastructure, not a live-season controller. No production operations are authorized by this plan.

@@ -1,11 +1,12 @@
-# Castaway Season 51 — the whole season in one file.  (PROPOSAL — not yet read by anything.)
+# Castaway Season 51 — the whole season in one file. Read by `probst season plan/apply/post`;
+# automation (reconciler) is planned in plans/season-schedule.md and not running yet.
 #
 # Conventions
 #   - All times are America/New_York. A bare time ("12:00") on a weekly item is relative to that week's
 #     episode Wednesday; "+7d 11:59" means the following Wednesday.
 #   - Anything whose value is `TBD` (or an item with `tbd: true`) is a PLACEHOLDER: it is shown on the
-#     timeline as ⚠ unset, never creates/opens/sends anything, and is flagged to you 3 days before it's due.
-#   - Posts never send unless `approved: true`. Unapproved posts are held and you get a DM at send time.
+#     timeline as ⚠ unset and never creates/opens/sends anything.
+#   - Scores posts are saved held: every admin gets a DM and it sends only after a "yes" reply.
 #   - `probst season plan seasons/51.yaml` shows the timeline + diff; `probst season apply` makes it so.
 
 season: 51
@@ -31,13 +32,13 @@ scoring:                        # player-facing words: "your Tribe", "your Champ
 
 # ── Recurring every week ─────────────────────────────────────────────────────────────────────────────
 weekly:
-  results:                      # entered by you (later: fetched from survivoR); scores won't post without them
+  results:                      # `probst episode sync` from survivoR (run by hand for now); scores need them
     due: "+6d 23:59"            # Tue night before scores
     needs: [elimination, immunity, reward]
   game:                         # one game/event a week; opens at the episode, closes before scores
     opens: "20:00"
     closes: "+7d 19:59"         # episode to episode: closes 7:59pm before the next episode
-    resolve: "+7d 19:59"        # awarded at close; every game resolves itself
+    resolve: "+7d 19:59"        # awarded at close; scored games resolve themselves on the server
   scores_post:
     at: "+7d 20:00"             # Wednesday 8pm, right after the game resolves at 7:59
     template: scores            # seasons/51-scores.md, filled by `probst season post seasons/51.yaml --week N`

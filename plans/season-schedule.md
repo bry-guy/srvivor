@@ -1,86 +1,231 @@
-# Declarative season schedule
+# Season schedule automation
 
-Status: in-progress
+Status: `in-progress`
+
+Supersedes the scheduler parts of [season-automation-planning.md](season-automation-planning.md) and
+Checkpoint 2 of [weekly-season-execution.md](weekly-season-execution.md). The file it runs from is
+[`seasons/51.yaml`](../seasons/51.yaml).
 
 ## Goal
 
-One file per season (`seasons/51.yaml`) shows the whole season at a glance and runs it: episodes, draft
-open/close, weekly game open/close/award, scores posts, and one-off messages. You edit the file, run one
-command, and the season runs itself. Only two things stay with you each week: the episode results (until we
-fetch them) and approving each scores post.
+Each week, the admin does at most two things: makes sure next week's game is set up (Probst says when), and
+replies **yes**, or replaces the copy, in the scores DM. Everything else runs itself: games open and score,
+episode results come in, standings are computed, the post is drafted and DMed for approval, then sent.
 
-## What history says (Seasons 48–51, #survivor)
+The merge switch and Pick Your Champion are out of scope (next plan). Until then, anything the automation
+can't score safely holds and alerts instead of guessing.
 
-- **48–49 (the rhythm to keep):** one scores post per week, usually Wednesday before or around the episode.
-  Spoiler-hidden boots, then a joke. Often late ("apologies for the delay", Week 3 posted three times, finale
-  12 days late). One message per week.
-- **50 (the "crazy" one):** three tribes plus Monty Hall doors, Stir the Pot, a pot auction, secret bonus
-  points, a merge auction run on Tally with three bid rounds, Loan Shark Scroll and FIRE finale bingo. Host
-  posts went from about 8 a month to 33 a month. There were corrections ("I had the scores incorrect"),
-  skipped weeks (job, work trip), and deadlines moved by hand.
-- **51 so far:** you promised "a lot simpler than last season". Draft buffs, two tribes, Tribal Pony, and
-  one game per week (Castawordle first).
+## The weekly cycle (America/New_York, episode N airs Wednesday 8:00pm)
 
-So the file should keep 51 to **one game per week, one scores post per week, on fixed times**. Anything
-not yet decided stays a visible placeholder instead of an ad-hoc post.
+| When | What happens | Who |
+| --- | --- | --- |
+| Wed 8:00pm (ep N) | Game N opens (it was created ahead of time) | server |
+| Wed 8:00pm (ep N) | **Readiness check for game N+1**: if it isn't configured and created, DM admins | reconciler |
+| Thu–Tue, daily | Remind until game N+1 is ready; escalate the day before it opens | reconciler |
+| Thu–Tue, every few hours | Import episode N's results from survivoR once complete; DM if still missing Tue night | reconciler |
+| Next Wed 7:59pm | Game N closes and scores itself | server (exists) |
+| Next Wed ~8:00pm | Once game N is scored and episode N results are in, draft the scores post and DM it for approval | reconciler |
+| On "yes" | Posts at 8:00pm, or right away if approved later (within 3 hours) | bot (exists) |
+| On a full-text reply | Replaces the copy and sends a fresh DM for approval | bot (exists) |
 
-## Design
+Missing episode results block only the scores post, not the next game.
 
-- **File:** YAML in the repo, Eastern times, with weekly defaults plus per-week overrides (see
-  `seasons/51.yaml`).
-- **Placeholders:** `TBD` / `tbd: true` do nothing. The timeline shows them as ⚠, and you're nagged 3 days
-  before they're due.
-- **`probst season plan FILE`:** prints the full timeline (past ✓, upcoming, ⚠ unset or unapproved, ✗
-  missing results) and the diff against the database. Read-only.
-- **`probst season apply FILE`:**
-  - creates or updates episodes, draft windows, game definitions and scheduled posts. Changing the file and
-    re-applying moves things; nothing is duplicated.
-  - only reports things that exist in the database but not in the file; it never deletes them.
-  - is idempotent and keyed by `week/kind`.
-- **Runner:** an in-cluster ticker in the existing bot or web process (no new service). Every minute it:
-  - opens games
-  - closes and resolves games at their cutoff
-  - sends approved posts
-  - DMs you about held posts or missing results
-- **Scores posts:**
-  - At send time the runner fills `{scoreboard}`, `{boots}`, `{movers}` and `{next_game}` into your
-    approved prose.
-  - Your prose is written ahead of time, from Tuesday's results.
-  - If the prose isn't approved, or results are missing, it holds and pings you instead of guessing.
-- **Approval:** `probst season approve 51 week 3`, after `probst season preview 51 week 3` shows the exact
-  rendered text. This keeps the "exact copy, then explicit approval" rule.
+## What exists today (Oct 7)
 
-## Decisions (Oct 1)
+- **Games score themselves at close:** Press the Button, Spell It Out and scored Castawordle, via the
+  server's per-minute resolver. Re-running a resolve does nothing new.
+- **Approval by DM:** the post is held, every instance admin is DMed, "yes" approves that exact revision, a
+  full-text reply replaces the copy and re-asks, and approval up to 3 hours late posts immediately.
+- **`probst season plan` / `apply` / `post`:**
+  - `apply` creates Press the Button and Spell It Out games. A repeat apply hasn't been proven idempotent.
+    Castawordle is skipped.
+  - `post --week N --yes` drafts and saves the scores post for approval.
+- **`probst episode sync`:** fetches survivoR, records boots and tribe challenge wins. It's run by hand and
+  is **not safe unattended**:
+  - nonempty tables are treated as complete
+  - ambiguous boots are skipped
+  - writes happen one at a time, with no record of which data version was applied
+- **Stored tribe colors:** `participant_groups.color`, also returned on the leaderboard.
 
-- **Weekly scores post:**
-  - Mentions only the **top 3 and last place**; the full board lives on the website. No `@castaway` role ping.
-  - Every week it **praises the leader**, **praises the biggest gainer**, and **gently ribs the biggest
-    slider**.
-  - The format stays the same, but the wording varies week to week, drawn from a phrase pool with no
-    repeats within the season.
-  - Pronouns come from the player record (see the `castaway-pronouns` skill).
-- **Language:** players belong to a **Tribe** and score when **their Tribe** wins immunity (+2) or reward
-  (+1). Don't say "pony" anywhere player-facing.
-- **Merge:** Tribe scoring ends.
-  - **Pick Your Champion** opens: each player picks one castaway, who earns them +3 for an immunity win and
-    +1 for a reward win.
-  - Any castaway can be picked, and picks can be shared; the post doesn't need to mention that.
-  - The merge episode is a placeholder until it's known.
+## What's missing (this plan)
 
-## Steps
+### 1. Reconciler: Probst on a schedule in the cluster
 
-0. Champion picks: a pick flow (web and/or Discord) plus scoring on top of the existing ownership ledger. Rename
-   player-facing "pony" copy to Tribe/Champion. Needed before the merge.
-1. ✅ Schema and parser with a `plan` timeline (read-only), validated against the live Season 51 state
-   (`probst season plan`).
-2. `apply` for episodes, draft and games (Castawordle first). Unknown game types must stay placeholders.
-3. Scheduled posts with approval and template fill, using the existing announcement store plus bot sending.
-4. Runner: auto-resolve at close, then send, then nags.
-5. Later: fetch episode results from survivoR into `weekly.results`.
+- Add a **`probst season reconcile FILE`** command, run by a Kubernetes CronJob **every minute**, so the
+  scores draft lands at about 8:00–8:01pm. Each
+  run looks at the file and live state and does whatever is due.
+  - A single 8:01pm job isn't enough: a missed run, a restart or late results would mean nothing happens.
+    Frequent runs catch up on their own.
+  - Each run is safe to repeat. It acts only on missing work and handles each week independently, so one
+    failure doesn't block the rest.
+- **State lives on the server, not in files:** a small `automation_actions` table keyed by
+  `(instance, action key)`, e.g. `w3:game-ready-alert`, `w2:scores-draft`, `ep3:results`. Each row records
+  a status, attempts, last error, a lease and a result reference. The reconciler claims an action with a
+  lease, so two overlapping runs can't double-act.
+- **Image and identity:**
+  - Publish a Probst image and add a CronJob manifest in `deploy/`.
+  - Give it its own automation login: a scoped, revocable service credential for one instance-admin
+    identity, created through the normal approved credential path. Never copy a personal session or pull
+    tokens out of other Kubernetes secrets.
+  - The season file is baked into the image, so a change to `seasons/51.yaml` takes effect on the next
+    deploy. Secrets are never in it.
+- **Delivery and recovery:**
+  - Reminders and DMs are deduplicated by action key and retried.
+  - A lease that outlives its worker expires; a stale worker's result is rejected.
+  - An ambiguous Discord send is checked before any retry.
+  - Each action runs on its own, so one bad game or post doesn't starve the rest.
+  - **Operator alerts** DM admins when:
+    - the reconciler hasn't succeeded in 30 minutes
+    - a game resolve fails
+    - an approval expires
+    - the automation credential is rejected
+- **Kill switch:** `suspend: true` on the CronJob, plus `automation: {enabled: false}` in the file.
 
-## Open questions
+### 2. Game readiness and setup
 
-- **Scores time:** the file says Wednesday noon, with the game closing at 11:59am. That's what you asked
-  for on Sep 29. Do you want a small buffer, e.g. close at 11:00?
-- **Merge:** what happens to Tribal Pony at the merge? It's left as a placeholder.
-- **Finale:** final scores on the following Wednesday noon, or the night of the finale?
+- **Readiness is checked when the previous game opens.** Game N+1 must exist by the time game N opens (for
+  example, Episode 4's game is due Oct 7 at 8pm, when Episode 3's opens). Each week's game is in one of
+  these states:
+
+  | State | Meaning | Action |
+  | --- | --- | --- |
+  | `missing` | the file says `TBD` | DM: "Week N+1 has no game. Pick one in seasons/51.yaml." |
+  | `incomplete` | type set but no answer or phrase file | DM naming the missing file |
+  | `invalid` | fails validation (word not in dictionary, phrase too long) | DM with the error |
+  | `failed` | creation errored | DM with the error, retried next run |
+  | `ready` | created, with matching opens/closes | nothing |
+  | `none` | explicitly no game that week | nothing |
+
+  - Reminders are deduplicated: once when due, then daily, then a final "opens in 24 hours" escalation.
+  - No game type is chosen for the admin.
+- **`apply` becomes part of the reconciler** and must be idempotent: re-applying the same file changes
+  nothing, and a changed time updates the game in place. Fix the current repeat-apply behavior.
+- **Secret setup (Castawordle answers, Spell It Out phrases):**
+  - The files stay in a git-ignored `answers/` directory on your machine.
+  - They reach the server through a one-time `probst season apply` run by you, which the readiness alert
+    tells you to do.
+  - Never in the image, the season file, logs, or a DM.
+  - **Ready means the game exists on the server with matching settings**, not that a local file
+    exists.
+
+### 3. Episode results from survivoR
+
+- **Completeness needs evidence:**
+  - Rows existing isn't enough, since a missing challenge row looks the same as no challenge.
+  - An episode counts as complete when survivoR's `episodes` table lists it **and** its boot order and
+    challenge results are present.
+  - Results are classified as `absent`, `incomplete`, `complete`, or `complete: no event` (e.g. no reward
+    challenge).
+- **Apply once, all or nothing:**
+  - Each award has a stable key: `(instance, season, episode, survivoR event id, award kind)`.
+  - The survivoR commit is stored alongside for provenance only. It's not part of the key, so a new
+    upstream revision can't duplicate an award.
+  - The whole episode is validated first, then applied in one transaction.
+  - If upstream later disagrees with what was applied, that's a **conflict needing an admin**. Awarded
+    points are never silently changed.
+- **What gets scored:** boots, plus tribe immunity and reward wins (+2/+1) while `scoring.tribe` is active.
+  - These are **held instead of guessed**:
+    - individual immunity, and anything at or after `merge_episode`
+    - a medevac, quit or no-vote boot, or two boots in one episode
+    - a challenge with tied winners or an unknown tribe
+  - A hold means a DM listing what needs a decision.
+  - Today's `episode sync --yes` just skips holds, so it isn't the fix. Add explicit commands, e.g.
+    `probst episode resolve-hold ep3:boot --contestant NAME`, that record the reviewed decision; the
+    episode is complete only once every hold is resolved.
+- **Tuesday 11:59pm:** if results are still missing, DM: "Episode N results aren't in survivoR yet;
+  enter them with `probst challenge` / `probst episode sync`, or the scores post waits."
+
+### 4. Scores post: drafting, approval, sending
+
+- **Drafted only when ready:** game N is resolved, its ledger awards are committed, and episode N results
+  are complete. Otherwise the post waits, and the admin is told why by 8:15pm.
+- **Approval timing** (fixes the current future-time-only rule): the scheduled time becomes a "not before"
+  time. A post drafted after its 8:00pm time is still accepted. It sends at the later of its time or
+  approval, and expires 3 hours after its time, same as today. Other announcements keep the strict
+  future-time rule.
+- **Admin edits always win, and stale numbers never send:**
+  - Once you've replaced the copy, automation never regenerates it.
+  - If scoring changes after drafting (a correction or a late import), any unsent post goes back on hold,
+    even if approved. Your edited text is kept, you get a DM with what changed, and it needs a fresh "yes".
+  - An untouched draft is regenerated with the new numbers, then re-asked.
+- **Facts are computed, not written by AI:**
+  - standings, ranks and ties use the server's leaderboard: total, then draft points, then earliest
+    draft
+  - only players with drafts are listed
+  - last week's totals come from a **finalized standings snapshot** saved when that week's scoring
+    completes, not when a post is approved or sent, and not from a laptop file. It's used for gainer and
+    slider numbers, and secret bonuses are excluded.
+  - game results come from the actual award records: tied winners, best-three averages, award recipients,
+    no-shows
+  - tribe emoji come from stored colors, and links point to `/games`
+  - optional AI flavor can only touch marked flavor lines, and the numbers and names are checked
+    afterwards
+- **Pings:** top 3 and last place only, never the role, as configured.
+
+### 5. Season file
+
+- `weekly.game.closes` is 7:59pm and `weekly.scores_post.at` is Wednesday 8:00pm (done).
+- Add `automation: {enabled: true, admins_dm: all}` and a `none` game type.
+- **`merge_episode` stays a manual setting in the file**, and nothing implements it in this phase. From
+  that episode on (or for any individual win), scoring holds and alerts. Detecting the merge and the
+  Champion flow are the next plan.
+- **Times:** everything is `America/New_York`, with daylight saving time handled. That covers skipped or
+  rescheduled episodes via `episodes.skip`, the finale (no next game; final scores the following
+  Wednesday), and late catch-up within the 3-hour approval window.
+- **Clean up stale claims in the file:**
+  - "PROPOSAL — not yet read by anything" is now false
+  - "Posts never send unless `approved: true`" is replaced by DM approval
+  - "nagged 3 days before" becomes the readiness rule above
+  - the `results` comment should say they come from survivoR
+- **Fix `season plan`:**
+  - show actually-sent posts as ✓ (the Week 2 post shows as unapproved)
+  - show readiness states and holds
+
+## Verification
+
+- **Disposable-DB tests:**
+  - reconciler idempotency: duplicate and overlapping runs, a restart mid-action
+  - each readiness state
+  - incomplete, ambiguous and corrected survivoR data
+  - late drafting and late approval
+  - an admin edit preserved across reruns
+  - a stale revision rejected
+  - draft accuracy, against tied winners and today's Episode 2 data as fixtures
+  - partial imports, corrected upstream results, a no-game week, standings ties, secret bonuses excluded,
+    and original draft order preserved
+- **Accelerated BrainLand rehearsal with you:** a compressed week (minutes, not days):
+  - a missing-game alert, then set up
+  - the game opens and closes and scores
+  - results are imported
+  - the draft DM arrives, you edit by reply, approve, and it posts
+  - kill the job mid-week and confirm it catches up
+- **Activation:** after the BrainLand rehearsal passes, Podracing is turned on only with your explicit
+  approval. Rollback means suspending the CronJob; the manual commands keep working.
+
+## Milestones
+
+1. Server: `automation_actions` table and API, not-before/expiry approval, per-week standings snapshots.
+2. Probst: `season reconcile`, idempotent `apply`, readiness alerts, operator alerts.
+3. Safe results import: completeness evidence, stable keys, all-or-nothing apply, holds with
+   resolve commands, conflicts.
+4. Accurate scores draft from server data.
+5. Image, CronJob and automation credential; BrainLand rehearsal; phased Podracing activation.
+6. Docs and changelogs for this and the Oct 7 changes.
+
+## Decisions needed
+
+- **Weeks 4–12:** games are `TBD`. Week 4's game is already late by the readiness rule (due Oct 7, 8pm),
+  and it opens Oct 14 at 8pm. Pick it now, or say "none" for that week.
+- **Automation credential:** create a dedicated automation identity, or authorize a scoped token for your
+  admin account?
+- **Activation date:** turn on for Podracing once the BrainLand rehearsal passes, or wait for a specific
+  week?
+
+## Earlier decisions (kept)
+
+- **Scores post:**
+  - top 3 and last place only, no `@castaway`
+  - praise the leader and the biggest gainer, gently rib the biggest slider
+  - consistent format with varied wording
+- **Wording:** "your Tribe", never "pony".
+- **Merge:** Pick Your Champion, +3 immunity and +1 reward, shareable picks. Next plan.
