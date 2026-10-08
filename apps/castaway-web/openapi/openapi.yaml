@@ -131,6 +131,73 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateWordleRoundRequest'
+  /admin-alerts/claim:
+    post:
+      operationId: claimAdminAlert
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      alert:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          body:
+                            type: string
+                        required:
+                          - id
+                          - body
+                        nullable: true
+                      admin_discord_user_ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - alert
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guild_ids:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - guild_ids
+  /admin-alerts/{alertID}/delivered:
+    post:
+      operationId: confirmAdminAlert
+      parameters:
+        - name: alertID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      ok:
+                        type: boolean
+                    required:
+                      - ok
+                  - $ref: '#/components/schemas/ErrorResponse'
   /admin/session:
     get:
       operationId: adminSession
@@ -772,6 +839,45 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateActivityRequest'
+  /instances/{instanceID}/admin-alerts/{alertKey}:
+    put:
+      operationId: raiseAdminAlert
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: alertKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      created:
+                        type: boolean
+                    required:
+                      - created
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+              required:
+                - body
   /instances/{instanceID}/admins:
     post:
       operationId: addInstanceAdmin
@@ -2111,6 +2217,51 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ProgressionCommandRequest'
+  /instances/{instanceID}/scheduled-games:
+    get:
+      operationId: listScheduledGames
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      games:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                            id:
+                              type: string
+                            episode_number:
+                              type: integer
+                              format: int32
+                            opens_at:
+                              type: string
+                              format: date-time
+                            cutoff_at:
+                              type: string
+                              format: date-time
+                          required:
+                            - type
+                            - id
+                            - episode_number
+                            - opens_at
+                            - cutoff_at
+                    required:
+                      - games
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/scramble-games:
     post:
       operationId: createScrambleGame

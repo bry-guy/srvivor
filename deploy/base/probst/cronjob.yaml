@@ -1,0 +1,41 @@
+# Scheduled Probst: every 5 minutes, DM admins (once) if next week's game isn't ready once this week's opens.
+# Reuses the bot's service token for now; PROBST_DISCORD_USER_ID is the admin it acts as.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: probst-season-check
+  labels:
+    app.kubernetes.io/name: probst
+    app.kubernetes.io/part-of: castaway
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 120
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: probst
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-pull
+          containers:
+            - name: probst
+              image: ghcr.io/bry-guy/probst
+              args: ["season", "check", "/app/seasons/51-brainland.yaml"]
+              env:
+                - name: PROBST_DISCORD_USER_ID
+                  value: "235246238382030849"
+                - name: PROBST_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: castaway-discord-bot-secrets
+                      key: CASTAWAY_API_AUTH_TOKEN
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {cpu: 200m, memory: 128Mi}

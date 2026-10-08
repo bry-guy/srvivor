@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - ../../base/castaway-web
   - ../../base/castaway-discord-bot
+  - ../../base/probst
   - web-configmap.yaml
   - bot-configmap.yaml
   - web-servicemonitor.yaml
@@ -17,6 +18,7 @@ patches:
   - path: web-migration-placement-patch.yaml
   - path: bot-patch.yaml
   - path: bot-placement-patch.yaml
+  - path: probst-placement-patch.yaml
 images:
   - name: ghcr.io/bry-guy/castaway-web
     newName: ghcr.io/bry-guy/castaway-web
@@ -24,3 +26,6 @@ images:
   - name: ghcr.io/bry-guy/castaway-discord-bot
     newName: ghcr.io/bry-guy/castaway-discord-bot
     digest: sha256:e00b68b9d8a3574045eb9c65265c560de02058510a54b7af9b1e4560778ce238
+  - name: ghcr.io/bry-guy/probst
+    newName: ghcr.io/bry-guy/probst
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000

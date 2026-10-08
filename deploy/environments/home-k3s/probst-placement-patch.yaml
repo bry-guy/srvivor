@@ -1,0 +1,11 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: probst-season-check
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          nodeSelector:
+            selfhost.bry-guy.net/capability-service: "true"

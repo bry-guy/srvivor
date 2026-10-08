@@ -24,6 +24,9 @@ func (b *Bot) pollAnnouncements(ctx context.Context) {
 		if err := b.notifyApproval(ctx); err != nil && ctx.Err() == nil {
 			b.log.Error("approval DM", "error", err)
 		}
+		if err := b.notifyAdminAlert(ctx); err != nil && ctx.Err() == nil {
+			b.log.Error("admin alert DM", "error", err)
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -135,6 +138,22 @@ func (b *Bot) notifyAccessRequest(ctx context.Context) error {
 		_, err = b.session.ChannelMessageSendComplex(dm.ID, &discordgo.MessageSend{Content: text, AllowedMentions: allowedMentions(false)}, discordgo.WithContext(ctx))
 	}
 	return err
+}
+
+// notifyAdminAlert DMs a season's admins a one-time alert (like "next week has no game"); undelivered,
+// the API offers it again in 10 minutes.
+func (b *Bot) notifyAdminAlert(ctx context.Context) error {
+	a, err := b.castaway.ClaimAdminAlert(ctx, b.targetServerIDs)
+	if err != nil || a == nil {
+		return err
+	}
+	if len(a.Admins) == 0 {
+		return fmt.Errorf("admin alert %s has no admins to DM", a.Alert.ID)
+	}
+	if err := b.dmAdmins(ctx, a.Admins, a.Alert.Body); err != nil {
+		return err
+	}
+	return b.castaway.ConfirmAdminAlert(ctx, a.Alert.ID)
 }
 
 // notifyApproval DMs every admin a post waiting for approval (once per version of its text): the full text

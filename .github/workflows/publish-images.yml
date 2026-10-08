@@ -6,6 +6,8 @@ on:
     paths:
       - 'apps/castaway-web/**'
       - 'apps/castaway-discord-bot/**'
+      - 'apps/probst/**'
+      - 'seasons/**'
       - '.github/workflows/publish-images.yml'
       - 'script/update-home-k3s-digests.py'
   workflow_dispatch:
@@ -20,6 +22,11 @@ on:
         required: false
         type: boolean
         default: false
+      probst:
+        description: Build, publish, and deploy the scheduled probst job
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -31,6 +38,7 @@ jobs:
     outputs:
       castaway_web: ${{ steps.changes.outputs.castaway_web }}
       castaway_discord_bot: ${{ steps.changes.outputs.castaway_discord_bot }}
+      probst: ${{ steps.changes.outputs.probst }}
     steps:
       - uses: actions/checkout@v4
         if: github.event_name == 'push'
@@ -43,24 +51,32 @@ jobs:
               - 'apps/castaway-web/**'
             castaway_discord_bot:
               - 'apps/castaway-discord-bot/**'
+            probst:
+              - 'apps/probst/**'
+              - 'seasons/**'
       - id: changes
         env:
           EVENT_NAME: ${{ github.event_name }}
           PUSH_CASTAWAY_WEB: ${{ steps.filter.outputs.castaway_web }}
           PUSH_CASTAWAY_DISCORD_BOT: ${{ steps.filter.outputs.castaway_discord_bot }}
+          PUSH_PROBST: ${{ steps.filter.outputs.probst }}
+          MANUAL_PROBST: ${{ inputs.probst }}
           MANUAL_CASTAWAY_WEB: ${{ inputs.castaway_web }}
           MANUAL_CASTAWAY_DISCORD_BOT: ${{ inputs.castaway_discord_bot }}
         run: |
           castaway_web="${PUSH_CASTAWAY_WEB:-false}"
           castaway_discord_bot="${PUSH_CASTAWAY_DISCORD_BOT:-false}"
+          probst="${PUSH_PROBST:-false}"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             castaway_web="${MANUAL_CASTAWAY_WEB:-false}"
             castaway_discord_bot="${MANUAL_CASTAWAY_DISCORD_BOT:-false}"
+            probst="${MANUAL_PROBST:-false}"
           fi
 
           echo "castaway_web=$castaway_web" >> "$GITHUB_OUTPUT"
           echo "castaway_discord_bot=$castaway_discord_bot" >> "$GITHUB_OUTPUT"
+          echo "probst=$probst" >> "$GITHUB_OUTPUT"
 
   build-castaway-web:
     needs: changes
@@ -130,12 +146,35 @@ jobs:
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ steps.build-date.outputs.value }}
 
+  build-probst:
+    needs: changes
+    if: needs.changes.outputs.probst == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/probst/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/probst:sha-${{ github.sha }}
+
   update-home-k3s:
     needs:
       - changes
       - build-castaway-web
       - build-castaway-discord-bot
-    if: always() && github.ref == 'refs/heads/main' && (needs.changes.outputs.castaway_web == 'true' || needs.changes.outputs.castaway_discord_bot == 'true')
+      - build-probst
+    if: always() && github.ref == 'refs/heads/main' && (needs.changes.outputs.castaway_web == 'true' || needs.changes.outputs.castaway_discord_bot == 'true' || needs.changes.outputs.probst == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -151,6 +190,10 @@ jobs:
           python3 script/update-home-k3s-digests.py \
             ghcr.io/${{ github.repository_owner }}/castaway-discord-bot \
             ${{ needs.build-castaway-discord-bot.outputs.digest }}
+      - name: Update probst digest
+        if: needs.changes.outputs.probst == 'true'
+        run: |
+          python3 script/update-home-k3s-digests.py ghcr.io/${{ github.repository_owner }}/probst ${{ needs.build-probst.outputs.digest }}
       - uses: azure/setup-kubectl@v4
         with:
           version: latest

@@ -88,6 +88,22 @@ op approveAnnouncement(@path announcementID: string, @body body: { admin_discord
 @post
 op reviseAnnouncement(@path announcementID: string, @body body: { admin_discord_user_id: string; revision: string; body: string; }): { ok: boolean; } | ErrorResponse;
 
+@route("/instances/{instanceID}/admin-alerts/{alertKey}")
+@put
+op raiseAdminAlert(@path instanceID: string, @path alertKey: string, @body body: { body: string; }): { created: boolean; } | ErrorResponse;
+
+@route("/instances/{instanceID}/scheduled-games")
+@get
+op listScheduledGames(@path instanceID: string): { games: { type: string; id: string; episode_number: int32; opens_at: utcDateTime; cutoff_at: utcDateTime; }[]; } | ErrorResponse;
+
+@route("/admin-alerts/claim")
+@post
+op claimAdminAlert(@body body: { guild_ids: string[]; }): { alert: { id: string; body: string; } | null; admin_discord_user_ids?: string[]; } | ErrorResponse;
+
+@route("/admin-alerts/{alertID}/delivered")
+@post
+op confirmAdminAlert(@path alertID: string): { ok: boolean; } | ErrorResponse;
+
 @route("/announcements/{announcementID}/approval-delivered")
 @post
 op confirmApprovalDelivery(@path announcementID: string, @body body: { revision: string; }): { ok: boolean; } | ErrorResponse;

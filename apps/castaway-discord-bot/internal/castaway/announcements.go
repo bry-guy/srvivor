@@ -92,3 +92,28 @@ func (c *Client) ConfirmApprovalDelivery(ctx context.Context, id, revision strin
 	var response map[string]any
 	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/announcements", id, "approval-delivered")), nil, map[string]any{"revision": revision}, &response)
 }
+
+// AdminAlert is a one-time DM to a season's admins.
+type AdminAlert struct {
+	Alert *struct {
+		ID   string `json:"id"`
+		Body string `json:"body"`
+	} `json:"alert"`
+	Admins []string `json:"admin_discord_user_ids"`
+}
+
+// ClaimAdminAlert returns the next undelivered admin alert for these guilds, if any.
+func (c *Client) ClaimAdminAlert(ctx context.Context, guildIDs []string) (*AdminAlert, error) {
+	var response AdminAlert
+	err := c.doJSONBody(ctx, "POST", c.endpoint("/admin-alerts/claim"), nil, map[string]any{"guild_ids": guildIDs}, &response)
+	if err != nil || response.Alert == nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// ConfirmAdminAlert records that every admin got the alert.
+func (c *Client) ConfirmAdminAlert(ctx context.Context, id string) error {
+	var response map[string]any
+	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/admin-alerts", id, "delivered")), nil, map[string]any{}, &response)
+}

@@ -328,6 +328,7 @@ func newSeasonCommand(call apiCall, guild *string, yes *bool) *cobra.Command {
 	})
 	addSeasonPostCommand(season, call, guild, yes)
 	addSeasonApplyCommand(season, call, yes)
+	addSeasonCheckCommand(season, call)
 	return season
 }
 
