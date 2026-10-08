@@ -73,7 +73,7 @@ type importRules struct {
 	MergeEpisode int // 0 = not set; tribe scoring stops here
 }
 
-func num(v any) int { f, _ := v.(float64); return int(f) }
+func num(v any) int    { f, _ := v.(float64); return int(f) }
 func str(v any) string { s, _ := v.(string); return s }
 
 // planEpisode classifies one episode's survivoR data against the roster.

@@ -110,6 +110,9 @@ func TestReconcile(t *testing.T) {
 
 	// Ep 3 aired Oct 7; survivoR is behind. Before the due time: wait quietly; no post yet.
 	run("2026-10-10 12:00")
+	if !strings.Contains(fake.alerts["s51-nudge-2026-10-10"], "Next week's game isn't ready") {
+		t.Fatalf("Oct 10 nudge: %v", fake.alerts)
+	}
 	if len(fake.imported) != 0 || fake.alerts["s51-ep3-results-missing"] != "" {
 		t.Fatalf("early: %v %v", fake.imported, fake.alerts)
 	}
@@ -122,8 +125,20 @@ func TestReconcile(t *testing.T) {
 	// Holds: alert, don't import.
 	plan = episodePlan{Episode: 3, Status: "ready", Holds: []string{"Kyle left by \"Quit\""}}
 	run("2026-10-14 09:00")
-	if len(fake.imported) != 0 || len(fake.alerts) != 3 { // + next-game alert
+	if len(fake.imported) != 0 || len(fake.alerts) != 4 { // + next-game alert + Oct 10 nudge
 		t.Fatalf("holds: %v %v", fake.imported, fake.alerts)
+	}
+	// 10am nudge: one DM coalescing everything still open (results, holds, next game); once a day.
+	run("2026-10-14 10:00")
+	run("2026-10-14 10:05")
+	nudge := fake.alerts["s51-nudge-2026-10-14"]
+	for _, want := range []string{"Daily reminder", "needs a decision", "Next week's game isn't ready"} {
+		if !strings.Contains(nudge, want) {
+			t.Fatalf("nudge missing %q: %q", want, nudge)
+		}
+	}
+	if strings.Contains(nudge, "aren't in survivoR") { // resolved issues drop out
+		t.Fatalf("stale issue in nudge: %q", nudge)
 	}
 	// 8:05pm Wednesday: the game isn't scored yet; the post waits (alert only after 8:15).
 	plan = episodePlan{Episode: 3, Status: "ready", Boots: []planBoot{{Name: "Kyle Ostwald", ContestantID: "k", Position: 19}},

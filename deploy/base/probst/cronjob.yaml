@@ -27,7 +27,7 @@ spec:
           containers:
             - name: probst
               image: ghcr.io/bry-guy/probst
-              args: ["season", "reconcile", "/app/seasons/51-brainland.yaml"]
+              args: ["season", "reconcile", "/app/seasons/51.yaml"]
               env:
                 - name: PROBST_ALLOW_HTTP_SERVER
                   value: http://castaway-web:8080

@@ -25,6 +25,7 @@ type automationConfig struct {
 	Enabled  bool   `yaml:"enabled"`
 	FromWeek int    `yaml:"from_week"` // first week automation handles (results, scores posts)
 	Guild    string `yaml:"guild"`     // the Discord server the season's channel is in
+	NudgeAt  string `yaml:"nudge_at"`  // daily reminder time, ET "15:04" (default 10:00)
 }
 
 type reconciler struct {
@@ -36,14 +37,21 @@ type reconciler struct {
 	path string
 	tmpl string
 	out  io.Writer
+	open []string // this run's still-open issues, for the daily nudge
 	// fetchPlan is fetchEpisodePlan; tests swap it.
 	fetchPlan func(episode int) (episodePlan, error)
 }
 
-func (r *reconciler) logf(format string, args ...any) { _, _ = fmt.Fprintf(r.out, format+"\n", args...) }
+func (r *reconciler) logf(format string, args ...any) {
+	_, _ = fmt.Fprintf(r.out, format+"\n", args...)
+}
 
 // alert DMs the season's admins once per key.
+// Every alert but an expired post is also an open issue for the daily nudge.
 func (r *reconciler) alert(key, body string) error {
+	if !strings.HasSuffix(key, "-expired") {
+		r.open = append(r.open, body)
+	}
 	var res struct {
 		Created bool `json:"created"`
 	}
@@ -312,10 +320,16 @@ func (r *reconciler) run() error {
 		r.logf("automation is off for season %d (automation.enabled in the season file)", r.f.Season)
 		return nil
 	}
+	r.open = nil
 	var errs []error
 	did, err := checkNextGame(r.ctx, r.call, r.f, r.airs, r.now)
 	if err == nil {
 		r.logf("%s", did)
+		if p, ok := strings.CutPrefix(did, "alerted admins: "); ok {
+			r.open = append(r.open, "⚠️ **Next week's game isn't ready.** "+p)
+		} else if p, ok := strings.CutPrefix(did, "already alerted: "); ok {
+			r.open = append(r.open, "⚠️ **Next week's game isn't ready.** "+p)
+		}
 	}
 	errs = append(errs, err)
 	done, err := r.imports()
@@ -327,7 +341,31 @@ func (r *reconciler) run() error {
 		return errors.Join(append(errs, err)...)
 	}
 	errs = append(errs, r.draftScoresPosts(done))
+	errs = append(errs, r.nudge())
 	return errors.Join(errs...)
+}
+
+// nudge sends one daily DM, from nudge_at ET, listing every issue still open on that run. Issues are
+// re-found each run, so anything fixed by then drops out; nothing open, no DM.
+func (r *reconciler) nudge() error {
+	at := r.f.Automation.NudgeAt
+	if at == "" {
+		at = "10:00"
+	}
+	t, err := time.Parse("15:04", at)
+	if err != nil {
+		return fmt.Errorf("automation.nudge_at %q: want HH:MM", at)
+	}
+	et := eastern()
+	now := r.now.In(et)
+	due := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, et)
+	if len(r.open) == 0 || now.Before(due) {
+		return nil
+	}
+	issues := r.open
+	r.open = nil // the nudge isn't itself an open issue
+	return r.alert(fmt.Sprintf("s%d-nudge-%s", r.f.Season, now.Format("2006-01-02")),
+		"📋 **Daily reminder — still open:**\n\n"+strings.Join(issues, "\n\n"))
 }
 
 func newReconciler(c *cobra.Command, call apiCall, file string) (*reconciler, error) {

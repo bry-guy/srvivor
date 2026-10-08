@@ -8,9 +8,9 @@ import (
 func ep2Data() survivorEpisode {
 	results := []map[string]any{}
 	for _, r := range []struct {
-		id         float64
+		id          float64
 		kind, tribe string
-		won        float64
+		won         float64
 	}{{2, "Reward", "Savu", 0}, {2, "Reward", "Toka", 1}, {3, "Immunity", "Savu", 0}, {3, "Immunity", "Toka", 1}} {
 		results = append(results, map[string]any{"challenge_id": r.id, "challenge_type": r.kind, "outcome_type": "Tribal", "tribe": r.tribe, "won": r.won})
 	}
@@ -54,7 +54,9 @@ func TestPlanEpisode(t *testing.T) {
 	if p := mutate(func(d *survivorEpisode) { d.Tables["boot_order"][0]["result"] = "Medically evacuated" }); len(p.Holds) != 1 || len(p.Boots) != 0 {
 		t.Fatalf("medevac: %s", p.describe())
 	}
-	if p := mutate(func(d *survivorEpisode) { d.Tables["boot_order"] = append(d.Tables["boot_order"], d.Tables["boot_order"][0]) }); len(p.Holds) != 1 || len(p.Boots) != 0 {
+	if p := mutate(func(d *survivorEpisode) {
+		d.Tables["boot_order"] = append(d.Tables["boot_order"], d.Tables["boot_order"][0])
+	}); len(p.Holds) != 1 || len(p.Boots) != 0 {
 		t.Fatalf("double boot: %s", p.describe())
 	}
 	if p := mutate(func(d *survivorEpisode) { d.Tables["boot_order"] = nil }); len(p.Holds) != 1 {
@@ -78,11 +80,17 @@ func TestPlanEpisode(t *testing.T) {
 		t.Fatalf("individual: %s", p.describe())
 	}
 	// Two rewards in one episode: no legacy key (ambiguous).
-	if p := mutate(func(d *survivorEpisode) { d.Tables["challenge_results"][2]["challenge_type"] = "Reward"; d.Tables["challenge_results"][3]["challenge_type"] = "Reward" }); len(p.Challenges[0].LegacyKeys) != 0 {
+	if p := mutate(func(d *survivorEpisode) {
+		d.Tables["challenge_results"][2]["challenge_type"] = "Reward"
+		d.Tables["challenge_results"][3]["challenge_type"] = "Reward"
+	}); len(p.Challenges[0].LegacyKeys) != 0 {
 		t.Fatalf("ambiguous legacy key: %s", p.describe())
 	}
 	// Combined immunity+reward scores both.
-	if p := mutate(func(d *survivorEpisode) { d.Tables["challenge_results"][2]["challenge_type"] = "Immunity and Reward"; d.Tables["challenge_results"][3]["challenge_type"] = "Immunity and Reward" }); len(p.Challenges) != 3 {
+	if p := mutate(func(d *survivorEpisode) {
+		d.Tables["challenge_results"][2]["challenge_type"] = "Immunity and Reward"
+		d.Tables["challenge_results"][3]["challenge_type"] = "Immunity and Reward"
+	}); len(p.Challenges) != 3 {
 		t.Fatalf("combined: %s", p.describe())
 	}
 	// Before tribe scoring, and at the merge.

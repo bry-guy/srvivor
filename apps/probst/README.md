@@ -236,5 +236,9 @@ DM. Each run:
 Kill switch: `kubectl -n castaway patch cronjob probst-season-check -p '{"spec":{"suspend":true}}'` or
 `automation.enabled: false`. The job reuses the bot's service token (`CASTAWAY_API_AUTH_TOKEN`, by
 `secretKeyRef`) acting as an admin via `PROBST_DISCORD_USER_ID`, and reaches castaway-web over in-cluster
-HTTP only because `PROBST_ALLOW_HTTP_SERVER` names that exact URL. It runs `seasons/51-brainland.yaml`
-until Podracing is approved.
+HTTP only because `PROBST_ALLOW_HTTP_SERVER` names that exact URL. It runs `seasons/51.yaml` (Podracing)
+since Oct 7.
+
+**Daily reminder:** once a day from `automation.nudge_at` (ET, default `10:00`), the admins get one DM listing
+every issue still open on that run (next game unset, results missing, holds, conflicts, a waiting post).
+Fixed issues drop out; nothing open, no DM.

@@ -214,11 +214,10 @@ Missing episode results block only the scores post, not the next game.
 
 ## Status (Oct 8)
 
-Built, BrainLand-only (`seasons/51-brainland.yaml`, `automation.enabled: true`); Podracing's file has
-`enabled: false`:
+Built and running for Podracing (`seasons/51.yaml`) since Oct 7, after a compressed BrainLand rehearsal:
 
 - `probst season reconcile` CronJob every 5 minutes, on the bot's token (dedicated token still to do).
-- Next-game readiness alerts (once per week, no daily reminders yet).
+- Next-game readiness alerts, plus one daily reminder DM coalescing every open issue.
 - survivoR import: pinned commit, completeness evidence, holds, all-or-nothing server apply, legacy-key reuse,
   conflicts alert instead of overwriting.
 - Scores drafts: snapshot + fingerprint; stale posts can't be approved or sent; admin edits kept; drafting

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - `season reconcile FILE` (the scheduled job): next-game readiness alerts, all-or-nothing survivoR episode import with holds for anything ambiguous, and scores posts drafted for admin approval once the week's game is scored and results are in. `season check FILE` runs only the readiness check; `season import FILE --episode N` runs the import by hand. Season files gain `automation: {enabled, from_week, guild}`.
+- Daily reminder DM (`automation.nudge_at`, default 10am ET) collecting every still-open issue.
 - `boot PLACE CONTESTANT` records a finishing place by hand (e.g. a medevac the import held).
 - Scores posts: when everyone moved by the same amount, say so instead of "nobody moved"; game links point to `/games`.
 - Plain HTTP is allowed only to loopback or the exact URL in `PROBST_ALLOW_HTTP_SERVER`.

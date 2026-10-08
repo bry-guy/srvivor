@@ -1,5 +1,5 @@
 # Castaway Season 51 — the whole season in one file. Read by `probst season plan/apply/post`;
-# automation (reconciler) is planned in plans/season-schedule.md and not running yet.
+# automation: `probst season reconcile` runs this file every 5 minutes (see plans/season-schedule.md).
 #
 # Conventions
 #   - All times are America/New_York. A bare time ("12:00") on a weekly item is relative to that week's
@@ -51,7 +51,7 @@ weekly:
 # ── Week by week (only what differs from `weekly`) ───────────────────────────────────────────────────
 weeks:
   1: {game: none, scores_post: {at: 2026-09-30 21:52, sent: true}}      # draft week; posted
-  2: {game: {type: castawordle, answer_file: answers/ep2.txt}, scores_post: {at: 2026-10-07 14:00}}   # scores post moved to 2pm (set up by hand)
+  2: {game: {type: castawordle, answer_file: answers/ep2.txt}, scores_post: {at: 2026-10-07 20:17, sent: true}}   # set up by hand (Castawordle reopened; posted 8:17pm)
   3: {game: {type: press_the_button}}                                        # most +2, 2nd most -1, least +1, ties +size (max 3); +1 each at 100/1,000/10,000 presses
   4: {game: TBD}                                  # e.g. {type: spell_it_out, phrase_file: answers/ep4.txt, decoys: 4}
   5: {game: TBD}
@@ -85,6 +85,6 @@ posts:
 
 # ── Automation (`probst season reconcile`, the scheduled job) ────────────────────────────────────────
 automation:
-  enabled: false                # Podracing turns on only after the BrainLand rehearsal passes
+  enabled: true                 # on since Oct 7 after the BrainLand rehearsal
   from_week: 3                  # weeks 1-2 were done by hand
   guild: "521073437779689474"
