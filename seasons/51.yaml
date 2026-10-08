@@ -51,7 +51,7 @@ weekly:
 # ── Week by week (only what differs from `weekly`) ───────────────────────────────────────────────────
 weeks:
   1: {game: none, scores_post: {at: 2026-09-30 21:52, sent: true}}      # draft week; posted
-  2: {game: {type: castawordle, answer_file: answers/ep2.txt}, scores_post: {at: 2026-10-07 20:17, sent: true}}   # set up by hand (Castawordle reopened; posted 8:17pm)
+  2: {game: {type: castawordle, answer_file: answers/ep2.txt}, scores_post: {at: 2026-10-07 14:00}}   # scores post moved to 2pm (set up by hand; actually posted 8:17pm after the reopen)
   3: {game: {type: press_the_button}}                                        # most +2, 2nd most -1, least +1, ties +size (max 3); +1 each at 100/1,000/10,000 presses
   4: {game: TBD}                                  # e.g. {type: spell_it_out, phrase_file: answers/ep4.txt, decoys: 4}
   5: {game: TBD}
