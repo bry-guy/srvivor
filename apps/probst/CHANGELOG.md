@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Spell It Out is now called **Island Scramble** (display name only; `spell_it_out`, URLs and data unchanged).
+- Tests use their own season files (`testdata/`), so `seasons/*.yaml` can change freely; added a non-Wednesday/DST/skip-week schedule test.
+
 - `season reconcile FILE` (the scheduled job): next-game readiness alerts, all-or-nothing survivoR episode import with holds for anything ambiguous, and scores posts drafted for admin approval once the week's game is scored and results are in. `season check FILE` runs only the readiness check; `season import FILE --episode N` runs the import by hand. Season files gain `automation: {enabled, from_week, guild}`.
 - Daily reminder DM (`automation.nudge_at`, default 10am ET) collecting every still-open issue.
 - `boot PLACE CONTESTANT` records a finishing place by hand (e.g. a medevac the import held).

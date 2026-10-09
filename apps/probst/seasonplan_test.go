@@ -12,7 +12,7 @@ import (
 )
 
 func TestSeasonPlanTimeline(t *testing.T) {
-	f, err := loadSeasonFile("../../seasons/51.yaml")
+	f, err := loadSeasonFile("testdata/season.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestPlanTime(t *testing.T) {
 
 func TestSeasonApplySpellItOut(t *testing.T) {
 	dir := t.TempDir()
-	plan, err := os.ReadFile("../../seasons/51.yaml")
+	plan, err := os.ReadFile("testdata/season.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,50 @@ func TestSeasonApplySpellItOut(t *testing.T) {
 	if sent["phrase"] != "the tribe has spoken" || sent["decoys"] != 4 || sent["episode_number"] != 4 || sent["opens_at"] != "2026-10-15T00:00:00Z" {
 		t.Fatalf("sent %v", sent)
 	}
-	if !strings.Contains(out.String(), "applied Week 4 Spell It Out") || strings.Contains(out.String(), "spoken") {
+	if !strings.Contains(out.String(), "applied Week 4 Island Scramble") || strings.Contains(out.String(), "spoken") {
 		t.Fatalf("output %s", out.String())
+	}
+}
+
+// Seasons can run on any framing: a Tuesday 9pm show, a weekly game opening at noon and closing the next
+// Monday night, and a skipped week that shifts later episodes; times stay local across the DST change.
+func TestSeasonPlanOtherFraming(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.yaml")
+	if err := os.WriteFile(path, []byte(`season: 99
+instance: x
+channel: "1"
+episodes: {first: 2026-10-20 21:00, count: 4, skip: [2026-10-27], finale: 4}
+draft: {opens: 2026-10-13 12:00, soft_close: 2026-10-20 21:00}
+weekly:
+  results: {due: "+5d 18:00"}
+  game: {opens: "12:00", closes: "+6d 22:00", resolve: "+6d 22:00"}
+  scores_post: {at: "+7d 09:30", template: scores}
+weeks:
+  2: {game: {type: press_the_button}}
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := loadSeasonFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, airs, err := expandSeason(f, time.Date(2026, 10, 1, 0, 0, 0, 0, eastern()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := airs[1].Format("2006-01-02 15:04 MST"); got != "2026-11-03 21:00 EST" {
+		t.Fatalf("episode 2 after the skip, across DST: %s", got)
+	}
+	var b strings.Builder
+	printTimeline(&b, items)
+	for _, want := range []string{
+		"Tue Nov 03 12:00pm     Game: Press the Button opens",
+		"Mon Nov 09 10:00pm     Game: Press the Button closes + awards",
+		"Sun Nov 08 6:00pm      Episode 2 results due (you)",
+		"Tue Nov 10 9:30am      Week 2 scores post",
+	} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("timeline missing %q:\n%s", want, b.String())
+		}
 	}
 }

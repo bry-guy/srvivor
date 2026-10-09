@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Spell It Out: the phrase never reaches players before they solve or the game closes, the clock runs from
+// Island Scramble: the phrase never reaches players before they solve or the game closes, the clock runs from
 // Start, checks only say right or wrong, the fastest three score +3/+2/+1 once, and tests never score.
 func TestSpellItOut(t *testing.T) {
 	ctx, pool := integrationPool(t)
@@ -156,7 +156,7 @@ func TestSpellItOut(t *testing.T) {
 	if !strings.Contains(page, "THE TRIBE HAS SPOKEN") || !strings.Contains(page, ">late</a>") || !strings.Contains(page, "Unsolved") {
 		t.Fatalf("results page: %s", page)
 	}
-	if page := serve("GET", "/players/"+ids["clean"], "", "idle", 200); !strings.Contains(page, "Episode 4 · Spell It Out") || !strings.Contains(page, "Solved in 2:00 · &#43;3 pts") {
+	if page := serve("GET", "/players/"+ids["clean"], "", "idle", 200); !strings.Contains(page, "Episode 4 · Island Scramble") || !strings.Contains(page, "Solved in 2:00 · &#43;3 pts") {
 		t.Fatalf("profile: %s", page)
 	}
 

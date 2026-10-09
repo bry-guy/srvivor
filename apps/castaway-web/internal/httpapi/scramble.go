@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Spell It Out: arrange letter tiles (the phrase's letters plus random decoys) into a hidden phrase. A
+// Island Scramble: arrange letter tiles (the phrase's letters plus random decoys) into a hidden phrase. A
 // player's tiles stay hidden until they press Start, which starts their clock, so working it out somewhere
 // else still counts as time. Checks only say right or wrong. At cutoff the three fastest solves earn
 // +3/+2/+1; fewer wrong checks breaks a tie on time, and exact ties share the place.
@@ -294,7 +294,7 @@ func (s *Server) resolveScrambleGame(ctx context.Context, gameID uuid.UUID) (map
 	if len(awards) > 0 && episode != nil { // tests report what they would award, but never score
 		q := s.queries.WithTx(tx)
 		at := pgtype.Timestamptz{Time: cutoff, Valid: true}
-		name := fmt.Sprintf("Spell It Out: Episode %d", *episode)
+		name := fmt.Sprintf("Island Scramble: Episode %d", *episode)
 		activity, err := q.CreateInstanceActivity(ctx, db.CreateInstanceActivityParams{
 			ActivityType: "spell_it_out", Name: name, Status: "completed", Metadata: []byte("{}"),
 			StartsAt: pgtype.Timestamptz{Time: opens, Valid: true}, EndsAt: at, InstanceID: toPGUUID(instance),
@@ -664,7 +664,7 @@ func (s *Server) createScrambleTest(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/games/scramble/"+id.String())
 }
 
-// addScrambleGames lists an instance's Spell It Out games (tests only for admins).
+// addScrambleGames lists an instance's Island Scramble games (tests only for admins).
 func (s *Server) addScrambleGames(ctx context.Context, data *sitePageData, instanceID string) error {
 	rows, err := s.pool.Query(ctx, `SELECT g.public_id::text, g.episode_number, g.opens_at, g.cutoff_at, g.resolved_at IS NOT NULL
 		FROM scramble_games g JOIN instances i ON i.id = g.instance_id WHERE i.public_id::text = $1 AND (g.episode_number IS NOT NULL OR $2)
@@ -686,12 +686,12 @@ func (s *Server) addScrambleGames(ctx context.Context, data *sitePageData, insta
 		if episode == nil {
 			badge, resolved = "Admin-only test", true
 		}
-		data.addGame(episode, gameEntry{Kind: "Spell It Out", Name: "Spell It Out", URL: "/games/scramble/" + id, Badge: badge, Status: gameStatus(now, opens, cutoff, resolved)})
+		data.addGame(episode, gameEntry{Kind: "Island Scramble", Name: "Island Scramble", URL: "/games/scramble/" + id, Badge: badge, Status: gameStatus(now, opens, cutoff, resolved)})
 	}
 	return rows.Err()
 }
 
-// scrambleProfileGames is a player's scored Spell It Out results.
+// scrambleProfileGames is a player's scored Island Scramble results.
 func (s *Server) scrambleProfileGames(ctx context.Context, participantID string) ([]profileGame, error) {
 	rows, err := s.pool.Query(ctx, `SELECT g.id, g.public_id::text, g.episode_number FROM scramble_games g JOIN scramble_plays sp ON sp.game_id = g.id
 		JOIN participants p ON p.id = sp.participant_id WHERE p.public_id = $1 AND g.episode_number IS NOT NULL AND g.resolved_at IS NOT NULL`, participantID)
@@ -723,7 +723,7 @@ func (s *Server) scrambleProfileGames(ctx context.Context, participantID string)
 				result = fmt.Sprintf("Solved in %s · %+d pts", scrambleDuration(p.Seconds), placePoints(place))
 			}
 		}
-		games = append(games, profileGame{Episode: r.episode, Kind: "Spell It Out", URL: "/games/scramble/" + r.id, Result: result})
+		games = append(games, profileGame{Episode: r.episode, Kind: "Island Scramble", URL: "/games/scramble/" + r.id, Result: result})
 	}
 	return games, nil
 }

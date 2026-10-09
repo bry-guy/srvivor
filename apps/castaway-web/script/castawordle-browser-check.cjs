@@ -125,7 +125,7 @@ const base = process.argv[2];
       assert.match(await page.locator('.tribe-presses').innerText(), /^$|\d/);
       await page.screenshot({ path: path.join(os.tmpdir(), `button-${mobile ? 'phone' : 'desktop'}.png`) });
 
-      // Spell It Out: a 30-letter phrase with 10 decoys fits; tiles are hidden until Start; drag fills,
+      // Island Scramble: a 30-letter phrase with 10 decoys fits; tiles are hidden until Start; drag fills,
       // swaps and returns tiles; a wrong check counts, a right one solves.
       const phrase = 'THE TRIBE HAS SPOKEN RESOURCEFULLY'; // 30 letters, one 13-letter word that wraps
       const answer = phrase.replaceAll(' ', '');

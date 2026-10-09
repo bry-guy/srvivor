@@ -1,5 +1,5 @@
 {{template "header" .}}
-{{with .Scramble}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">{{if .Test}}Admin-only test{{else}}Episode {{.Episode}}{{end}}</p><h1>Spell It Out</h1>
+{{with .Scramble}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">{{if .Test}}Admin-only test{{else}}Episode {{.Episode}}{{end}}</p><h1>Island Scramble</h1>
 <p class="muted">{{len .Words}} {{if eq (len .Words) 1}}word{{else}}words{{end}}. Some tiles are decoys.</p></div>
 {{if .Open}}{{if .Solved}}<div class="scramble-board" aria-label="Solved">{{template "slots" .}}</div><p class="scramble-result">Solved in {{.Time}}{{if .WrongChecks}} · {{.WrongChecks}} wrong {{if eq .WrongChecks 1}}check{{else}}checks{{end}}{{end}} 🔥</p><p class="muted center">Results when it closes {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}.</p>
 {{else if .Started}}<form class="scramble" action="{{.Action}}/check" data-started="{{.StartedAt}}">

@@ -81,9 +81,9 @@ var (
 	gameLines = map[string]string{ // %s is the open time; games open with the episode
 		"press_the_button": "🔴 This week's game: **Press the Button**, open %s at <%s/games>.",
 		"castawordle":      "🔤 This week's game: **Castawordle**, open %s at <%s/games>.",
-		"spell_it_out":     "🔠 This week's game: **Spell It Out**, open %s at <%s/games>.",
+		"spell_it_out":     "🔠 This week's game: **Island Scramble**, open %s at <%s/games>.",
 	}
-	gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Spell It Out"}
+	gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Island Scramble"}
 )
 
 type scoresPost struct {

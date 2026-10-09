@@ -73,7 +73,7 @@ func (s *fakeSeason) call(_ context.Context, method, path string, body, out any)
 }
 
 func TestReconcile(t *testing.T) {
-	f, err := loadSeasonFile("../../seasons/51-brainland.yaml")
+	f, err := loadSeasonFile("testdata/season-brainland.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestReconcile(t *testing.T) {
 		snapshot: []scoreRow{{ID: "a", Name: "Ann", DiscordID: "1", Total: 6, HasDraft: true}, {ID: "b", Name: "Bo", DiscordID: "2", Total: 2, HasDraft: true}}}
 	plan := episodePlan{Episode: 3, Status: "incomplete", Why: "challenge 4 has no results yet"}
 	var out bytes.Buffer
-	r := &reconciler{ctx: context.Background(), call: fake.call, f: f, airs: airs, tmpl: "../../seasons/51-brainland-scores.md", out: &out,
+	r := &reconciler{ctx: context.Background(), call: fake.call, f: f, airs: airs, tmpl: "testdata/season-brainland-scores.md", out: &out,
 		path: "/instances/x", fetchPlan: func(ep int) (episodePlan, error) {
 			if ep != 3 {
 				return episodePlan{Episode: ep, Status: "absent"}, nil

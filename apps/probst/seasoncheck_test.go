@@ -8,7 +8,7 @@ import (
 )
 
 func TestCheckNextGame(t *testing.T) {
-	f, err := loadSeasonFile("../../seasons/51.yaml")
+	f, err := loadSeasonFile("testdata/season.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
