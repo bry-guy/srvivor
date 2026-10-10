@@ -33,7 +33,8 @@ thead th { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; 
 tr:last-child td, tr:last-child th { border-bottom: 0; }
 tbody th { font-weight: 650; } .total { font-weight: 800; }
 .tribe-dot { display: inline-block; width: .55rem; height: .55rem; margin-right: .5rem; border-radius: 50%; vertical-align: middle; }
-.tribe-dot-savu { background: #9b70c4; } .tribe-dot-toka { background: #b58900; }
+.tribe-dot-purple { background: #9b70c4; } .tribe-dot-yellow { background: #b58900; } .tribe-dot-red { background: #c0392b; } .tribe-dot-orange { background: #d35400; }
+.tribe-dot-green { background: #27ae60; } .tribe-dot-blue { background: #2e86c1; } .tribe-dot-brown { background: #8d6e63; } .tribe-dot-black { background: #333; } .tribe-dot-white { background: #ddd; border: 1px solid #999; }
 .game-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; margin: 1.5rem 0 2rem; }
 .game-card { border: 1px solid var(--border); padding: 1.25rem; border-radius: .6rem; background: var(--surface); text-decoration: none; color: var(--text); }
 .game-card:hover { border-color: var(--accent); } .game-card p { font-size: .85rem; }

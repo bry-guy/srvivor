@@ -101,8 +101,15 @@ func planEpisode(data survivorEpisode, revision string, roster []*contestant, ru
 	if len(boots) > 1 {
 		p.Review = append(p.Review, fmt.Sprintf("%d people left this episode", len(boots)))
 	}
+	seen, seenPlace := map[string]bool{}, map[int]bool{}
 	for _, b := range boots {
 		c := places[str(b["castaway_id"])]
+		if id, place := str(b["castaway_id"]), num(c["place"]); seen[id] || (place > 0 && seenPlace[place]) {
+			p.Holds = append(p.Holds, "survivoR lists the same exit twice")
+			continue
+		} else {
+			seen[id], seenPlace[place] = true, true
+		}
 		result, name, place := str(b["result"]), str(c["full_name"]), num(c["place"])
 		match, method, _ := matchName(normalize(name), roster)
 		switch {

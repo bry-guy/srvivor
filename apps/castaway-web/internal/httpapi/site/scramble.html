@@ -14,7 +14,7 @@
 {{if .ResultsWait}}<p class="notice compact">Results appear once the game is scored.</p>{{end}}
 {{if .Phrase}}{{if not .Open}}<p class="center">The phrase was <span class="answer">{{.Phrase}}</span>.</p>{{end}}{{end}}
 {{if .Results}}<div class="table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Time</th><th scope="col">Wrong checks</th><th scope="col">Points</th></tr></thead>
-<tbody>{{range .Results}}<tr><td>{{if .Place}}{{.Place}}{{else}}–{{end}}</td><th scope="row">{{if eq .Tribe "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Tribe "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}<a href="/players/{{.ID}}">{{.Name}}</a></th><td>{{if .Time}}{{.Time}}{{else}}Unsolved{{end}}</td><td>{{.Wrong}}</td><td class="total">{{if .Points}}+{{.Points}}{{else}}0{{end}}</td></tr>{{end}}</tbody></table></div>
+<tbody>{{range .Results}}<tr><td>{{if .Place}}{{.Place}}{{else}}–{{end}}</td><th scope="row">{{template "dot" index $.TribeColors .Tribe}}<a href="/players/{{.ID}}">{{.Name}}</a></th><td>{{if .Time}}{{.Time}}{{else}}Unsolved{{end}}</td><td>{{.Wrong}}</td><td class="total">{{if .Points}}+{{.Points}}{{else}}0{{end}}</td></tr>{{end}}</tbody></table></div>
 {{else if not .ResultsWait}}{{if not .Upcoming}}<p class="muted center">Nobody played.</p>{{end}}{{end}}{{end}}{{end}}
 {{template "footer" .}}
 {{define "slots"}}{{$letters := .Letters}}{{range .Words}}<div class="scramble-word">{{range $r, $row := .}}<div class="scramble-row{{if $r}} wrapped{{end}}">{{range $row}}<span class="scramble-slot" data-slot="{{.}}">{{if $letters}}{{index $letters .}}{{end}}</span>{{end}}</div>{{end}}</div>{{end}}{{end}}

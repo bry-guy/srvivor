@@ -10,14 +10,15 @@ func TestHomeScoresTribeDots(t *testing.T) {
 	for _, tc := range []struct {
 		name, tribe, dot string
 	}{
-		{"Savu", "Savu", `<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> `},
-		{"Toka", "Toka", `<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> `},
+		{"Savu", "Savu", `<span class="tribe-dot tribe-dot-purple" aria-hidden="true"></span> `},
+		{"Toka", "Toka", `<span class="tribe-dot tribe-dot-yellow" aria-hidden="true"></span> `},
 		{"unknown", "Other", ""},
 		{"empty", "", ""},
+		{"no stored color", "Uncolored", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var rendered bytes.Buffer
-			data := sitePageData{Allowed: true, User: &webSession{Username: "Player"}, Rows: []homeRow{{ID: "p1", Name: "Player", Tribe: tc.tribe}}}
+			data := sitePageData{TribeColors: map[string]string{"Savu": "purple", "Toka": "yellow"}, Allowed: true, User: &webSession{Username: "Player"}, Rows: []homeRow{{ID: "p1", Name: "Player", Tribe: tc.tribe}}}
 			if err := siteTemplates.ExecuteTemplate(&rendered, "home.html", data); err != nil {
 				t.Fatal(err)
 			}

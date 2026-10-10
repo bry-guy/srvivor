@@ -22,7 +22,7 @@ The app uses mise for task management. Available tasks:
 
 - ALWAYS ensure the app lints, tests, builds, and runs before committing or PRing
 - Commit complete thoughts frequently; this repo squash merges PRs, so prefer smaller committed checkpoints over large uncommitted changesets
-- NEVER remove or update a regression test without asking permission
+- Regression and integration tests may be changed or removed only after the advisor reviews the change and confirms it doesn't regress gameplay or scoring behavior; mention each such change to the user
 
 ## Documentation Rules
 

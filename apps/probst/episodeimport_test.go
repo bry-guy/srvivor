@@ -56,8 +56,15 @@ func TestPlanEpisode(t *testing.T) {
 	}
 	if p := mutate(func(d *survivorEpisode) {
 		d.Tables["boot_order"] = append(d.Tables["boot_order"], d.Tables["boot_order"][0])
-	}); len(p.Holds) != 0 || len(p.Review) != 1 || len(p.Boots) != 2 {
-		t.Fatalf("double boot: %s", p.describe())
+	}); len(p.Holds) != 1 || len(p.Boots) != 1 {
+		t.Fatalf("same exit twice: %s", p.describe())
+	}
+	if p := mutate(func(d *survivorEpisode) { // two people left: propose both
+		d.Tables["castaways"][1]["place"] = 19.0
+		d.Tables["castaways"][1]["full_name"] = "Kyle Ostwald"
+		d.Tables["boot_order"] = append(d.Tables["boot_order"], map[string]any{"castaway_id": "US0002", "castaway": "Kyle", "result": "Quit"})
+	}); len(p.Holds) != 0 || len(p.Review) != 2 || len(p.Boots) != 2 {
+		t.Fatalf("two exits: %s", p.describe())
 	}
 	if p := mutate(func(d *survivorEpisode) { d.Tables["boot_order"] = nil }); len(p.Holds) != 1 {
 		t.Fatalf("no boot: %s", p.describe())

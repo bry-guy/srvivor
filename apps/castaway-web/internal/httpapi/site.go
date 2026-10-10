@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"embed"
 	"html/template"
 	"mime"
@@ -40,6 +41,7 @@ type sitePageData struct {
 	Answer             string
 	CastawordleResults []castawordleResult
 	Closed             bool
+	TribeColors        map[string]string // tribe name → stored color (participant_groups.color), for dots
 }
 
 func loginReturnTo(candidate string) string {
@@ -98,6 +100,9 @@ func (s *Server) siteData(c *gin.Context) (sitePageData, bool) {
 				WHERE i.public_id = $1 AND p.discord_user_id = $2
 			)`, id, data.User.DiscordUserID).Scan(&data.Allowed)
 			data.Allowed = data.Allowed || data.Admin
+			if err == nil {
+				data.TribeColors, err = s.tribeColors(c.Request.Context(), id)
+			}
 		}
 	}
 	if err != nil {
@@ -131,4 +136,23 @@ func serveSiteAsset(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "public, max-age=300")
 	c.Data(http.StatusOK, mime.TypeByExtension(path.Ext(name)), data)
+}
+
+// tribeColors maps an instance's tribe names to their stored colors.
+func (s *Server) tribeColors(ctx context.Context, instanceID uuid.UUID) (map[string]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT g.name, g.color FROM participant_groups g JOIN instances i ON i.id = g.instance_id
+		WHERE i.public_id = $1 AND g.kind = 'tribe' AND g.color IS NOT NULL`, toPGUUID(instanceID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	colors := map[string]string{}
+	for rows.Next() {
+		var name, color string
+		if err := rows.Scan(&name, &color); err != nil {
+			return nil, err
+		}
+		colors[name] = color
+	}
+	return colors, rows.Err()
 }

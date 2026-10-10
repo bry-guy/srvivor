@@ -6,7 +6,7 @@
 {{if .SeasonName}}<p class="eyebrow"><a href="/seasons">All seasons</a></p><h1>{{.SeasonName}}</h1><p class="muted">Final standings · <a href="/games?season={{.SeasonID}}">Games</a></p>{{else}}<p class="eyebrow">The tribe has spoken</p><h1>Scores</h1><p class="muted">Your season, at a glance.</p>{{end}}
 <div class="table-wrap" tabindex="0" role="region" aria-label="Season scores"><table>
 <thead><tr><th scope="col">#</th><th scope="col">Player</th>{{if not .NoTribe}}<th scope="col">Tribe</th>{{end}}<th scope="col">Total</th>{{if not .NoBonus}}<th scope="col">Bonus</th>{{end}}</tr></thead>
-<tbody>{{range .Rows}}<tr><td>{{.Rank}}</td><th scope="row">{{if eq .Tribe "Savu"}}<span class="tribe-dot tribe-dot-savu" aria-hidden="true"></span> {{else if eq .Tribe "Toka"}}<span class="tribe-dot tribe-dot-toka" aria-hidden="true"></span> {{end}}<a href="/players/{{.ID}}">{{.Name}}</a>{{if and $.SeasonName (eq .Rank 1)}} <span aria-label="Winner">🏆</span>{{end}}</th>{{if not $.NoTribe}}<td>{{.Tribe}}</td>{{end}}<td class="total">{{.Total}}</td>{{if not $.NoBonus}}<td>{{.Bonus}}</td>{{end}}</tr>{{else}}<tr><td colspan="5" class="muted">No scores yet. Check back after drafts are in.</td></tr>{{end}}</tbody>
+<tbody>{{range .Rows}}<tr><td>{{.Rank}}</td><th scope="row">{{template "dot" index $.TribeColors .Tribe}}<a href="/players/{{.ID}}">{{.Name}}</a>{{if and $.SeasonName (eq .Rank 1)}} <span aria-label="Winner">🏆</span>{{end}}</th>{{if not $.NoTribe}}<td>{{.Tribe}}</td>{{end}}<td class="total">{{.Total}}</td>{{if not $.NoBonus}}<td>{{.Bonus}}</td>{{end}}</tr>{{else}}<tr><td colspan="5" class="muted">No scores yet. Check back after drafts are in.</td></tr>{{end}}</tbody>
 </table></div>
 {{end}}
 {{template "footer" .}}
