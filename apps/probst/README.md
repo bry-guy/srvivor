@@ -221,10 +221,13 @@ DM. Each run:
    a final place, and every challenge it describes has results; missing results are never read as "no
    challenge". The server applies boots and tribe immunity/reward wins in one transaction (or nothing),
    reusing matching hand-entered results (`epN-immunity`/`epN-reward`) and refusing anything that
-   disagrees with what's recorded (admin DM). Medevacs/quits, double or missing boots, unmatched names,
-   non-tribal or tied challenges, and anything from `scoring.merge_episode` on are **holds**: the admins get
-   a DM listing them. Record those by hand, then `probst season import FILE --episode N --resolve-holds --yes`
-   imports the rest. If results are still missing at `weekly.results.due`, the admins get a DM.
+   disagrees with what's recorded (admin DM). Medevacs/quits and several people leaving at once are
+   **proposals**: the admins get a DM with exactly what will be recorded, and replying **yes** records it
+   (the server runs the stored import; if survivoR changes first, the old yes is refused and a new DM goes
+   out). Missing boots, unmatched names, non-tribal or tied challenges, and anything from
+   `scoring.merge_episode` on are **holds**: record those by hand, then
+   `probst episode import N --file FILE --resolve-holds --yes` imports the rest. Until survivoR is complete
+   the job just keeps checking. If results are still missing at `weekly.results.due`, the admins get a DM.
 3. **Scores post:** from the week's post time (8pm), once its game is scored and its episode imported, it
    saves the standings snapshot and drafts the post (`seasons/NN-scores.md`) for approval, pinging the top
    3 and last place. Late results are fine: up to 3 hours after 8pm the post is drafted and sends as soon as
@@ -232,7 +235,7 @@ DM. Each run:
    approved or sent with the old numbers: an untouched draft is redrafted and re-asked; an admin-edited one
    keeps the admin's text and re-asks with a DM to check the numbers.
 
-`probst season import FILE --episode N [--yes]` runs the same import by hand (dry run without `--yes`).
+`probst episode import N --file FILE [--yes]` runs the same import by hand (`season import` and `episode sync` are deprecated) (dry run without `--yes`).
 Kill switch: `kubectl -n castaway patch cronjob probst-season-check -p '{"spec":{"suspend":true}}'` or
 `automation.enabled: false`. The job reuses the bot's service token (`CASTAWAY_API_AUTH_TOKEN`, by
 `secretKeyRef`) acting as an admin via `PROBST_DISCORD_USER_ID`, and reaches castaway-web over in-cluster

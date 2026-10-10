@@ -150,7 +150,11 @@ func (b *Bot) notifyAdminAlert(ctx context.Context) error {
 	if len(a.Admins) == 0 {
 		return fmt.Errorf("admin alert %s has no admins to DM", a.Alert.ID)
 	}
-	if err := b.dmAdmins(ctx, a.Admins, a.Alert.Body); err != nil {
+	text := a.Alert.Body
+	if a.Alert.Revision != "" {
+		text += fmt.Sprintf("\n\nReply **yes** to this message to record exactly this.\naction `%s` `%s`", a.Alert.ID, a.Alert.Revision)
+	}
+	if err := b.dmAdmins(ctx, a.Admins, text); err != nil {
 		return err
 	}
 	return b.castaway.ConfirmAdminAlert(ctx, a.Alert.ID)

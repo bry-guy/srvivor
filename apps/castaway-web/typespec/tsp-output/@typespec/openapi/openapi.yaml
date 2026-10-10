@@ -151,6 +151,9 @@ paths:
                             type: string
                           body:
                             type: string
+                          revision:
+                            type: string
+                            nullable: true
                         required:
                           - id
                           - body
@@ -175,6 +178,36 @@ paths:
                     type: string
               required:
                 - guild_ids
+  /admin-alerts/{alertID}/approve:
+    post:
+      operationId: approveAdminAction
+      parameters:
+        - name: alertID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    additionalProperties: {}
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revision:
+                  type: string
+              required:
+                - revision
   /admin-alerts/{alertID}/delivered:
     post:
       operationId: confirmAdminAlert
@@ -876,6 +909,19 @@ paths:
               properties:
                 body:
                   type: string
+                action:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - episode_import
+                    payload:
+                      type: object
+                      additionalProperties: {}
+                  required:
+                    - kind
+                    - payload
               required:
                 - body
   /instances/{instanceID}/admins:

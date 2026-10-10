@@ -167,13 +167,13 @@ func contains(list []string, v string) bool {
 }
 
 func addEpisodeSync(root *cobra.Command, call apiCall, instancePath func() (string, error), yes *bool) {
-	episodeCmd := &cobra.Command{Use: "episode", Short: "Episode results from survivoR"}
-	root.AddCommand(episodeCmd)
+	episodeCmd := episodeCommand(root)
 	var season, number int
 	sync := &cobra.Command{
-		Use:   "sync",
-		Short: "Download survivoR's data for an episode, save it, and record boots and tribal challenge wins; dry run unless --yes",
-		Args:  cobra.NoArgs,
+		Use:        "sync",
+		Deprecated: "use `probst episode import N --file FILE`, which records everything at once or nothing",
+		Short:      "Download survivoR's data for an episode, save it, and record boots and tribal challenge wins; dry run unless --yes",
+		Args:       cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if season <= 0 || number <= 0 {
 				return fmt.Errorf("--season and --episode are required")
@@ -295,4 +295,26 @@ func saveSurvivorEpisode(data survivorEpisode) (string, error) {
 		return "", err
 	}
 	return path, os.WriteFile(path, encoded, 0o644)
+}
+
+// episodeCommand returns the root's `episode` command, creating it once.
+func episodeCommand(root *cobra.Command) *cobra.Command {
+	for _, c := range root.Commands() {
+		if c.Name() == "episode" {
+			return c
+		}
+	}
+	c := &cobra.Command{Use: "episode", Short: "Episode results from survivoR"}
+	root.AddCommand(c)
+	return c
+}
+
+// seasonCommand returns the root's `season` command.
+func seasonCommand(root *cobra.Command) *cobra.Command {
+	for _, c := range root.Commands() {
+		if c.Name() == "season" {
+			return c
+		}
+	}
+	panic("season command not registered")
 }

@@ -331,7 +331,6 @@ func newSeasonCommand(call apiCall, guild *string, yes *bool) *cobra.Command {
 	addSeasonApplyCommand(season, call, yes)
 	addSeasonCheckCommand(season, call)
 	addSeasonReconcileCommand(season, call)
-	addEpisodeImportCommand(season, call, yes)
 	return season
 }
 

@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Episode imports that need judgment (medevac/quit, two people leaving) are DMed to admins as an exact proposal; replying **yes** records it (`POST /admin-alerts/:id/approve`, revision-bound). `probst episode import N --file F` replaces `season import`/`episode sync`.
+
 - Spell It Out is now called **Island Scramble** (display name only; `spell_it_out`, URLs and data unchanged).
 
 - Season automation (migrations 031–032): one-time admin alert DMs (`PUT /instances/:id/admin-alerts/:key`, delivered by the bot); `GET /instances/:id/scheduled-games` (each week's game and whether it's scored, no answers); `POST /instances/:id/episode-imports` applies an episode's boots and tribe challenge wins in one transaction, reusing matching hand-entered results and refusing conflicting ones; weekly standings snapshots (`/score-snapshots/:week`, frozen once that week's post is sent); `PUT /instances/:id/score-posts/:key` saves automation's scores post for approval tied to the standings it describes. Such a post can't be approved or sent once scores change; untouched drafts are redrafted, admin-edited ones keep the admin's text and are re-asked.

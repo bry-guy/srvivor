@@ -18,6 +18,8 @@ import (
 // keeps no state:
 //   - an approval DM ends with "approval <id> <revision>"; "yes" approves exactly that revision, and a reply
 //     with complete new text replaces it (the new text gets its own approval DM).
+//   - an alert with an action (like an episode import) ends with "action <id> <revision>"; "yes" runs exactly
+//     that revision on the server.
 //   - a draft DM links the player's post and (after a fix) quotes the working draft; "7. Thien An" lines
 //     replace those ranks in the working draft (the post on first reply) and resubmit it.
 //   - if the player already has a saved draft, the answer quotes the working draft and the saved draft's
@@ -31,6 +33,7 @@ var (
 	rankLine    = regexp.MustCompile(`^\s*0*(\d{1,2})\s*[.):\-]?\s+(\S.*?)\s*$`)
 	workingCopy = regexp.MustCompile("(?s)Working draft:\n```\n(.*)\n```")
 	overwriteOf = regexp.MustCompile("overwrite `([0-9a-f]{32})`")
+	actionRef   = regexp.MustCompile("action `([0-9a-f-]{36})` `([0-9a-f]{32})`")
 )
 
 // dmAdmins sends text to each admin, reporting failures.
@@ -116,6 +119,18 @@ func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 		if _, err := b.session.ChannelMessageSendReply(m.ChannelID, text, m.Reference(), discordgo.WithContext(ctx)); err != nil {
 			b.log.Error("admin DM answer", "error", err)
 		}
+	}
+	if ref := actionRef.FindStringSubmatch(asked.Content); ref != nil {
+		if !strings.EqualFold(strings.Trim(strings.TrimSpace(m.Content), ".!"), "yes") {
+			answer("Reply **yes** to record exactly this. To record something different, use `probst episode import`.")
+			return
+		}
+		if err := b.castaway.ApproveAdminAction(ctx, ref[1], ref[2], m.Author.ID); err != nil {
+			answer("Not recorded: " + err.Error())
+			return
+		}
+		answer("✅ Recorded.")
+		return
 	}
 	if ref := approvalRef.FindStringSubmatch(asked.Content); ref != nil {
 		if !strings.EqualFold(strings.Trim(strings.TrimSpace(m.Content), ".!"), "yes") {

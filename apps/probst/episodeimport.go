@@ -52,12 +52,13 @@ type episodePlan struct {
 	Why        string // for absent/incomplete
 	Boots      []planBoot
 	Challenges []planChallenge
-	Holds      []string
+	Holds      []string // can't be imported: needs fixing by hand
+	Review     []string // importable, but an admin approves it first (by replying yes)
 }
 
 type planBoot struct {
-	Name, ContestantID string
-	Position           int
+	Name, ContestantID, Result string
+	Position                   int
 }
 
 type planChallenge struct {
@@ -94,26 +95,27 @@ func planEpisode(data survivorEpisode, revision string, roster []*contestant, ru
 		places[str(c["castaway_id"])] = c
 	}
 	boots := data.Tables["boot_order"]
-	switch {
-	case len(boots) == 0:
-		p.Holds = append(p.Holds, "no boot recorded for this episode (no elimination, or survivoR is behind): record it by hand if there was one")
-	case len(boots) > 1:
-		p.Holds = append(p.Holds, fmt.Sprintf("%d people left this episode: record them by hand", len(boots)))
-	default:
-		b := boots[0]
+	if len(boots) == 0 {
+		p.Holds = append(p.Holds, "no boot recorded for this episode (no elimination, or survivoR is behind)")
+	}
+	if len(boots) > 1 {
+		p.Review = append(p.Review, fmt.Sprintf("%d people left this episode", len(boots)))
+	}
+	for _, b := range boots {
 		c := places[str(b["castaway_id"])]
 		result, name, place := str(b["result"]), str(c["full_name"]), num(c["place"])
 		match, method, _ := matchName(normalize(name), roster)
 		switch {
 		case c == nil || place <= 0:
 			p.Status, p.Why = "incomplete", "boot "+str(b["castaway"])+" has no final place yet"
-		case !votedOut.MatchString(result):
-			p.Holds = append(p.Holds, fmt.Sprintf("%s left by %q, not a vote: record by hand", name, result))
+			return p
 		case match == nil || method != "exact":
-			p.Holds = append(p.Holds, fmt.Sprintf("boot %q doesn't exactly match a contestant: record by hand", name))
-		default:
-			p.Boots = append(p.Boots, planBoot{Name: match.Name, ContestantID: match.ID, Position: place})
+			p.Holds = append(p.Holds, fmt.Sprintf("boot %q doesn't exactly match a contestant", name))
+			continue
+		case !votedOut.MatchString(result):
+			p.Review = append(p.Review, fmt.Sprintf("%s left by %q, not a vote", match.Name, result))
 		}
+		p.Boots = append(p.Boots, planBoot{Name: match.Name, ContestantID: match.ID, Position: place, Result: result})
 	}
 
 	// Challenges: every challenge survivoR describes must have results.
@@ -232,10 +234,13 @@ func (p episodePlan) describe() string {
 		fmt.Fprintf(&b, " — %s", p.Why)
 	}
 	for _, x := range p.Boots {
-		fmt.Fprintf(&b, "\n  boot: %s at place %d", x.Name, x.Position)
+		fmt.Fprintf(&b, "\n  boot: %s at place %d (%s)", x.Name, x.Position, x.Result)
 	}
 	for _, ch := range p.Challenges {
 		fmt.Fprintf(&b, "\n  %s: %s won %s", ch.Label, strings.Join(ch.Tribes, ", "), ch.Kind)
+	}
+	for _, r := range p.Review {
+		fmt.Fprintf(&b, "\n  REVIEW: %s", r)
 	}
 	for _, h := range p.Holds {
 		fmt.Fprintf(&b, "\n  HOLD: %s", h)

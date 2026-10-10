@@ -51,12 +51,12 @@ func TestPlanEpisode(t *testing.T) {
 	if p := mutate(func(d *survivorEpisode) { d.Tables["challenge_description"] = nil }); p.Status != "incomplete" {
 		t.Fatalf("no challenges: %s", p.describe())
 	}
-	if p := mutate(func(d *survivorEpisode) { d.Tables["boot_order"][0]["result"] = "Medically evacuated" }); len(p.Holds) != 1 || len(p.Boots) != 0 {
+	if p := mutate(func(d *survivorEpisode) { d.Tables["boot_order"][0]["result"] = "Medically evacuated" }); len(p.Holds) != 0 || len(p.Review) != 1 || len(p.Boots) != 1 {
 		t.Fatalf("medevac: %s", p.describe())
 	}
 	if p := mutate(func(d *survivorEpisode) {
 		d.Tables["boot_order"] = append(d.Tables["boot_order"], d.Tables["boot_order"][0])
-	}); len(p.Holds) != 1 || len(p.Boots) != 0 {
+	}); len(p.Holds) != 0 || len(p.Review) != 1 || len(p.Boots) != 2 {
 		t.Fatalf("double boot: %s", p.describe())
 	}
 	if p := mutate(func(d *survivorEpisode) { d.Tables["boot_order"] = nil }); len(p.Holds) != 1 {

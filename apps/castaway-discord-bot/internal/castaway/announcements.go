@@ -96,8 +96,9 @@ func (c *Client) ConfirmApprovalDelivery(ctx context.Context, id, revision strin
 // AdminAlert is a one-time DM to a season's admins.
 type AdminAlert struct {
 	Alert *struct {
-		ID   string `json:"id"`
-		Body string `json:"body"`
+		ID       string `json:"id"`
+		Body     string `json:"body"`
+		Revision string `json:"revision"` // set when admins can approve the alert's action by replying "yes"
 	} `json:"alert"`
 	Admins []string `json:"admin_discord_user_ids"`
 }
@@ -110,6 +111,13 @@ func (c *Client) ClaimAdminAlert(ctx context.Context, guildIDs []string) (*Admin
 		return nil, err
 	}
 	return &response, nil
+}
+
+// ApproveAdminAction runs an alert's action (e.g. an episode import) for an admin who replied "yes" to
+// exactly this revision.
+func (c *Client) ApproveAdminAction(ctx context.Context, id, revision, adminID string) error {
+	var response map[string]any
+	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/admin-alerts", id, "approve")), map[string]string{"X-Discord-User-ID": adminID}, map[string]any{"revision": revision}, &response)
 }
 
 // ConfirmAdminAlert records that every admin got the alert.

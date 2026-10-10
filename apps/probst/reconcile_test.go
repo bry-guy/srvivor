@@ -16,6 +16,7 @@ type fakeSeason struct {
 	imports  map[int][]int
 	games    []liveGame
 	alerts   map[string]string
+	actions  map[string]map[string]any
 	posts    map[string]map[string]any
 	snapshot []scoreRow
 	imported []map[string]any
@@ -51,7 +52,14 @@ func (s *fakeSeason) call(_ context.Context, method, path string, body, out any)
 	case method == "PUT" && strings.Contains(path, "/admin-alerts/"):
 		key := path[strings.LastIndex(path, "/")+1:]
 		_, seen := s.alerts[key]
-		s.alerts[key] = body.(map[string]string)["body"]
+		b, ok := body.(map[string]any)
+		if !ok {
+			b = map[string]any{"body": body.(map[string]string)["body"]}
+		}
+		s.alerts[key] = b["body"].(string)
+		if b["action"] != nil {
+			s.actions[key] = b["action"].(map[string]any)
+		}
 		set(map[string]any{"created": !seen})
 	case method == "PUT" && strings.Contains(path, "/score-snapshots/"):
 		set(map[string]any{"fingerprint": "fp", "leaderboard": s.snapshot})
@@ -81,7 +89,7 @@ func TestReconcile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fake := &fakeSeason{t: t, imports: map[int][]int{}, alerts: map[string]string{}, posts: map[string]map[string]any{},
+	fake := &fakeSeason{t: t, imports: map[int][]int{}, alerts: map[string]string{}, actions: map[string]map[string]any{}, posts: map[string]map[string]any{},
 		games:    []liveGame{{Type: "press_the_button", Episode: 3}},
 		snapshot: []scoreRow{{ID: "a", Name: "Ann", DiscordID: "1", Total: 6, HasDraft: true}, {ID: "b", Name: "Bo", DiscordID: "2", Total: 2, HasDraft: true}}}
 	plan := episodePlan{Episode: 3, Status: "incomplete", Why: "challenge 4 has no results yet"}
@@ -139,6 +147,15 @@ func TestReconcile(t *testing.T) {
 	}
 	if strings.Contains(nudge, "aren't in survivoR") { // resolved issues drop out
 		t.Fatalf("stale issue in nudge: %q", nudge)
+	}
+	// Two people left: DM the exact import for a "yes" instead of importing it.
+	plan = episodePlan{Episode: 3, Status: "ready", Review: []string{"2 people left this episode"},
+		Boots: []planBoot{{Name: "Kyle Ostwald", ContestantID: "k", Position: 19, Result: "Voted out"}, {Name: "Bo Bee", ContestantID: "b", Position: 18, Result: "Quit"}}}
+	run("2026-10-14 11:00")
+	action := fake.actions["s51-ep3-import"]
+	if len(fake.imported) != 0 || action["kind"] != "episode_import" || len(action["payload"].(map[string]any)["boots"].([]map[string]any)) != 2 ||
+		!strings.Contains(fake.alerts["s51-ep3-import"], "Bo Bee: place 18 (Quit)") {
+		t.Fatalf("proposal: %v %v %v", fake.imported, action, fake.alerts["s51-ep3-import"])
 	}
 	// 8:05pm Wednesday: the game isn't scored yet; the post waits (alert only after 8:15).
 	plan = episodePlan{Episode: 3, Status: "ready", Boots: []planBoot{{Name: "Kyle Ostwald", ContestantID: "k", Position: 19}},

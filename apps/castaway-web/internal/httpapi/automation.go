@@ -79,52 +79,68 @@ func (s *Server) importEpisode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
-	if req.EpisodeNumber < 0 || (req.Source != "survivor" && req.Source != "manual") || len(req.SourceRevision) > 80 {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "episode_number (0+) and source (survivor or manual) are required"})
+	if err := req.validate(); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
-	for _, ch := range req.Challenges {
-		if ch.Key == "" || len(ch.Key) > 64 || ch.EffectiveAt.IsZero() || len(ch.WinningTribes) == 0 || (ch.Kind != "immunity" && ch.Kind != "reward") {
-			c.JSON(http.StatusBadRequest, errorResponse{Error: "each challenge needs a key (1-64 characters), kind immunity or reward, winning_tribes and effective_at"})
-			return
-		}
-	}
-	fingerprint := req.fingerprint()
-
 	tx, qtx, ok := s.lockLegacyInstanceForAdmin(c, instanceID)
 	if !ok {
 		return
 	}
 	defer rollbackTx(c, tx)
 	ctx := c.Request.Context()
+	res, err := s.applyEpisodeImport(ctx, tx, qtx, instanceID, req)
+	if err == nil && res["status"] == "applied" {
+		err = tx.Commit(ctx)
+	}
+	if err != nil {
+		writeTribeError(c, err)
+		return
+	}
+	code := http.StatusOK
+	if res["status"] == "applied" {
+		code = http.StatusCreated
+	}
+	c.JSON(code, res)
+}
 
+func (r episodeImportRequest) validate() error {
+	if r.EpisodeNumber < 0 || (r.Source != "survivor" && r.Source != "manual") || len(r.SourceRevision) > 80 {
+		return errors.New("episode_number (0+) and source (survivor or manual) are required")
+	}
+	for _, ch := range r.Challenges {
+		if ch.Key == "" || len(ch.Key) > 64 || ch.EffectiveAt.IsZero() || len(ch.WinningTribes) == 0 || (ch.Kind != "immunity" && ch.Kind != "reward") {
+			return errors.New("each challenge needs a key (1-64 characters), kind immunity or reward, winning_tribes and effective_at")
+		}
+	}
+	return nil
+}
+
+// applyEpisodeImport records an episode's results inside tx, which must hold the instance lock; the caller
+// commits. Replaying the same results is "unchanged"; different results for an imported episode conflict.
+func (s *Server) applyEpisodeImport(ctx context.Context, tx pgx.Tx, qtx *db.Queries, instanceID uuid.UUID, req episodeImportRequest) (gin.H, error) {
+	fingerprint := req.fingerprint()
 	var stored string
 	err := tx.QueryRow(ctx, `SELECT e.fingerprint FROM episode_imports e JOIN instances i ON i.id = e.instance_id
 		WHERE i.public_id = $1 AND e.episode_number = $2`, toPGUUID(instanceID), req.EpisodeNumber).Scan(&stored)
 	switch {
 	case err == nil && stored == fingerprint:
-		c.JSON(http.StatusOK, gin.H{"status": "unchanged"})
-		return
+		return gin.H{"status": "unchanged"}, nil
 	case err == nil:
-		c.JSON(http.StatusConflict, errorResponse{Error: fmt.Sprintf("episode %d was already imported with different results; an admin needs to review it", req.EpisodeNumber)})
-		return
+		return nil, progressionError(http.StatusConflict, fmt.Sprintf("episode %d was already imported with different results; an admin needs to review it", req.EpisodeNumber))
 	case !errors.Is(err, pgx.ErrNoRows):
-		writeTribeError(c, err)
-		return
+		return nil, err
 	}
-
 	recorded, err := s.applyImportBoots(ctx, qtx, instanceID, req.Boots)
 	if err != nil {
-		writeTribeError(c, err)
-		return
+		return nil, err
 	}
 	awarded := 0
 	keys := make([]string, 0, len(req.Challenges))
 	for _, ch := range req.Challenges {
 		_, n, _, err := applyTribeChallenge(ctx, tx, qtx, instanceID, append([]string{ch.Key}, ch.LegacyKeys...), ch.Kind, ch.WinningTribes, ch.EffectiveAt.UTC().Truncate(time.Microsecond))
 		if err != nil {
-			writeTribeError(c, err)
-			return
+			return nil, err
 		}
 		awarded += n
 		keys = append(keys, ch.Key)
@@ -136,14 +152,9 @@ func (s *Server) importEpisode(c *gin.Context) {
 	if _, err := tx.Exec(ctx, `INSERT INTO episode_imports (instance_id, episode_number, source, source_revision, boot_positions, challenge_keys, fingerprint, applied_at)
 		SELECT id, $2, $3, $4, $5, $6, $7, $8 FROM instances WHERE public_id = $1`,
 		toPGUUID(instanceID), req.EpisodeNumber, req.Source, req.SourceRevision, positions, keys, fingerprint, s.now()); err != nil {
-		writeTribeError(c, err)
-		return
+		return nil, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		writeTribeError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, gin.H{"status": "applied", "outcomes_recorded": recorded, "challenge_awards": awarded})
+	return gin.H{"status": "applied", "outcomes_recorded": recorded, "challenge_awards": awarded}, nil
 }
 
 // applyImportBoots places each booted contestant, or confirms they're already placed there.

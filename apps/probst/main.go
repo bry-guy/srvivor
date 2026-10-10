@@ -569,6 +569,7 @@ func newCommand() *cobra.Command {
 	})
 	addSeasonCommands(root, call, instancePath, &yes, &discordBotToken)
 	addEpisodeSync(root, call, instancePath, &yes)
+	addEpisodeImportCommand(episodeCommand(root), seasonCommand(root), call, &yes)
 	addRecapCommand(root, call, instancePath, &instance)
 	addLoginCommands(root, &server)
 	admins := &cobra.Command{Use: "admin", Short: "Instance admins (Discord users)"}

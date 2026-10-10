@@ -90,7 +90,7 @@ op reviseAnnouncement(@path announcementID: string, @body body: { admin_discord_
 
 @route("/instances/{instanceID}/admin-alerts/{alertKey}")
 @put
-op raiseAdminAlert(@path instanceID: string, @path alertKey: string, @body body: { body: string; }): { created: boolean; } | ErrorResponse;
+op raiseAdminAlert(@path instanceID: string, @path alertKey: string, @body body: { body: string; action?: { kind: "episode_import"; payload: Record<unknown>; }; }): { created: boolean; } | ErrorResponse;
 
 @route("/instances/{instanceID}/scheduled-games")
 @get
@@ -123,7 +123,11 @@ op upsertScorePost(@path instanceID: string, @path requestKey: string, @body bod
 
 @route("/admin-alerts/claim")
 @post
-op claimAdminAlert(@body body: { guild_ids: string[]; }): { alert: { id: string; body: string; } | null; admin_discord_user_ids?: string[]; } | ErrorResponse;
+op claimAdminAlert(@body body: { guild_ids: string[]; }): { alert: { id: string; body: string; revision?: string | null; } | null; admin_discord_user_ids?: string[]; } | ErrorResponse;
+
+@route("/admin-alerts/{alertID}/approve")
+@post
+op approveAdminAction(@path alertID: string, @body body: { revision: string; }): Record<unknown> | ErrorResponse;
 
 @route("/admin-alerts/{alertID}/delivered")
 @post

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Episode imports that need judgment (medevac/quit, two people leaving) are DMed to admins as an exact proposal; replying **yes** records it (`POST /admin-alerts/:id/approve`, revision-bound). `probst episode import N --file F` replaces `season import`/`episode sync`.
+
 - Spell It Out is now called **Island Scramble** (display name only; `spell_it_out`, URLs and data unchanged).
 - Tests use their own season files (`testdata/`), so `seasons/*.yaml` can change freely; added a non-Wednesday/DST/skip-week schedule test.
 

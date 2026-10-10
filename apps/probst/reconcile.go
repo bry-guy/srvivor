@@ -49,13 +49,22 @@ func (r *reconciler) logf(format string, args ...any) {
 // alert DMs the season's admins once per key.
 // Every alert but an expired post is also an open issue for the daily nudge.
 func (r *reconciler) alert(key, body string) error {
+	return r.raise(key, body, nil)
+}
+
+// raise queues an admin alert; with an action, admins approve it by replying "yes" and the server runs it.
+func (r *reconciler) raise(key, body string, action map[string]any) error {
 	if !strings.HasSuffix(key, "-expired") {
 		r.open = append(r.open, body)
 	}
 	var res struct {
 		Created bool `json:"created"`
 	}
-	if err := r.call(r.ctx, "PUT", r.path+"/admin-alerts/"+url.PathEscape(key), map[string]string{"body": body}, &res); err != nil {
+	req := map[string]any{"body": body}
+	if action != nil {
+		req["action"] = action
+	}
+	if err := r.call(r.ctx, "PUT", r.path+"/admin-alerts/"+url.PathEscape(key), req, &res); err != nil {
 		return err
 	}
 	if res.Created {
@@ -117,12 +126,16 @@ func (r *reconciler) importResults(done map[int][]int) error {
 			due, err := planTime(r.f.Weekly.Results.Due, r.airs[ep-1])
 			if err == nil && r.now.After(due) {
 				errs = append(errs, r.alert(key+"-results-missing", fmt.Sprintf("⚠️ **Episode %d results aren't in survivoR yet** (%s). The Week %d scores post waits for them. "+
-					"Enter them by hand (`probst boot` / `probst challenge`), then run `probst season import seasons/%d.yaml --episode %d --resolve-holds --yes`.", ep, plan.Why, ep, r.f.Season, ep)))
+					"Enter them by hand (`probst boot` / `probst challenge`), then run `probst episode import %d --file seasons/%d.yaml --resolve-holds --yes`.", ep, plan.Why, ep, ep, r.f.Season)))
 			}
 		case len(plan.Holds) > 0:
 			errs = append(errs, r.alert(key+"-holds-"+hash8(strings.Join(plan.Holds, "\n")), fmt.Sprintf("⚠️ **Episode %d needs a decision before it can be scored:**\n• %s\n\n"+
-				"Record those by hand (`probst boot` / `probst challenge`), then run `probst season import seasons/%d.yaml --episode %d --resolve-holds --yes` to record the rest. "+
-				"The Week %d scores post waits until then.", ep, strings.Join(plan.Holds, "\n• "), r.f.Season, ep, ep)))
+				"Record those by hand (`probst boot` / `probst challenge`), then run `probst episode import %d --file seasons/%d.yaml --resolve-holds --yes` to record the rest. "+
+				"The Week %d scores post waits until then.", ep, strings.Join(plan.Holds, "\n• "), ep, r.f.Season, ep)))
+		case len(plan.Review) > 0:
+			if err := r.propose(key+"-import", plan); err != nil {
+				errs = append(errs, err)
+			}
 		default:
 			if err := r.applyPlan(plan, false); err != nil {
 				errs = append(errs, err)
@@ -132,21 +145,48 @@ func (r *reconciler) importResults(done map[int][]int) error {
 	return errors.Join(errs...)
 }
 
-func (r *reconciler) applyPlan(plan episodePlan, manual bool) error {
-	// Challenge times come from the server's episode schedule, as `probst challenge` does, so the same
-	// challenge entered either way lands at the same moment and is caught as a duplicate.
-	episodes, err := loadEpisodes(r.ctx, r.call, r.path)
+// propose DMs admins the exact import for an episode that needs judgment (like two people leaving);
+// replying "yes" records it. If survivoR changes before then, the alert is replaced and the old yes refused.
+func (r *reconciler) propose(key string, plan episodePlan) error {
+	body, err := r.importRequest(plan, false)
 	if err != nil {
 		return err
 	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "🗳️ **Episode %d results need your OK** (survivoR %s):\n• %s\n\nThis will record:", plan.Episode, shortRev(plan.Revision), strings.Join(plan.Review, "\n• "))
+	for _, x := range plan.Boots {
+		fmt.Fprintf(&b, "\n• %s: place %d (%s)", x.Name, x.Position, x.Result)
+	}
+	for _, ch := range plan.Challenges {
+		fmt.Fprintf(&b, "\n• %s won %s: %s each", strings.Join(ch.Tribes, ", "), ch.Kind, map[string]string{"immunity": "+2", "reward": "+1"}[ch.Kind])
+	}
+	fmt.Fprintf(&b, "\n\nThe Week %d scores post waits until then.", plan.Episode)
+	return r.raise(key, b.String(), map[string]any{"kind": "episode_import", "payload": body})
+}
+
+// importRequest is the server import for a plan, with challenge times from the server's episode schedule
+// (as `probst challenge` uses), so the same challenge entered either way is caught as a duplicate.
+func (r *reconciler) importRequest(plan episodePlan, manual bool) (map[string]any, error) {
+	episodes, err := loadEpisodes(r.ctx, r.call, r.path)
+	if err != nil {
+		return nil, err
+	}
 	ep, err := findEpisode(episodes, plan.Episode)
+	if err != nil {
+		return nil, err
+	}
+	return plan.importBody(ep.AirsAt, manual), nil
+}
+
+func (r *reconciler) applyPlan(plan episodePlan, manual bool) error {
+	body, err := r.importRequest(plan, manual)
 	if err != nil {
 		return err
 	}
 	var res struct {
 		Status string `json:"status"`
 	}
-	err = r.call(r.ctx, "POST", r.path+"/episode-imports", plan.importBody(ep.AirsAt, manual), &res)
+	err = r.call(r.ctx, "POST", r.path+"/episode-imports", body, &res)
 	if err != nil && strings.Contains(err.Error(), "409") {
 		return r.alert(fmt.Sprintf("s%d-ep%d-conflict-%s", r.f.Season, plan.Episode, hash8(err.Error())), fmt.Sprintf(
 			"⚠️ **Episode %d results conflict with what's already recorded**, so nothing was imported: %v\n\nCheck the outcomes and challenges for that episode.", plan.Episode, err))
@@ -396,40 +436,64 @@ func addSeasonReconcileCommand(season *cobra.Command, call apiCall) {
 	})
 }
 
-// `probst season import`: the same import by hand, e.g. after recording held items.
-func addEpisodeImportCommand(season *cobra.Command, call apiCall, yes *bool) {
+// `probst episode import N --file F`: the same import the scheduled job runs, by hand. Items that need
+// judgment are imported too when run by hand (you're the one approving); holds still need --resolve-holds.
+func addEpisodeImportCommand(episodeCmd, season *cobra.Command, call apiCall, yes *bool) {
+	var file string
 	var episode int
 	var resolveHolds bool
+	run := func(c *cobra.Command) error {
+		r, err := newReconciler(c, call, file)
+		if err != nil {
+			return err
+		}
+		if episode < 1 || episode > len(r.airs) {
+			return fmt.Errorf("episode must be 1-%d", len(r.airs))
+		}
+		plan, err := r.fetchPlan(episode)
+		if err != nil {
+			return err
+		}
+		r.logf("%s", plan.describe())
+		switch {
+		case plan.Status != "ready" && !resolveHolds:
+			return fmt.Errorf("episode %d isn't complete in survivoR yet", episode)
+		case len(plan.Holds) > 0 && !resolveHolds:
+			return fmt.Errorf("episode %d has holds: record them by hand (`probst boot` / `probst challenge`), then re-run with --resolve-holds", episode)
+		case !*yes:
+			r.logf("Dry run — re-run with --yes to import.")
+			return nil
+		}
+		return r.applyPlan(plan, resolveHolds)
+	}
 	cmd := &cobra.Command{
-		Use:   "import FILE --episode N",
+		Use:   "import N --file SEASON_FILE",
 		Short: "Import an episode's results from survivoR all at once (dry run unless --yes)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, a []string) error {
-			r, err := newReconciler(c, call, a[0])
+			n, err := strconv.Atoi(a[0])
 			if err != nil {
-				return err
+				return fmt.Errorf("N must be an episode number")
 			}
-			if episode < 1 || episode > len(r.airs) {
-				return fmt.Errorf("--episode must be 1-%d", len(r.airs))
+			episode = n
+			if file == "" {
+				return fmt.Errorf("--file is required")
 			}
-			plan, err := r.fetchPlan(episode)
-			if err != nil {
-				return err
-			}
-			r.logf("%s", plan.describe())
-			switch {
-			case plan.Status != "ready" && !resolveHolds:
-				return fmt.Errorf("episode %d isn't complete in survivoR yet", episode)
-			case len(plan.Holds) > 0 && !resolveHolds:
-				return fmt.Errorf("episode %d has holds: record them by hand, then re-run with --resolve-holds", episode)
-			case !*yes:
-				r.logf("Dry run — re-run with --yes to import.")
-				return nil
-			}
-			return r.applyPlan(plan, resolveHolds)
+			return run(c)
 		},
 	}
-	cmd.Flags().IntVar(&episode, "episode", 0, "Episode number")
+	cmd.Flags().StringVar(&file, "file", "", "Season file, e.g. seasons/51.yaml")
 	cmd.Flags().BoolVar(&resolveHolds, "resolve-holds", false, "Held items were recorded by hand: import the rest and mark the episode done")
-	season.AddCommand(cmd)
+	episodeCmd.AddCommand(cmd)
+
+	alias := &cobra.Command{
+		Use: "import FILE --episode N", Hidden: true, Deprecated: "use `probst episode import N --file FILE`", Args: cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, a []string) error {
+			file = a[0]
+			return run(c)
+		},
+	}
+	alias.Flags().IntVar(&episode, "episode", 0, "Episode number")
+	alias.Flags().BoolVar(&resolveHolds, "resolve-holds", false, "Held items were recorded by hand: import the rest and mark the episode done")
+	season.AddCommand(alias)
 }
