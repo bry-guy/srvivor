@@ -122,6 +122,7 @@ func buildScoresPost(season, week int, now, prev []scoreRow, booted []string, si
 	if len(rows) < 2 {
 		return scoresPost{}, fmt.Errorf("need at least two players with drafts")
 	}
+	// Stable: equal totals keep the server's tiebreak order (draft points, then earliest draft).
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Total > rows[j].Total })
 	gain := func(r scoreRow) int { return r.Total - before[r.ID] }
 	who := func(match func(scoreRow) bool) []string {
@@ -328,18 +329,11 @@ func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []t
 			booted = append(booted, fmt.Sprintf("||%-14s||", "  "+shortName(o.Name)))
 		}
 	}
-	next := ""
-	if g := weekGame(f, week+1); g != "" && week < len(airs) {
-		if line, ok := gameLines[g]; ok {
-			opens, err := planTime(f.Weekly.Game.Opens, airs[week])
-			if err != nil {
-				return scoresPost{}, err
-			}
-			when := "tonight at " + strings.TrimSuffix(opens.Format("3:04pm"), ":00pm") + "pm ET"
-			next = fmt.Sprintf(line, when, "https://castaway.bry-guy.net")
-		}
+	next, err := nextGameLine(f, airs, week)
+	if err != nil {
+		return scoresPost{}, err
 	}
-	return buildScoresPost(f.Season, week, now.Leaderboard, prev.Leaderboard, booted, "https://castaway.bry-guy.net", next)
+	return buildScoresPost(f.Season, week, now.Leaderboard, prev.Leaderboard, booted, siteURL, next)
 }
 
 func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
@@ -413,4 +407,17 @@ func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
 			return nil
 		},
 	})
+}
+
+// nextGameLine announces next week's game, which opens with the episode the post follows.
+func nextGameLine(f seasonFile, airs []time.Time, week int) (string, error) {
+	line, ok := gameLines[weekGame(f, week+1)]
+	if !ok || week >= len(airs) {
+		return "", nil
+	}
+	opens, err := planTime(f.Weekly.Game.Opens, airs[week])
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(line, "tonight at "+strings.TrimSuffix(opens.Format("3:04pm"), ":00pm")+"pm ET", siteURL), nil
 }

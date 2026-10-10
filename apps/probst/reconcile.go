@@ -303,16 +303,8 @@ func (r *reconciler) bootNames(positions []int) ([]string, error) {
 }
 
 func (r *reconciler) nextGameLine(week int) string {
-	g := weekGame(r.f, week+1)
-	line, ok := gameLines[g]
-	if !ok || week >= len(r.airs) {
-		return ""
-	}
-	opens, err := planTime(r.f.Weekly.Game.Opens, r.airs[week])
-	if err != nil {
-		return ""
-	}
-	return fmt.Sprintf(line, "tonight at "+strings.TrimSuffix(opens.Format("3:04pm"), ":00pm")+"pm ET", siteURL)
+	line, _ := nextGameLine(r.f, r.airs, week)
+	return line
 }
 
 func (r *reconciler) run() error {
