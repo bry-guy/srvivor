@@ -112,10 +112,16 @@ func loadSeasonFile(path string) (seasonFile, error) {
 	if err != nil {
 		return f, err
 	}
+	return parseSeason(raw, path)
+}
+
+// parseSeason decodes a season file's contents (from disk or the synced database copy).
+func parseSeason(raw []byte, name string) (seasonFile, error) {
+	var f seasonFile
 	dec := yaml.NewDecoder(strings.NewReader(string(raw)))
 	dec.KnownFields(true)
 	if err := dec.Decode(&f); err != nil {
-		return f, fmt.Errorf("%s: %w", path, err)
+		return f, fmt.Errorf("%s: %w", name, err)
 	}
 	return f, nil
 }
@@ -295,7 +301,7 @@ func printTimeline(w io.Writer, items []planItem) {
 	}
 }
 
-func newSeasonCommand(call apiCall, guild *string, yes *bool) *cobra.Command {
+func newSeasonCommand(call apiCall, instance, guild *string, yes *bool) *cobra.Command {
 	season := &cobra.Command{Use: "season", Short: "Declarative season schedule (seasons/NN.yaml)"}
 	season.AddCommand(&cobra.Command{
 		Use:   "plan FILE",
@@ -330,7 +336,8 @@ func newSeasonCommand(call apiCall, guild *string, yes *bool) *cobra.Command {
 	addSeasonPostCommand(season, call, guild, yes)
 	addSeasonApplyCommand(season, call, yes)
 	addSeasonCheckCommand(season, call)
-	addSeasonReconcileCommand(season, call)
+	addSeasonReconcileCommand(season, call, instance)
+	addSeasonSyncCommand(season, call, yes)
 	return season
 }
 

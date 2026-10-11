@@ -154,7 +154,7 @@ func newCommand() *cobra.Command {
 		parent.AddCommand(&cobra.Command{Use: use, Args: cobra.ExactArgs(count), RunE: run})
 	}
 	root.AddCommand(newWeekCommand(call, &instance, &yes))
-	root.AddCommand(newSeasonCommand(call, &guild, &yes))
+	root.AddCommand(newSeasonCommand(call, &instance, &guild, &yes))
 	root.AddCommand(newGameAdminCommands(call, &yes)...)
 	auth := &cobra.Command{Use: "auth"}
 	root.AddCommand(auth)

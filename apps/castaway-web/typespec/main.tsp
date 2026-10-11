@@ -107,6 +107,16 @@ op importEpisode(@path instanceID: string, @body body: { episode_number: int32; 
 @get
 op listEpisodeImports(@path instanceID: string): { imports: { episode_number: int32; source: string; source_revision: string; boot_positions: int32[]; challenge_keys: string[]; applied_at: utcDateTime; }[]; } | ErrorResponse;
 
+model SeasonConfig { season_yaml: string; scores_template: string; revision: string; updated_at: utcDateTime; updated_by: string; }
+
+@route("/instances/{instanceID}/season-config")
+@get
+op getSeasonConfig(@path instanceID: string): SeasonConfig | ErrorResponse;
+
+@route("/instances/{instanceID}/season-config")
+@put
+op putSeasonConfig(@path instanceID: string, @body body: { season_yaml: string; scores_template: string; base_revision?: string; }): { revision: string; } | ErrorResponse;
+
 model ScoreSnapshot { week: int32; fingerprint: string; leaderboard: unknown[]; taken_at: utcDateTime; frozen: boolean; }
 
 @route("/instances/{instanceID}/score-snapshots/{week}")

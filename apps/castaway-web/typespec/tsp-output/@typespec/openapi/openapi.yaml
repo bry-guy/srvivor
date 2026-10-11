@@ -2577,6 +2577,62 @@ paths:
                 - phrase
                 - opens_at
                 - cutoff_at
+  /instances/{instanceID}/season-config:
+    get:
+      operationId: getSeasonConfig
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/SeasonConfig'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: putSeasonConfig
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      revision:
+                        type: string
+                    required:
+                      - revision
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                season_yaml:
+                  type: string
+                scores_template:
+                  type: string
+                base_revision:
+                  type: string
+              required:
+                - season_yaml
+                - scores_template
   /instances/{instanceID}/stir-the-pot/close:
     post:
       operationId: closeStirThePotRound
@@ -4672,6 +4728,26 @@ components:
           format: date-time
         frozen:
           type: boolean
+    SeasonConfig:
+      type: object
+      required:
+        - season_yaml
+        - scores_template
+        - revision
+        - updated_at
+        - updated_by
+      properties:
+        season_yaml:
+          type: string
+        scores_template:
+          type: string
+        revision:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
     SetAuctionBidRequest:
       type: object
       required:

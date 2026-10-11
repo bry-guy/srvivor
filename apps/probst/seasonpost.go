@@ -170,7 +170,16 @@ func buildScoresPost(season, week int, now, prev []scoreRow, booted []string, si
 }
 
 func renderScoresPost(tmplPath string, p scoresPost) (string, error) {
-	t, err := template.New(filepath.Base(tmplPath)).Option("missingkey=error").ParseFiles(tmplPath)
+	raw, err := os.ReadFile(tmplPath)
+	if err != nil {
+		return "", err
+	}
+	return renderScoresText(filepath.Base(tmplPath), string(raw), p)
+}
+
+// renderScoresText fills a scores template given as text (the synced database copy, or a file's contents).
+func renderScoresText(name, text string, p scoresPost) (string, error) {
+	t, err := template.New(name).Option("missingkey=error").Parse(text)
 	if err != nil {
 		return "", err
 	}

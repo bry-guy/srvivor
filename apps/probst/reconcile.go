@@ -29,15 +29,16 @@ type automationConfig struct {
 }
 
 type reconciler struct {
-	ctx  context.Context
-	call apiCall
-	f    seasonFile
-	airs []time.Time
-	now  time.Time
-	path string
-	tmpl string
-	out  io.Writer
-	open []string // this run's still-open issues, for the daily nudge
+	ctx      context.Context
+	call     apiCall
+	f        seasonFile
+	airs     []time.Time
+	now      time.Time
+	path     string
+	tmpl     string // scores template path (file mode), unless tmplText is set (synced database copy)
+	tmplText string
+	out      io.Writer
+	open     []string // this run's still-open issues, for the daily nudge
 	// fetchPlan is fetchEpisodePlan; tests swap it.
 	fetchPlan func(episode int) (episodePlan, error)
 }
@@ -294,6 +295,9 @@ func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions
 		return err
 	}
 	text, err := renderScoresPost(r.tmpl, p)
+	if r.tmplText != "" {
+		text, err = renderScoresText("scores", r.tmplText, p)
+	}
 	if err != nil {
 		return err
 	}
@@ -409,25 +413,62 @@ func newReconciler(c *cobra.Command, call apiCall, file string) (*reconciler, er
 	if err != nil {
 		return nil, err
 	}
+	return newReconcilerFor(c, call, f, tmpl, "")
+}
+
+// newSyncedReconciler runs from the season config synced into the database (`probst season sync`).
+func newSyncedReconciler(c *cobra.Command, call apiCall, instance string) (*reconciler, error) {
+	cfg, err := getSeasonConfig(c.Context(), call, instance)
+	if err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("no season config synced for instance %s; run `probst season sync FILE --yes`", instance)
+	}
+	f, err := parseSeason([]byte(cfg.SeasonYAML), "synced season config "+cfg.Revision)
+	if err != nil {
+		return nil, err
+	}
+	if f.Instance != instance {
+		return nil, fmt.Errorf("synced config is for instance %s, not %s", f.Instance, instance)
+	}
+	r, err := newReconcilerFor(c, call, f, "", cfg.ScoresTemplate)
+	if err == nil {
+		r.logf("season config revision %s (synced %s)", cfg.Revision, cfg.UpdatedAt.In(eastern()).Format("Jan 2 3:04pm"))
+	}
+	return r, err
+}
+
+func newReconcilerFor(c *cobra.Command, call apiCall, f seasonFile, tmpl, tmplText string) (*reconciler, error) {
 	now := time.Now()
 	_, airs, err := expandSeason(f, now)
 	if err != nil {
 		return nil, err
 	}
-	r := &reconciler{ctx: c.Context(), call: call, f: f, airs: airs, now: now, tmpl: tmpl, out: c.OutOrStdout(), path: "/instances/" + url.PathEscape(f.Instance)}
+	r := &reconciler{ctx: c.Context(), call: call, f: f, airs: airs, now: now, tmpl: tmpl, tmplText: tmplText, out: c.OutOrStdout(), path: "/instances/" + url.PathEscape(f.Instance)}
 	r.fetchPlan = func(ep int) (episodePlan, error) {
 		return fetchEpisodePlan(r.ctx, call, r.path, f.Season, ep, r.rules())
 	}
 	return r, nil
 }
 
-func addSeasonReconcileCommand(season *cobra.Command, call apiCall) {
+func addSeasonReconcileCommand(season *cobra.Command, call apiCall, instance *string) {
 	season.AddCommand(&cobra.Command{
-		Use:   "reconcile FILE",
+		Use:   "reconcile [FILE]",
 		Short: "Scheduled job: readiness alerts, survivoR results import, scores-post drafts for approval (never sends)",
-		Args:  cobra.ExactArgs(1),
+		Long: "Without FILE it runs the season config synced into the database for --instance (what the scheduled job does);\n" +
+			"with FILE it runs that file directly (local testing).",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, a []string) error {
-			r, err := newReconciler(c, call, a[0])
+			var r *reconciler
+			var err error
+			if len(a) == 1 {
+				r, err = newReconciler(c, call, a[0])
+			} else if *instance == "" {
+				return fmt.Errorf("--instance is required without FILE")
+			} else {
+				r, err = newSyncedReconciler(c, call, *instance)
+			}
 			if err != nil {
 				return err
 			}

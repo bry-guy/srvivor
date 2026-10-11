@@ -1,5 +1,6 @@
 # Castaway Season 51 — the whole season in one file. Read by `probst season plan/apply/post`;
-# automation: `probst season reconcile` runs this file every 5 minutes (see plans/season-schedule.md).
+# automation: after editing, `probst season sync seasons/51.yaml --yes` saves it to the database; the scheduled
+# `probst season reconcile` job runs that synced copy every 5 minutes, never this file (see plans/season-schedule.md).
 #
 # Conventions
 #   - All times are America/New_York. A bare time ("12:00") on a weekly item is relative to that week's

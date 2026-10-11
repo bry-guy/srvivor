@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Season config lives in the database: `probst season sync FILE` saves the season file and scores template (revision-checked, refuses on episode mismatches); the scheduled `season reconcile --instance ID` runs the synced copy.
+
 - Episode imports that need judgment (medevac/quit, two people leaving) are DMed to admins as an exact proposal; replying **yes** records it (`POST /admin-alerts/:id/approve`, revision-bound). `probst episode import N --file F` replaces `season import`/`episode sync`.
 
 - Spell It Out is now called **Island Scramble** (display name only; `spell_it_out`, URLs and data unchanged).
