@@ -75,6 +75,10 @@ func (s *Server) claimAdminAlert(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "guild_ids are required"})
 		return
 	}
+	if err := s.raiseStaleAutomationAlerts(c.Request.Context()); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
 	var id uuid.UUID
 	var instanceID uuid.UUID
 	var body string

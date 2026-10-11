@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -79,4 +80,35 @@ func (s *Server) putSeasonConfig(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"revision": rev})
+}
+
+// automationHeartbeat records a successful scheduled run for the instance's synced season.
+func (s *Server) automationHeartbeat(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok || !s.requireInstanceAdminRequest(c, instanceID) {
+		return
+	}
+	tag, err := s.pool.Exec(c.Request.Context(), `UPDATE season_configs sc SET heartbeat_at = $2 FROM instances i
+		WHERE i.id = sc.instance_id AND i.public_id = $1`, toPGUUID(instanceID), s.now())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "record heartbeat"})
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "no season config synced for this instance"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// raiseStaleAutomationAlerts queues one admin DM per stall (keyed by the last heartbeat) when a season's
+// scheduled job hasn't succeeded for 30 minutes. The bot's alert polling drives it, so a dead job can't hide.
+func (s *Server) raiseStaleAutomationAlerts(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO admin_alerts (instance_id, alert_key, body)
+		SELECT sc.instance_id, 'automation-stale-' || to_char(sc.heartbeat_at AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS'),
+			'⚠️ **Season automation hasn''t run successfully since ' || to_char(sc.heartbeat_at AT TIME ZONE 'America/New_York', 'Mon FMDD FMHH12:MIam') ||
+			' ET.** Scheduled imports, game checks and scores drafts are paused until it recovers. Check the probst-season-check CronJob logs.'
+		FROM season_configs sc WHERE sc.heartbeat_at < $1::timestamptz - interval '30 minutes'
+		ON CONFLICT (instance_id, alert_key) DO NOTHING`, s.now())
+	return err
 }

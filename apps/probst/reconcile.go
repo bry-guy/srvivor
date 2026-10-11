@@ -472,7 +472,13 @@ func addSeasonReconcileCommand(season *cobra.Command, call apiCall, instance *st
 			if err != nil {
 				return err
 			}
-			return r.run()
+			if err := r.run(); err != nil {
+				return err
+			}
+			if len(a) == 0 { // the scheduled job: tell the server it ran (a stale heartbeat DMs admins)
+				return call(c.Context(), "PUT", r.path+"/automation-heartbeat", nil, nil)
+			}
+			return nil
 		},
 	})
 }

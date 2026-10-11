@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/httpapi"
@@ -52,4 +54,66 @@ func TestSeasonConfigSync(t *testing.T) {
 		t.Fatalf("config = %v", got)
 	}
 	call("GET", "/instances/"+uuid.UUID(other.ID.Bytes).String()+"/season-config", "", "2001", http.StatusForbidden) // other instance
+}
+
+// A season whose scheduled job stops succeeding gets one admin DM per stall.
+func TestAutomationHeartbeatAlert(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, pool := integrationPool(t)
+	defer pool.Close()
+	resetDatabase(t, ctx, pool)
+	queries := db.New(pool)
+	instance := createInstanceForTest(t, ctx, queries, "Heartbeat", 51)
+	if _, err := queries.CreateInstanceAdmin(ctx, db.CreateInstanceAdminParams{InstanceID: instance.ID, DiscordUserID: "2001"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := queries.SetDiscordChannelBinding(ctx, db.SetDiscordChannelBindingParams{GuildID: "7001", ChannelID: "7002", InstanceID: instance.ID}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
+	router := httpapi.New(pool, httpapi.WithClock(func() time.Time { return now }), httpapi.WithServiceAuth(httpapi.ServiceAuthConfig{Enabled: true, BearerTokens: []string{"token"}})).Router()
+	path := "/instances/" + uuid.UUID(instance.ID.Bytes).String()
+	call := func(method, url, body, actor string, want int) map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, authorizedJSONRequest(method, url, body, "token", actor))
+		if rec.Code != want {
+			t.Fatalf("%s %s: %d %s", method, url, rec.Code, rec.Body.String())
+		}
+		out := map[string]any{}
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	claim := func() map[string]any {
+		if alert, ok := call("POST", "/admin-alerts/claim", `{"guild_ids":["7001"]}`, "", http.StatusOK)["alert"].(map[string]any); ok {
+			return alert
+		}
+		return nil
+	}
+
+	call("PUT", path+"/automation-heartbeat", "", "2001", http.StatusNotFound) // nothing synced yet
+	call("PUT", path+"/season-config", `{"season_yaml":"season: 51","scores_template":"hi"}`, "2001", http.StatusOK)
+	call("PUT", path+"/automation-heartbeat", "", "9999", http.StatusForbidden)
+	call("PUT", path+"/automation-heartbeat", "", "2001", http.StatusOK)
+	now = now.Add(29 * time.Minute)
+	if a := claim(); a != nil {
+		t.Fatalf("alerted while fresh: %v", a)
+	}
+	now = now.Add(2 * time.Minute)
+	a := claim()
+	if a == nil || !strings.Contains(fmt.Sprint(a["body"]), "hasn't run successfully since Oct 14 8:00am ET") {
+		t.Fatalf("stale alert = %v", a)
+	}
+	call("POST", "/admin-alerts/"+fmt.Sprint(a["id"])+"/delivered", "{}", "", http.StatusOK)
+	now = now.Add(time.Hour)
+	if again := claim(); again != nil {
+		t.Fatalf("alerted twice for one stall: %v", again)
+	}
+	call("PUT", path+"/automation-heartbeat", "", "2001", http.StatusOK) // recovers, then stalls again
+	now = now.Add(31 * time.Minute)
+	if next := claim(); next == nil {
+		t.Fatal("a second stall wasn't alerted")
+	}
 }

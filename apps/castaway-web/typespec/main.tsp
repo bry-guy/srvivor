@@ -117,6 +117,10 @@ op getSeasonConfig(@path instanceID: string): SeasonConfig | ErrorResponse;
 @put
 op putSeasonConfig(@path instanceID: string, @body body: { season_yaml: string; scores_template: string; base_revision?: string; }): { revision: string; } | ErrorResponse;
 
+@route("/instances/{instanceID}/automation-heartbeat")
+@put
+op automationHeartbeat(@path instanceID: string): { ok: boolean; } | ErrorResponse;
+
 model ScoreSnapshot { week: int32; fingerprint: string; leaderboard: unknown[]; taken_at: utcDateTime; frozen: boolean; }
 
 @route("/instances/{instanceID}/score-snapshots/{week}")

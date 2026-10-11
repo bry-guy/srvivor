@@ -213,7 +213,8 @@ A Kubernetes CronJob (`deploy/base/probst/cronjob.yaml`) runs `probst season rec
 It reads the season config synced into the database, not a file: after editing `seasons/NN.yaml` (or its
 `-scores.md` template), run `probst season sync seasons/NN.yaml` (dry run) then `--yes`. Sync refuses while the
 live episode schedule differs from the file, and a concurrent sync loses rather than overwriting.
-`probst season reconcile FILE` still runs a file directly for local testing.
+`probst season reconcile FILE` still runs a file directly for local testing. Each successful scheduled run
+stamps a heartbeat; if none lands for 30 minutes, admins get a DM (once per stall).
 It only acts when the file has `automation: {enabled: true}` (plus `from_week` and the channel's `guild`), and
 it never sends anything itself: posts go through the admin approval DM, everything else is a one-time admin
 DM. Each run:
