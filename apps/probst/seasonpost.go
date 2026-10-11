@@ -413,7 +413,7 @@ func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
 			if !*yes {
 				fmt.Fprintln(out, "Dry run — re-run with --yes to apply.")
 			}
-			return nil
+			return applyChampionRound(c, call, f, airs, *yes)
 		},
 	})
 }

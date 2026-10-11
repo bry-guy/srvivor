@@ -35,6 +35,7 @@ type sitePageData struct {
 	Game               *castawordleGameView
 	Button             *buttonView
 	Scramble           *scrambleView
+	Champion           *championView
 	GameEpisodes       []gameEpisode
 	TestGames          []gameEntry
 	SeasonID           string // /games?season=: a past season's games
@@ -46,7 +47,7 @@ type sitePageData struct {
 
 func loginReturnTo(candidate string) string {
 	// Old /castawordle links still return there (it redirects to /games).
-	if candidate == "/games" || candidate == "/me" || candidate == "/games/button" || candidate == "/games/scramble" || candidate == "/castawordle" || candidate == "/button" {
+	if candidate == "/games" || candidate == "/me" || candidate == "/games/button" || candidate == "/games/scramble" || candidate == "/games/champion" || candidate == "/castawordle" || candidate == "/button" {
 		return candidate
 	}
 	for _, prefix := range []string{"/games/castawordle/", "/games/button/", "/games/scramble/", "/castawordle/", "/button/", "/players/"} {

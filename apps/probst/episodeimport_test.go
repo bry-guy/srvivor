@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 	"testing"
 )
 
@@ -106,5 +107,49 @@ func TestPlanEpisode(t *testing.T) {
 	}
 	if p := planEpisode(ep2Data(), "rev", roster, importRules{TribeFrom: 2, MergeEpisode: 2}); len(p.Challenges) != 0 || len(p.Holds) != 1 {
 		t.Fatalf("merge: %s", p.describe())
+	}
+}
+
+// After the merge, challenges are won by castaways: their Champion pickers score. Any winner that isn't an
+// exact roster match holds the challenge; the merge episode itself holds (nobody's Champion is locked yet).
+func TestPlanEpisodeChampion(t *testing.T) {
+	roster := newRoster([]contestant{{ID: "ana-id", Name: "Ana Sani"}, {ID: "kyle-id", Name: "Kyle Ostwald"}, {ID: "jo-id", Name: "Jo Bloggs"}})
+	data := func(winners ...string) survivorEpisode {
+		d := ep2Data()
+		d.Episode = 9
+		d.Tables["episodes"] = append(d.Tables["episodes"], map[string]any{"episode": 9.0})
+		d.Tables["castaways"] = append(d.Tables["castaways"], map[string]any{"castaway_id": "US0003", "full_name": "Kyle Ostwald", "place": 0.0},
+			map[string]any{"castaway_id": "US0004", "full_name": "Jo Bloggs", "place": 0.0}, map[string]any{"castaway_id": "US0005", "full_name": "Mystery Person", "place": 0.0})
+		d.Tables["challenge_description"] = []map[string]any{{"challenge_id": 7.0, "name": "Balance"}, {"challenge_id": 8.0, "name": "Feast"}}
+		rows := []map[string]any{{"challenge_id": 7.0, "challenge_type": "Immunity", "outcome_type": "Individual", "castaway_id": "US0003", "won": 1.0},
+			{"challenge_id": 7.0, "challenge_type": "Immunity", "outcome_type": "Individual", "castaway_id": "US0004", "won": 0.0}}
+		for _, w := range winners { // team reward
+			rows = append(rows, map[string]any{"challenge_id": 8.0, "challenge_type": "Reward", "outcome_type": "Team", "castaway_id": w, "won": 1.0})
+		}
+		rows = append(rows, map[string]any{"challenge_id": 8.0, "challenge_type": "Reward", "outcome_type": "Team", "castaway_id": "US0001", "won": 0.0})
+		d.Tables["challenge_results"] = rows
+		return d
+	}
+	rules := importRules{TribeFrom: 2, MergeEpisode: 8}
+
+	p := planEpisode(data("US0003", "US0004"), "rev", roster, rules)
+	if len(p.Holds) != 0 || len(p.Challenges) != 0 || len(p.Champions) != 2 ||
+		p.Champions[0].Key != "survivor-ep9-c7-immunity" || p.Champions[0].Winners[0].ContestantID != "kyle-id" || len(p.Champions[0].Winners) != 1 ||
+		p.Champions[1].Kind != "reward" || len(p.Champions[1].Winners) != 2 {
+		t.Fatalf("post-merge: %s", p.describe())
+	}
+	body := p.importBody(time.Date(2030, 1, 1, 1, 0, 0, 0, time.UTC), false)
+	if ch := body["champion_challenges"].([]map[string]any); len(ch) != 2 || strings.Join(ch[1]["winners"].([]string), ",") != "kyle-id,jo-id" {
+		t.Fatalf("import body: %v", body)
+	}
+
+	if p := planEpisode(data("US0003", "US0005"), "rev", roster, rules); len(p.Champions) != 1 || len(p.Holds) != 1 || !strings.Contains(p.Holds[0], "Mystery Person") {
+		t.Fatalf("unmatched winner: %s", p.describe())
+	}
+	merge := data("US0003")
+	merge.Episode = 8
+	merge.Tables["episodes"] = append(merge.Tables["episodes"], map[string]any{"episode": 8.0})
+	if p := planEpisode(merge, "rev", roster, rules); len(p.Champions) != 0 || len(p.Holds) != 1 || !strings.Contains(p.Holds[0], "merge episode") {
+		t.Fatalf("merge episode: %s", p.describe())
 	}
 }

@@ -126,3 +126,13 @@ func (c *Client) ConfirmAdminAlert(ctx context.Context, id string) error {
 	var response map[string]any
 	return c.doJSONBody(ctx, "POST", c.endpoint(path.Join("/admin-alerts", id, "delivered")), nil, map[string]any{}, &response)
 }
+
+// PickChampion sets a player's Champion from their reply in a season's channel; it returns the castaway's name.
+func (c *Client) PickChampion(ctx context.Context, guildID, channelID, discordUserID, text string) (string, error) {
+	var response struct {
+		Contestant string `json:"contestant"`
+	}
+	err := c.doJSONBody(ctx, "PUT", c.endpoint(path.Join("/discord/guilds", guildID, "channels", channelID, "champion-pick")), nil,
+		map[string]any{"discord_user_id": discordUserID, "contestant": text}, &response)
+	return response.Contestant, err
+}

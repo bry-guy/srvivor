@@ -82,6 +82,7 @@ func (b *Bot) replayDraftThread(ctx context.Context, threadID string) {
 
 func (b *Bot) onMessageCreate(_ *discordgo.Session, m *discordgo.MessageCreate) {
 	b.handleAdminReply(context.Background(), m.Message)
+	b.handleChampionReply(context.Background(), m.Message)
 	b.handleDraftMessage(context.Background(), m.Message)
 }
 

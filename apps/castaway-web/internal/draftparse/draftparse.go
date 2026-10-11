@@ -362,3 +362,13 @@ func validate(picks []pick, roster []*Contestant, numbered bool) []string {
 func IsCandidate(d Draft, roster []*Contestant) bool {
 	return d.Matched >= min(15, len(roster))
 }
+
+// MatchOne resolves one free-text name the way draft lines are resolved: exact aliases, or a clear fuzzy
+// winner. Otherwise it returns nil and a hint ("could be A or B", "possible A; requires confirmation", or "").
+func MatchOne(text string, roster []*Contestant) (*Contestant, string) {
+	c, _, hint := matchName(normalize(text), roster)
+	if c == nil {
+		return nil, hint
+	}
+	return c, ""
+}

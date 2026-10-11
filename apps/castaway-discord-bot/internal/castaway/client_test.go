@@ -537,3 +537,26 @@ func TestDraftedHidesPlayersWithoutDrafts(t *testing.T) {
 		t.Fatalf("Drafted = %+v", got)
 	}
 }
+
+func TestPickChampion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if r.Method != "PUT" || r.URL.Path != "/discord/guilds/g1/channels/c1/champion-pick" || body["discord_user_id"] != "u1" || body["contestant"] != "xena" {
+			t.Fatalf("unexpected request %s %s %v", r.Method, r.URL.Path, body)
+		}
+		if _, err := w.Write([]byte(`{"contestant":"Xena Warrior"}`)); err != nil {
+			t.Fatal(err)
+		}
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, nil, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name, err := client.PickChampion(context.Background(), "g1", "c1", "u1", "xena"); err != nil || name != "Xena Warrior" {
+		t.Fatalf("pick = %q, %v", name, err)
+	}
+}

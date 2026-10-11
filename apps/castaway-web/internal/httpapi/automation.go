@@ -42,6 +42,15 @@ type episodeImportRequest struct {
 	SourceRevision string                   `json:"source_revision"`
 	Boots          []episodeImportBoot      `json:"boots"`
 	Challenges     []episodeImportChallenge `json:"challenges"`
+	// ChampionChallenges are post-merge challenges won by castaways (contestant public IDs).
+	ChampionChallenges []championImportChallenge `json:"champion_challenges"`
+}
+
+type championImportChallenge struct {
+	Key         string    `json:"key"`
+	Kind        string    `json:"kind"`
+	Winners     []string  `json:"winners"`
+	EffectiveAt time.Time `json:"effective_at"`
 }
 
 // fingerprint identifies the results (not where they came from), so a newer upstream revision with the
@@ -59,6 +68,11 @@ func (r episodeImportRequest) fingerprint() string {
 		}
 		sort.Strings(tribes)
 		challenges = append(challenges, ch.Key+"|"+strings.ToLower(ch.Kind)+"|"+strings.Join(tribes, ",")+"|"+ch.EffectiveAt.UTC().Format(time.RFC3339))
+	}
+	for _, ch := range r.ChampionChallenges { // absent before the merge, so earlier fingerprints are unchanged
+		winners := append([]string(nil), ch.Winners...)
+		sort.Strings(winners)
+		challenges = append(challenges, "champion:"+ch.Key+"|"+strings.ToLower(ch.Kind)+"|"+strings.ToLower(strings.Join(winners, ","))+"|"+ch.EffectiveAt.UTC().Format(time.RFC3339))
 	}
 	sort.Strings(boots)
 	sort.Strings(challenges)
@@ -113,6 +127,11 @@ func (r episodeImportRequest) validate() error {
 			return errors.New("each challenge needs a key (1-64 characters), kind immunity or reward, winning_tribes and effective_at")
 		}
 	}
+	for _, ch := range r.ChampionChallenges {
+		if ch.Key == "" || len(ch.Key) > 64 || ch.EffectiveAt.IsZero() || len(ch.Winners) == 0 || (ch.Kind != "immunity" && ch.Kind != "reward") {
+			return errors.New("each champion challenge needs a key (1-64 characters), kind immunity or reward, winners and effective_at")
+		}
+	}
 	return nil
 }
 
@@ -139,6 +158,14 @@ func (s *Server) applyEpisodeImport(ctx context.Context, tx pgx.Tx, qtx *db.Quer
 	keys := make([]string, 0, len(req.Challenges))
 	for _, ch := range req.Challenges {
 		_, n, _, err := applyTribeChallenge(ctx, tx, qtx, instanceID, append([]string{ch.Key}, ch.LegacyKeys...), ch.Kind, ch.WinningTribes, ch.EffectiveAt.UTC().Truncate(time.Microsecond))
+		if err != nil {
+			return nil, err
+		}
+		awarded += n
+		keys = append(keys, ch.Key)
+	}
+	for _, ch := range req.ChampionChallenges {
+		n, err := applyChampionChallenge(ctx, tx, qtx, instanceID, ch.Key, ch.Kind, ch.Winners, ch.EffectiveAt.UTC().Truncate(time.Microsecond))
 		if err != nil {
 			return nil, err
 		}

@@ -52,13 +52,22 @@ type episodePlan struct {
 	Why        string // for absent/incomplete
 	Boots      []planBoot
 	Challenges []planChallenge
-	Holds      []string // can't be imported: needs fixing by hand
-	Review     []string // importable, but an admin approves it first (by replying yes)
+	Champions  []planChampion // after the merge
+	Holds      []string       // can't be imported: needs fixing by hand
+	Review     []string       // importable, but an admin approves it first (by replying yes)
 }
 
 type planBoot struct {
 	Name, ContestantID, Result string
 	Position                   int
+}
+
+// planChampion is a post-merge challenge won by castaways; their locked pickers score.
+type planChampion struct {
+	Key     string
+	Kind    string
+	Winners []planBoot // Name and ContestantID
+	Label   string
 }
 
 type planChallenge struct {
@@ -133,6 +142,7 @@ func planEpisode(data survivorEpisode, revision string, roster []*contestant, ru
 	type result struct {
 		kind, outcome string
 		won, all      map[string]bool
+		winners       []string // castaway_ids of rows with won=1
 	}
 	results := map[int]*result{}
 	for _, r := range data.Tables["challenge_results"] {
@@ -146,6 +156,9 @@ func planEpisode(data survivorEpisode, revision string, roster []*contestant, ru
 		res.all[tribe] = true
 		if num(r["won"]) == 1 {
 			res.won[tribe] = true
+			if id := str(r["castaway_id"]); id != "" && !contains(res.winners, id) {
+				res.winners = append(res.winners, id)
+			}
 		}
 	}
 	if len(described) == 0 {
@@ -162,8 +175,45 @@ func planEpisode(data survivorEpisode, revision string, roster []*contestant, ru
 	}
 	sort.Ints(ids)
 	tribeScoring := rules.TribeFrom > 0 && data.Episode >= rules.TribeFrom && (rules.MergeEpisode == 0 || data.Episode < rules.MergeEpisode)
-	if rules.MergeEpisode > 0 && data.Episode >= rules.MergeEpisode {
-		p.Holds = append(p.Holds, "this is at or after the merge: Champion scoring isn't automated, record its challenges by hand")
+	if rules.MergeEpisode > 0 && data.Episode == rules.MergeEpisode {
+		p.Holds = append(p.Holds, "this is the merge episode: Tribe scoring has ended and Champions aren't locked yet, so its challenges don't score; confirm by hand")
+		return p
+	}
+	if rules.MergeEpisode > 0 && data.Episode > rules.MergeEpisode {
+		for _, id := range ids {
+			r := results[id]
+			label := fmt.Sprintf("challenge %d %q (%s %s)", id, described[id], r.outcome, r.kind)
+			kind := strings.ToLower(r.kind)
+			var kinds []string
+			for _, k := range []string{"immunity", "reward"} {
+				if strings.Contains(kind, k) {
+					kinds = append(kinds, k)
+				}
+			}
+			if len(kinds) == 0 {
+				continue
+			}
+			var winners []planBoot
+			for _, cid := range r.winners {
+				name := str(places[cid]["full_name"])
+				match, method, _ := matchName(normalize(name), roster)
+				if match == nil || method != "exact" {
+					p.Holds = append(p.Holds, fmt.Sprintf("%s: winner %q doesn't exactly match a contestant", label, name))
+					winners = nil
+					break
+				}
+				winners = append(winners, planBoot{Name: match.Name, ContestantID: match.ID})
+			}
+			if len(r.winners) == 0 {
+				p.Holds = append(p.Holds, label+": no winner listed, decide by hand")
+			}
+			if len(winners) == 0 {
+				continue
+			}
+			for _, k := range kinds {
+				p.Champions = append(p.Champions, planChampion{Key: fmt.Sprintf("survivor-ep%d-c%d-%s", data.Episode, id, k), Kind: k, Winners: winners, Label: label})
+			}
+		}
 		return p
 	}
 	if !tribeScoring {
@@ -222,6 +272,15 @@ func (p episodePlan) importBody(airsAt time.Time, manual bool) map[string]any {
 	for _, b := range p.Boots {
 		boots = append(boots, map[string]any{"position": b.Position, "contestant_id": b.ContestantID})
 	}
+	champions := []map[string]any{}
+	for _, ch := range p.Champions {
+		ids := []string{}
+		for _, w := range ch.Winners {
+			ids = append(ids, w.ContestantID)
+		}
+		champions = append(champions, map[string]any{"key": ch.Key, "kind": ch.Kind, "winners": ids,
+			"effective_at": airsAt.Add(challengeOffset).UTC().Format(time.RFC3339)})
+	}
 	challenges := []map[string]any{}
 	for _, ch := range p.Challenges {
 		challenges = append(challenges, map[string]any{"key": ch.Key, "legacy_keys": ch.LegacyKeys, "kind": ch.Kind, "winning_tribes": ch.Tribes,
@@ -231,7 +290,7 @@ func (p episodePlan) importBody(airsAt time.Time, manual bool) map[string]any {
 	if manual {
 		source = "manual"
 	}
-	return map[string]any{"episode_number": p.Episode, "source": source, "source_revision": p.Revision, "boots": boots, "challenges": challenges}
+	return map[string]any{"episode_number": p.Episode, "source": source, "source_revision": p.Revision, "boots": boots, "challenges": challenges, "champion_challenges": champions}
 }
 
 func (p episodePlan) describe() string {
@@ -245,6 +304,13 @@ func (p episodePlan) describe() string {
 	}
 	for _, ch := range p.Challenges {
 		fmt.Fprintf(&b, "\n  %s: %s won %s", ch.Label, strings.Join(ch.Tribes, ", "), ch.Kind)
+	}
+	for _, ch := range p.Champions {
+		var names []string
+		for _, w := range ch.Winners {
+			names = append(names, w.Name)
+		}
+		fmt.Fprintf(&b, "\n  %s: %s won %s (their Champion pickers score)", ch.Label, strings.Join(names, ", "), ch.Kind)
 	}
 	for _, r := range p.Review {
 		fmt.Fprintf(&b, "\n  REVIEW: %s", r)

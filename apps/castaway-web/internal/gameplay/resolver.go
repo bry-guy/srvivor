@@ -147,6 +147,8 @@ func (s *Service) ResolveActivityOccurrence(ctx context.Context, occurrenceID pg
 		entries, err = s.resolveIndividualPony(ctx, resolverCtx)
 	case TribeChallengeActivityType:
 		entries, err = s.resolveTribeChallenge(ctx, resolverCtx)
+	case ChampionChallengeActivityType:
+		entries, err = s.resolveChampionChallenge(resolverCtx)
 	default:
 		return nil, fmt.Errorf("unsupported activity type %q", activity.ActivityType)
 	}

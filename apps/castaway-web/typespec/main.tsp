@@ -101,7 +101,7 @@ model EpisodeImportChallenge { key: string; legacy_keys?: string[]; kind: string
 
 @route("/instances/{instanceID}/episode-imports")
 @post
-op importEpisode(@path instanceID: string, @body body: { episode_number: int32; source: string; source_revision?: string; boots: EpisodeImportBoot[]; challenges: EpisodeImportChallenge[]; }): { status: string; outcomes_recorded?: int32; challenge_awards?: int32; } | ErrorResponse;
+op importEpisode(@path instanceID: string, @body body: { episode_number: int32; source: string; source_revision?: string; boots: EpisodeImportBoot[]; challenges: EpisodeImportChallenge[]; champion_challenges?: { key: string; kind: string; winners: string[]; effective_at: utcDateTime; }[]; }): { status: string; outcomes_recorded?: int32; challenge_awards?: int32; } | ErrorResponse;
 
 @route("/instances/{instanceID}/episode-imports")
 @get
@@ -120,6 +120,20 @@ op putSeasonConfig(@path instanceID: string, @body body: { season_yaml: string; 
 @route("/instances/{instanceID}/automation-heartbeat")
 @put
 op automationHeartbeat(@path instanceID: string): { ok: boolean; } | ErrorResponse;
+
+model ChampionRound { merge_episode: int32; opens_at: utcDateTime; locks_at: utcDateTime; }
+
+@route("/instances/{instanceID}/champion-round")
+@put
+op putChampionRound(@path instanceID: string, @body body: ChampionRound): ChampionRound | ErrorResponse;
+
+@route("/instances/{instanceID}/champion-round")
+@get
+op getChampionRound(@path instanceID: string): { round: ChampionRound; picks?: { player: string; contestant: string; }[]; } | ErrorResponse;
+
+@route("/discord/guilds/{guildID}/channels/{channelID}/champion-pick")
+@put
+op putChampionPick(@path guildID: string, @path channelID: string, @body body: { discord_user_id: string; contestant: string; }): { contestant: string; } | ErrorResponse;
 
 model ScoreSnapshot { week: int32; fingerprint: string; leaderboard: unknown[]; taken_at: utcDateTime; frozen: boolean; }
 
