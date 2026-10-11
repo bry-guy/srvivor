@@ -59,6 +59,7 @@ type AnnouncementApproval struct {
 	Announcement *Announcement `json:"announcement"`
 	SendAt       time.Time     `json:"send_at"`
 	Revision     string        `json:"revision"`
+	Missed       bool          `json:"missed"` // its send time passed unapproved: ask to post it now
 	Admins       []string      `json:"admin_discord_user_ids"`
 }
 

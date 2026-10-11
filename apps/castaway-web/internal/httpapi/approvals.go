@@ -14,14 +14,14 @@ import (
 )
 
 // Approval gate: an announcement saved with an approval time stays a draft until an instance admin replies
-// "yes" to the bot's DM; then it sends at that time. Approval is only a gate: once the time passes it can't be
-// approved, and approving names the exact revision (text, channel, time, pings) the admin was shown. Editing
+// "yes" to the bot's DM; then it sends at that time. Approval is only a gate: approved after its time it posts right
+// away (admins get a "missed" DM offering that), and approving names the exact revision (text, channel, time, pings) the admin was shown. Editing
 // the text holds it again and re-asks, even after approval.
 
 // approvalRevision fingerprints what the admin reviewed.
 // approvalLateWindow is how long after its send time a held post can still be approved; approved late, it
-// posts right away. Past this it's stale and needs rescheduling.
-const approvalLateWindow = `interval '3 hours'`
+// posts right away. When the time passes unapproved, admins get a "missed" DM offering exactly that.
+const approvalLateWindow = `interval '7 days'`
 
 // An automated scores post also binds the standings it describes, so a DM sent before a rescore can't approve
 // the post afterwards (the fingerprint part is absent for other posts, keeping their revisions unchanged).
@@ -68,14 +68,17 @@ func (s *Server) claimAnnouncementApproval(c *gin.Context) {
 	var a announcementRecord
 	var sendAt time.Time
 	var revision string
+	var missed bool
 	var id, instanceID pgtype.UUID
+	// Either the first ask, or (asked before its time, still unapproved after it) the "missed" follow-up.
 	err := s.pool.QueryRow(c.Request.Context(), `
 		UPDATE announcements a SET approval_claimed_at = $1 FROM instances i
 		WHERE i.id = a.instance_id AND a.id = (SELECT id FROM announcements WHERE status = 'draft' AND approval_send_at > $1::timestamptz - `+approvalLateWindow+`
-			AND approval_notified_at IS NULL AND (approval_claimed_at IS NULL OR approval_claimed_at < $1 - interval '10 minutes')
+			AND (approval_notified_at IS NULL OR (approval_send_at <= $1 AND approval_notified_at < approval_send_at AND approval_missed_notified_at IS NULL))
+			AND (approval_claimed_at IS NULL OR approval_claimed_at < $1 - interval '10 minutes')
 			AND guild_id = ANY($2::text[]) ORDER BY approval_send_at LIMIT 1 FOR UPDATE SKIP LOCKED)
-		RETURNING a.id, i.public_id, a.channel_id, a.body, a.notify_users, a.approval_send_at, `+approvalRevision,
-		s.now(), req.GuildIDs).Scan(&id, &instanceID, &a.ChannelID, &a.Body, &a.NotifyUsers, &sendAt, &revision)
+		RETURNING a.id, i.public_id, a.channel_id, a.body, a.notify_users, a.approval_send_at, a.approval_notified_at IS NOT NULL, `+approvalRevision,
+		s.now(), req.GuildIDs).Scan(&id, &instanceID, &a.ChannelID, &a.Body, &a.NotifyUsers, &sendAt, &missed, &revision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusOK, gin.H{"announcement": nil})
 		return
@@ -90,7 +93,7 @@ func (s *Server) claimAnnouncementApproval(c *gin.Context) {
 		writeAnnouncementError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"announcement": a, "send_at": sendAt.UTC(), "revision": revision, "admin_discord_user_ids": admins})
+	c.JSON(http.StatusOK, gin.H{"announcement": a, "send_at": sendAt.UTC(), "revision": revision, "missed": missed, "admin_discord_user_ids": admins})
 }
 
 // approveAnnouncement schedules an approval-gated announcement on an instance admin's say-so.
@@ -175,7 +178,8 @@ func (s *Server) confirmApprovalDelivery(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "announcement id and revision are required"})
 		return
 	}
-	if _, err := s.pool.Exec(c.Request.Context(), `UPDATE announcements a SET approval_notified_at = $3
+	if _, err := s.pool.Exec(c.Request.Context(), `UPDATE announcements a SET approval_notified_at = COALESCE(a.approval_notified_at, $3),
+			approval_missed_notified_at = CASE WHEN a.approval_notified_at IS NULL THEN a.approval_missed_notified_at ELSE $3 END
 		WHERE a.id = $1 AND a.status = 'draft' AND `+approvalRevision+` = $2`, id, req.Revision, s.now()); err != nil {
 		writeAnnouncementError(c, err)
 		return

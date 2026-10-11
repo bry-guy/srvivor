@@ -262,6 +262,8 @@ paths:
                         format: date-time
                       revision:
                         type: string
+                      missed:
+                        type: boolean
                       admin_discord_user_ids:
                         type: array
                         items:

@@ -48,6 +48,7 @@ func TestAdminDMActions(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"announcement"`
 		Revision    string   `json:"revision"`
+		Missed      bool     `json:"missed"`
 		Admins      []string `json:"admin_discord_user_ids"`
 		ScheduledAt string   `json:"scheduled_at"`
 		Status      string   `json:"status"`
@@ -149,10 +150,34 @@ func TestAdminDMActions(t *testing.T) {
 	lateID := late.Announcement.ID
 	call(http.MethodPut, path+"/announcements/"+lateID+"/approval", `{"send_at":"2026-10-07T17:00:00Z"}`, "2001", http.StatusOK)
 	lateRevision := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK).Revision
+	delivered := `{"revision":"` + lateRevision + `"}`
+	call(http.MethodPost, "/announcements/"+lateID+"/approval-delivered", delivered, "", http.StatusOK)
+	if again := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK); again.Announcement != nil {
+		t.Fatal("asked twice before its time")
+	}
 	now = time.Date(2026, 10, 7, 17, 1, 0, 0, time.UTC)
 	if got := call(http.MethodPost, "/announcements/claim", `{"guild_ids":["7001"]}`, "", http.StatusOK); got.Announcement != nil {
 		t.Fatal("a late, unapproved post was sent")
 	}
+	// Its time passed unapproved: one "missed" DM, for the same revision.
+	if missed := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK); !missed.Missed || missed.Revision != lateRevision {
+		t.Fatalf("missed-time DM: %+v", missed)
+	}
+	call(http.MethodPost, "/announcements/"+lateID+"/approval-delivered", delivered, "", http.StatusOK)
+	if again := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK); again.Announcement != nil {
+		t.Fatal("missed DM sent twice")
+	}
+	// Replying with new text to the missed DM re-asks once (not as "missed"); approving that posts now.
+	call(http.MethodPost, "/announcements/"+lateID+"/revise", fmt.Sprintf(`{"admin_discord_user_id":"2001","revision":%q,"body":"Late post, fixed"}`, lateRevision), "", http.StatusOK)
+	reask := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK)
+	if reask.Missed || reask.Revision == lateRevision {
+		t.Fatalf("re-ask after a late edit: %+v", reask)
+	}
+	call(http.MethodPost, "/announcements/"+lateID+"/approval-delivered", `{"revision":"`+reask.Revision+`"}`, "", http.StatusOK)
+	if again := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK); again.Announcement != nil {
+		t.Fatal("a late edit got a second missed DM")
+	}
+	lateRevision = reask.Revision
 	if approved := call(http.MethodPost, "/announcements/"+lateID+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"2001","revision":%q}`, lateRevision), "", http.StatusOK); approved.ScheduledAt != "2026-10-07T17:01:00Z" {
 		t.Fatalf("late approval should post now: %v", approved)
 	}
@@ -163,7 +188,7 @@ func TestAdminDMActions(t *testing.T) {
 	stale := call(http.MethodPost, path+"/announcements", `{"guild_id":"7001","channel_id":"7002","request_key":"stale","body":"Stale post","draft":true}`, "2001", http.StatusOK)
 	call(http.MethodPut, path+"/announcements/"+stale.Announcement.ID+"/approval", `{"send_at":"2026-10-07T17:30:00Z"}`, "2001", http.StatusOK)
 	staleRevision := call(http.MethodPost, claimPath, claimBody, "", http.StatusOK).Revision
-	now = time.Date(2026, 10, 7, 20, 31, 0, 0, time.UTC)
+	now = time.Date(2026, 10, 14, 17, 31, 0, 0, time.UTC) // more than 7 days late
 	call(http.MethodPost, "/announcements/"+stale.Announcement.ID+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"2001","revision":%q}`, staleRevision), "", http.StatusConflict)
 	now = time.Date(2026, 10, 7, 17, 1, 0, 0, time.UTC)
 

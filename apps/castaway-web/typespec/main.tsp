@@ -78,7 +78,7 @@ op resolveScrambleGame(@path gameID: string): { awards: Record<int32>; } | Error
 
 @route("/announcements/approvals/claim")
 @post
-op claimAnnouncementApproval(@body body: { guild_ids: string[]; }): { announcement: unknown | null; send_at?: utcDateTime; revision?: string; admin_discord_user_ids?: string[]; } | ErrorResponse;
+op claimAnnouncementApproval(@body body: { guild_ids: string[]; }): { announcement: unknown | null; send_at?: utcDateTime; revision?: string; missed?: boolean; admin_discord_user_ids?: string[]; } | ErrorResponse;
 
 @route("/announcements/{announcementID}/approve")
 @post

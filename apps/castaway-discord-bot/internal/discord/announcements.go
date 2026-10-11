@@ -177,6 +177,10 @@ func (b *Bot) notifyApproval(ctx context.Context) error {
 	}
 	ask := fmt.Sprintf("📝 The post above goes to <#%s> %s (%s). Reply **yes** to this message to approve it (approved after that time, it posts right away), or reply with the complete new text to replace it.\n\napproval `%s` `%s`",
 		a.Announcement.ChannelID, eastern(a.SendAt), pings, a.Announcement.ID, a.Revision)
+	if a.Missed {
+		ask = fmt.Sprintf("⏰ **Missed:** the post above was due in <#%s> %s and nobody approved it. Reply **yes** to this message to post it now (%s), or reply with the complete new text to replace it.\n\napproval `%s` `%s`",
+			a.Announcement.ChannelID, eastern(a.SendAt), pings, a.Announcement.ID, a.Revision)
+	}
 	// Each admin gets the prompt only after the post itself reached them. If anyone missed either, delivery
 	// isn't confirmed and the API offers it again in 10 minutes (admins who got it may get a repeat).
 	var failed []string
