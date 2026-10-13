@@ -15,9 +15,9 @@ For one-time local setup, create `~/.config/probst/config.json` with owner-only 
 
 ```json
 {
-  "api_url": "https://castaway.bry-guy.net",
+  "api_url": "https://castaway.bry-guy.net/api",
   "discord_user_id": "YOUR_DISCORD_USER_ID",
-  "token": "YOUR_CASTAWAY_SERVICE_TOKEN",
+  "token": "SET_BY_PROBST_LOGIN",
   "discord_bot_token": "YOUR_DISCORD_BOT_TOKEN",
   "aliases": {
     "podracing": {"instance": "INSTANCE_UUID", "guild": "GUILD_ID", "channel": "CHANNEL_ID"}
@@ -84,10 +84,10 @@ Player commands use API-owned guild/channel bindings; threads inherit a parent b
 These steps use Probst against the API. Check for an existing instance before `instance create`: repeating it creates another instance with the same name and season. Bootstrap retries for the same authorized admin and unchanged draft imports are safe; `player add` reuses a same-name player on a sequential retry but is not concurrency-safe idempotency.
 
 ```sh
-# Production access (operator machine on the tailnet with the selfhost kubeconfig):
-export PROBST_API_URL=https://castaway.bry-guy.net PROBST_DISCORD_USER_ID=235246238382030849
-export PROBST_TOKEN="$(kubectl get secret -n castaway castaway-web-secrets \
-  -o jsonpath='{.data.SERVICE_AUTH_BEARER_TOKENS}' | base64 -d | cut -d, -f1)"
+# Production access: the public /api requires a Discord login session and
+# rejects service tokens (those are only valid in-cluster on castaway-web:8080).
+export PROBST_API_URL=https://castaway.bry-guy.net/api PROBST_DISCORD_USER_ID=235246238382030849
+probst login
 
 probst instance create --name "Season 51 (BrainLand)" --season 51 --contestants-file seasons/51-contestants.txt
 probst instance bootstrap-admin INSTANCE              # makes PROBST_DISCORD_USER_ID the first admin
