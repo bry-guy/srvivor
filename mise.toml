@@ -97,43 +97,6 @@ mise run "castaway:check"
 description = "Check Castaway app selfhost prerequisites against the shared platform"
 run = "infra/scripts/castaway-preflight.sh"
 
-[tasks."castaway:postgres:target:restore"]
-description = "Fresh-backup and restore only Castaway databases into the replacement PostgreSQL target"
-run = '''
-#!/usr/bin/env bash
-set -euo pipefail
-
-infra_repo="${CASTAWAY_PLATFORM_INFRA_REPO_PATH:-$HOME/dev/infra}"
-target_host="${CASTAWAY_SELFHOST_POSTGRES_TARGET_SSH_HOST:-${CASTAWAY_SELFHOST_POSTGRES_TARGET_HOST:-platform-worker-1.tail9e13b.ts.net}}"
-target_user="${CASTAWAY_SELFHOST_POSTGRES_TARGET_SSH_USER:-fedora}"
-source_host="${CASTAWAY_SELFHOST_POSTGRES_SOURCE_HOST:-us-west-stateful-400}"
-confirmation="${1:-}"
-
-[ "$confirmation" = "restore-castaway-postgres" ] || {
-  echo 'refusing Castaway target restore without confirmation token "restore-castaway-postgres"' >&2
-  exit 2
-}
-[ "$#" -eq 1 ] || {
-  echo 'usage: mise run castaway:postgres:target:restore restore-castaway-postgres' >&2
-  exit 2
-}
-
-[ -d "$infra_repo" ] || {
-  echo "platform infra repo not found: $infra_repo" >&2
-  exit 1
-}
-
-# App passwords come from the castaway-selfhost profile. The nested infra
-# fnox invocation adds platform SSH access while preserving these app values;
-# neither profile writes secrets to command arguments.
-fnox exec -P castaway-selfhost -- bash -lc '
-  set -euo pipefail
-  mise -C "$1" run selfhost:platform:postgres:castaway:backup:run
-  mise -C "$1" run selfhost:platform:postgres:target:restore:castaway \
-    "$2" "$3" "$4" "$5"
-' bash "$infra_repo" "$target_host" "$target_user" "$source_host" "$confirmation"
-'''
-
 # --- registry -----------------------------------------------------------------
 
 [tasks."castaway:registry:pull-secret:apply"]

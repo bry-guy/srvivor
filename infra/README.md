@@ -21,12 +21,7 @@ By default these scripts use the current replacement platform:
 ~/.kube/selfhost-platform-7049-1.yaml
 ```
 
-The name identifies homelab 7049's first platform cluster. The legacy
-rollback cluster remains available through:
-
-```text
-~/.kube/selfhost-platform-us-west.yaml
-```
+The name identifies homelab 7049's first platform cluster.
 
 The replacement file is produced by the platform repository's replacement k3s
 workflow. You can override paths if needed:
@@ -46,7 +41,6 @@ From this repo, using the unified `castaway:*` verb taxonomy:
 
 ```bash
 mise run castaway:platform:check       # platform prerequisites
-mise run castaway:postgres:target:restore restore-castaway-postgres # restore Castaway DBs
 mise run castaway:registry:pull-secret:apply # private GHCR pull access
 mise run castaway:secrets:apply        # K8s secrets from 1Password
 mise run castaway:argocd:apply         # Argo CD project/application manifests
@@ -67,23 +61,14 @@ The published interface this app consumes from the shared platform is
 documented in `~/dev/infra/docs/selfhost-platform-contract.md`. App repos
 depend only on those names.
 
-The target restore is intentionally app-owned and destructive only to the two
-Castaway databases. It leaves unrelated platform databases and the platform
-`postgres` credential unchanged. Run it only after the replacement PostgreSQL
-backup/restore gates pass and before `castaway:apply`:
+Castaway's databases (`castaway_web`, `castaway_discord_bot`) live in the shared
+platform PostgreSQL and are covered by its backups. The platform repo's
+`mise run selfhost:platform:postgres:backup:restore:test` restores the latest
+backup into a disposable container and prints per-table row counts for both
+databases; a real restore uses that same snapshot. The one-time legacy
+migration restore task was removed after the cutover.
 
-```bash
-mise run castaway:postgres:target:restore restore-castaway-postgres
-```
-
-The restore task uses `platform-worker-1.tail9e13b.ts.net` as its default target
-SSH host now that `tag:platform` authorizes Fedora Tailscale SSH. Override it
-with `CASTAWAY_SELFHOST_POSTGRES_TARGET_SSH_HOST` when needed. This is only the
-administrative SSH path; Castaway's PostgreSQL application endpoint remains the
-separately configured LAN address and port.
-
-If the migration hook previously failed before the database restore, request
-one explicit retry after the restore:
+If a migration hook fails, request one explicit retry:
 
 ```bash
 mise run castaway:argocd:sync
