@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -132,7 +133,7 @@ func (b *Bot) notifyAccessRequest(ctx context.Context) error {
 	if err != nil || r == nil {
 		return err
 	}
-	text := fmt.Sprintf("🔑 Castaway website access request from <@%s> (%s, `%s`).\nApprove: `probst access approve %s NAME --instance INSTANCE`\nDeny: `probst access deny %s`", r.DiscordUserID, r.DiscordUsername, r.DiscordUserID, r.DiscordUserID, r.DiscordUserID)
+	text := messages.Fragment("access-request.md", map[string]any{"UserID": r.DiscordUserID, "Username": r.DiscordUsername})
 	dm, err := b.session.UserChannelCreate(b.adminContactID, discordgo.WithContext(ctx))
 	if err == nil {
 		_, err = b.session.ChannelMessageSendComplex(dm.ID, &discordgo.MessageSend{Content: text, AllowedMentions: allowedMentions(false)}, discordgo.WithContext(ctx))
@@ -152,7 +153,7 @@ func (b *Bot) notifyAdminAlert(ctx context.Context) error {
 	}
 	text := a.Alert.Body
 	if a.Alert.Revision != "" {
-		text += fmt.Sprintf("\n\nReply **yes** to this message to record exactly this.\naction `%s` `%s`", a.Alert.ID, a.Alert.Revision)
+		text += messages.Fragment("admin-alert-action", map[string]any{"ID": a.Alert.ID, "Revision": a.Alert.Revision})
 	}
 	if err := b.dmAdmins(ctx, a.Admins, text); err != nil {
 		return err
@@ -171,15 +172,10 @@ func (b *Bot) notifyApproval(ctx context.Context) error {
 	if len(a.Admins) == 0 {
 		return fmt.Errorf("announcement %s needs approval but its season has no admins", a.Announcement.ID)
 	}
-	pings := "no pings"
-	if a.Announcement.NotifyUsers {
-		pings = "@mentions ping those players"
-	}
-	ask := fmt.Sprintf("📝 The post above goes to <#%s> %s (%s). Reply **yes** to this message to approve it (approved after that time, it posts right away), or reply with the complete new text to replace it.\n\napproval `%s` `%s`",
-		a.Announcement.ChannelID, eastern(a.SendAt), pings, a.Announcement.ID, a.Revision)
+	prompt := map[string]any{"ChannelID": a.Announcement.ChannelID, "When": eastern(a.SendAt), "NotifyUsers": a.Announcement.NotifyUsers, "ID": a.Announcement.ID, "Revision": a.Revision}
+	ask := messages.Fragment("approval-prompt.md", prompt)
 	if a.Missed {
-		ask = fmt.Sprintf("⏰ **Missed:** the post above was due in <#%s> %s and nobody approved it. Reply **yes** to this message to post it now (%s), or reply with the complete new text to replace it.\n\napproval `%s` `%s`",
-			a.Announcement.ChannelID, eastern(a.SendAt), pings, a.Announcement.ID, a.Revision)
+		ask = messages.Fragment("approval-missed.md", prompt)
 	}
 	// Each admin gets the prompt only after the post itself reached them. If anyone missed either, delivery
 	// isn't confirmed and the API offers it again in 10 minutes (admins who got it may get a repeat).

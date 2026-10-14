@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -21,12 +22,11 @@ func (b *Bot) handleChampionReply(ctx context.Context, m *discordgo.Message) {
 	if err != nil || post.Author == nil || post.Author.ID != b.session.State.User.ID || !strings.Contains(post.Content, championPostMarker) {
 		return
 	}
-	text := "🏆 Your Champion: **%s**. You can change it until picks lock."
-	name, err := b.castaway.PickChampion(ctx, m.GuildID, m.ChannelID, m.Author.ID, strings.TrimSpace(m.Content))
-	if err != nil {
-		text = "Not picked: " + err.Error()
+	var text string
+	if name, err := b.castaway.PickChampion(ctx, m.GuildID, m.ChannelID, m.Author.ID, strings.TrimSpace(m.Content)); err != nil {
+		text = messages.Fragment("champion-not-picked", err.Error())
 	} else {
-		text = strings.Replace(text, "%s", name, 1)
+		text = messages.Fragment("champion-picked", map[string]any{"Name": name})
 	}
 	if _, err := b.session.ChannelMessageSendReply(m.ChannelID, text, m.Reference(), discordgo.WithContext(ctx)); err != nil {
 		b.log.Error("champion reply", "error", err)

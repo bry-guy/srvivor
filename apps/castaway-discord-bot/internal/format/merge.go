@@ -5,210 +5,129 @@ import (
 	"strings"
 
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 )
 
 func StirThePotStatus(instance castaway.Instance, status castaway.StirThePotStatus) string {
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**Season %d: Stir the Pot**\n", instance.Season))
-	if !status.Open {
-		builder.WriteString("Stir the Pot is not currently open.")
-		return TrimMessage(builder.String())
-	}
-	builder.WriteString(fmt.Sprintf("- Round: %s\n", status.Round.Name))
-	builder.WriteString(fmt.Sprintf("- Your contribution: %d\n", status.MyContributionPoints))
-	builder.WriteString(fmt.Sprintf("- Bonus points available: %d\n", status.BonusPointsAvailable))
-	if len(status.RewardTiers) > 0 {
-		builder.WriteString("- Reward tiers: ")
-		builder.WriteString(strings.Join(stirThePotRewardTierLabels(status.RewardTiers, false), ", "))
-	}
-	return TrimMessage(strings.TrimSpace(builder.String()))
+	return TrimMessage(messages.Render("stir-the-pot-status.md", map[string]any{
+		"Season": instance.Season, "Open": status.Open, "Round": status.Round.Name,
+		"Mine": status.MyContributionPoints, "Bonus": status.BonusPointsAvailable,
+		"Tiers": strings.Join(stirThePotRewardTierLabels(status.RewardTiers, false), ", "),
+	}))
 }
 
 func StirThePotTribeStatus(instance castaway.Instance, status castaway.StirThePotTribeStatus) string {
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**Season %d: Stir the Pot**\n", instance.Season))
-	builder.WriteString(fmt.Sprintf("- Tribe: %s\n", status.Tribe.Name))
-	if !status.Open {
-		builder.WriteString("Stir the Pot is not currently open.")
-		return TrimMessage(strings.TrimSpace(builder.String()))
+	data := map[string]any{
+		"Season": instance.Season, "Tribe": status.Tribe.Name, "Open": status.Open, "Round": status.Round.Name,
+		"Contribution": status.ContributionPoints, "BonusIfNow": status.BonusPointsIfResolvedNow,
+		"HasNext": false, "NextLabel": "", "NextNeeded": 0,
+		"Tiers": strings.Join(stirThePotRewardTierLabels(status.RewardTiers, false), ", "),
 	}
-	builder.WriteString(fmt.Sprintf("- Round: %s\n", status.Round.Name))
-	builder.WriteString(fmt.Sprintf("- Current contribution: %d\n", status.ContributionPoints))
-	builder.WriteString(fmt.Sprintf("- Bonus if resolved now: +%d\n", status.BonusPointsIfResolvedNow))
 	if nextTier, pointsNeeded, ok := nextStirThePotTier(status.ContributionPoints, status.RewardTiers, false); ok {
-		builder.WriteString(fmt.Sprintf("- Next tier: %s (%d more)\n", stirThePotRewardTierLabelForRound(nextTier, status.RewardTiers, false), pointsNeeded))
+		data["HasNext"] = true
+		data["NextLabel"] = stirThePotRewardTierLabelForRound(nextTier, status.RewardTiers, false)
+		data["NextNeeded"] = pointsNeeded
 	}
-	if len(status.RewardTiers) > 0 {
-		builder.WriteString("- Reward tiers: ")
-		builder.WriteString(strings.Join(stirThePotRewardTierLabels(status.RewardTiers, false), ", "))
-	}
-	return TrimMessage(strings.TrimSpace(builder.String()))
+	return TrimMessage(messages.Render("stir-the-pot-tribe-status.md", data))
 }
 
 func StirThePotContributionResult(instance castaway.Instance, result castaway.StirThePotContributionResult, self bool) string {
-	headline := fmt.Sprintf("Added %d points to the pot.", result.AddedPoints)
-	contributionLabel := "Your contribution"
-	if !self {
-		headline = fmt.Sprintf("Recorded %d Stir the Pot points for %s.", result.AddedPoints, result.Participant.Name)
-		contributionLabel = result.Participant.Name + " contribution"
-	}
-	return TrimMessage(strings.Join([]string{
-		fmt.Sprintf("**Season %d: Stir the Pot**", instance.Season),
-		headline,
-		fmt.Sprintf("- %s: %d", contributionLabel, result.MyContributionPoints),
-		fmt.Sprintf("- Bonus points available: %d", result.BonusPointsAvailable),
-	}, "\n"))
+	return TrimMessage(messages.Fragment("stir-the-pot-contribution.md", map[string]any{
+		"Season": instance.Season, "Self": self, "Added": result.AddedPoints, "Name": result.Participant.Name,
+		"Mine": result.MyContributionPoints, "Bonus": result.BonusPointsAvailable,
+	}))
 }
 
 func StirThePotStartResult(instance castaway.Instance, result castaway.StirThePotStartResult) string {
-	return TrimMessage(strings.Join([]string{
-		fmt.Sprintf("**Season %d: Stir the Pot**", instance.Season),
-		fmt.Sprintf("Opened %s.", result.Round.Name),
-		fmt.Sprintf("- Activity: %s", result.Activity.Name),
-	}, "\n"))
+	return TrimMessage(messages.Fragment("stir-the-pot-start.md", map[string]any{
+		"Season": instance.Season, "Round": result.Round.Name, "Activity": result.Activity.Name,
+	}))
 }
 
 func StirThePotCloseResult(instance castaway.Instance, result castaway.StirThePotCloseResult, announcedCount int) string {
-	lines := []string{
-		fmt.Sprintf("**Season %d: Stir the Pot**", instance.Season),
-		fmt.Sprintf("Closed %s.", result.Round.Name),
-		fmt.Sprintf("- Tribes resolved: %d", len(result.Tribes)),
-	}
-	if announcedCount > 0 {
-		lines = append(lines, fmt.Sprintf("- Jeff announcements sent: %d", announcedCount))
-	} else {
-		lines = append(lines, "- Jeff announcements sent: 0")
-	}
-	return TrimMessage(strings.Join(lines, "\n"))
+	return TrimMessage(messages.Fragment("stir-the-pot-close.md", map[string]any{
+		"Season": instance.Season, "Round": result.Round.Name, "Tribes": len(result.Tribes), "Announced": max(announcedCount, 0),
+	}))
 }
 
 func StirThePotCloseAnnouncement(tribeResult castaway.StirThePotClosedTribeResult) string {
-	return TrimMessage(fmt.Sprintf("Pots are closed. Here's what you got. %s, you contributed %d to the pot, which earns your immunity pony %s an additional %d possible points, for a total of %d points earned for each player of your tribe. Good luck!", tribeResult.Tribe.Name, tribeResult.ContributionPoints, tribeResult.Tribe.Name, tribeResult.BonusPointsEarned, tribeResult.TotalPotentialPonyPoints))
+	return TrimMessage(messages.Fragment("stir-the-pot-close-announcement.md", map[string]any{
+		"Tribe": tribeResult.Tribe.Name, "Contribution": tribeResult.ContributionPoints,
+		"Bonus": tribeResult.BonusPointsEarned, "Total": tribeResult.TotalPotentialPonyPoints,
+	}))
 }
 
 func AuctionStatus(instance castaway.Instance, status castaway.AuctionStatus) string {
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**Season %d: Individual Pony Auction**\n", instance.Season))
-	builder.WriteString(fmt.Sprintf("- Bonus points available: %d\n", status.BonusPointsAvailable))
-	builder.WriteString(fmt.Sprintf("- Loan due: %d\n", status.Loan.TotalDuePoints))
-	if !status.Open || len(status.OpenLots) == 0 {
-		builder.WriteString("\nNo open auction lots.")
-	} else {
-		builder.WriteString("\n**Open lots**\n")
-		for _, lot := range status.OpenLots {
-			builder.WriteString(fmt.Sprintf("- %s", lot.ContestantName))
-			if lot.MyBidPoints > 0 {
-				builder.WriteString(fmt.Sprintf(" — your bid: %d", lot.MyBidPoints))
-			}
-			builder.WriteString("\n")
-		}
-	}
-	if len(status.Ponies) > 0 {
-		builder.WriteString("\n**Your ponies**\n")
-		for _, pony := range status.Ponies {
-			builder.WriteString(fmt.Sprintf("- %s\n", pony.ContestantName))
-		}
-	}
-	return TrimMessage(strings.TrimSpace(builder.String()))
+	return TrimMessage(messages.Render("auction-status.md", map[string]any{
+		"Season": instance.Season, "Bonus": status.BonusPointsAvailable, "LoanDue": status.Loan.TotalDuePoints,
+		"NoLots": !status.Open || len(status.OpenLots) == 0, "Lots": status.OpenLots, "Ponies": status.Ponies,
+	}))
 }
 
 func AuctionBidResult(instance castaway.Instance, result castaway.AuctionBidResult, self bool) string {
-	headline := fmt.Sprintf("%s — your bid is now %d.", result.Contestant.Name, result.MyBidPoints)
-	if !self {
-		headline = fmt.Sprintf("%s — %s's bid is now %d.", result.Contestant.Name, result.Participant.Name, result.MyBidPoints)
-	}
-	return TrimMessage(strings.Join([]string{
-		fmt.Sprintf("**Season %d: Bid submitted**", instance.Season),
-		headline,
-		fmt.Sprintf("- Previous bid: %d", result.PreviousBidPoints),
-		fmt.Sprintf("- Bonus points available: %d", result.BonusPointsAvailable),
-	}, "\n"))
+	return TrimMessage(messages.Fragment("auction-bid.md", map[string]any{
+		"Season": instance.Season, "Self": self, "Contestant": result.Contestant.Name,
+		"Participant": result.Participant.Name, "Bid": result.MyBidPoints,
+		"Previous": result.PreviousBidPoints, "Bonus": result.BonusPointsAvailable,
+	}))
 }
 
 func AuctionLotStartResult(instance castaway.Instance, result castaway.AuctionLotStartResult) string {
-	return TrimMessage(strings.Join([]string{
-		fmt.Sprintf("**Season %d: Auction lot opened**", instance.Season),
-		fmt.Sprintf("%s is now open for bidding.", result.Contestant.Name),
-		fmt.Sprintf("- Lot: %s", result.Lot.Name),
-	}, "\n"))
+	return TrimMessage(messages.Fragment("auction-lot-start.md", map[string]any{
+		"Season": instance.Season, "Contestant": result.Contestant.Name, "Lot": result.Lot.Name,
+	}))
 }
 
 func AuctionLotStopResult(instance castaway.Instance, result castaway.AuctionLotStopResult) string {
-	lines := []string{
-		fmt.Sprintf("**Season %d: Auction lot resolved**", instance.Season),
-		fmt.Sprintf("%s closed at %d points.", result.Contestant.Name, result.PricePoints),
-		fmt.Sprintf("- Winning bid: %d", result.WinningBidPoints),
-	}
+	winner := ""
 	if result.Winner != nil {
-		lines = append(lines, fmt.Sprintf("- Winner: %s", result.Winner.ParticipantName))
-	} else {
-		lines = append(lines, "- Winner: none")
+		winner = result.Winner.ParticipantName
 	}
-	return TrimMessage(strings.Join(lines, "\n"))
+	return TrimMessage(messages.Fragment("auction-lot-stop.md", map[string]any{
+		"Season": instance.Season, "Contestant": result.Contestant.Name, "Price": result.PricePoints,
+		"Winning": result.WinningBidPoints, "HasWinner": result.Winner != nil, "Winner": winner,
+	}))
 }
 
 func BidList(instance castaway.Instance, status castaway.AuctionStatus) string {
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**Season %d: Your bids**\n", instance.Season))
-	count := 0
+	var bids []castaway.AuctionLotStatus
 	for _, lot := range status.OpenLots {
-		if lot.MyBidPoints <= 0 {
-			continue
+		if lot.MyBidPoints > 0 {
+			bids = append(bids, lot)
 		}
-		count++
-		builder.WriteString(fmt.Sprintf("- %s — %d\n", lot.ContestantName, lot.MyBidPoints))
 	}
-	if count == 0 {
-		builder.WriteString("No active bids.")
-	}
-	return TrimMessage(strings.TrimSpace(builder.String()))
+	return TrimMessage(messages.Render("bid-list.md", map[string]any{"Season": instance.Season, "Bids": bids}))
 }
 
 func PonyList(instance castaway.Instance, list castaway.PonyList) string {
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("**Season %d: Your ponies**\n", instance.Season))
-	if len(list.Ponies) == 0 {
-		builder.WriteString("You do not currently own any individual ponies.")
-		return TrimMessage(builder.String())
-	}
-	for _, pony := range list.Ponies {
-		builder.WriteString(fmt.Sprintf("- %s\n", pony.ContestantName))
-	}
-	return TrimMessage(strings.TrimSpace(builder.String()))
+	return TrimMessage(messages.Render("ponies.md", map[string]any{"Season": instance.Season, "Ponies": list.Ponies}))
 }
 
 func LoanStatus(instance castaway.Instance, response castaway.LoanStatusResponse) string {
 	loan := response.Loan
-	lines := []string{
-		fmt.Sprintf("**Season %d: Loan Shark**", instance.Season),
-		fmt.Sprintf("- Principal: %d", loan.PrincipalPoints),
-		fmt.Sprintf("- Interest: %d", loan.InterestPoints),
-		fmt.Sprintf("- Total due: %d", loan.TotalDuePoints),
-		fmt.Sprintf("- Remaining borrow: %d", loan.RemainingBorrowPoints),
-		fmt.Sprintf("- Bonus points available: %d", loan.BonusPointsAvailable),
-	}
+	dueAt := ""
 	if strings.TrimSpace(loan.DueAt) != "" {
-		lines = append(lines, fmt.Sprintf("- Due at: %s", formatTimeLong(loan.DueAt)))
+		dueAt = formatTimeLong(loan.DueAt)
 	}
-	return TrimMessage(strings.Join(lines, "\n"))
+	return TrimMessage(messages.Fragment("loan-status.md", map[string]any{
+		"Season": instance.Season, "Principal": loan.PrincipalPoints, "Interest": loan.InterestPoints,
+		"TotalDue": loan.TotalDuePoints, "Remaining": loan.RemainingBorrowPoints,
+		"Bonus": loan.BonusPointsAvailable, "DueAt": dueAt,
+	}))
 }
 
+// LoanActionResult takes the verb as rendered text (the loan-borrowed or loan-repaid template).
 func LoanActionResult(instance castaway.Instance, response castaway.LoanStatusResponse, verb string, points int) string {
-	return TrimMessage(strings.Join([]string{
-		fmt.Sprintf("**Season %d: Loan Shark**", instance.Season),
-		fmt.Sprintf("%s %d points.", verb, points),
-		fmt.Sprintf("- Total due: %d", response.Loan.TotalDuePoints),
-		fmt.Sprintf("- Remaining borrow: %d", response.Loan.RemainingBorrowPoints),
-		fmt.Sprintf("- Bonus points available: %d", response.Loan.BonusPointsAvailable),
-	}, "\n"))
+	return TrimMessage(messages.Fragment("loan-action.md", map[string]any{
+		"Season": instance.Season, "Verb": verb, "Points": points, "TotalDue": response.Loan.TotalDuePoints,
+		"Remaining": response.Loan.RemainingBorrowPoints, "Bonus": response.Loan.BonusPointsAvailable,
+	}))
 }
 
 func IndividualPonyImmunityResult(instance castaway.Instance, result castaway.IndividualPonyImmunityResult) string {
-	return TrimMessage(strings.Join([]string{
-		fmt.Sprintf("**Season %d: Individual Pony immunity**", instance.Season),
-		fmt.Sprintf("Recorded immunity for %s.", result.Contestant.Name),
-		fmt.Sprintf("- Created bonus entries: %d", result.CreatedCount),
-	}, "\n"))
+	return TrimMessage(messages.Fragment("pony-immunity.md", map[string]any{
+		"Season": instance.Season, "Name": result.Contestant.Name, "Created": result.CreatedCount,
+	}))
 }
 
 func nextStirThePotTier(currentContribution int, tiers []castaway.StirThePotRewardTier, revealFinalTier bool) (castaway.StirThePotRewardTier, int, bool) {
@@ -246,18 +165,10 @@ func isHiddenStirThePotTier(tier castaway.StirThePotRewardTier, tiers []castaway
 }
 
 func SecretRevealAnnouncement(participant castaway.Participant, revealedSecretPoints int) string {
-	label := strings.TrimSpace(participant.Name)
+	name := strings.TrimSpace(participant.Name)
 	discordUserID := strings.TrimSpace(participant.DiscordUserID)
-	if discordUserID != "" && label != "" {
-		label = fmt.Sprintf("<@%s> (%s)", discordUserID, label)
-	} else if discordUserID != "" {
-		label = fmt.Sprintf("<@%s>", discordUserID)
-	}
-	if label == "" || revealedSecretPoints <= 0 {
+	if (name == "" && discordUserID == "") || revealedSecretPoints <= 0 {
 		return ""
 	}
-	if revealedSecretPoints == 1 {
-		return fmt.Sprintf("%s has revealed a secret bonus point!", label)
-	}
-	return fmt.Sprintf("%s has revealed %d secret bonus points!", label, revealedSecretPoints)
+	return messages.Fragment("secret-reveal.md", map[string]any{"ID": discordUserID, "Name": name, "Count": revealedSecretPoints})
 }

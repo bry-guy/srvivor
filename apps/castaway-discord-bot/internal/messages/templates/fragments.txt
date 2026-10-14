@@ -1,0 +1,25 @@
+{{define "pings"}}{{if .NotifyUsers}}@mentions ping those players{{else}}no pings{{end}}{{end}}
+{{define "truncated-suffix"}}
+…(truncated){{end}}
+{{define "draft-problem-hint"}}
+
+Reply to this message with fixes, one per line, like `7. Thien An`.{{end}}
+{{define "admin-alert-action"}}
+
+Reply **yes** to this message to record exactly this.
+action `{{.ID}}` `{{.Revision}}`{{end}}
+{{define "instance-not-set"}}not set{{end}}
+{{define "instance-lookup-failed"}}lookup failed ({{.Error}}){{end}}
+{{define "instance-missing"}}missing instance ({{.ID}}){{end}}
+{{define "instance-with-episode"}}{{.Label}} (current: {{.Episode}}){{end}}
+{{define "instance-label"}}Season {{.Season}}{{with .Name}} — {{.}}{{end}}{{end}}
+{{define "leaderboard-line"}}{{.Rank}}. {{.Prefix}}{{.Name}}: {{.Total}} ({{.Draft}}+{{.Bonus}}){{end}}
+{{define "draft-truncated"}}
+…{{end}}
+{{define "kv"}}{{.Key}}={{.Value}}{{end}}
+{{define "labeled"}}{{.Label}}: {{.Value}}{{end}}
+{{define "more-count"}}+{{.N}} more{{end}}
+{{define "ledger-each"}}{{.Key}} each ({{.Count}}){{end}}
+{{define "episode-label"}}Episode {{.}}{{end}}
+{{define "history-label"}}History{{end}}
+{{define "recorded-event"}}Recorded event{{end}}

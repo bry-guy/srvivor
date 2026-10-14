@@ -3,12 +3,12 @@ package discord
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/format"
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -31,13 +31,13 @@ func (b *Bot) handlePotShow(ctx context.Context, interaction *discordgo.Interact
 	}
 	tribeName := strings.TrimSpace(optionString(command, "tribe"))
 	if tribeName == "" {
-		return "", fmt.Errorf("tribe name is required")
+		return "", messages.Err("tribe-name-required", nil)
 	}
 	status, err := b.castaway.GetStirThePotTribeStatus(ctx, instance.ID, interactionUserID(interaction), tribeName)
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("pot show is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "pot show"})
 		}
 		return "", err
 	}
@@ -51,7 +51,7 @@ func (b *Bot) handlePotAdd(ctx context.Context, interaction *discordgo.Interacti
 	}
 	points := optionInt(command, "points")
 	if points <= 0 {
-		return "", fmt.Errorf("points must be positive")
+		return "", messages.Err("points-positive", nil)
 	}
 	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "player"))
 	if err != nil {
@@ -62,9 +62,9 @@ func (b *Bot) handlePotAdd(ctx context.Context, interaction *discordgo.Interacti
 		var apiErr *castaway.APIError
 		switch {
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden && targetSpecified:
-			return "", fmt.Errorf("pot add with a player name is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "pot add with a player name"})
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && !targetSpecified:
-			return "", fmt.Errorf("you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first")
+			return "", messages.Err("not-linked-season", nil)
 		default:
 			return "", err
 		}
@@ -84,7 +84,7 @@ func (b *Bot) handlePotStart(ctx context.Context, interaction *discordgo.Interac
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("pot start is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "pot start"})
 		}
 		return "", err
 	}
@@ -100,7 +100,7 @@ func (b *Bot) handlePotClose(ctx context.Context, interaction *discordgo.Interac
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("pot close is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "pot close"})
 		}
 		return "", err
 	}
@@ -136,7 +136,7 @@ func (b *Bot) handleAuctionStart(ctx context.Context, interaction *discordgo.Int
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("auction start is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "auction start"})
 		}
 		return "", err
 	}
@@ -156,7 +156,7 @@ func (b *Bot) handleAuctionStop(ctx context.Context, interaction *discordgo.Inte
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("auction stop is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "auction stop"})
 		}
 		return "", err
 	}
@@ -176,7 +176,7 @@ func (b *Bot) handleAuctionAward(ctx context.Context, interaction *discordgo.Int
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("recording individual immunity is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "recording individual immunity"})
 		}
 		return "", err
 	}
@@ -194,7 +194,7 @@ func (b *Bot) handleBid(ctx context.Context, interaction *discordgo.InteractionC
 	}
 	points := optionInt(command, "points")
 	if points <= 0 {
-		return "", fmt.Errorf("points must be positive")
+		return "", messages.Err("points-positive", nil)
 	}
 	targetParticipantID, targetSpecified, err := b.resolveActionParticipantID(ctx, interaction, instance.ID, optionString(command, "player"))
 	if err != nil {
@@ -205,9 +205,9 @@ func (b *Bot) handleBid(ctx context.Context, interaction *discordgo.InteractionC
 		var apiErr *castaway.APIError
 		switch {
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden && targetSpecified:
-			return "", fmt.Errorf("bid with a player name is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "bid with a player name"})
 		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound && !targetSpecified:
-			return "", fmt.Errorf("you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first")
+			return "", messages.Err("not-linked-season", nil)
 		default:
 			return "", err
 		}
@@ -261,13 +261,13 @@ func (b *Bot) handleLoanRequest(ctx context.Context, interaction *discordgo.Inte
 	}
 	points := optionInt(command, "points")
 	if points <= 0 {
-		return "", fmt.Errorf("points must be positive")
+		return "", messages.Err("points-positive", nil)
 	}
 	status, err := b.castaway.BorrowFromLoanShark(ctx, instance.ID, interactionUserID(interaction), points)
 	if err != nil {
 		return "", err
 	}
-	return format.LoanActionResult(instance, status, "Borrowed", points), nil
+	return format.LoanActionResult(instance, status, messages.Fragment("loan-borrowed", nil), points), nil
 }
 
 func (b *Bot) handleLoanRepay(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -277,7 +277,7 @@ func (b *Bot) handleLoanRepay(ctx context.Context, interaction *discordgo.Intera
 	}
 	points := optionInt(command, "points")
 	if points <= 0 {
-		return "", fmt.Errorf("points must be positive")
+		return "", messages.Err("points-positive", nil)
 	}
 	status, err := b.castaway.RepayLoanShark(ctx, instance.ID, interactionUserID(interaction), points)
 	if err != nil {
@@ -286,7 +286,7 @@ func (b *Bot) handleLoanRepay(ctx context.Context, interaction *discordgo.Intera
 	if err := b.publishSecretReveal(status.Participant, status.RevealedSecretPoints); err != nil {
 		b.log.Warn("publish secret reveal after loan repayment", "participant", status.Participant.Name, "revealed_secret_points", status.RevealedSecretPoints, "error", err)
 	}
-	return format.LoanActionResult(instance, status, "Repaid", points), nil
+	return format.LoanActionResult(instance, status, messages.Fragment("loan-repaid", nil), points), nil
 }
 
 func (b *Bot) resolveActionParticipantID(ctx context.Context, interaction *discordgo.InteractionCreate, instanceID, requestedParticipant string) (string, bool, error) {

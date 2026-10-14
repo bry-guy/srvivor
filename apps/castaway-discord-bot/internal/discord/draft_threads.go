@@ -2,12 +2,12 @@ package discord
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -117,10 +117,10 @@ func (b *Bot) handleDraftMessage(ctx context.Context, m *discordgo.Message) {
 			guild = channel.GuildID
 		}
 	}
-	text := fmt.Sprintf("⚠️ Problem with %s's draft: https://discord.com/channels/%s/%s/%s\n- %s", result.Player, guild, m.ChannelID, m.ID, strings.Join(result.Problems, "\n- "))
-	const hint = "\n\nReply to this message with fixes, one per line, like `7. Thien An`."
+	text := messages.Fragment("draft-problem-dm.md", map[string]any{"Player": result.Player, "Guild": guild, "ChannelID": m.ChannelID, "MessageID": m.ID, "Problems": strings.Join(result.Problems, "\n- ")})
+	hint := messages.Fragment("draft-problem-hint", nil)
 	if len(text)+len(hint) > 2000 {
-		text = text[:1990-len(hint)] + "\n…"
+		text = text[:1990-len(hint)] + messages.Fragment("draft-truncated", nil)
 	}
 	admins := result.Admins
 	if len(admins) == 0 {

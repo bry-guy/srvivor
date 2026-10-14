@@ -1,0 +1,1 @@
+Pots are closed. Here's what you got. {{.Tribe}}, you contributed {{.Contribution}} to the pot, which earns your immunity pony {{.Tribe}} an additional {{.Bonus}} possible points, for a total of {{.Total}} points earned for each player of your tribe. Good luck!

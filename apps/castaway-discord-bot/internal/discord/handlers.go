@@ -12,6 +12,7 @@ import (
 
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/format"
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
 )
@@ -61,7 +62,7 @@ func (b *Bot) handleCommand(interaction *discordgo.InteractionCreate) {
 	result := observeCommand(command, start, err)
 	if err != nil {
 		b.log.Warn("command failed", "command", command.name, "group", command.group, "result", result, "duration_ms", time.Since(start).Milliseconds(), "error", err)
-		content = "Error: " + err.Error()
+		content = messages.Fragment("error-reply", err.Error())
 	} else {
 		b.log.Info("command completed", "command", command.name, "group", command.group, "result", result, "duration_ms", time.Since(start).Milliseconds())
 	}
@@ -211,7 +212,7 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 		return "", err
 	}
 	if len(rows) == 0 {
-		return "", fmt.Errorf("no score found for %s in %s", participant.Name, format.InstanceLabel(instance))
+		return "", messages.Err("no-score", map[string]any{"Player": participant.Name, "Instance": format.InstanceLabel(instance)})
 	}
 	rows = b.decorateLeaderboardRows(interaction, rows)
 	for index, row := range rows {
@@ -227,7 +228,7 @@ func (b *Bot) handleScore(ctx context.Context, interaction *discordgo.Interactio
 		}
 		return format.SingleScore(instance, row, index+1), nil
 	}
-	return "", fmt.Errorf("no score found for %s in %s", participant.Name, format.InstanceLabel(instance))
+	return "", messages.Err("no-score", map[string]any{"Player": participant.Name, "Instance": format.InstanceLabel(instance)})
 }
 
 func (b *Bot) handleScores(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -244,7 +245,7 @@ func (b *Bot) handleScores(ctx context.Context, interaction *discordgo.Interacti
 		return "", err
 	}
 	if len(rows) == 0 {
-		return "No leaderboard rows found yet.", nil
+		return messages.Fragment("no-leaderboard", nil), nil
 	}
 	return format.Leaderboard(instance, b.decorateLeaderboardRows(interaction, rows)), nil
 }
@@ -364,7 +365,7 @@ func (b *Bot) handleActivity(ctx context.Context, interaction *discordgo.Interac
 	}
 	activityName := optionString(command, "activity")
 	if activityName == "" {
-		return "", fmt.Errorf("activity name is required")
+		return "", messages.Err("activity-name-required", nil)
 	}
 	activities, err := b.castaway.ListActivities(ctx, instance.ID)
 	if err != nil {
@@ -396,7 +397,7 @@ func (b *Bot) handleOccurrences(ctx context.Context, interaction *discordgo.Inte
 	}
 	activityName := optionString(command, "activity")
 	if activityName == "" {
-		return "", fmt.Errorf("activity name is required")
+		return "", messages.Err("activity-name-required", nil)
 	}
 	activities, err := b.castaway.ListActivities(ctx, instance.ID)
 	if err != nil {
@@ -432,11 +433,11 @@ func (b *Bot) handleOccurrence(ctx context.Context, interaction *discordgo.Inter
 	}
 	activityName := optionString(command, "activity")
 	if activityName == "" {
-		return "", fmt.Errorf("activity name is required")
+		return "", messages.Err("activity-name-required", nil)
 	}
 	occurrenceName := optionString(command, "occurrence")
 	if occurrenceName == "" {
-		return "", fmt.Errorf("occurrence name is required")
+		return "", messages.Err("occurrence-name-required", nil)
 	}
 	activities, err := b.castaway.ListActivities(ctx, instance.ID)
 	if err != nil {
@@ -505,17 +506,17 @@ func (b *Bot) handleLink(ctx context.Context, interaction *discordgo.Interaction
 	}
 	targetDiscordUserID := optionUserID(command, "user")
 	if targetDiscordUserID == "" {
-		return "", fmt.Errorf("user is required")
+		return "", messages.Err("user-required", nil)
 	}
 	linked, err := b.castaway.LinkDiscordUser(ctx, instance.ID, participant.ID, interactionUserID(interaction), targetDiscordUserID)
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("link is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "link"})
 		}
 		return "", err
 	}
-	return fmt.Sprintf("Linked %s to <@%s> in %s.", linked.Name, targetDiscordUserID, format.InstanceLabel(instance)), nil
+	return messages.Fragment("linked", map[string]any{"Name": linked.Name, "UserID": targetDiscordUserID, "Instance": format.InstanceLabel(instance)}), nil
 }
 
 func (b *Bot) handleUnlink(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -535,11 +536,11 @@ func (b *Bot) handleUnlink(ctx context.Context, interaction *discordgo.Interacti
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
-			return "", fmt.Errorf("unlink is admin-only; ask a Castaway admin to run this command")
+			return "", messages.Err("admin-only", map[string]any{"Action": "unlink"})
 		}
 		return "", err
 	}
-	return fmt.Sprintf("Unlinked Discord account from %s in %s.", unlinked.Name, format.InstanceLabel(instance)), nil
+	return messages.Fragment("unlinked", map[string]any{"Name": unlinked.Name, "Instance": format.InstanceLabel(instance)}), nil
 }
 
 func (b *Bot) handleInstanceList(ctx context.Context, command commandSpec) (string, error) {
@@ -569,20 +570,20 @@ func (b *Bot) handleInstanceSet(ctx context.Context, interaction *discordgo.Inte
 	case "guild":
 		guildID := interaction.GuildID
 		if guildID == "" {
-			return "", fmt.Errorf("guild scope is only available inside a guild")
+			return "", messages.Err("guild-scope-guild-only", nil)
 		}
 		if !hasGuildManagePermission(interaction) {
-			return "", fmt.Errorf("guild scope requires Manage Server permission")
+			return "", messages.Err("guild-scope-permission", nil)
 		}
 		if err := b.state.SetGuildDefault(guildID, instance.ID); err != nil {
 			return "", fmt.Errorf("save guild default: %w", err)
 		}
-		return fmt.Sprintf("Saved guild default instance: %s", format.InstanceLabel(instance)), nil
+		return messages.Fragment("saved-guild-default", map[string]any{"Instance": format.InstanceLabel(instance)}), nil
 	default:
 		if err := b.state.SetUserDefault(interaction.GuildID, interactionUserID(interaction), instance.ID); err != nil {
 			return "", fmt.Errorf("save user default: %w", err)
 		}
-		return fmt.Sprintf("Saved your default instance: %s", format.InstanceLabel(instance)), nil
+		return messages.Fragment("saved-user-default", map[string]any{"Instance": format.InstanceLabel(instance)}), nil
 	}
 }
 
@@ -597,13 +598,10 @@ func (b *Bot) handleInstanceShow(ctx context.Context, interaction *discordgo.Int
 		return "", fmt.Errorf("load guild default: %w", err)
 	}
 
-	var builder strings.Builder
-	builder.WriteString("**Saved instance defaults**\n")
-	builder.WriteString("- You: ")
-	builder.WriteString(b.describeStoredInstance(ctx, userDefaultID))
-	builder.WriteString("\n- Guild: ")
-	builder.WriteString(b.describeStoredInstance(ctx, guildDefaultID))
-	return builder.String(), nil
+	return messages.Fragment("instance-defaults.md", map[string]any{
+		"You":   b.describeStoredInstance(ctx, userDefaultID),
+		"Guild": b.describeStoredInstance(ctx, guildDefaultID),
+	}), nil
 }
 
 func (b *Bot) handleInstanceClear(interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
@@ -612,20 +610,20 @@ func (b *Bot) handleInstanceClear(interaction *discordgo.InteractionCreate, comm
 	case "guild":
 		guildID := interaction.GuildID
 		if guildID == "" {
-			return "", fmt.Errorf("guild scope is only available inside a guild")
+			return "", messages.Err("guild-scope-guild-only", nil)
 		}
 		if !hasGuildManagePermission(interaction) {
-			return "", fmt.Errorf("guild scope requires Manage Server permission")
+			return "", messages.Err("guild-scope-permission", nil)
 		}
 		if err := b.state.ClearGuildDefault(guildID); err != nil {
 			return "", fmt.Errorf("clear guild default: %w", err)
 		}
-		return "Cleared guild default instance.", nil
+		return messages.Fragment("cleared-guild-default", nil), nil
 	default:
 		if err := b.state.ClearUserDefault(interaction.GuildID, interactionUserID(interaction)); err != nil {
 			return "", fmt.Errorf("clear user default: %w", err)
 		}
-		return "Cleared your default instance.", nil
+		return messages.Fragment("cleared-user-default", nil), nil
 	}
 }
 
@@ -846,11 +844,11 @@ func (b *Bot) resolveInstance(ctx context.Context, interaction *discordgo.Intera
 	}
 	if season != nil {
 		if len(instances) == 0 {
-			return castaway.Instance{}, fmt.Errorf("no instances found for season %d", *season)
+			return castaway.Instance{}, messages.Err("no-instances-season", map[string]any{"Season": *season})
 		}
-		return castaway.Instance{}, fmt.Errorf("multiple instances match season %d; specify an instance or save a default with /castaway instance set", *season)
+		return castaway.Instance{}, messages.Err("multiple-instances-season", map[string]any{"Season": *season})
 	}
-	return castaway.Instance{}, fmt.Errorf("instance is ambiguous; specify an instance or save a default with /castaway instance set")
+	return castaway.Instance{}, messages.Err("instance-ambiguous", nil)
 }
 
 func (b *Bot) lookupInstance(ctx context.Context, raw string, season *int32) (castaway.Instance, error) {
@@ -860,7 +858,7 @@ func (b *Bot) lookupInstance(ctx context.Context, raw string, season *int32) (ca
 			return castaway.Instance{}, err
 		}
 		if season != nil && instance.Season != *season {
-			return castaway.Instance{}, fmt.Errorf("instance %s is not in season %d", instance.Name, *season)
+			return castaway.Instance{}, messages.Err("instance-not-in-season", map[string]any{"Name": instance.Name, "Season": *season})
 		}
 		return instance, nil
 	}
@@ -893,7 +891,7 @@ func (b *Bot) resolveParticipant(ctx context.Context, instanceID, raw string) (c
 				return participant, nil
 			}
 		}
-		return castaway.Participant{}, fmt.Errorf("participant %s was not found in this instance", parsedID.String())
+		return castaway.Participant{}, messages.Err("participant-not-found", map[string]any{"ID": parsedID.String()})
 	}
 	return selectParticipantByName(raw, participants)
 }
@@ -922,7 +920,7 @@ func (b *Bot) resolveRequestedOrLinkedParticipant(ctx context.Context, interacti
 	}
 	var apiErr *castaway.APIError
 	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
-		return castaway.Participant{}, fmt.Errorf("you are not linked to a participant in this instance; ask a Castaway admin to run /castaway link")
+		return castaway.Participant{}, messages.Err("not-linked-instance", nil)
 	}
 	return castaway.Participant{}, err
 }
@@ -989,18 +987,18 @@ func (b *Bot) fetchStoredInstance(ctx context.Context, instanceID string) (casta
 
 func (b *Bot) describeStoredInstance(ctx context.Context, instanceID string) string {
 	if strings.TrimSpace(instanceID) == "" {
-		return "not set"
+		return messages.Fragment("instance-not-set", nil)
 	}
 	instance, ok, err := b.fetchStoredInstance(ctx, instanceID)
 	if err != nil {
-		return fmt.Sprintf("lookup failed (%v)", err)
+		return messages.Fragment("instance-lookup-failed", map[string]any{"Error": err.Error()})
 	}
 	if !ok {
-		return fmt.Sprintf("missing instance (%s)", instanceID)
+		return messages.Fragment("instance-missing", map[string]any{"ID": instanceID})
 	}
 	label := format.InstanceLabel(instance)
 	if instance.CurrentEpisode != nil {
-		label += fmt.Sprintf(" (current: %s)", strings.TrimSpace(instance.CurrentEpisode.Label))
+		return messages.Fragment("instance-with-episode", map[string]any{"Label": label, "Episode": strings.TrimSpace(instance.CurrentEpisode.Label)})
 	}
 	return label
 }
@@ -1091,10 +1089,10 @@ func seasonOptionValue(command commandSpec) (*int32, error) {
 		}
 		value := option.IntValue()
 		if value <= 0 {
-			return nil, fmt.Errorf("season must be positive")
+			return nil, messages.Err("season-positive", nil)
 		}
 		if value > math.MaxInt32 {
-			return nil, fmt.Errorf("season is too large")
+			return nil, messages.Err("season-too-large", nil)
 		}
 		season := int32(value)
 		return &season, nil
@@ -1130,7 +1128,7 @@ func interactionUserID(interaction *discordgo.InteractionCreate) string {
 
 func selectInstanceByName(query string, instances []castaway.Instance) (castaway.Instance, error) {
 	if len(instances) == 0 {
-		return castaway.Instance{}, fmt.Errorf("no instances matched %q", query)
+		return castaway.Instance{}, messages.Err("no-match", map[string]any{"Kind": "instances", "Query": query})
 	}
 	if exact, ok := singleExactInstance(query, instances); ok {
 		return exact, nil
@@ -1145,7 +1143,7 @@ func selectInstanceByName(query string, instances []castaway.Instance) (castaway
 			break
 		}
 	}
-	return castaway.Instance{}, fmt.Errorf("multiple instances matched %q: %s", query, strings.Join(labels, ", "))
+	return castaway.Instance{}, messages.Err("multiple-match", map[string]any{"Kind": "instances", "Query": query, "Labels": strings.Join(labels, ", ")})
 }
 
 func singleExactInstance(query string, instances []castaway.Instance) (castaway.Instance, bool) {
@@ -1162,7 +1160,7 @@ func singleExactInstance(query string, instances []castaway.Instance) (castaway.
 
 func selectParticipantByName(query string, participants []castaway.Participant) (castaway.Participant, error) {
 	if len(participants) == 0 {
-		return castaway.Participant{}, fmt.Errorf("no participants matched %q", query)
+		return castaway.Participant{}, messages.Err("no-match", map[string]any{"Kind": "participants", "Query": query})
 	}
 	if exact, ok := singleExactParticipant(query, participants); ok {
 		return exact, nil
@@ -1180,12 +1178,12 @@ func selectParticipantByName(query string, participants []castaway.Participant) 
 			break
 		}
 	}
-	return castaway.Participant{}, fmt.Errorf("multiple participants matched %q: %s", query, strings.Join(labels, ", "))
+	return castaway.Participant{}, messages.Err("multiple-match", map[string]any{"Kind": "participants", "Query": query, "Labels": strings.Join(labels, ", ")})
 }
 
 func selectContestantByName(query string, contestants []castaway.Contestant) (castaway.Contestant, error) {
 	if len(contestants) == 0 {
-		return castaway.Contestant{}, fmt.Errorf("no contestants matched %q", query)
+		return castaway.Contestant{}, messages.Err("no-match", map[string]any{"Kind": "contestants", "Query": query})
 	}
 	var match castaway.Contestant
 	count := 0
@@ -1214,14 +1212,14 @@ func selectContestantByName(query string, contestants []castaway.Contestant) (ca
 		return match, nil
 	}
 	if count > 1 {
-		return castaway.Contestant{}, fmt.Errorf("multiple contestants matched %q: %s", query, strings.Join(labels, ", "))
+		return castaway.Contestant{}, messages.Err("multiple-match", map[string]any{"Kind": "contestants", "Query": query, "Labels": strings.Join(labels, ", ")})
 	}
-	return castaway.Contestant{}, fmt.Errorf("no contestants matched %q", query)
+	return castaway.Contestant{}, messages.Err("no-match", map[string]any{"Kind": "contestants", "Query": query})
 }
 
 func selectActivityByName(query string, activities []castaway.Activity) (castaway.Activity, error) {
 	if len(activities) == 0 {
-		return castaway.Activity{}, fmt.Errorf("no activities found")
+		return castaway.Activity{}, messages.Err("none-found", map[string]any{"Kind": "activities"})
 	}
 	var match castaway.Activity
 	count := 0
@@ -1262,14 +1260,14 @@ func selectActivityByName(query string, activities []castaway.Activity) (castawa
 		return match, nil
 	}
 	if count > 1 {
-		return castaway.Activity{}, fmt.Errorf("multiple activities matched %q: %s", query, strings.Join(labels, ", "))
+		return castaway.Activity{}, messages.Err("multiple-match", map[string]any{"Kind": "activities", "Query": query, "Labels": strings.Join(labels, ", ")})
 	}
-	return castaway.Activity{}, fmt.Errorf("no activities matched %q", query)
+	return castaway.Activity{}, messages.Err("no-match", map[string]any{"Kind": "activities", "Query": query})
 }
 
 func selectOccurrenceByName(query string, occurrences []castaway.Occurrence) (castaway.Occurrence, error) {
 	if len(occurrences) == 0 {
-		return castaway.Occurrence{}, fmt.Errorf("no occurrences found")
+		return castaway.Occurrence{}, messages.Err("none-found", map[string]any{"Kind": "occurrences"})
 	}
 	var match castaway.Occurrence
 	count := 0
@@ -1310,9 +1308,9 @@ func selectOccurrenceByName(query string, occurrences []castaway.Occurrence) (ca
 		return match, nil
 	}
 	if count > 1 {
-		return castaway.Occurrence{}, fmt.Errorf("multiple occurrences matched %q: %s", query, strings.Join(labels, ", "))
+		return castaway.Occurrence{}, messages.Err("multiple-match", map[string]any{"Kind": "occurrences", "Query": query, "Labels": strings.Join(labels, ", ")})
 	}
-	return castaway.Occurrence{}, fmt.Errorf("no occurrences matched %q", query)
+	return castaway.Occurrence{}, messages.Err("no-match", map[string]any{"Kind": "occurrences", "Query": query})
 }
 
 func singleExactParticipant(query string, participants []castaway.Participant) (castaway.Participant, bool) {

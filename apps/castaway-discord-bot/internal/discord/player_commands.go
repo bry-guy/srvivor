@@ -3,35 +3,36 @@ package discord
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/castaway"
 	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/format"
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 	"github.com/bwmarrin/discordgo"
 )
 
-func (b *Bot) setupError(message string) error {
-	return fmt.Errorf("%s Ask <@%s> in Podracing Discord", message, b.adminContactID)
+// setupError tells the player where to get help; problem names a setup-* template.
+func (b *Bot) setupError(problem string) error {
+	return messages.Err("setup-error", map[string]any{"Problem": messages.Fragment(problem, nil), "Admin": b.adminContactID})
 }
 
 func (b *Bot) executePlayerCommand(ctx context.Context, interaction *discordgo.InteractionCreate, command commandSpec) (string, error) {
 	if interaction.GuildID == "" || interaction.ChannelID == "" || interaction.Member == nil || interaction.Member.User == nil {
-		return "", fmt.Errorf("use this command in a server channel, not a DM")
+		return "", messages.Err("server-channel-only", nil)
 	}
 	if command.group != "" || (command.name != "score" && command.name != "scores" && command.name != "draft") {
-		return "", fmt.Errorf("this command is retired; use /castaway score, scores, or draft")
+		return "", messages.Err("command-retired", nil)
 	}
 	selected := interaction.Member.User.ID
 	if len(command.options) > 1 {
-		return "", fmt.Errorf("unsupported command options; refresh Discord commands")
+		return "", messages.Err("unsupported-options", nil)
 	}
 	for _, option := range command.options {
 		if command.name == "scores" || option.Name != "player" || option.Type != discordgo.ApplicationCommandOptionUser {
-			return "", fmt.Errorf("unsupported command options; refresh Discord commands")
+			return "", messages.Err("unsupported-options", nil)
 		}
 		value, ok := option.Value.(string)
 		if !ok || value == "" {
-			return "", fmt.Errorf("select a Discord player")
+			return "", messages.Err("select-player", nil)
 		}
 		selected = value
 	}
@@ -41,7 +42,7 @@ func (b *Bot) executePlayerCommand(ctx context.Context, interaction *discordgo.I
 	}
 	instance, err := b.castaway.GetInstance(ctx, instanceID)
 	if err != nil {
-		return "", b.setupError("The bound instance is unavailable.")
+		return "", b.setupError("setup-instance-unavailable")
 	}
 	if command.name == "scores" {
 		rows, err := b.castaway.GetLeaderboard(ctx, instance.ID, "")
@@ -54,7 +55,7 @@ func (b *Bot) executePlayerCommand(ctx context.Context, interaction *discordgo.I
 	if err != nil {
 		var apiErr *castaway.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == 404 {
-			return "", b.setupError("That Discord player is not linked in this season.")
+			return "", b.setupError("setup-player-not-linked")
 		}
 		return "", err
 	}
@@ -74,7 +75,7 @@ func (b *Bot) executePlayerCommand(ctx context.Context, interaction *discordgo.I
 			return format.SingleScore(instance, row, i+1), nil
 		}
 	}
-	return "", fmt.Errorf("no draft submitted yet for this player in Season %d", instance.Season)
+	return "", messages.Err("no-draft", map[string]any{"Season": instance.Season})
 }
 
 func (b *Bot) channelInstance(ctx context.Context, interaction *discordgo.InteractionCreate) (string, error) {
@@ -84,14 +85,14 @@ func (b *Bot) channelInstance(ctx context.Context, interaction *discordgo.Intera
 	}
 	var apiErr *castaway.APIError
 	if !errors.As(err, &apiErr) || apiErr.StatusCode != 404 {
-		return "", b.setupError("Cannot read this channel's configuration.")
+		return "", b.setupError("setup-channel-config")
 	}
 	channel, err := b.session.Channel(interaction.ChannelID, discordgo.WithContext(ctx))
 	if err != nil {
-		return "", b.setupError("Cannot verify this channel's context.")
+		return "", b.setupError("setup-channel-verify")
 	}
 	if channel.GuildID != interaction.GuildID {
-		return "", b.setupError("Channel server does not match.")
+		return "", b.setupError("setup-channel-server")
 	}
 	switch channel.Type {
 	case discordgo.ChannelTypeGuildNewsThread, discordgo.ChannelTypeGuildPublicThread, discordgo.ChannelTypeGuildPrivateThread:
@@ -101,9 +102,9 @@ func (b *Bot) channelInstance(ctx context.Context, interaction *discordgo.Intera
 				return id, nil
 			}
 			if !errors.As(err, &apiErr) || apiErr.StatusCode != 404 {
-				return "", b.setupError("Cannot read the parent channel's configuration.")
+				return "", b.setupError("setup-parent-config")
 			}
 		}
 	}
-	return "", b.setupError("This channel is not bound to a season.")
+	return "", b.setupError("setup-not-bound")
 }

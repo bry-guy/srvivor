@@ -1,0 +1,31 @@
+{{define "error-reply"}}Error: {{.}}{{end}}
+{{define "no-leaderboard"}}No leaderboard rows found yet.{{end}}
+{{define "no-instances"}}No instances found.{{end}}
+{{define "activities-empty"}}**{{.Instance}}**
+No activities found.{{end}}
+{{define "occurrences-empty"}}**{{.Activity}}**
+No occurrences found.{{end}}
+{{define "linked"}}Linked {{.Name}} to <@{{.UserID}}> in {{.Instance}}.{{end}}
+{{define "unlinked"}}Unlinked Discord account from {{.Name}} in {{.Instance}}.{{end}}
+{{define "saved-guild-default"}}Saved guild default instance: {{.Instance}}{{end}}
+{{define "saved-user-default"}}Saved your default instance: {{.Instance}}{{end}}
+{{define "cleared-guild-default"}}Cleared guild default instance.{{end}}
+{{define "cleared-user-default"}}Cleared your default instance.{{end}}
+{{define "action-hint"}}Reply **yes** to record exactly this. To record something different, use `probst episode import`.{{end}}
+{{define "action-recorded"}}✅ Recorded.{{end}}
+{{define "approval-hint"}}Reply **yes** to approve, or reply with the complete new text to replace it.{{end}}
+{{define "approval-revised"}}✏️ Replaced. A fresh copy is on its way for your **yes**.{{end}}
+{{define "approval-approved"}}✅ Approved. It posts {{.When}}.{{end}}
+{{define "not-recorded"}}Not recorded: {{.}}{{end}}
+{{define "not-changed"}}Not changed: {{.}}{{end}}
+{{define "not-approved"}}Not approved: {{.}}{{end}}
+{{define "nothing-changed"}}Nothing changed: {{.}}{{end}}
+{{define "draft-read-failed"}}Couldn't read that draft post: {{.}}{{end}}
+{{define "draft-saved"}}✅ Saved {{.Player}}'s draft.{{end}}
+{{define "draft-unrecognized"}}That didn't read as a draft ({{.Status}}).{{end}}
+{{define "draft-problem-too-long"}}Still not right, and the draft is too long to show here. Fix it with `probst draft import`.{{end}}
+{{define "draft-conflict-too-long"}}This player already has a saved draft, and the new one is too long to show here. Use `probst draft import`.{{end}}
+{{define "champion-picked"}}🏆 Your Champion: **{{.Name}}**. You can change it until picks lock.{{end}}
+{{define "champion-not-picked"}}Not picked: {{.}}{{end}}
+{{define "loan-borrowed"}}Borrowed{{end}}
+{{define "loan-repaid"}}Repaid{{end}}

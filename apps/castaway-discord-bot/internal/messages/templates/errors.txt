@@ -1,0 +1,38 @@
+{{define "setup-error"}}{{.Problem}} Ask <@{{.Admin}}> in Podracing Discord{{end}}
+{{define "setup-instance-unavailable"}}The bound instance is unavailable.{{end}}
+{{define "setup-player-not-linked"}}That Discord player is not linked in this season.{{end}}
+{{define "setup-channel-config"}}Cannot read this channel's configuration.{{end}}
+{{define "setup-channel-verify"}}Cannot verify this channel's context.{{end}}
+{{define "setup-channel-server"}}Channel server does not match.{{end}}
+{{define "setup-parent-config"}}Cannot read the parent channel's configuration.{{end}}
+{{define "setup-not-bound"}}This channel is not bound to a season.{{end}}
+{{define "server-channel-only"}}use this command in a server channel, not a DM{{end}}
+{{define "command-retired"}}this command is retired; use /castaway score, scores, or draft{{end}}
+{{define "unsupported-options"}}unsupported command options; refresh Discord commands{{end}}
+{{define "select-player"}}select a Discord player{{end}}
+{{define "no-draft"}}no draft submitted yet for this player in Season {{.Season}}{{end}}
+{{define "no-score"}}no score found for {{.Player}} in {{.Instance}}{{end}}
+{{define "points-positive"}}points must be positive{{end}}
+{{define "tribe-name-required"}}tribe name is required{{end}}
+{{define "activity-name-required"}}activity name is required{{end}}
+{{define "occurrence-name-required"}}occurrence name is required{{end}}
+{{define "user-required"}}user is required{{end}}
+{{define "guild-scope-guild-only"}}guild scope is only available inside a guild{{end}}
+{{define "guild-scope-permission"}}guild scope requires Manage Server permission{{end}}
+{{define "season-positive"}}season must be positive{{end}}
+{{define "season-too-large"}}season is too large{{end}}
+{{define "no-instances-season"}}no instances found for season {{.Season}}{{end}}
+{{define "multiple-instances-season"}}multiple instances match season {{.Season}}; specify an instance or save a default with /castaway instance set{{end}}
+{{define "instance-ambiguous"}}instance is ambiguous; specify an instance or save a default with /castaway instance set{{end}}
+{{define "instance-not-in-season"}}instance {{.Name}} is not in season {{.Season}}{{end}}
+{{define "participant-not-found"}}participant {{.ID}} was not found in this instance{{end}}
+{{define "not-linked-instance"}}you are not linked to a participant in this instance; ask a Castaway admin to run /castaway link{{end}}
+{{define "not-linked-season"}}you are not linked to a Castaway player for this season; ask a Castaway admin to run /castaway link first{{end}}
+{{define "admin-only"}}{{.Action}} is admin-only; ask a Castaway admin to run this command{{end}}
+{{define "no-match"}}no {{.Kind}} matched {{printf "%q" .Query}}{{end}}
+{{define "multiple-match"}}multiple {{.Kind}} matched {{printf "%q" .Query}}: {{.Labels}}{{end}}
+{{define "none-found"}}no {{.Kind}} found{{end}}
+{{define "fix-not-fix"}}{{printf "%q" .Line}} isn't a fix; use one per line, like `7. Thien An`{{end}}
+{{define "fix-bad-rank"}}rank {{.Rank}} isn't valid{{end}}
+{{define "fix-duplicate-rank"}}rank {{.Rank}} appears twice{{end}}
+{{define "fix-none"}}reply with one fix per line, like `7. Thien An`{{end}}

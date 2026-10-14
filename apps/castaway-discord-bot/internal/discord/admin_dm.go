@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -26,14 +27,21 @@ import (
 //     fingerprint ("overwrite <fp>"); replying "overwrite" replaces exactly that saved draft.
 //
 // The server rejects stale actions: an approval of a changed post, or a fix after the draft was saved.
+// The regexes below parse the ref lines that the templates in internal/messages write.
 
 var (
-	draftLink   = regexp.MustCompile(`discord\.com/channels/\d+/(\d+)/(\d+)`)
+	// Parses the link from draft-problem-dm.md.
+	draftLink = regexp.MustCompile(`discord\.com/channels/\d+/(\d+)/(\d+)`)
+	// Parses the approval token from approval-prompt.md and approval-missed.md.
 	approvalRef = regexp.MustCompile("approval `([0-9a-f-]{36})` `([0-9a-f]{32})`")
-	rankLine    = regexp.MustCompile(`^\s*0*(\d{1,2})\s*[.):\-]?\s+(\S.*?)\s*$`)
+	// Parses admin fix lines typed as replies; not a template.
+	rankLine = regexp.MustCompile(`^\s*0*(\d{1,2})\s*[.):\-]?\s+(\S.*?)\s*$`)
+	// Parses the working draft from draft-conflict.md and draft-problem-reply.md.
 	workingCopy = regexp.MustCompile("(?s)Working draft:\n```\n(.*)\n```")
+	// Parses the overwrite token from draft-conflict.md.
 	overwriteOf = regexp.MustCompile("overwrite `([0-9a-f]{32})`")
-	actionRef   = regexp.MustCompile("action `([0-9a-f-]{36})` `([0-9a-f]{32})`")
+	// Parses the action token from the admin-alert-action fragment in fragments.txt.
+	actionRef = regexp.MustCompile("action `([0-9a-f-]{36})` `([0-9a-f]{32})`")
 )
 
 // dmAdmins sends text to each admin, reporting failures.
@@ -65,19 +73,19 @@ func applyFixes(draft, reply string) (string, error) {
 		}
 		m := rankLine.FindStringSubmatch(line)
 		if m == nil {
-			return "", fmt.Errorf("%q isn't a fix; use one per line, like `7. Thien An`", strings.TrimSpace(line))
+			return "", messages.Err("fix-not-fix", map[string]any{"Line": strings.TrimSpace(line)})
 		}
 		rank, err := strconv.Atoi(m[1])
 		if err != nil || rank < 1 {
-			return "", fmt.Errorf("rank %s isn't valid", m[1])
+			return "", messages.Err("fix-bad-rank", map[string]any{"Rank": m[1]})
 		}
 		if _, dup := fixes[rank]; dup {
-			return "", fmt.Errorf("rank %d appears twice", rank)
+			return "", messages.Err("fix-duplicate-rank", map[string]any{"Rank": rank})
 		}
 		fixes[rank] = m[2]
 	}
 	if len(fixes) == 0 {
-		return "", fmt.Errorf("reply with one fix per line, like `7. Thien An`")
+		return "", messages.Err("fix-none", nil)
 	}
 	lines := strings.Split(draft, "\n")
 	for i, line := range lines {
@@ -122,36 +130,36 @@ func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 	}
 	if ref := actionRef.FindStringSubmatch(asked.Content); ref != nil {
 		if !strings.EqualFold(strings.Trim(strings.TrimSpace(m.Content), ".!"), "yes") {
-			answer("Reply **yes** to record exactly this. To record something different, use `probst episode import`.")
+			answer(messages.Fragment("action-hint", nil))
 			return
 		}
 		if err := b.castaway.ApproveAdminAction(ctx, ref[1], ref[2], m.Author.ID); err != nil {
-			answer("Not recorded: " + err.Error())
+			answer(messages.Fragment("not-recorded", err.Error()))
 			return
 		}
-		answer("✅ Recorded.")
+		answer(messages.Fragment("action-recorded", nil))
 		return
 	}
 	if ref := approvalRef.FindStringSubmatch(asked.Content); ref != nil {
 		if !strings.EqualFold(strings.Trim(strings.TrimSpace(m.Content), ".!"), "yes") {
 			text := strings.TrimSpace(m.Content)
 			if !isReplacementCopy(text) {
-				answer("Reply **yes** to approve, or reply with the complete new text to replace it.")
+				answer(messages.Fragment("approval-hint", nil))
 				return
 			}
 			if err := b.castaway.ReviseAnnouncement(ctx, ref[1], ref[2], m.Author.ID, text); err != nil {
-				answer("Not changed: " + err.Error())
+				answer(messages.Fragment("not-changed", err.Error()))
 				return
 			}
-			answer("✏️ Replaced. A fresh copy is on its way for your **yes**.")
+			answer(messages.Fragment("approval-revised", nil))
 			return
 		}
 		at, err := b.castaway.ApproveAnnouncement(ctx, ref[1], ref[2], m.Author.ID)
 		if err != nil {
-			answer("Not approved: " + err.Error())
+			answer(messages.Fragment("not-approved", err.Error()))
 			return
 		}
-		answer("✅ Approved. It posts " + eastern(at) + ".")
+		answer(messages.Fragment("approval-approved", map[string]any{"When": eastern(at)}))
 		return
 	}
 	link := draftLink.FindStringSubmatch(asked.Content)
@@ -160,7 +168,7 @@ func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 	}
 	original, err := b.session.ChannelMessage(link[1], link[2], discordgo.WithContext(ctx))
 	if err != nil {
-		answer("Couldn't read that draft post: " + err.Error())
+		answer(messages.Fragment("draft-read-failed", err.Error()))
 		return
 	}
 	working := original.Content
@@ -171,36 +179,38 @@ func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 	if ref := overwriteOf.FindStringSubmatch(asked.Content); ref != nil && strings.EqualFold(strings.Trim(strings.TrimSpace(m.Content), ".!"), "overwrite") {
 		fixed, overwrite = working, ref[1]
 	} else if fixed, err = applyFixes(working, m.Content); err != nil {
-		answer("Nothing changed: " + err.Error())
+		answer(messages.Fragment("nothing-changed", err.Error()))
 		return
 	}
 	result, err := b.castaway.FixDraftThreadMessage(ctx, link[1], original.ID, "fix-"+m.ID, original.Author.ID, fixed, m.Author.ID, overwrite)
 	if err != nil {
-		answer("Nothing changed: " + err.Error())
+		answer(messages.Fragment("nothing-changed", err.Error()))
 		return
 	}
 	post := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", original.GuildID, link[1], link[2])
 	switch result.Status {
 	case "conflict":
-		text := fmt.Sprintf("%s already has a saved draft: %s\nReply **overwrite** to this message to replace it with the draft below, or reply with more fixes.\n\nWorking draft:\n```\n%s\n```\noverwrite `%s`",
-			original.Author.Mention(), post, fixed, result.SavedPicks)
+		text := messages.Fragment("draft-conflict.md", map[string]any{
+			"Mention": original.Author.Mention(), "Post": post, "Draft": fixed, "SavedPicks": result.SavedPicks,
+		})
 		if len(text) > 2000 {
-			answer("This player already has a saved draft, and the new one is too long to show here. Use `probst draft import`.")
+			answer(messages.Fragment("draft-conflict-too-long", nil))
 			return
 		}
 		answer(text)
 	case "saved", "unchanged":
-		answer(fmt.Sprintf("✅ Saved %s's draft.", result.Player))
+		answer(messages.Fragment("draft-saved", map[string]any{"Player": result.Player}))
 	case "problem":
-		text := fmt.Sprintf("Still not right (%s): %s\n- %s\nReply to this with more fixes, like `7. Thien An`.\n\nWorking draft:\n```\n%s\n```",
-			result.Player, post, strings.Join(result.Problems, "\n- "), fixed)
+		text := messages.Fragment("draft-problem-reply.md", map[string]any{
+			"Player": result.Player, "Post": post, "Problems": strings.Join(result.Problems, "\n- "), "Draft": fixed,
+		})
 		if len(text) > 2000 {
-			answer("Still not right, and the draft is too long to show here. Fix it with `probst draft import`.")
+			answer(messages.Fragment("draft-problem-too-long", nil))
 			return
 		}
 		answer(text)
 	default:
-		answer("That didn't read as a draft (" + result.Status + ").")
+		answer(messages.Fragment("draft-unrecognized", map[string]any{"Status": result.Status}))
 	}
 }
 
