@@ -253,9 +253,10 @@ func TestInstanceAliasSuppliesChannel(t *testing.T) {
 			t.Fatalf("%v: %q %v", args, out, err)
 		}
 	}
-	want := "discord /channels/1330/messages\ndiscord /channels/777/messages\ndiscord /channels/1330/messages\n" +
+	held := "POST /instances/inst-uuid/announcements\nPUT /instances/inst-uuid/announcements/a/approval\n"
+	want := held + held + held +
 		"GET /discord/guilds/521/channels/1330\nPOST /instances/inst-uuid/announcements\n" +
-		"GET /discord/guilds/521/channels/1330\nPOST /instances/inst-uuid/announcements"
+		"GET /discord/guilds/521/channels/1330\n" + strings.TrimSuffix(held, "\n")
 	if got := strings.Join(calls, "\n"); got != want {
 		t.Fatalf("calls:\n%s", got)
 	}

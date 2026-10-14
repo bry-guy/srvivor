@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -131,44 +127,30 @@ func addAnnouncementDraftCommands(parent *cobra.Command, call apiCall, instanceP
 
 	var at string
 	var approval bool
-	schedule := &cobra.Command{Use: "schedule NAME", Aliases: []string{"reschedule"}, Short: "Send a saved announcement at --at, or now with --yes", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
+	schedule := &cobra.Command{Use: "schedule NAME", Aliases: []string{"reschedule"}, Short: "Request approval to send a saved announcement at --at (admins get a DM; it sends after a \"yes\")", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
 		p, err := instancePath()
 		if err != nil {
 			return err
 		}
-		body := map[string]any{}
-		if at != "" {
-			when, err := parseAnnouncementTime(at)
-			if err != nil {
-				return err
-			}
-			body["scheduled_at"] = when.UTC().Format(time.RFC3339)
-		} else if !*yes {
-			return fmt.Errorf("give --at, or --yes to send now")
+		if at == "" {
+			return fmt.Errorf("give --at: every announcement waits for an admin's \"yes\", then sends at that time")
+		}
+		when, err := parseAnnouncementTime(at)
+		if err != nil {
+			return err
 		}
 		found, err := findAnnouncement(c.Context(), call, p, a[0])
 		if err != nil {
 			return err
 		}
-		if approval {
-			if at == "" {
-				return fmt.Errorf("--approval needs --at")
-			}
-			if err := call(c.Context(), "PUT", p+"/announcements/"+url.PathEscape(found.ID)+"/approval", map[string]any{"send_at": body["scheduled_at"]}, nil); err != nil {
-				return err
-			}
-			return out(c, "%q is waiting for approval: every admin gets a DM, and it posts at %s once one replies \"yes\".\n", a[0], at)
-		}
-		var res struct {
-			Announcement announcement `json:"announcement"`
-		}
-		if err := call(c.Context(), "PUT", p+"/announcements/"+url.PathEscape(found.ID)+"/schedule", body, &res); err != nil {
+		if err := call(c.Context(), "PUT", p+"/announcements/"+url.PathEscape(found.ID)+"/approval", map[string]any{"send_at": when.UTC().Format(time.RFC3339)}, nil); err != nil {
 			return err
 		}
-		return out(c, "%q: %s.\n", a[0], describeStatus(res.Announcement))
+		return out(c, "%q is waiting for approval: every admin gets a DM, and it posts at %s once one replies \"yes\".\n", a[0], at)
 	}}
 	schedule.Flags().StringVar(&at, "at", "", `Send at "2006-01-02 15:04" America/New_York, or RFC3339`)
-	schedule.Flags().BoolVar(&approval, "approval", false, "Hold it until an admin replies \"yes\" to the bot's DM, then send at --at")
+	schedule.Flags().BoolVar(&approval, "approval", true, "Always on: every announcement waits for approval")
+	_ = schedule.Flags().MarkHidden("approval")
 	parent.AddCommand(schedule)
 
 	simple := func(use, short, method, suffix, done string, confirm bool) {
@@ -250,68 +232,14 @@ func describeStatus(a announcement) string {
 	return a.Status
 }
 
-// sendDiscordMessage posts text as the bot straight to Discord, without saving it. Mentions render but never notify.
-func mentionNote(notify bool) string {
-	if notify {
-		return "<@user> mentions WILL ping those players"
-	}
-	return "mentions will not notify"
-}
-
-func sendDiscordMessage(ctx context.Context, token, channelID, text, replyTo string, notify, silent bool) (string, error) {
-	if token == "" {
-		return "", fmt.Errorf("set CASTAWAY_DISCORD_BOT_TOKEN (or discord_bot_token in the config file) to post to Discord")
-	}
-	base := os.Getenv("PROBST_DISCORD_API_URL")
-	if base == "" {
-		base = "https://discord.com/api/v10"
-	}
-	parse := []string{}
-	if notify {
-		parse = []string{"users"}
-	}
-	payload := map[string]any{"content": text, "allowed_mentions": map[string]any{"parse": parse}}
-	if silent {
-		payload["flags"] = 1 << 12 // SUPPRESS_NOTIFICATIONS, same as @silent
-	}
-	if replyTo != "" {
-		payload["message_reference"] = map[string]any{"message_id": replyTo, "fail_if_not_exists": false}
-	}
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return "", err
-	}
-	req, err := http.NewRequestWithContext(ctx, "POST", base+"/channels/"+url.PathEscape(channelID)+"/messages", bytes.NewReader(data))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Authorization", "Bot "+token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
-	if err != nil {
-		// Discord may have posted it anyway; say so instead of retrying.
-		return "", fmt.Errorf("Discord request failed (check the channel before resending): %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Discord HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	var sent struct {
-		ID string `json:"id"`
-	}
-	return sent.ID, json.Unmarshal(body, &sent)
-}
-
-func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveChannel func(string) string) {
-	var file, replyTo string
-	var notify, silent bool
+// addMessageCommand saves a one-off message and requests approval: it posts once an admin replies "yes"
+// (right away if that's after --at, which defaults to a minute from now).
+func addMessageCommand(root *cobra.Command, call apiCall, instancePath func() (string, error), guild *string, yes *bool, resolveChannel func(string) string) {
+	var file, at string
+	var notify bool
 	message := &cobra.Command{
 		Use:   "message [CHANNEL] [TEXT]",
-		Short: "Post a one-off message as the bot right now (not saved); dry run unless --yes. CHANNEL defaults to the --instance alias's channel",
+		Short: "Post a one-off message as the bot after an admin approves it by DM; dry run unless --yes. CHANNEL defaults to the --instance alias's channel",
 		Args:  cobra.MaximumNArgs(2),
 		RunE: func(c *cobra.Command, a []string) error {
 			var channel, text string
@@ -333,25 +261,46 @@ func addMessageCommand(root *cobra.Command, token *string, yes *bool, resolveCha
 			if channel == "" {
 				return fmt.Errorf("give a CHANNEL, or an --instance alias that has one")
 			}
-			a = []string{channel}
 			if strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > 2000 {
 				return fmt.Errorf("message must be nonblank and at most 2000 characters")
 			}
+			when := time.Now().Add(time.Minute)
+			if at != "" {
+				var err error
+				if when, err = parseAnnouncementTime(at); err != nil {
+					return err
+				}
+			}
 			if !*yes {
-				_, err := fmt.Fprintf(c.OutOrStdout(), "Dry run — channel %s (%s):\n\n%s\n\nRe-run with --yes to post it.\n", a[0], mentionNote(notify), text)
+				_, err := fmt.Fprintf(c.OutOrStdout(), "Dry run — channel %s (%s):\n\n%s\n\nRe-run with --yes to request approval.\n", channel, mentionNote(notify), text)
 				return err
 			}
-			id, err := sendDiscordMessage(c.Context(), *token, a[0], text, replyTo, notify, silent)
+			p, err := instancePath()
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(c.OutOrStdout(), "Posted message %s.\n", id)
+			key := fmt.Sprintf("message-%d", time.Now().UnixNano())
+			var saved struct {
+				Announcement announcement `json:"announcement"`
+			}
+			if err := call(c.Context(), "POST", p+"/announcements", map[string]any{"guild_id": *guild, "channel_id": channel, "request_key": key, "body": text, "draft": true, "notify_users": notify}, &saved); err != nil {
+				return err
+			}
+			if err := call(c.Context(), "PUT", p+"/announcements/"+url.PathEscape(saved.Announcement.ID)+"/approval", map[string]any{"send_at": when.UTC().Format(time.RFC3339)}, nil); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(c.OutOrStdout(), "Message %q is waiting for approval: every admin gets a DM, and it posts once one replies \"yes\".\n", key)
 			return err
 		},
 	}
 	message.Flags().StringVar(&file, "file", "", "UTF-8 Markdown file to post")
+	message.Flags().StringVar(&at, "at", "", `Post no earlier than "2006-01-02 15:04" America/New_York (default: on approval)`)
 	message.Flags().BoolVar(&notify, "notify", false, "Let <@user> mentions ping those players (never @everyone or roles)")
-	message.Flags().BoolVar(&silent, "silent", false, "Post without push notifications (like @silent)")
-	message.Flags().StringVar(&replyTo, "reply-to", "", "Discord message ID to reply to")
 	root.AddCommand(message)
+}
+func mentionNote(notify bool) string {
+	if notify {
+		return "<@user> mentions WILL ping those players"
+	}
+	return "mentions will not notify"
 }

@@ -520,7 +520,22 @@ func newCommand() *cobra.Command {
 			_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — instance %s, guild %s, channel %s, send %s, request key %s (%s):\n\n%s\n\nRe-run with --yes to enqueue.\n", instance, guild, a[0], when, key, mentionNote(notify), data)
 			return err
 		}
-		return request(c, "POST", p+"/announcements", body)
+		body["draft"] = true // every announcement waits for an admin's "yes"
+		var saved struct {
+			Announcement announcement `json:"announcement"`
+		}
+		if err := call(c.Context(), "POST", p+"/announcements", body, &saved); err != nil {
+			return err
+		}
+		sendAt, _ := body["scheduled_at"].(string)
+		if sendAt == "" {
+			sendAt = time.Now().Add(time.Minute).UTC().Format(time.RFC3339)
+		}
+		if err := call(c.Context(), "PUT", p+"/announcements/"+url.PathEscape(saved.Announcement.ID)+"/approval", map[string]any{"send_at": sendAt}, nil); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(c.OutOrStdout(), "%s is waiting for approval: every admin gets a DM, and it posts %s once one replies \"yes\".\n", key, when)
+		return err
 	}}
 	send.Flags().StringVar(&announcementFile, "file", "", "UTF-8 Markdown file to send verbatim")
 	send.Flags().StringVar(&announcementKey, "key", "", "Stable request key (defaults to a hash of target, time, and content)")
@@ -545,7 +560,7 @@ func newCommand() *cobra.Command {
 		}
 		return nil
 	}, &guild, &yes, resolveChannel)
-	addMessageCommand(root, &discordBotToken, &yes, resolveChannel)
+	addMessageCommand(root, call, instancePath, &guild, &yes, resolveChannel)
 	add(root, "scores", 0, func(c *cobra.Command, _ []string) error {
 		p, e := instancePath()
 		if e != nil {

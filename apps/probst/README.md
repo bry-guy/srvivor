@@ -62,18 +62,18 @@ probst announcement list --instance INSTANCE
 probst announcement save NAME [CHANNEL] --instance INSTANCE --file FILE --yes
 probst announcement show NAME --instance INSTANCE
 probst announcement edit NAME --instance INSTANCE --file FILE --yes
-probst announcement schedule NAME --instance INSTANCE --at "2026-10-07 19:00"   # or --yes to send now
+probst announcement schedule NAME --instance INSTANCE --at "2026-10-07 19:00"   # requests approval; sends at --at after a "yes"
 probst announcement unschedule NAME --instance INSTANCE                          # back to a draft
 probst announcement delete NAME --instance INSTANCE --yes
 probst announcement mark-sent NAME --instance INSTANCE [--message MESSAGE_ID]   # you posted it yourself
 
 # One-off reply as the bot, sent right away and not saved.
-probst message [CHANNEL] "The tribe has spoken." --instance INSTANCE [--reply-to MESSAGE_ID] --yes
+probst message [CHANNEL] "The tribe has spoken." --instance INSTANCE [--at TIME] --yes
 ```
 
 Use `--json` for machine-readable output. `--server` and `--actor` override configuration. A channel rebind requires `--yes` and API admin authorization over both instances. Player identity replacement requires explicit unlinking first; conflicts never silently transfer identities.
 
-`announcement send` previews the file verbatim; `--yes` queues it and the Discord bot posts it as itself (mentions never notify). Without `--at` it is sent within seconds; `--at` takes America/New_York wall time or RFC3339. Re-running the same send is a no-op. A failed send is marked `failed` in `announcement list` and in bot logs and is not retried; to send it again, re-run with a new `--key`. Saved announcements live in the instance, so `announcement list` is where to find them. Anything not yet sent can be edited, rescheduled, unscheduled, or deleted; the bot uses whatever the text is when it sends. Mentions never ping unless you pass `--notify` (to `message`, `announcement save`, or `announcement send`), which lets `<@user>` mentions ping those players; `@everyone` and roles never ping. `message` posts directly with the bot token in your config and keeps no record; if it errors, check the channel before resending.
+**Every announcement waits for approval.** `message`, `announcement send` and `announcement schedule` save the text as a draft and DM every instance admin; nothing posts until one replies "yes" (then it sends at `--at`, or right away if that time has passed). `announcement send` previews the file verbatim (mentions never notify unless `--notify`); `--at` takes America/New_York wall time or RFC3339. Re-running the same send is a no-op. A failed send is marked `failed` in `announcement list` and in bot logs and is not retried; to send it again, re-run with a new `--key`. Saved announcements live in the instance, so `announcement list` is where to find them. Anything not yet sent can be edited, rescheduled, unscheduled, or deleted; the bot uses whatever the text is when it sends. Mentions never ping unless you pass `--notify` (to `message`, `announcement save`, or `announcement send`), which lets `<@user>` mentions ping those players; `@everyone` and roles never ping. `message` is a quick `announcement send` for short text: it saves a draft and requests approval.
 
 Bootstrap is disabled unless the API has `BOOTSTRAP_ADMIN_DISCORD_USER_ID` configured. The service-authenticated actor must match that ID, and the instance must have no admins. An already-authorized matching retry succeeds. This does not grant access to existing administered instances.
 

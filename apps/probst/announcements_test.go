@@ -16,6 +16,7 @@ func TestAnnouncementPreviewAndConfirmedSubmission(t *testing.T) {
 	t.Setenv("PROBST_DISCORD_USER_ID", "123")
 	const text = "📣 **Season update** <@456>\n\nNext episode soon.\n"
 	var posted []map[string]any
+	approvals := 0
 	boundInstance := "instance-1"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test-secret" || r.Header.Get("X-Discord-User-ID") != "123" {
@@ -31,6 +32,8 @@ func TestAnnouncementPreviewAndConfirmedSubmission(t *testing.T) {
 			}
 			posted = append(posted, body)
 			_ = json.NewEncoder(w).Encode(map[string]any{"announcement": map[string]any{"id": "created"}})
+		case r.Method == "PUT" && r.URL.Path == "/instances/instance-1/announcements/created/approval":
+			approvals++
 		default:
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 			http.NotFound(w, r)
@@ -67,6 +70,9 @@ func TestAnnouncementPreviewAndConfirmedSubmission(t *testing.T) {
 	}
 	if len(posted) != 2 || posted[0]["body"] != text || posted[0]["request_key"] != posted[1]["request_key"] || posted[0]["scheduled_at"] != nil {
 		t.Fatalf("submission was altered or not retry stable: %v", posted)
+	}
+	if posted[0]["draft"] != true || approvals != 2 { // saved as a draft and held for an admin's "yes"
+		t.Fatalf("send must be approval-gated: %v approvals=%d", posted[0], approvals)
 	}
 	if _, err := run(true, "--at", "2026-10-01 20:00"); err != nil {
 		t.Fatal(err)
