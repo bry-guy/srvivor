@@ -71,14 +71,14 @@ func TestAnnouncementPreviewAndConfirmedSubmission(t *testing.T) {
 	if len(posted) != 2 || posted[0]["body"] != text || posted[0]["request_key"] != posted[1]["request_key"] || posted[0]["scheduled_at"] != nil {
 		t.Fatalf("submission was altered or not retry stable: %v", posted)
 	}
-	if posted[0]["draft"] != true || approvals != 2 { // saved as a draft and held for an admin's "yes"
-		t.Fatalf("send must be approval-gated: %v approvals=%d", posted[0], approvals)
-	}
 	if _, err := run(true, "--at", "2026-10-01 20:00"); err != nil {
 		t.Fatal(err)
 	}
 	if posted[2]["scheduled_at"] != "2026-10-02T00:00:00Z" || posted[2]["request_key"] == posted[0]["request_key"] {
 		t.Fatalf("Eastern time was not scheduled as a distinct UTC request: %v", posted[2])
+	}
+	if posted[0]["draft"] == true || posted[2]["draft"] != true || approvals != 1 { // only scheduled sends wait for approval
+		t.Fatalf("approval gating: %v approvals=%d", posted, approvals)
 	}
 	if _, err := run(true, "--at", "tomorrow"); err == nil || len(posted) != 3 {
 		t.Fatalf("bad --at accepted: %v", err)

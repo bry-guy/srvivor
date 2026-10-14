@@ -84,30 +84,40 @@ func TestAnnouncementDraftWorkflowByName(t *testing.T) {
 	}
 }
 
-func TestMessageWaitsForApproval(t *testing.T) {
-	t.Setenv("PROBST_TOKEN", "test-secret")
-	t.Setenv("PROBST_DISCORD_USER_ID", "123")
-	var calls []string
-	var bodies []map[string]any
-	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls = append(calls, r.Method+" "+r.URL.Path)
-		var body map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		bodies = append(bodies, body)
-		_ = json.NewEncoder(w).Encode(map[string]any{"announcement": map[string]any{"id": "m-1"}})
+func TestMessagePostsDirectlyWithoutMentions(t *testing.T) {
+	var got map[string]any
+	var posts int
+	discord := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		posts++
+		if r.Method != "POST" || r.URL.Path != "/channels/201/messages" || r.Header.Get("Authorization") != "Bot bot-secret" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_ = json.NewEncoder(w).Encode(map[string]string{"id": "999"})
 	}))
-	defer api.Close()
-	t.Setenv("PROBST_API_URL", api.URL)
-	flags := []string{"--instance", "inst", "--guild", "101"}
-	if out, err := runProbst(t, append([]string{"message", "201", "The tribe has spoken, <@456>."}, flags...)...); err != nil || !strings.Contains(out, "Dry run") || len(calls) != 0 {
-		t.Fatalf("dry run: %q %v calls=%v", out, err, calls)
+	defer discord.Close()
+	t.Setenv("PROBST_DISCORD_API_URL", discord.URL)
+	t.Setenv("CASTAWAY_DISCORD_BOT_TOKEN", "bot-secret")
+	if out, err := runProbst(t, "message", "201", "The tribe has spoken, <@456>."); err != nil || !strings.Contains(out, "Dry run") || posts != 0 {
+		t.Fatalf("dry run: %q %v posts=%d", out, err, posts)
 	}
-	out, err := runProbst(t, append([]string{"message", "201", "Buff for <@456>", "--notify", "--yes"}, flags...)...)
-	if err != nil || !strings.Contains(out, "approval") {
-		t.Fatalf("send: %q %v", out, err)
+	out, err := runProbst(t, "message", "201", "The tribe has spoken, <@456>.", "--reply-to", "555", "--yes")
+	if err != nil || !strings.Contains(out, "999") || posts != 1 {
+		t.Fatalf("send: %q %v posts=%d", out, err, posts)
 	}
-	if strings.Join(calls, ",") != "POST /instances/inst/announcements,PUT /instances/inst/announcements/m-1/approval" ||
-		bodies[0]["draft"] != true || bodies[0]["notify_users"] != true || bodies[0]["channel_id"] != "201" || bodies[1]["send_at"] == nil {
-		t.Fatalf("message must be saved as a draft and held for approval: %v %v", calls, bodies)
+	if _, err := runProbst(t, "message", "201", "Buff for <@456>", "--notify", "--yes"); err != nil {
+		t.Fatal(err)
+	}
+	if parse := got["allowed_mentions"].(map[string]any)["parse"].([]any); len(parse) != 1 || parse[0] != "users" {
+		t.Fatalf("--notify should allow user pings only: %v", got)
+	}
+	out, err = runProbst(t, "message", "201", "The tribe has spoken, <@456>.", "--reply-to", "555", "--yes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mentions, _ := got["allowed_mentions"].(map[string]any)
+	reply, _ := got["message_reference"].(map[string]any)
+	if posts != 3 || got["content"] != "The tribe has spoken, <@456>." || mentions == nil || len(mentions["parse"].([]any)) != 0 || reply["message_id"] != "555" {
+		t.Fatalf("payload: %v", got)
 	}
 }

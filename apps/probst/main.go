@@ -520,7 +520,10 @@ func newCommand() *cobra.Command {
 			_, err = fmt.Fprintf(c.OutOrStdout(), "Dry run — instance %s, guild %s, channel %s, send %s, request key %s (%s):\n\n%s\n\nRe-run with --yes to enqueue.\n", instance, guild, a[0], when, key, mentionNote(notify), data)
 			return err
 		}
-		body["draft"] = true // every announcement waits for an admin's "yes"
+		if announcementAt == "" { // sending now is your own action: no approval
+			return request(c, "POST", p+"/announcements", body)
+		}
+		body["draft"] = true // scheduled announcements wait for an admin's "yes"
 		var saved struct {
 			Announcement announcement `json:"announcement"`
 		}
@@ -560,7 +563,7 @@ func newCommand() *cobra.Command {
 		}
 		return nil
 	}, &guild, &yes, resolveChannel)
-	addMessageCommand(root, call, instancePath, &guild, &yes, resolveChannel)
+	addMessageCommand(root, &discordBotToken, &yes, resolveChannel)
 	add(root, "scores", 0, func(c *cobra.Command, _ []string) error {
 		p, e := instancePath()
 		if e != nil {

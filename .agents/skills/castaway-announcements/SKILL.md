@@ -14,4 +14,4 @@ Before persisting or posting any Discord text for Castaway (Podracing or BrainLa
 
 Never test in Podracing; BrainLand only. Never invent dates or results in copy.
 
-Note: Probst `message`, `announcement send` and `announcement schedule` only *request* approval; nothing posts until an admin replies "yes" to the bot's DM. Still get the user's approval of the copy before running them.
+Note: scheduled Probst announcements (`announcement send --at`, `announcement schedule`) only *request* approval; nothing posts until an admin replies "yes" to the bot's DM. `probst message` posts immediately. Still get the user's approval of the copy before running them.

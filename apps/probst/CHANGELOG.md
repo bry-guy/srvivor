@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Every announcement now waits for an admin's DM "yes": `message`, `announcement send` and `announcement schedule` save a draft and request approval (no direct posting; `--reply-to`/`--silent` removed, `schedule --yes` send-now removed).
+- Scheduled announcements (`announcement send --at`, `announcement schedule`) wait for an admin's DM "yes"; `schedule --yes` send-now removed. `message` and immediate `send` still post directly.
 
 - Press the Button scores section calls out every rule that fired (most, second, ties, fewest, volume, streaks, first, last).
 
