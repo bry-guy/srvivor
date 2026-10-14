@@ -46,11 +46,11 @@ func TestCheckNextGame(t *testing.T) {
 
 	// Before Episode 3's game opens, week 4 isn't checked yet... the open week is 2, so week 3 is checked.
 	games = []scheduledGame{{Type: "press_the_button", Episode: 3}}
-	if did, err := checkNextGame(ctx, call, f, airs, at("2026-10-07 19:00")); err != nil || len(alerts) != 0 || !strings.Contains(did, "week 3") {
+	if did, err := checkNextGame(ctx, call, mustTemplates(t, "testdata/templates"), f, airs, at("2026-10-07 19:00")); err != nil || len(alerts) != 0 || !strings.Contains(did, "week 3") {
 		t.Fatalf("before ep3 opens: %q %v %v", did, err, alerts)
 	}
 	// Once Episode 3's game opens, a missing week 4 game alerts the admins.
-	did, err := checkNextGame(ctx, call, f, airs, at("2026-10-07 20:00"))
+	did, err := checkNextGame(ctx, call, mustTemplates(t, "testdata/templates"), f, airs, at("2026-10-07 20:00"))
 	if err != nil || len(alerts) != 1 || !strings.Contains(alerts[0], "/admin-alerts/s51-w4-game-not-ready") || !strings.Contains(alerts[0], "Week 4") || !strings.Contains(alerts[0], "Wed Oct 14 at 8:00pm") {
 		t.Fatalf("missing week 4: %q %v %v", did, err, alerts)
 	}
@@ -61,12 +61,12 @@ func TestCheckNextGame(t *testing.T) {
 		ScoresPost *planPost `yaml:"scores_post"`
 	}{Game: map[string]any{"type": "castawordle"}}
 	alerts = nil
-	if _, err := checkNextGame(ctx, call, f, airs, at("2026-10-08 09:00")); err != nil || len(alerts) != 1 || !strings.Contains(alerts[0], "isn't set up") {
+	if _, err := checkNextGame(ctx, call, mustTemplates(t, "testdata/templates"), f, airs, at("2026-10-08 09:00")); err != nil || len(alerts) != 1 || !strings.Contains(alerts[0], "isn't set up") {
 		t.Fatalf("not created: %v %v", err, alerts)
 	}
 	games = append(games, scheduledGame{Type: "castawordle", Episode: 4})
 	alerts = nil
-	if did, err := checkNextGame(ctx, call, f, airs, at("2026-10-08 09:00")); err != nil || len(alerts) != 0 || !strings.Contains(did, "ready") {
+	if did, err := checkNextGame(ctx, call, mustTemplates(t, "testdata/templates"), f, airs, at("2026-10-08 09:00")); err != nil || len(alerts) != 0 || !strings.Contains(did, "ready") {
 		t.Fatalf("ready: %q %v %v", did, err, alerts)
 	}
 	// "none" is a deliberate no-game week.
@@ -75,11 +75,11 @@ func TestCheckNextGame(t *testing.T) {
 		ScoresPost *planPost `yaml:"scores_post"`
 	}{Game: "none"}
 	games = games[:1]
-	if _, err := checkNextGame(ctx, call, f, airs, at("2026-10-08 09:00")); err != nil || len(alerts) != 0 {
+	if _, err := checkNextGame(ctx, call, mustTemplates(t, "testdata/templates"), f, airs, at("2026-10-08 09:00")); err != nil || len(alerts) != 0 {
 		t.Fatalf("none: %v %v", err, alerts)
 	}
 	// After the finale opens there's no next week.
-	if did, _ := checkNextGame(ctx, call, f, airs, at("2026-12-17 09:00")); did != "no next week to check" {
+	if did, _ := checkNextGame(ctx, call, mustTemplates(t, "testdata/templates"), f, airs, at("2026-12-17 09:00")); did != "no next week to check" {
 		t.Fatalf("after finale: %q", did)
 	}
 }

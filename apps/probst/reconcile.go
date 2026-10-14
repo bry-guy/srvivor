@@ -53,6 +53,15 @@ func (r *reconciler) alert(key, body string) error {
 }
 
 // raise queues an admin alert; with an action, admins approve it by replying "yes" and the server runs it.
+// alertMsg DMs admins the season's messages/<name>.md filled with data.
+func (r *reconciler) alertMsg(key, name string, data any) error {
+	text, err := r.tmpl.render("messages/"+name+".md", data)
+	if err != nil {
+		return err
+	}
+	return r.alert(key, text)
+}
+
 func (r *reconciler) raise(key, body string, action map[string]any) error {
 	if !strings.HasSuffix(key, "-expired") {
 		r.open = append(r.open, body)
@@ -125,13 +134,10 @@ func (r *reconciler) importResults(done map[int][]int) error {
 		case plan.Status != "ready":
 			due, err := planTime(r.f.Weekly.Results.Due, r.airs[ep-1])
 			if err == nil && r.now.After(due) {
-				errs = append(errs, r.alert(key+"-results-missing", fmt.Sprintf("⚠️ **Episode %d results aren't in survivoR yet** (%s). The Week %d scores post waits for them. "+
-					"Enter them by hand (`probst boot` / `probst challenge`), then run `probst episode import %d --file seasons/%d.yaml --resolve-holds --yes`.", ep, plan.Why, ep, ep, r.f.Season)))
+				errs = append(errs, r.alertMsg(key+"-results-missing", "results-missing", map[string]any{"Episode": ep, "Why": plan.Why, "Week": ep, "Season": r.f.Season}))
 			}
 		case len(plan.Holds) > 0:
-			errs = append(errs, r.alert(key+"-holds-"+hash8(strings.Join(plan.Holds, "\n")), fmt.Sprintf("⚠️ **Episode %d needs a decision before it can be scored:**\n• %s\n\n"+
-				"Record those by hand (`probst boot` / `probst challenge`), then run `probst episode import %d --file seasons/%d.yaml --resolve-holds --yes` to record the rest. "+
-				"The Week %d scores post waits until then.", ep, strings.Join(plan.Holds, "\n• "), ep, r.f.Season, ep)))
+			errs = append(errs, r.alertMsg(key+"-holds-"+hash8(strings.Join(plan.Holds, "\n")), "holds", map[string]any{"Episode": ep, "Holds": plan.Holds, "Season": r.f.Season, "Week": ep}))
 		case len(plan.Review) > 0:
 			if err := r.propose(key+"-import", plan); err != nil {
 				errs = append(errs, err)
@@ -152,16 +158,32 @@ func (r *reconciler) propose(key string, plan episodePlan) error {
 	if err != nil {
 		return err
 	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "🗳️ **Episode %d results need your OK** (survivoR %s):\n• %s\n\nThis will record:", plan.Episode, shortRev(plan.Revision), strings.Join(plan.Review, "\n• "))
+	type boot struct {
+		Name, Result string
+		Position     int
+	}
+	type win struct{ Tribes, Kind, Points, Winners string }
+	var boots []boot
 	for _, x := range plan.Boots {
-		fmt.Fprintf(&b, "\n• %s: place %d (%s)", x.Name, x.Position, x.Result)
+		boots = append(boots, boot{x.Name, x.Result, x.Position})
 	}
+	var wins, champs []win
 	for _, ch := range plan.Challenges {
-		fmt.Fprintf(&b, "\n• %s won %s: %s each", strings.Join(ch.Tribes, ", "), ch.Kind, map[string]string{"immunity": "+2", "reward": "+1"}[ch.Kind])
+		wins = append(wins, win{Tribes: strings.Join(ch.Tribes, ", "), Kind: ch.Kind, Points: map[string]string{"immunity": "+2", "reward": "+1"}[ch.Kind]})
 	}
-	fmt.Fprintf(&b, "\n\nThe Week %d scores post waits until then.", plan.Episode)
-	return r.raise(key, b.String(), map[string]any{"kind": "episode_import", "payload": body})
+	for _, ch := range plan.Champions {
+		var names []string
+		for _, w := range ch.Winners {
+			names = append(names, w.Name)
+		}
+		champs = append(champs, win{Winners: strings.Join(names, ", "), Kind: ch.Kind})
+	}
+	text, err := r.tmpl.render("messages/import-proposal.md", map[string]any{"Episode": plan.Episode, "Revision": shortRev(plan.Revision),
+		"Review": plan.Review, "Boots": boots, "Challenges": wins, "Champions": champs, "Week": plan.Episode})
+	if err != nil {
+		return err
+	}
+	return r.raise(key, text, map[string]any{"kind": "episode_import", "payload": body})
 }
 
 // importRequest is the server import for a plan, with challenge times from the server's episode schedule
@@ -188,8 +210,7 @@ func (r *reconciler) applyPlan(plan episodePlan, manual bool) error {
 	}
 	err = r.call(r.ctx, "POST", r.path+"/episode-imports", body, &res)
 	if err != nil && strings.Contains(err.Error(), "409") {
-		return r.alert(fmt.Sprintf("s%d-ep%d-conflict-%s", r.f.Season, plan.Episode, hash8(err.Error())), fmt.Sprintf(
-			"⚠️ **Episode %d results conflict with what's already recorded**, so nothing was imported: %v\n\nCheck the outcomes and challenges for that episode.", plan.Episode, err))
+		return r.alertMsg(fmt.Sprintf("s%d-ep%d-conflict-%s", r.f.Season, plan.Episode, hash8(err.Error())), "import-conflict", map[string]any{"Episode": plan.Episode, "Error": err.Error()})
 	}
 	if err == nil {
 		r.logf("episode %d: %s", plan.Episode, res.Status)
@@ -223,8 +244,7 @@ func (r *reconciler) draftScoresPosts(done map[int][]int) error {
 		key := scoresKey(r.f.Season, week)
 		if r.now.After(at.Add(3 * time.Hour)) {
 			if existing, err := findAnnouncement(r.ctx, r.call, r.path, key); err != nil || existing.Status != "sent" {
-				errs = append(errs, r.alert(key+"-expired", fmt.Sprintf("⚠️ The Week %d scores post didn't go out within 3 hours of %s ET, so automation stopped. Post it by hand if you still want it.",
-					week, at.Format("Mon Jan 2 3:04pm"))))
+				errs = append(errs, r.alertMsg(key+"-expired", "scores-expired", map[string]any{"Week": week, "At": at.Format("Mon Jan 2 3:04pm")}))
 			}
 			continue
 		}
@@ -246,8 +266,7 @@ func (r *reconciler) draftScoresPosts(done map[int][]int) error {
 		if len(waiting) > 0 {
 			r.logf("week %d scores post waiting for %s", week, strings.Join(waiting, " and "))
 			if r.now.After(at.Add(15 * time.Minute)) {
-				errs = append(errs, r.alert(key+"-waiting", fmt.Sprintf("⏳ The Week %d scores post is waiting for %s; it's drafted for your approval as soon as they're in (until %s ET).",
-					week, strings.Join(waiting, " and "), at.Add(3*time.Hour).Format("3:04pm"))))
+				errs = append(errs, r.alertMsg(key+"-waiting", "scores-waiting", map[string]any{"Week": week, "Waiting": strings.Join(waiting, " and "), "Until": shortTime(at.Add(3*time.Hour))}))
 			}
 			continue
 		}
@@ -403,13 +422,17 @@ func (r *reconciler) run() error {
 	}
 	r.open = nil
 	var errs []error
-	did, err := checkNextGame(r.ctx, r.call, r.f, r.airs, r.now)
+	did, err := checkNextGame(r.ctx, r.call, r.tmpl, r.f, r.airs, r.now)
 	if err == nil {
 		r.logf("%s", did)
-		if p, ok := strings.CutPrefix(did, "alerted admins: "); ok {
-			r.open = append(r.open, "⚠️ **Next week's game isn't ready.** "+p)
-		} else if p, ok := strings.CutPrefix(did, "already alerted: "); ok {
-			r.open = append(r.open, "⚠️ **Next week's game isn't ready.** "+p)
+		p, ok := strings.CutPrefix(did, "alerted admins: ")
+		if !ok {
+			p, ok = strings.CutPrefix(did, "already alerted: ")
+		}
+		if ok {
+			line, lerr := r.tmpl.render("messages/game-not-ready.md", map[string]any{"Problem": p, "Opens": ""})
+			r.open = append(r.open, line)
+			err = lerr
 		}
 	}
 	errs = append(errs, err)
@@ -446,8 +469,7 @@ func (r *reconciler) nudge() error {
 	}
 	issues := r.open
 	r.open = nil // the nudge isn't itself an open issue
-	return r.alert(fmt.Sprintf("s%d-nudge-%s", r.f.Season, now.Format("2006-01-02")),
-		"📋 **Daily reminder — still open:**\n\n"+strings.Join(issues, "\n\n"))
+	return r.alertMsg(fmt.Sprintf("s%d-nudge-%s", r.f.Season, now.Format("2006-01-02")), "nudge", map[string]any{"Issues": issues})
 }
 
 func newReconciler(c *cobra.Command, call apiCall, file string) (*reconciler, error) {

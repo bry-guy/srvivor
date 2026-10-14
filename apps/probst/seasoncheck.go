@@ -16,25 +16,25 @@ type scheduledGame struct {
 }
 
 // gameReadiness says whether week's game is set: "" if ready (or deliberately none), else what's wrong.
-func gameReadiness(f seasonFile, week int, live []scheduledGame) string {
+func gameReadiness(t templateSet, f seasonFile, week int, live []scheduledGame) (string, error) {
 	if f.Weeks[week].Game == "none" {
-		return ""
+		return "", nil
 	}
 	want := weekGame(f, week)
 	if want == "" {
-		return fmt.Sprintf("Week %d has no game picked in seasons/%d.yaml (weeks.%d.game is TBD).", week, f.Season, week)
+		return t.render("messages/game-unset.md", map[string]any{"Week": week, "Season": f.Season})
 	}
 	for _, g := range live {
 		if g.Episode == week && g.Type == want {
-			return ""
+			return "", nil
 		}
 	}
-	return fmt.Sprintf("Week %d's %s isn't set up on the server yet. Run `probst season apply seasons/%d.yaml --yes` (Castawordle: `probst castawordle week`).", week, gameNames[want], f.Season)
+	return t.render("messages/game-not-created.md", map[string]any{"Week": week, "Game": gameNames[want], "Season": f.Season})
 }
 
 // checkNextGame raises a one-time admin alert when the game for the week after the one that just opened
 // isn't ready. It acts only once week's game has opened (and before the next opens). Returns what it did.
-func checkNextGame(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, now time.Time) (string, error) {
+func checkNextGame(ctx context.Context, call apiCall, t templateSet, f seasonFile, airs []time.Time, now time.Time) (string, error) {
 	week := 0
 	for i, air := range airs {
 		if opens, err := planTime(f.Weekly.Game.Opens, air); err == nil && !now.Before(opens) {
@@ -52,7 +52,10 @@ func checkNextGame(ctx context.Context, call apiCall, f seasonFile, airs []time.
 	if err := call(ctx, "GET", path+"/scheduled-games", nil, &live); err != nil {
 		return "", err
 	}
-	problem := gameReadiness(f, next, live.Games)
+	problem, err := gameReadiness(t, f, next, live.Games)
+	if err != nil {
+		return "", err
+	}
 	if problem == "" {
 		return fmt.Sprintf("week %d's game is ready", next), nil
 	}
@@ -60,7 +63,10 @@ func checkNextGame(ctx context.Context, call apiCall, f seasonFile, airs []time.
 	if err != nil {
 		return "", err
 	}
-	body := fmt.Sprintf("⚠️ **Next week's game isn't ready.** %s It opens %s ET.", problem, opens.Format("Mon Jan 2 at 3:04pm"))
+	body, err := t.render("messages/game-not-ready.md", map[string]any{"Problem": problem, "Opens": opens.Format("Mon Jan 2 at 3:04pm")})
+	if err != nil {
+		return "", err
+	}
 	var created struct {
 		Created bool `json:"created"`
 	}
@@ -89,7 +95,11 @@ func addSeasonCheckCommand(season *cobra.Command, call apiCall) {
 			if err != nil {
 				return err
 			}
-			did, err := checkNextGame(c.Context(), call, f, airs, now)
+			tmpl, err := seasonTemplates(a[0], f)
+			if err != nil {
+				return err
+			}
+			did, err := checkNextGame(c.Context(), call, tmpl, f, airs, now)
 			if err != nil {
 				return err
 			}

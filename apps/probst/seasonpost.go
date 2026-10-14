@@ -106,7 +106,11 @@ func buildScoresPost(t templateSet, season, week int, now, prev []scoreRow, boot
 	last := rows[len(rows)-1]
 	p.Last = rankLine{mention(last), last.Total}
 	if len(booted) > 0 {
-		p.Boots = line("boot", booted, 0)
+		if len(booted) > 1 {
+			p.Boots = line("boot-many", booted, 0)
+		} else {
+			p.Boots = line("boot", booted, 0)
+		}
 	}
 	if err := errors.Join(errs...); err != nil {
 		return scoresPost{}, err
