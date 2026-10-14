@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Press the Button game results include each player's rule breakdown (`rank_rule`, `rank_points`, `volume_points`, `streak_points`).
+
 - Draft buff posts, the draft-rewards thread, and admin alerts (rescored post, stale automation) come from embedded templates in `internal/httpapi/messages/`.
 
 - `PUT /instances/:id/episodes` (admin) creates or moves a season's episodes to match a season file.

@@ -23,6 +23,24 @@ import (
 // applies, so with two distinct counts the lower one is "second most". On top of that, everyone earns +1
 // per order of magnitude past 10 presses (100: +1, 1,000: +2, 10,000+: +3).
 func buttonAwards(presses map[string]int64) map[string]int {
+	awards := map[string]int{}
+	for player, r := range buttonRanks(presses) {
+		if points := r.Points + pressBonus(presses[player]); points != 0 {
+			awards[player] = points
+		}
+	}
+	return awards
+}
+
+// buttonRank is the press-count rule a player hit: "tie" (Group players share the count), "most", "second",
+// "least", or "" for none.
+type buttonRank struct {
+	Rule   string
+	Group  int
+	Points int
+}
+
+func buttonRanks(presses map[string]int64) map[string]buttonRank {
 	byCount := map[int64][]string{}
 	for player, n := range presses {
 		byCount[n] = append(byCount[n], player)
@@ -32,28 +50,25 @@ func buttonAwards(presses map[string]int64) map[string]int {
 		counts = append(counts, n)
 	}
 	sort.Slice(counts, func(i, j int) bool { return counts[i] > counts[j] })
-	awards := map[string]int{}
+	ranks := map[string]buttonRank{}
 	for i, n := range counts {
 		group := byCount[n]
-		points := 0
+		var r buttonRank
 		switch {
 		case len(group) > 1:
-			points = min(len(group), 3)
+			r = buttonRank{"tie", len(group), min(len(group), 3)}
 		case i == 0:
-			points = 2
+			r = buttonRank{"most", 1, 2}
 		case i == 1:
-			points = -1
+			r = buttonRank{"second", 1, -1}
 		case i == len(counts)-1:
-			points = 1
+			r = buttonRank{"least", 1, 1}
 		}
-		points += pressBonus(n)
 		for _, player := range group {
-			if points != 0 {
-				awards[player] = points
-			}
+			ranks[player] = r
 		}
 	}
-	return awards
+	return ranks
 }
 
 func pressBonus(presses int64) int {

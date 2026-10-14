@@ -135,11 +135,31 @@ func TestPressTheButton(t *testing.T) {
 			Presses int64  `json:"presses"`
 			Points  int    `json:"points"`
 			First   bool   `json:"first"`
+			Last    bool   `json:"last"`
+			Rule    string `json:"rank_rule"`
+			Rank    int    `json:"rank_points"`
+			Volume  int    `json:"volume_points"`
+			Streak  int    `json:"streak_points"`
 		} `json:"players"`
 	}
 	if err := json.Unmarshal([]byte(serve("GET", results, "", "admin", 200)), &res); err != nil || res.Type != "press_the_button" || len(res.Players) == 0 ||
 		res.Players[0].Name != "most" || res.Players[0].Presses != 9 || !res.Players[0].First {
 		t.Fatalf("game results: %+v %v", res, err)
+	}
+	if res.Players[0].Rule != "most" || res.Players[0].Rank != 2 {
+		t.Fatalf("most presser's rule: %+v", res.Players[0])
+	}
+	for _, p := range res.Players { // the breakdown adds up to the total
+		sum := p.Rank + p.Volume + p.Streak
+		if p.First {
+			sum++
+		}
+		if p.Last {
+			sum--
+		}
+		if sum != p.Points {
+			t.Fatalf("breakdown %+v doesn't add to %d", p, p.Points)
+		}
 	}
 	serve("POST", create, window, "admin", 409) // resolved games can't be rescheduled
 	// Once scored, every player in the season sees everyone's results, and each player's profile lists it.

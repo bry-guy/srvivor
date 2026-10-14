@@ -17,7 +17,7 @@ func TestLiveTemplatesRender(t *testing.T) {
 	players := []gameRow{{Name: "Ann", TribeEmoji: "🟣", Points: 3, Presses: 20, First: true, Place: 1, Guesses: 3, Solved: true}, {Name: "Bo", Points: -1, Presses: 2, Last: true}}
 	tribes := []tribeRow{{Name: "Savu", Emoji: "🟣", Value: 3.7}, {Name: "Toka", Emoji: "🟡", Value: 4}}
 	for game := range gameNames {
-		text, err := set.render("games/"+game+".md", map[string]any{"Name": gameNames[game], "Week": 3, "Players": players, "Tribes": tribes})
+		text, err := set.render("games/"+game+".md", map[string]any{"Name": gameNames[game], "Week": 3, "Players": players, "Tribes": tribes, "Rules": buttonRules(players)})
 		if err != nil || !strings.Contains(text, "Ann") {
 			t.Errorf("games/%s.md: %v\n%s", game, err, text)
 		}

@@ -26,6 +26,12 @@ type gameResult struct {
 	StreakDays int   `json:"streak_days"`
 	First      bool  `json:"first"`
 	Last       bool  `json:"last"`
+	// The rule breakdown behind Points: press-count rule ("most", "second", "least", "tie" or ""), its
+	// points, and the volume, streak, first and last bonuses.
+	RankRule     string `json:"rank_rule"`
+	RankPoints   int    `json:"rank_points"`
+	VolumePoints int    `json:"volume_points"`
+	StreakPoints int    `json:"streak_points"`
 	// spell_it_out
 	Place       int   `json:"place"` // 0: didn't solve
 	Seconds     int64 `json:"seconds"`
@@ -100,11 +106,17 @@ func (s *Server) gameResults(ctx context.Context, instanceID uuid.UUID, episode 
 			return "", nil, nil, err
 		}
 		scores := buttonScores(players)
+		presses := map[string]int64{}
+		for _, p := range players {
+			presses[p.ID] = p.Presses
+		}
+		ranks := buttonRanks(presses)
 		out := []gameResult{}
 		for _, p := range players {
-			sc := scores[p.ID]
+			sc, r := scores[p.ID], ranks[p.ID]
 			out = append(out, gameResult{Name: p.Name, Tribe: p.Tribe, TribeEmoji: emoji[p.Tribe], Points: sc.Total, Presses: p.Presses,
-				StreakDays: sc.StreakDays, First: sc.First > 0, Last: sc.Last < 0})
+				StreakDays: sc.StreakDays, First: sc.First > 0, Last: sc.Last < 0,
+				RankRule: r.Rule, RankPoints: r.Points, VolumePoints: pressBonus(p.Presses), StreakPoints: sc.Streak})
 		}
 		tribes := []tribeResult{}
 		for _, t := range tribePresses(players) {

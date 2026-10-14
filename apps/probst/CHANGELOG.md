@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Press the Button scores section calls out every rule that fired (most, second, ties, fewest, volume, streaks, first, last).
+
 - Admin DMs from the scheduled job (results missing, holds, import proposals, conflicts, scores waiting/expired, game not ready, daily nudge) now come from the season's `messages/*.md` templates; multi-person eliminations use `lines/boot-many.txt`.
 
 - `probst season sync FILE --fix-episodes` sets the live episode schedule to the file's first (dry run shows each change); `probst season post --preview` renders a dry run before the week's game is scored.

@@ -396,20 +396,78 @@ func gameScore(ctx context.Context, call apiCall, path string, t templateSet, f 
 		players = append(players, gameRow{Name: str(m["name"]), TribeEmoji: str(m["tribe_emoji"]), Tribe: str(m["tribe"]), Points: int(num(m["points"])),
 			Presses: int(num(m["presses"])), First: m["first"] == true, Last: m["last"] == true, StreakDays: int(num(m["streak_days"])),
 			Place: int(num(m["place"])), Seconds: int(num(m["seconds"])), WrongChecks: int(num(m["wrong_checks"])),
-			Guesses: int(num(m["guesses"])), Solved: m["solved"] == true})
+			Guesses: int(num(m["guesses"])), Solved: m["solved"] == true,
+			RankRule: str(m["rank_rule"]), RankPoints: int(num(m["rank_points"])), VolumePoints: int(num(m["volume_points"])), StreakPoints: int(num(m["streak_points"]))})
 	}
 	for _, m := range res.Tribes {
 		tribes = append(tribes, tribeRow{Name: str(m["name"]), Emoji: str(m["emoji"]), Value: fnum(m["value"])})
 	}
-	return t.render("games/"+game+".md", map[string]any{"Name": gameNames[game], "Week": week, "Players": players, "Tribes": tribes})
+	return t.render("games/"+game+".md", map[string]any{"Name": gameNames[game], "Week": week, "Players": players, "Tribes": tribes, "Rules": buttonRules(players)})
+}
+
+// ruleGroup is the players who hit one Press the Button rule together (a tie, a streak length, ...).
+type ruleGroup struct {
+	Names          string
+	Count, Presses int // Count: players in the group
+	Days, Points   int
+}
+
+// buttonRules groups players by the scoring rules they hit, in the order games/press_the_button.md shows them.
+func buttonRules(players []gameRow) map[string][]ruleGroup {
+	out := map[string][]ruleGroup{}
+	for _, rule := range []string{"most", "second", "tie", "least", "volume", "streak", "first", "last"} {
+		out[rule] = nil // every rule present, so templates can range over rules nobody hit
+	}
+	add := func(rule string, key, days, points int, name string, presses int) {
+		for i, g := range out[rule] {
+			if g.Presses == key && g.Days == days && g.Points == points {
+				out[rule][i].Names = g.Names + "\x00" + name
+				out[rule][i].Count++
+				return
+			}
+		}
+		out[rule] = append(out[rule], ruleGroup{Names: name, Count: 1, Presses: presses, Days: days, Points: points})
+	}
+	for _, p := range players {
+		if p.RankRule != "" {
+			add(p.RankRule, p.Presses, 0, p.RankPoints, p.Name, p.Presses)
+		}
+		if p.VolumePoints > 0 {
+			add("volume", p.Presses, 0, p.VolumePoints, p.Name, p.Presses)
+		}
+		if p.StreakPoints > 0 {
+			add("streak", 0, p.StreakDays, p.StreakPoints, p.Name, 0)
+		}
+		if p.First {
+			add("first", 0, 0, 1, p.Name, p.Presses)
+		}
+		if p.Last {
+			add("last", 0, 0, -1, p.Name, p.Presses)
+		}
+	}
+	for rule, groups := range out {
+		for i := range groups {
+			out[rule][i].Names = joinAnd(strings.Split(groups[i].Names, "\x00"))
+		}
+	}
+	return out
+}
+
+func joinAnd(names []string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
 // gameRow is one player's game result for games/<type>.md; fields a game doesn't use are zero.
 type gameRow struct {
-	Name, Tribe, TribeEmoji              string
-	Points, Presses, StreakDays          int
-	First, Last, Solved                  bool
-	Place, Seconds, WrongChecks, Guesses int
+	Name, Tribe, TribeEmoji                string
+	Points, Presses, StreakDays            int
+	First, Last, Solved                    bool
+	Place, Seconds, WrongChecks, Guesses   int
+	RankRule                               string
+	RankPoints, VolumePoints, StreakPoints int
 }
 
 type tribeRow struct {
