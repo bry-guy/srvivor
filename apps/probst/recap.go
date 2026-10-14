@@ -38,6 +38,7 @@ type outcome struct {
 }
 
 // Flair for the elimination line, one per episode; %s is the spoiler-wrapped names.
+// Deprecated: legacy `recap` only; scores posts use the season's lines/boot.txt template.
 var bootFlair = []string{
 	"The Open Era claims its first victim: %s is heading home. Hope the snacks at Ponderosa slap. 🔥",
 	"%s grabbed their torch and learned the hard way that vibes are not a strategy. 🔦",

@@ -1,0 +1,1 @@
+{{.Names}} managed just +{{.N}}. Slow and steady… mostly slow.

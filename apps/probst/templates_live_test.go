@@ -1,0 +1,47 @@
+package main
+
+import (
+	"strings"
+	"testing"
+)
+
+// The live season templates parse and render with sample data (templates only; no season dates).
+func TestLiveTemplatesRender(t *testing.T) {
+	set := mustTemplates(t, "../../seasons/51-templates")
+	p := scoresPost{Season: 51, Week: 3, Intro: "Hi", Leader: "L", Gainer: "G", Slider: "S", Boots: "B",
+		Top: []rankLine{{"<@1>", 9}, {"<@2>", 8}, {"<@3>", 7}}, Last: rankLine{"<@4>", 1}, Site: "https://x", NextGame: "NEXT", GameScore: "GAME"}
+	text, err := renderScoresPost(set, p)
+	if err != nil || !strings.Contains(text, "GAME") || !strings.Contains(text, "NEXT") || !strings.Contains(text, "🥉 <@3>: 7") {
+		t.Fatalf("scores.md: %v\n%s", err, text)
+	}
+	players := []gameRow{{Name: "Ann", TribeEmoji: "🟣", Points: 3, Presses: 20, First: true, Place: 1, Guesses: 3, Solved: true}, {Name: "Bo", Points: -1, Presses: 2, Last: true}}
+	tribes := []tribeRow{{Name: "Savu", Emoji: "🟣", Value: 3.7}, {Name: "Toka", Emoji: "🟡", Value: 4}}
+	for game := range gameNames {
+		text, err := set.render("games/"+game+".md", map[string]any{"Name": gameNames[game], "Week": 3, "Players": players, "Tribes": tribes})
+		if err != nil || !strings.Contains(text, "Ann") {
+			t.Errorf("games/%s.md: %v\n%s", game, err, text)
+		}
+	}
+	for _, name := range []string{"reminder.md", "next-game.md"} {
+		if _, err := set.render(name, map[string]any{"Week": 3, "Type": "castawordle", "Name": "Castawordle", "Site": "https://x", "Closes": "7:59pm", "Opens": "8pm"}); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	for name := range set {
+		if !strings.HasPrefix(name, "lines/") {
+			continue
+		}
+		key := strings.TrimSuffix(strings.TrimPrefix(name, "lines/"), ".txt")
+		seen := map[string]bool{}
+		for week := 1; week <= 13; week++ {
+			line, err := set.line(key, week, lineData{Names: "X", N: 2})
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			if seen[line] && strings.Count(strings.TrimSpace(set[name]), "\n") > 0 {
+				t.Errorf("%s repeats by week %d", name, week)
+			}
+			seen[line] = true
+		}
+	}
+}

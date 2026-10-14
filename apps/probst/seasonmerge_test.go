@@ -17,7 +17,10 @@ import (
 func TestSeasonMerge(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "s.yaml")
-	for src, dst := range map[string]string{"testdata/season-brainland.yaml": file, "testdata/season-brainland-scores.md": filepath.Join(dir, "s-scores.md")} {
+	if err := os.CopyFS(filepath.Join(dir, "templates"), os.DirFS("testdata/templates")); err != nil {
+		t.Fatal(err)
+	}
+	for src, dst := range map[string]string{"testdata/season-brainland.yaml": file} {
 		raw, err := os.ReadFile(src)
 		if err != nil {
 			t.Fatal(err)

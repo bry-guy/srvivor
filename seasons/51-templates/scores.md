@@ -10,12 +10,12 @@
 {{- if .Slider}}
 📉 {{.Slider}}{{end}}
 
-🥇 {{index .Top 0}}
-{{- if gt (len .Top) 1}}
-🥈 {{index .Top 1}}{{end}}
-{{- if gt (len .Top) 2}}
-🥉 {{index .Top 2}}{{end}}
-🔦 {{.Last}}
+{{range $i, $r := .Top}}{{if eq $i 0}}🥇{{else if eq $i 1}}🥈{{else}}🥉{{end}} {{$r.Mention}}: {{$r.Total}}
+{{end -}}
+🔦 {{.Last.Mention}}: {{.Last.Total}}
+{{- if .GameScore}}
+
+{{.GameScore}}{{end}}
 
 Full scores: <{{.Site}}>
 {{- if .NextGame}}

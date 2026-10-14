@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -72,6 +73,9 @@ func (s *fakeSeason) call(_ context.Context, method, path string, body, out any)
 	case method == "PUT" && strings.Contains(path, "/score-posts/"):
 		s.posts[path[strings.LastIndex(path, "/")+1:]] = body.(map[string]any)
 		set(map[string]any{"action": "created"})
+	case method == "GET" && strings.Contains(path, "/game-results/"):
+		set(map[string]any{"type": "press_the_button", "tribes": []map[string]any{{"name": "Savu", "emoji": "🟣", "value": 30.0}},
+			"players": []map[string]any{{"name": "Ann", "tribe_emoji": "🟣", "presses": 20.0, "points": 3.0, "first": true}, {"name": "Bo", "presses": 10.0, "points": -1.0, "last": true}}})
 	case method == "GET" && strings.HasSuffix(path, "/announcements"):
 		set(map[string]any{"announcements": []any{}})
 	default:
@@ -94,7 +98,7 @@ func TestReconcile(t *testing.T) {
 		snapshot: []scoreRow{{ID: "a", Name: "Ann", DiscordID: "1", Total: 6, HasDraft: true}, {ID: "b", Name: "Bo", DiscordID: "2", Total: 2, HasDraft: true}}}
 	plan := episodePlan{Episode: 3, Status: "incomplete", Why: "challenge 4 has no results yet"}
 	var out bytes.Buffer
-	r := &reconciler{ctx: context.Background(), call: fake.call, f: f, airs: airs, tmpl: "testdata/season-brainland-scores.md", out: &out,
+	r := &reconciler{ctx: context.Background(), call: fake.call, f: f, airs: airs, tmpl: mustTemplates(t, "testdata/templates"), out: &out,
 		path: "/instances/x", fetchPlan: func(ep int) (episodePlan, error) {
 			if ep != 3 {
 				return episodePlan{Episode: ep, Status: "absent"}, nil
@@ -189,6 +193,11 @@ func TestReconcile(t *testing.T) {
 		post["guild_id"] != "1078197143501819915" || !strings.Contains(body, "||  Kyle") || !strings.Contains(body, "Week 3") || !strings.Contains(body, "<@1>") {
 		t.Fatalf("post: %v", post)
 	}
+	// The week's game results come from games/press_the_button.md.
+	if !strings.Contains(body, "🟣 Ann: 20 presses (+3)") || !strings.Contains(body, "Last to press: Bo.") || !strings.Contains(body, "🟣 Savu 30 presses") {
+		t.Fatalf("game results missing:\n%s", body)
+	}
+	t.Log("\n" + body)
 	if len(fake.imported) != 1 {
 		t.Fatal("re-imported")
 	}
@@ -204,5 +213,64 @@ func TestReconcile(t *testing.T) {
 	run("2026-10-21 21:00")
 	if len(fake.alerts) != before || !strings.Contains(out.String(), "automation is off") {
 		t.Fatal("ran while disabled")
+	}
+}
+
+func mustTemplates(t *testing.T, dir string) templateSet {
+	t.Helper()
+	set, err := loadTemplates(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return set
+}
+
+// The game-day reminder is drafted for approval once the game opens, sends at weekly.reminder.at (never
+// pinging), uses reminder.md, and isn't drafted for a game that closes before it or after it has expired.
+func TestReconcileReminder(t *testing.T) {
+	f, err := loadSeasonFile("testdata/season-brainland.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Weekly.Reminder.At = "+7d 10:00"
+	_, airs, err := expandSeason(f, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := func(s string) time.Time {
+		v, err := time.ParseInLocation("2006-01-02 15:04", s, eastern())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	game := liveGame{Type: "press_the_button", Episode: 3, OpensAt: at("2026-10-07 20:00"), CutoffAt: at("2026-10-14 19:59")}
+	fake := &fakeSeason{t: t, imports: map[int][]int{}, alerts: map[string]string{}, actions: map[string]map[string]any{}, posts: map[string]map[string]any{},
+		games: []liveGame{game}}
+	r := &reconciler{ctx: context.Background(), call: fake.call, f: f, airs: airs, tmpl: mustTemplates(t, "testdata/templates"), out: io.Discard, path: "/instances/x"}
+	draft := func(now string) map[string]any {
+		t.Helper()
+		r.now = at(now)
+		delete(fake.posts, "s51-week-3-reminder")
+		if err := r.draftReminders(); err != nil {
+			t.Fatal(err)
+		}
+		return fake.posts["s51-week-3-reminder"]
+	}
+	if draft("2026-10-07 19:00") != nil {
+		t.Fatal("drafted before the game opened")
+	}
+	post := draft("2026-10-07 20:05")
+	body, _ := post["body"].(string)
+	if post == nil || post["send_at"] != at("2026-10-14 10:00").UTC().Format(time.RFC3339) || post["notify_users"] != false || post["score_fingerprint"] != nil ||
+		!strings.Contains(body, "**Press the Button**") || !strings.Contains(body, "until 7:59pm tonight") {
+		t.Fatalf("reminder: %v", post)
+	}
+	if draft("2026-10-14 13:30") != nil {
+		t.Fatal("drafted after it expired")
+	}
+	fake.games[0].CutoffAt = at("2026-10-14 09:00")
+	if draft("2026-10-10 12:00") != nil {
+		t.Fatal("reminder after the game closes")
 	}
 }

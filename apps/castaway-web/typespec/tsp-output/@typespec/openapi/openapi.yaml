@@ -2003,6 +2003,59 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RecordFinaleBingoScoresRequest'
+  /instances/{instanceID}/game-results/{episode}:
+    get:
+      operationId: getGameResults
+      description: A scored episode game's results for the weekly scores post (409 until it's scored; never includes answers).
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: episode
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                      players:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: {}
+                      tribes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            emoji:
+                              type: string
+                            value:
+                              type: number
+                              format: double
+                          required:
+                            - name
+                            - emoji
+                            - value
+                    required:
+                      - type
+                      - players
+                      - tribes
+                  - $ref: '#/components/schemas/ErrorResponse'
   /instances/{instanceID}/individual-pony/immunity:
     post:
       operationId: recordIndividualPonyImmunity
@@ -2617,7 +2670,6 @@ paths:
                 - channel_id
                 - body
                 - send_at
-                - score_fingerprint
   /instances/{instanceID}/score-snapshots/{week}:
     put:
       operationId: takeScoreSnapshot

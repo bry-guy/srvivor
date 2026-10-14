@@ -88,3 +88,4 @@ automation:
   enabled: true                 # on since Oct 7 after the BrainLand rehearsal
   from_week: 3                  # weeks 1-2 were done by hand
   guild: "521073437779689474"
+templates: templates

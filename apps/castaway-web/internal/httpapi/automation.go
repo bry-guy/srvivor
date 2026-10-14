@@ -401,8 +401,8 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		NotifyUsers      bool      `json:"notify_users"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || len(key) == 0 || len(key) > 120 || !validAnnouncementID(req.GuildID) || !validAnnouncementID(req.ChannelID) ||
-		strings.TrimSpace(req.Body) == "" || utf8.RuneCountInString(req.Body) > 2000 || req.SendAt.IsZero() || req.ScoreFingerprint == "" {
-		c.JSON(http.StatusBadRequest, errorResponse{Error: "guild_id, channel_id, a nonblank body (at most 2000 characters), send_at and score_fingerprint are required"})
+		strings.TrimSpace(req.Body) == "" || utf8.RuneCountInString(req.Body) > 2000 || req.SendAt.IsZero() {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "guild_id, channel_id, a nonblank body (at most 2000 characters) and send_at are required"})
 		return
 	}
 	ctx := c.Request.Context()
@@ -411,7 +411,9 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		c.JSON(http.StatusConflict, errorResponse{Error: "send_at is more than 3 hours past; the post has expired"})
 		return
 	}
-	if _, current, err := s.scoreStandings(ctx, instanceID); err != nil {
+	// Without a score_fingerprint it's a plain automated post (a game reminder): no standings to keep fresh.
+	if req.ScoreFingerprint == "" {
+	} else if _, current, err := s.scoreStandings(ctx, instanceID); err != nil {
 		writeAnnouncementError(c, err)
 		return
 	} else if current != req.ScoreFingerprint {
@@ -436,17 +438,17 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 	}
 	var status string
 	var fingerprint, autoMD5 *string
-	var edited bool
-	err = tx.QueryRow(ctx, `SELECT a.status, a.score_fingerprint, a.auto_body_md5, a.auto_body_md5 IS DISTINCT FROM md5(a.body)
+	var edited, sameDraft bool
+	err = tx.QueryRow(ctx, `SELECT a.status, a.score_fingerprint, a.auto_body_md5, a.auto_body_md5 IS DISTINCT FROM md5(a.body), a.auto_body_md5 = md5($3)
 		FROM announcements a JOIN instances i ON i.id = a.instance_id WHERE i.public_id = $1 AND a.request_key = $2 FOR UPDATE OF a`,
-		toPGUUID(instanceID), key).Scan(&status, &fingerprint, &autoMD5, &edited)
+		toPGUUID(instanceID), key, req.Body).Scan(&status, &fingerprint, &autoMD5, &edited, &sameDraft)
 	action := ""
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		action = "created"
 		_, err = tx.Exec(ctx, `INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, due_at, status, notify_users,
 				approval_gated, approval_send_at, score_fingerprint, auto_body_md5)
-			SELECT id, $2, $3, $4, $5, $6, 'draft', $7, true, $6, $8, md5($5) FROM instances WHERE public_id = $1`,
+			SELECT id, $2, $3, $4, $5, $6, 'draft', $7, true, $6, NULLIF($8, ''), md5($5) FROM instances WHERE public_id = $1`,
 			toPGUUID(instanceID), req.GuildID, req.ChannelID, key, req.Body, req.SendAt.UTC(), req.NotifyUsers, req.ScoreFingerprint)
 	case err != nil:
 	case status == "sent" || status == "sending":
@@ -456,6 +458,8 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 	case autoMD5 == nil:
 		c.JSON(http.StatusConflict, errorResponse{Error: key + " exists but wasn't written by automation; leaving it alone"})
 		return
+	case req.ScoreFingerprint == "" && (edited || sameDraft): // plain post: keep the admin's words
+		action = "unchanged"
 	case edited: // keep the admin's words; just re-ask with the new standings noted
 		action = "rehold-edited"
 		_, err = tx.Exec(ctx, `UPDATE announcements a SET score_fingerprint = $3, status = 'draft', scheduled_at = NULL, approval_gated = true,
@@ -469,7 +473,7 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		}
 	default:
 		action = "regenerated"
-		_, err = tx.Exec(ctx, `UPDATE announcements a SET body = $3, auto_body_md5 = md5($3), score_fingerprint = $4, notify_users = $5,
+		_, err = tx.Exec(ctx, `UPDATE announcements a SET body = $3, auto_body_md5 = md5($3), score_fingerprint = NULLIF($4, ''), notify_users = $5,
 				status = 'draft', scheduled_at = NULL, approval_gated = true, approval_send_at = $6, approval_claimed_at = NULL, approval_notified_at = NULL
 			FROM instances i WHERE i.id = a.instance_id AND i.public_id = $1 AND a.request_key = $2`,
 			toPGUUID(instanceID), key, req.Body, req.ScoreFingerprint, req.NotifyUsers, req.SendAt.UTC())

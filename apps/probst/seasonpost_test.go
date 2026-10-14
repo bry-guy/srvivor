@@ -16,11 +16,11 @@ func TestScoresPost(t *testing.T) {
 		{ID: "e", Name: "Ed", DiscordID: "5", Total: 4, HasDraft: true},
 		{ID: "x", Name: "Late", DiscordID: "9", Total: 0},
 	}
-	p, err := buildScoresPost(51, 3, now, prev, []string{"||  Kristin     ||"}, "https://castaway.bry-guy.net", "🔴 This week's game: **Press the Button**.")
+	p, err := buildScoresPost(mustTemplates(t, "testdata/templates"), 51, 3, now, prev, []string{"||  Kristin     ||"}, "https://castaway.bry-guy.net", "🔴 This week's game: **Press the Button**.")
 	if err != nil {
 		t.Fatal(err)
 	}
-	text, err := renderScoresPost("../../seasons/51-scores.md", p)
+	text, err := renderScoresPost(mustTemplates(t, "testdata/templates"), p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,10 +46,14 @@ func TestScoresPost(t *testing.T) {
 }
 
 func TestWeeklyLinesDontRepeat(t *testing.T) {
-	for name, lines := range map[string][]string{"intro": introLines, "leader": leaderLines, "gainer": gainerLines, "slider": sliderLines} {
+	set := mustTemplates(t, "testdata/templates")
+	for _, name := range []string{"intro", "leader", "gainer", "slider", "boot"} {
 		seen := map[string]bool{}
 		for week := 1; week <= 13; week++ {
-			line := weekLine(lines, week)
+			line, err := set.line(name, week, lineData{Names: "X", N: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
 			if seen[line] {
 				t.Errorf("%s line repeats by week %d", name, week)
 			}
@@ -60,11 +64,11 @@ func TestWeeklyLinesDontRepeat(t *testing.T) {
 
 func TestScoresPostNoMovement(t *testing.T) {
 	rows := []scoreRow{{ID: "a", Name: "Ann", Total: 3, HasDraft: true}, {ID: "b", Name: "Bo", Total: 1, HasDraft: true}}
-	p, err := buildScoresPost(51, 2, rows, rows, nil, "https://x", "")
+	p, err := buildScoresPost(mustTemplates(t, "testdata/templates"), 51, 2, rows, rows, nil, "https://x", "")
 	if err != nil || p.Gainer != "" || p.Slider != "" || !strings.Contains(p.Leader, "Nobody else moved") {
 		t.Fatalf("%+v %v", p, err)
 	}
-	text, err := renderScoresPost("../../seasons/51-scores.md", p)
+	text, err := renderScoresPost(mustTemplates(t, "testdata/templates"), p)
 	if err != nil || strings.Contains(text, "📈") || strings.Contains(text, "📉") {
 		t.Fatalf("%q %v", text, err)
 	}
@@ -73,7 +77,7 @@ func TestScoresPostNoMovement(t *testing.T) {
 func TestScoresPostEqualGains(t *testing.T) {
 	prev := []scoreRow{{ID: "a", Total: 3}, {ID: "b", Total: 1}}
 	now := []scoreRow{{ID: "a", Name: "Ann", Total: 5, HasDraft: true}, {ID: "b", Name: "Bo", Total: 3, HasDraft: true}}
-	p, err := buildScoresPost(51, 2, now, prev, nil, "https://x", "")
+	p, err := buildScoresPost(mustTemplates(t, "testdata/templates"), 51, 2, now, prev, nil, "https://x", "")
 	if err != nil || p.Gainer != "" || p.Slider != "" || strings.Contains(p.Leader, "Nobody") || !strings.Contains(p.Leader, "Everybody moved +2") || p.Facts.NobodyMoved {
 		t.Fatalf("%+v %v", p, err)
 	}
@@ -82,7 +86,7 @@ func TestScoresPostEqualGains(t *testing.T) {
 func TestScoresFlavorGuardrails(t *testing.T) {
 	prev := []scoreRow{{ID: "a", Total: 10}, {ID: "b", Total: 9}}
 	now := []scoreRow{{ID: "a", Name: "Ann", DiscordID: "1", Total: 15, HasDraft: true}, {ID: "b", Name: "Bo", DiscordID: "2", Total: 7, HasDraft: true}}
-	base, err := buildScoresPost(51, 3, now, prev, nil, "https://x", "")
+	base, err := buildScoresPost(mustTemplates(t, "testdata/templates"), 51, 3, now, prev, nil, "https://x", "")
 	if err != nil {
 		t.Fatal(err)
 	}

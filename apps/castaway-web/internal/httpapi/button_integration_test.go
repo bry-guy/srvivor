@@ -116,6 +116,9 @@ func TestPressTheButton(t *testing.T) {
 	serve("POST", gameURL, "", "least", 303)                                 // plain form post redirects back; least is now the last presser
 	serve("GET", gameURL, "", "idle", 200)                                   // others' counts aren't shown while it's open
 	serve("POST", "/api/button-games/"+game.ID+"/resolve", "", "admin", 409) // before cutoff
+	results := "/api/instances/" + instanceID + "/game-results/3"
+	serve("GET", results, "", "admin", 409) // not scored: no partial results in a scores post
+	serve("GET", "/api/instances/"+instanceID+"/game-results/9", "", "admin", 404)
 
 	now = time.Date(2026, 10, 14, 15, 0, 0, 0, time.UTC)
 	serve("POST", gameURL, "", "idle", 409) // closed
@@ -124,6 +127,20 @@ func TestPressTheButton(t *testing.T) {
 	}
 	serve("POST", "/api/button-games/"+game.ID+"/resolve", "", "admin", 200)
 	serve("POST", "/api/button-games/"+game.ID+"/resolve", "", "admin", 200)
+	serve("GET", results, "", "most", 403)
+	var res struct {
+		Type    string `json:"type"`
+		Players []struct {
+			Name    string `json:"name"`
+			Presses int64  `json:"presses"`
+			Points  int    `json:"points"`
+			First   bool   `json:"first"`
+		} `json:"players"`
+	}
+	if err := json.Unmarshal([]byte(serve("GET", results, "", "admin", 200)), &res); err != nil || res.Type != "press_the_button" || len(res.Players) == 0 ||
+		res.Players[0].Name != "most" || res.Players[0].Presses != 9 || !res.Players[0].First {
+		t.Fatalf("game results: %+v %v", res, err)
+	}
 	serve("POST", create, window, "admin", 409) // resolved games can't be rescheduled
 	// Once scored, every player in the season sees everyone's results, and each player's profile lists it.
 	if page := serve("GET", gameURL, "", "idle", 200); !strings.Contains(page, "twinA") || !strings.Contains(page, "first +1") || !strings.Contains(page, "last −1") {

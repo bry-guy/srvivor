@@ -1,100 +1,36 @@
 package main
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/spf13/cobra"
 )
 
-// Weekly scores copy: the same shape every week, with lines picked by week number so no line repeats within a
-// 13-week season. %s is the player(s); %d the points (gainer/slider) or total (leader). No pronouns needed.
-var (
-	introLines = []string{
-		"Come on in, castaways. Let's see where everybody stands.",
-		"Bring it in! Another week, another shake-up.",
-		"Castaways, gather 'round. The numbers are in.",
-		"Welcome back. Somebody's torch is burning bright, and somebody's is flickering.",
-		"Come on in, guys! Time to see who's playing and who's just camping.",
-		"The tribe has spoken, and so have the scores.",
-		"Another vote, another reckoning. Let's get to it.",
-		"Castaways, take a seat on your log. Scores are in.",
-		"Bring it in. We're deep in the game now.",
-		"Come on in! Every point counts from here.",
-		"The jury's watching. Here's how you all look.",
-		"Final stretch, castaways. This is where it gets real.",
-		"This is it. One last look at the board.",
-	}
-	leaderLines = []string{
-		"%s sits on top with %d. That's a target, and a crown.",
-		"%s leads the pack at %d. Calm, cool, and dangerous.",
-		"Nobody's catching %s yet: %d and climbing.",
-		"%s is running this island with %d.",
-		"Still the one to beat: %s, %d points.",
-		"%s holds the top spot at %d. Somebody make a move.",
-		"%s, at %d, is playing chess while the rest of you play checkers.",
-		"The crown stays with %s: %d and not letting go.",
-		"%s rules the board at %d. Jeff's impressed. Mostly.",
-		"Top of the island: %s, %d. Respect the grind.",
-		"%s at %d. Somebody find an idol, fast.",
-		"%s leads with %d, and the finish line is in sight.",
-		"%s finishes on top of the heap with %d.",
-	}
-	gainerLines = []string{
-		"Biggest move of the week: %s, up %d. Big swing!",
-		"%s came to play: +%d this week.",
-		"Hot streak alert: %s jumped %d.",
-		"%s found an advantage somewhere: +%d.",
-		"Look out for %s, up %d and coming for the top.",
-		"%s made the power move this week: +%d.",
-		"%s turned it up: %d points gained.",
-		"Nobody climbed faster than %s: +%d.",
-		"%s is on a heater: +%d.",
-		"%s, +%d. That's how you play the game.",
-		"Mover of the week: %s, up %d.",
-		"%s surged %d when it mattered.",
-		"One last leap: %s, +%d.",
-	}
-	sliderLines = []string{
-		"%s slipped %d. It happens to the best of us. Allegedly.",
-		"%s lost %d this week. Maybe check the rice ration.",
-		"Rough week for %s: down %d. The fire went out, but you can make another.",
-		"%s dropped %d. Somebody get them a reward challenge.",
-		"%s slid %d. Not a blindside, just a bruise.",
-		"%s, down %d. Still in the game, still dangerous. Probably.",
-		"%s took a %d-point tumble. Shake it off.",
-		"%s lost %d. Jeff says: dig deep.",
-		"%s went %d in the wrong direction. Plenty of game left.",
-		"%s fell back %d. Every legend has a low point.",
-		"%s, down %d. Time for a comeback arc.",
-		"%s slid %d. The edge of extinction is lonely, come back.",
-		"%s dropped %d at the very end. Brutal. Beautiful.",
-	}
-	gameLines = map[string]string{ // %s is the open time; games open with the episode
-		"press_the_button": "🔴 This week's game: **Press the Button**, open %s at <%s/games>.",
-		"castawordle":      "🔤 This week's game: **Castawordle**, open %s at <%s/games>.",
-		"spell_it_out":     "🔠 This week's game: **Island Scramble**, open %s at <%s/games>.",
-	}
-	gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Island Scramble"}
-)
+// gameNames are the games' display names (the season's templates own every other word).
+var gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Island Scramble"}
 
-type scoresPost struct {
-	Season, Week                               int
-	Intro, Boots, Leader, Gainer, Slider, Last string
-	Top                                        []string
-	Site, NextGame                             string
-	Facts                                      scoresFacts
+// rankLine is one ranked player in a scores post.
+type rankLine struct {
+	Mention string
+	Total   int
 }
 
-func weekLine(lines []string, week int) string { return lines[(week-1)%len(lines)] }
+type scoresPost struct {
+	Season, Week                         int
+	Intro, Boots, Leader, Gainer, Slider string
+	Top                                  []rankLine
+	Last                                 rankLine
+	Site, NextGame, GameScore            string
+	Facts                                scoresFacts
+}
 
 func joinNames(names []string) string {
 	if len(names) > 3 {
@@ -108,7 +44,7 @@ func joinNames(names []string) string {
 
 // buildScoresPost fills the weekly post from the board now and as it stood at the previous post. Only the top
 // three and last place are mentioned (and pinged); callouts name players without pinging.
-func buildScoresPost(season, week int, now, prev []scoreRow, booted []string, site, nextGame string) (scoresPost, error) {
+func buildScoresPost(t templateSet, season, week int, now, prev []scoreRow, booted []string, site, nextGame string) (scoresPost, error) {
 	var rows []scoreRow
 	before := map[string]int{}
 	for _, r := range prev {
@@ -138,56 +74,50 @@ func buildScoresPost(season, week int, now, prev []scoreRow, booted []string, si
 	for _, r := range rows {
 		best, worst = max(best, gain(r)), min(worst, gain(r))
 	}
-	p := scoresPost{Season: season, Week: week, Intro: weekLine(introLines, week), Site: site, NextGame: nextGame}
-	p.Leader = fmt.Sprintf(weekLine(leaderLines, week), joinNames(who(func(r scoreRow) bool { return r.Total == rows[0].Total })), rows[0].Total)
-	p.Gainer = fmt.Sprintf(weekLine(gainerLines, week), joinNames(who(func(r scoreRow) bool { return gain(r) == best })), best)
-	sliders := joinNames(who(func(r scoreRow) bool { return gain(r) == worst }))
+	leaders := who(func(r scoreRow) bool { return r.Total == rows[0].Total })
+	gainers := who(func(r scoreRow) bool { return gain(r) == best })
+	sliders := who(func(r scoreRow) bool { return gain(r) == worst })
+	p := scoresPost{Season: season, Week: week, Site: site, NextGame: nextGame}
 	p.Facts = scoresFacts{
-		LeaderNames: who(func(r scoreRow) bool { return r.Total == rows[0].Total }), LeaderTotal: rows[0].Total,
-		GainerNames: who(func(r scoreRow) bool { return gain(r) == best }), Gain: best,
-		SliderNames: who(func(r scoreRow) bool { return gain(r) == worst }), Slide: -worst, NobodyMoved: best == worst && best == 0,
+		LeaderNames: leaders, LeaderTotal: rows[0].Total, GainerNames: gainers, Gain: best,
+		SliderNames: sliders, Slide: -worst, NobodyMoved: best == worst && best == 0,
 	}
-	if best == worst && best == 0 { // nobody moved: one line instead of three ties
-		p.Gainer, p.Slider = "", ""
-		p.Leader += " Nobody else moved an inch this week."
-	} else if best == worst { // everybody moved the same: nobody to praise or rib
-		p.Gainer, p.Slider = "", ""
-		p.Leader += fmt.Sprintf(" Everybody moved %+d this week, so nobody gained ground.", best)
-	} else if worst < 0 {
-		p.Slider = fmt.Sprintf(weekLine(sliderLines, week), sliders, -worst)
-	} else { // nobody lost points: rib the slowest climber instead
-		p.Slider = fmt.Sprintf("%s managed just +%d. Slow and steady… mostly slow.", sliders, worst)
+	var errs []error
+	line := func(name string, names []string, n int) string {
+		text, err := t.line(name, week, lineData{Names: joinNames(names), N: n})
+		errs = append(errs, err)
+		return text
+	}
+	p.Intro = line("intro", nil, 0)
+	p.Leader = line("leader", leaders, rows[0].Total)
+	switch {
+	case best == worst && best == 0: // nobody moved: one line instead of three ties
+		p.Leader += " " + line("nobody-moved", nil, 0)
+	case best == worst: // everybody moved the same: nobody to praise or rib
+		p.Leader += " " + line("all-moved", nil, best)
+	case worst < 0:
+		p.Gainer, p.Slider = line("gainer", gainers, best), line("slider", sliders, -worst)
+	default: // nobody lost points: rib the slowest climber instead
+		p.Gainer, p.Slider = line("gainer", gainers, best), line("slow", sliders, worst)
 	}
 	for _, r := range rows[:min(3, len(rows)-1)] {
-		p.Top = append(p.Top, fmt.Sprintf("%s: %d", mention(r), r.Total))
+		p.Top = append(p.Top, rankLine{mention(r), r.Total})
 	}
 	last := rows[len(rows)-1]
-	p.Last = fmt.Sprintf("%s: %d", mention(last), last.Total)
+	p.Last = rankLine{mention(last), last.Total}
 	if len(booted) > 0 {
-		p.Boots = fmt.Sprintf(bootFlair[(week-1)%len(bootFlair)], joinNames(booted))
+		p.Boots = line("boot", booted, 0)
+	}
+	if err := errors.Join(errs...); err != nil {
+		return scoresPost{}, err
 	}
 	return p, nil
 }
 
-func renderScoresPost(tmplPath string, p scoresPost) (string, error) {
-	raw, err := os.ReadFile(tmplPath)
-	if err != nil {
-		return "", err
-	}
-	return renderScoresText(filepath.Base(tmplPath), string(raw), p)
-}
-
-// renderScoresText fills a scores template given as text (the synced database copy, or a file's contents).
-func renderScoresText(name, text string, p scoresPost) (string, error) {
-	t, err := template.New(name).Option("missingkey=error").Parse(text)
-	if err != nil {
-		return "", err
-	}
-	var b bytes.Buffer
-	if err := t.Execute(&b, p); err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(b.String()) + "\n", nil
+// renderScoresPost fills the season's scores.md.
+func renderScoresPost(t templateSet, p scoresPost) (string, error) {
+	text, err := t.render("scores.md", p)
+	return text + "\n", err
 }
 
 // weekPostTime is when week's scores post goes out according to the file.
@@ -215,12 +145,9 @@ func weekGame(f seasonFile, week int) string {
 
 func scoresKey(season, week int) string { return fmt.Sprintf("s%d-week-%d-scores", season, week) }
 
-func seasonFilePaths(file string) (string, error) {
-	tmpl := strings.TrimSuffix(file, filepath.Ext(file)) + "-scores.md"
-	if _, err := os.Stat(tmpl); err != nil {
-		return "", fmt.Errorf("scores template %s: %w", tmpl, err)
-	}
-	return tmpl, nil
+// seasonTemplates loads a season file's template directory.
+func seasonTemplates(file string, f seasonFile) (templateSet, error) {
+	return loadTemplates(templateDir(file, f))
 }
 
 func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, yes *bool) {
@@ -235,7 +162,7 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 			if err != nil {
 				return err
 			}
-			tmpl, err := seasonFilePaths(a[0])
+			tmpl, err := seasonTemplates(a[0], f)
 			if err != nil {
 				return err
 			}
@@ -295,8 +222,8 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 	season.AddCommand(cmd)
 }
 
-func composeScoresPost(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, week int, tmpl string) (string, error) {
-	p, err := composeScoresData(ctx, call, f, airs, week)
+func composeScoresPost(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, week int, tmpl templateSet) (string, error) {
+	p, err := composeScoresData(ctx, call, f, airs, week, tmpl)
 	if err != nil {
 		return "", err
 	}
@@ -304,7 +231,7 @@ func composeScoresPost(ctx context.Context, call apiCall, f seasonFile, airs []t
 }
 
 // composeScoresData gathers the week's standings, movers, boots and next game from the API.
-func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, week int) (scoresPost, error) {
+func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, week int, tmpl templateSet) (scoresPost, error) {
 	path := "/instances/" + url.PathEscape(f.Instance)
 	var now, prev struct {
 		Leaderboard []scoreRow `json:"leaderboard"`
@@ -338,11 +265,16 @@ func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []t
 			booted = append(booted, fmt.Sprintf("||%-14s||", "  "+shortName(o.Name)))
 		}
 	}
-	next, err := nextGameLine(f, airs, week)
+	next, err := nextGameLine(tmpl, f, airs, week)
 	if err != nil {
 		return scoresPost{}, err
 	}
-	return buildScoresPost(f.Season, week, now.Leaderboard, prev.Leaderboard, booted, siteURL, next)
+	p, err := buildScoresPost(tmpl, f.Season, week, now.Leaderboard, prev.Leaderboard, booted, siteURL, next)
+	if err != nil {
+		return p, err
+	}
+	p.GameScore, err = gameScore(ctx, call, path, tmpl, f, week)
+	return p, err
 }
 
 func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
@@ -419,14 +351,59 @@ func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
 }
 
 // nextGameLine announces next week's game, which opens with the episode the post follows.
-func nextGameLine(f seasonFile, airs []time.Time, week int) (string, error) {
-	line, ok := gameLines[weekGame(f, week+1)]
-	if !ok || week >= len(airs) {
+func nextGameLine(t templateSet, f seasonFile, airs []time.Time, week int) (string, error) {
+	game := weekGame(f, week+1)
+	if gameNames[game] == "" || week >= len(airs) {
 		return "", nil
 	}
 	opens, err := planTime(f.Weekly.Game.Opens, airs[week])
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(line, "tonight at "+strings.TrimSuffix(opens.Format("3:04pm"), ":00pm")+"pm ET", siteURL), nil
+	return t.render("next-game.md", map[string]string{"Type": game, "Name": gameNames[game], "Site": siteURL,
+		"Opens": shortTime(opens)})
+}
+
+// gameScore is the week's game results section, from games/<type>.md and the server's scored results.
+func gameScore(ctx context.Context, call apiCall, path string, t templateSet, f seasonFile, week int) (string, error) {
+	game := weekGame(f, week)
+	if gameNames[game] == "" {
+		return "", nil
+	}
+	var res struct {
+		Players []map[string]any `json:"players"`
+		Tribes  []map[string]any `json:"tribes"`
+	}
+	if err := call(ctx, "GET", fmt.Sprintf("%s/game-results/%d", path, week), nil, &res); err != nil {
+		return "", fmt.Errorf("week %d %s results: %w", week, gameNames[game], err)
+	}
+	players, tribes := []gameRow{}, []tribeRow{}
+	for _, m := range res.Players {
+		players = append(players, gameRow{Name: str(m["name"]), TribeEmoji: str(m["tribe_emoji"]), Tribe: str(m["tribe"]), Points: int(num(m["points"])),
+			Presses: int(num(m["presses"])), First: m["first"] == true, Last: m["last"] == true, StreakDays: int(num(m["streak_days"])),
+			Place: int(num(m["place"])), Seconds: int(num(m["seconds"])), WrongChecks: int(num(m["wrong_checks"])),
+			Guesses: int(num(m["guesses"])), Solved: m["solved"] == true})
+	}
+	for _, m := range res.Tribes {
+		tribes = append(tribes, tribeRow{Name: str(m["name"]), Emoji: str(m["emoji"]), Value: fnum(m["value"])})
+	}
+	return t.render("games/"+game+".md", map[string]any{"Name": gameNames[game], "Week": week, "Players": players, "Tribes": tribes})
+}
+
+// gameRow is one player's game result for games/<type>.md; fields a game doesn't use are zero.
+type gameRow struct {
+	Name, Tribe, TribeEmoji              string
+	Points, Presses, StreakDays          int
+	First, Last, Solved                  bool
+	Place, Seconds, WrongChecks, Guesses int
+}
+
+type tribeRow struct {
+	Name, Emoji string
+	Value       float64
+}
+
+func fnum(v any) float64 {
+	f, _ := v.(float64)
+	return f
 }

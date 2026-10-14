@@ -192,7 +192,7 @@ for the format and the `apply`/runner steps that follow.
 
 `probst season apply FILE [--yes]` creates/reschedules the file's games (Press the Button; Castawordle still
 needs `castawordle week` for its answer). `probst season post FILE --week N [--yes]` renders that week's
-scores post from `seasons/NN-scores.md` — leader, biggest gainer, biggest slider (wording rotates weekly),
+scores post from `seasons/NN-templates/scores.md` (all wording lives in that directory: `games/<type>.md` for each game's results, `reminder.md`, `next-game.md`, `lines/*.txt` for weekly variants) — leader, biggest gainer, biggest slider (wording rotates weekly),
 top 3 + last place pinged, boots since last week's post, next game — and with `--yes` saves and schedules it
 at the file's time. Re-run before then to refresh numbers.
 
@@ -211,7 +211,7 @@ the bot resubmits the corrected draft for the player.
 
 A Kubernetes CronJob (`deploy/base/probst/cronjob.yaml`) runs `probst season reconcile --instance ID` every 5 minutes.
 It reads the season config synced into the database, not a file: after editing `seasons/NN.yaml` (or its
-`-scores.md` template), run `probst season sync seasons/NN.yaml` (dry run) then `--yes`. Sync refuses while the
+template directory), run `probst season sync seasons/NN.yaml` (dry run) then `--yes`. Sync refuses while the
 live episode schedule differs from the file, and a concurrent sync loses rather than overwriting.
 **Merge:** `probst season merge seasons/NN.yaml N` (dry run, then `--yes`) sets `merge_episode`, opens Pick Your
 Champion (locks when Episode N+1 airs) and syncs. Commit the file change. Post the merge announcement yourself (it
@@ -238,7 +238,7 @@ DM. Each run:
    `probst episode import N --file FILE --resolve-holds --yes` imports the rest. Until survivoR is complete
    the job just keeps checking. If results are still missing at `weekly.results.due`, the admins get a DM.
 3. **Scores post:** from the week's post time (8pm), once its game is scored and its episode imported, it
-   saves the standings snapshot and drafts the post (`seasons/NN-scores.md`) for approval, pinging the top
+   saves the standings snapshot and drafts the post (`seasons/NN-templates/scores.md`) for approval; once a game opens it also drafts the game-day reminder (`weekly.reminder.at`, no pings) for approval, pinging the top
    3 and last place. Late results are fine: up to 3 hours after 8pm the post is drafted and sends as soon as
    it's approved; after that, the admins get a DM instead. If scores change before it's sent, it can't be
    approved or sent with the old numbers: an untouched draft is redrafted and re-asked; an admin-edited one

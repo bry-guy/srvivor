@@ -109,6 +109,7 @@ func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.PUT("/instances/:instanceID/admin-alerts/:alertKey", s.raiseAdminAlert)
 	protected.POST("/admin-alerts/claim", s.claimAdminAlert)
 	protected.GET("/instances/:instanceID/scheduled-games", s.listScheduledGames)
+	protected.GET("/instances/:instanceID/game-results/:episode", s.getGameResults)
 	protected.POST("/instances/:instanceID/episode-imports", s.importEpisode)
 	protected.GET("/instances/:instanceID/episode-imports", s.listEpisodeImports)
 	protected.GET("/instances/:instanceID/season-config", s.getSeasonConfig)

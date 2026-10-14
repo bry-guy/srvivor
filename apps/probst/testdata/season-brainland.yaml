@@ -88,3 +88,4 @@ automation:
   enabled: true                 # BrainLand rehearsal copy of 51.yaml
   from_week: 3
   guild: "1078197143501819915"
+templates: templates

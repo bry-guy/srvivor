@@ -22,7 +22,9 @@ type seasonFile struct {
 	Instance string `yaml:"instance"`
 	Channel  string `yaml:"channel"`
 	Ping     string `yaml:"ping"`
-	Episodes struct {
+	// Templates is the template directory, relative to the file (default: <file>-templates).
+	Templates string `yaml:"templates"`
+	Episodes  struct {
 		First  string   `yaml:"first"`
 		Count  int      `yaml:"count"`
 		Skip   []string `yaml:"skip"`
@@ -45,6 +47,10 @@ type seasonFile struct {
 		} `yaml:"results"`
 		Game       planGame `yaml:"game"`
 		ScoresPost planPost `yaml:"scores_post"`
+		// Reminder is the game-day "last call" post, e.g. "+7d 10:00"; drafted for approval when the game opens.
+		Reminder struct {
+			At string `yaml:"at"`
+		} `yaml:"reminder"`
 	} `yaml:"weekly"`
 	Weeks map[int]struct {
 		Game       any       `yaml:"game"`

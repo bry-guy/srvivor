@@ -114,7 +114,7 @@ func addScoresGenerateCommand(scores *cobra.Command, call apiCall) {
 			if err != nil {
 				return err
 			}
-			tmpl, err := seasonFilePaths(file)
+			tmpl, err := seasonTemplates(file, f)
 			if err != nil {
 				return err
 			}
@@ -125,7 +125,7 @@ func addScoresGenerateCommand(scores *cobra.Command, call apiCall) {
 			if week == 0 {
 				week = latestAiredWeek(airs, time.Now())
 			}
-			p, err := composeScoresData(c.Context(), call, f, airs, week)
+			p, err := composeScoresData(c.Context(), call, f, airs, week, tmpl)
 			if err != nil {
 				return err
 			}

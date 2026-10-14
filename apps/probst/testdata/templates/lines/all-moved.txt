@@ -1,0 +1,1 @@
+Everybody moved {{printf "%+d" .N}} this week, so nobody gained ground.

@@ -72,7 +72,7 @@ func TestSeasonSync(t *testing.T) {
 		t.Fatalf("first sync: %v %v", err, puts)
 	}
 	raw, _ := os.ReadFile(file)
-	tmpl, _ := os.ReadFile("testdata/season-brainland-scores.md")
+	tmpl := mustTemplates(t, "testdata/templates").bundle()
 	if puts[0]["season_yaml"] != string(raw) || puts[0]["scores_template"] != string(tmpl) {
 		t.Fatal("sync didn't save the file and its scores template")
 	}
@@ -89,7 +89,7 @@ func TestSeasonSync(t *testing.T) {
 	cmd := newSeasonCommand(call, &instance, &guild, &yes)
 	cmd.SetContext(context.Background())
 	r, err := newSyncedReconciler(cmd, call, inst)
-	if err != nil || r.f.Season != 51 || r.tmplText != string(tmpl) || len(r.airs) != 13 {
+	if err != nil || r.f.Season != 51 || r.tmpl.bundle() != tmpl || len(r.airs) != 13 {
 		t.Fatalf("synced reconciler: %v", err)
 	}
 	if _, err := newSyncedReconciler(cmd, call, "00000000-0000-0000-0000-000000000000"); err == nil {

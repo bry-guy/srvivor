@@ -56,14 +56,11 @@ func syncSeason(c *cobra.Command, call apiCall, file string, yes bool) error {
 	if err != nil {
 		return err
 	}
-	tmplPath, err := seasonFilePaths(a[0])
+	set, err := seasonTemplates(a[0], f)
 	if err != nil {
 		return err
 	}
-	tmpl, err := os.ReadFile(tmplPath)
-	if err != nil {
-		return err
-	}
+	tmpl := set.bundle()
 	_, airs, err := expandSeason(f, time.Now())
 	if err != nil {
 		return err

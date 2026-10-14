@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- All post wording now lives in the season's template directory (`seasons/51-templates/`: `scores.md`, `reminder.md`, `next-game.md`, `games/<type>.md`, `lines/*.txt`); no message text in code. `probst season sync` stores the whole set. The scores post gains a per-game results section (`{{.GameScore}}`), and `weekly.reminder.at` adds a game-day reminder drafted for admin approval when the game opens (no pings).
+
 - Pick Your Champion: `probst season merge FILE N` ends Tribe scoring at merge Episode N and opens picks (website `/games/champion`, or reply to the bot's "Pick Your Champion" post) until Episode N+1 airs; then picks are fixed and shown to all. Post-merge challenges import from survivoR and award pickers of the winners (+3 immunity, +1 reward). The merge episode's own challenges are held for an admin.
 
 - Failure alert: each successful scheduled `season reconcile --instance` run stamps a heartbeat; if none lands for 30 minutes, admins get one DM per stall.

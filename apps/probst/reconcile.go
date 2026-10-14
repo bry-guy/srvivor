@@ -29,16 +29,15 @@ type automationConfig struct {
 }
 
 type reconciler struct {
-	ctx      context.Context
-	call     apiCall
-	f        seasonFile
-	airs     []time.Time
-	now      time.Time
-	path     string
-	tmpl     string // scores template path (file mode), unless tmplText is set (synced database copy)
-	tmplText string
-	out      io.Writer
-	open     []string // this run's still-open issues, for the daily nudge
+	ctx  context.Context
+	call apiCall
+	f    seasonFile
+	airs []time.Time
+	now  time.Time
+	path string
+	tmpl templateSet
+	out  io.Writer
+	open []string // this run's still-open issues, for the daily nudge
 	// fetchPlan is fetchEpisodePlan; tests swap it.
 	fetchPlan func(episode int) (episodePlan, error)
 }
@@ -199,9 +198,11 @@ func (r *reconciler) applyPlan(plan episodePlan, manual bool) error {
 }
 
 type liveGame struct {
-	Type    string `json:"type"`
-	Episode int    `json:"episode_number"`
-	Scored  bool   `json:"scored"`
+	Type     string    `json:"type"`
+	Episode  int       `json:"episode_number"`
+	Scored   bool      `json:"scored"`
+	OpensAt  time.Time `json:"opens_at"`
+	CutoffAt time.Time `json:"cutoff_at"`
 }
 
 // draftScoresPosts drafts each due week's scores post once its game is scored and its episode imported,
@@ -290,14 +291,18 @@ func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions
 	if err != nil {
 		return err
 	}
-	p, err := buildScoresPost(r.f.Season, week, snap.Leaderboard, prev.Leaderboard, booted, siteURL, r.nextGameLine(week))
+	next, err := nextGameLine(r.tmpl, r.f, r.airs, week)
 	if err != nil {
 		return err
 	}
-	text, err := renderScoresPost(r.tmpl, p)
-	if r.tmplText != "" {
-		text, err = renderScoresText("scores", r.tmplText, p)
+	p, err := buildScoresPost(r.tmpl, r.f.Season, week, snap.Leaderboard, prev.Leaderboard, booted, siteURL, next)
+	if err != nil {
+		return err
 	}
+	if p.GameScore, err = gameScore(r.ctx, r.call, r.path, r.tmpl, r.f, week); err != nil {
+		return err
+	}
+	text, err := renderScoresPost(r.tmpl, p)
 	if err != nil {
 		return err
 	}
@@ -316,6 +321,51 @@ func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions
 		r.logf("week %d scores post %s; admins get the approval DM", week, res.Action)
 	}
 	return err
+}
+
+// draftReminders drafts each week's game-day reminder (reminder.md) for approval once the game is open, so
+// admins can approve it well before it sends at weekly.reminder.at. It never pings.
+func (r *reconciler) draftReminders() error {
+	if r.f.Weekly.Reminder.At == "" {
+		return nil
+	}
+	var games struct {
+		Games []liveGame `json:"games"`
+	}
+	if err := r.call(r.ctx, "GET", r.path+"/scheduled-games", nil, &games); err != nil {
+		return err
+	}
+	var errs []error
+	for _, g := range games.Games {
+		if g.Episode < max(1, r.f.Automation.FromWeek) || g.Episode > len(r.airs) || g.Type != weekGame(r.f, g.Episode) || r.now.Before(g.OpensAt) {
+			continue
+		}
+		at, err := planTime(r.f.Weekly.Reminder.At, r.airs[g.Episode-1])
+		if err != nil {
+			return fmt.Errorf("weekly.reminder.at: %w", err)
+		}
+		if !at.Before(g.CutoffAt) || r.now.After(at.Add(3*time.Hour)) {
+			continue // a reminder after the game closes would be wrong; past ones have expired
+		}
+		closes := g.CutoffAt.In(eastern())
+		text, err := r.tmpl.render("reminder.md", map[string]any{"Week": g.Episode, "Name": gameNames[g.Type], "Site": siteURL,
+			"Closes": shortTime(closes)})
+		if err != nil {
+			return err
+		}
+		key := fmt.Sprintf("s%d-week-%d-reminder", r.f.Season, g.Episode)
+		var res struct {
+			Action string `json:"action"`
+		}
+		err = r.call(r.ctx, "PUT", r.path+"/score-posts/"+url.PathEscape(key), map[string]any{
+			"guild_id": r.f.Automation.Guild, "channel_id": r.f.Channel, "body": text + "\n", "send_at": at.UTC().Format(time.RFC3339), "notify_users": false,
+		}, &res)
+		if err == nil && res.Action != "unchanged" {
+			r.logf("week %d reminder %s; admins get the approval DM", g.Episode, res.Action)
+		}
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 const siteURL = "https://castaway.bry-guy.net"
@@ -346,11 +396,6 @@ func (r *reconciler) bootNames(positions []int) ([]string, error) {
 	return names, nil
 }
 
-func (r *reconciler) nextGameLine(week int) string {
-	line, _ := nextGameLine(r.f, r.airs, week)
-	return line
-}
-
 func (r *reconciler) run() error {
 	if !r.f.Automation.Enabled {
 		r.logf("automation is off for season %d (automation.enabled in the season file)", r.f.Season)
@@ -377,6 +422,7 @@ func (r *reconciler) run() error {
 		return errors.Join(append(errs, err)...)
 	}
 	errs = append(errs, r.draftScoresPosts(done))
+	errs = append(errs, r.draftReminders())
 	errs = append(errs, r.nudge())
 	return errors.Join(errs...)
 }
@@ -409,11 +455,11 @@ func newReconciler(c *cobra.Command, call apiCall, file string) (*reconciler, er
 	if err != nil {
 		return nil, err
 	}
-	tmpl, err := seasonFilePaths(file)
+	tmpl, err := seasonTemplates(file, f)
 	if err != nil {
 		return nil, err
 	}
-	return newReconcilerFor(c, call, f, tmpl, "")
+	return newReconcilerFor(c, call, f, tmpl)
 }
 
 // newSyncedReconciler runs from the season config synced into the database (`probst season sync`).
@@ -432,20 +478,24 @@ func newSyncedReconciler(c *cobra.Command, call apiCall, instance string) (*reco
 	if f.Instance != instance {
 		return nil, fmt.Errorf("synced config is for instance %s, not %s", f.Instance, instance)
 	}
-	r, err := newReconcilerFor(c, call, f, "", cfg.ScoresTemplate)
+	tmpl, err := parseBundle(cfg.ScoresTemplate)
+	if err != nil {
+		return nil, err
+	}
+	r, err := newReconcilerFor(c, call, f, tmpl)
 	if err == nil {
 		r.logf("season config revision %s (synced %s)", cfg.Revision, cfg.UpdatedAt.In(eastern()).Format("Jan 2 3:04pm"))
 	}
 	return r, err
 }
 
-func newReconcilerFor(c *cobra.Command, call apiCall, f seasonFile, tmpl, tmplText string) (*reconciler, error) {
+func newReconcilerFor(c *cobra.Command, call apiCall, f seasonFile, tmpl templateSet) (*reconciler, error) {
 	now := time.Now()
 	_, airs, err := expandSeason(f, now)
 	if err != nil {
 		return nil, err
 	}
-	r := &reconciler{ctx: c.Context(), call: call, f: f, airs: airs, now: now, tmpl: tmpl, tmplText: tmplText, out: c.OutOrStdout(), path: "/instances/" + url.PathEscape(f.Instance)}
+	r := &reconciler{ctx: c.Context(), call: call, f: f, airs: airs, now: now, tmpl: tmpl, out: c.OutOrStdout(), path: "/instances/" + url.PathEscape(f.Instance)}
 	r.fetchPlan = func(ep int) (episodePlan, error) {
 		return fetchEpisodePlan(r.ctx, call, r.path, f.Season, ep, r.rules())
 	}

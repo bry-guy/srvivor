@@ -147,7 +147,12 @@ op getScoreSnapshot(@path instanceID: string, @path week: int32): ScoreSnapshot 
 
 @route("/instances/{instanceID}/score-posts/{requestKey}")
 @put
-op upsertScorePost(@path instanceID: string, @path requestKey: string, @body body: { guild_id: string; channel_id: string; body: string; send_at: utcDateTime; score_fingerprint: string; notify_users?: boolean; }): { action: string; } | ErrorResponse;
+op upsertScorePost(@path instanceID: string, @path requestKey: string, @body body: { guild_id: string; channel_id: string; body: string; send_at: utcDateTime; score_fingerprint?: string; notify_users?: boolean; }): { action: string; } | ErrorResponse;
+
+/** A scored episode game's results for the weekly scores post (409 until it's scored; never includes answers). */
+@route("/instances/{instanceID}/game-results/{episode}")
+@get
+op getGameResults(@path instanceID: string, @path episode: int32): { type: string; players: Record<unknown>[]; tribes: { name: string; emoji: string; value: float64; }[]; } | ErrorResponse;
 
 @route("/admin-alerts/claim")
 @post

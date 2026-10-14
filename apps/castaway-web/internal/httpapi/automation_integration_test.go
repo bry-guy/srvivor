@@ -200,6 +200,27 @@ func TestSeasonAutomation(t *testing.T) {
 	if got := post("Week 2 again", fp3, sendAt, 409); got != "" {
 		t.Fatal("stale fingerprint accepted")
 	}
+	// A plain automated post (weekly game reminder) has no score fingerprint: it's held for approval like a
+	// scores post, a redraft with the same words is a no-op, and new words replace an unedited draft.
+	remind := func(text string) string {
+		t.Helper()
+		return jstr(call("PUT", path+"/score-posts/s957-week-3-reminder", fmt.Sprintf(`{"guild_id":"8001","channel_id":"8002","body":%q,"send_at":%q}`,
+			text, now.Add(time.Hour).Format(time.RFC3339)), 200), "action")
+	}
+	if got := remind("Game closes at 7:59pm"); got != "created" {
+		t.Fatal(got)
+	}
+	if got := remind("Game closes at 7:59pm"); got != "unchanged" {
+		t.Fatal(got)
+	}
+	if got := remind("Game closes at 7:59pm tonight"); got != "regenerated" {
+		t.Fatal(got)
+	}
+	var gated bool
+	var fingerprint *string
+	if err := pool.QueryRow(ctx, `SELECT approval_gated, score_fingerprint FROM announcements WHERE request_key = 's957-week-3-reminder'`).Scan(&gated, &fingerprint); err != nil || !gated || fingerprint != nil {
+		t.Fatalf("reminder: gated=%v fingerprint=%v err=%v", gated, fingerprint, err)
+	}
 }
 
 // jget walks decoded JSON by keys (string) and indexes (int); missing paths give nil.

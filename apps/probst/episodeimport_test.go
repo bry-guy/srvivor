@@ -2,8 +2,8 @@ package main
 
 import (
 	"strings"
-	"time"
 	"testing"
+	"time"
 )
 
 func ep2Data() survivorEpisode {
