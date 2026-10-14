@@ -1928,6 +1928,56 @@ paths:
                     required:
                       - imports
                   - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/episodes:
+    put:
+      operationId: putEpisodes
+      description: "Make the season's episode schedule match a season file: listed episodes are created or moved."
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      changed:
+                        type: integer
+                        format: int32
+                    required:
+                      - changed
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                episodes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      episode_number:
+                        type: integer
+                        format: int32
+                      label:
+                        type: string
+                      airs_at:
+                        type: string
+                        format: date-time
+                    required:
+                      - episode_number
+                      - airs_at
+              required:
+                - episodes
   /instances/{instanceID}/finale-bingo/loan-sharks:
     post:
       operationId: recordFinaleBingoLoanSharks

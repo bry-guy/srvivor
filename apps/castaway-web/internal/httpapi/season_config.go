@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -111,4 +112,66 @@ func (s *Server) raiseStaleAutomationAlerts(ctx context.Context) error {
 		FROM season_configs sc WHERE sc.heartbeat_at < $1::timestamptz - interval '30 minutes'
 		ON CONFLICT (instance_id, alert_key) DO NOTHING`, s.now())
 	return err
+}
+
+// putEpisodes makes the season's episode schedule match a season file (`probst season sync --fix-episodes`):
+// listed episodes are created or moved; unlisted ones are left alone. Admin only; Probst shows the diff first.
+func (s *Server) putEpisodes(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok || !s.requireInstanceAdminRequest(c, instanceID) {
+		return
+	}
+	var req struct {
+		Episodes []createInstanceEpisodeRequest `json:"episodes" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.Episodes) == 0 {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "episodes are required"})
+		return
+	}
+	for _, e := range req.Episodes {
+		if e.EpisodeNumber < 0 || e.AirsAt.IsZero() {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "each episode needs episode_number >= 0 and airs_at"})
+			return
+		}
+	}
+	ctx := c.Request.Context()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	defer rollbackTx(c, tx)
+	var id int64
+	if err := tx.QueryRow(ctx, `SELECT id FROM instances WHERE public_id = $1 FOR UPDATE`, toPGUUID(instanceID)).Scan(&id); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	// Park moved episodes out of the way first: airs_at is unique per season, so a shift can collide midway.
+	for _, e := range req.Episodes {
+		if _, err := tx.Exec(ctx, `UPDATE instance_episodes SET airs_at = airs_at + interval '100 years' WHERE instance_id = $1 AND episode_number = $2 AND airs_at <> $3`,
+			id, e.EpisodeNumber, e.AirsAt.UTC()); err != nil {
+			writeAnnouncementError(c, err)
+			return
+		}
+	}
+	changed := 0
+	for _, e := range req.Episodes {
+		label := e.Label
+		if label == "" {
+			label = fmt.Sprintf("Episode %d", e.EpisodeNumber)
+		}
+		tag, err := tx.Exec(ctx, `INSERT INTO instance_episodes (instance_id, episode_number, label, airs_at) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (instance_id, episode_number) DO UPDATE SET airs_at = EXCLUDED.airs_at, updated_at = NOW()
+			WHERE instance_episodes.airs_at <> EXCLUDED.airs_at`, id, e.EpisodeNumber, label, e.AirsAt.UTC())
+		if err != nil {
+			writeAnnouncementError(c, err)
+			return
+		}
+		changed += int(tag.RowsAffected())
+	}
+	if err := tx.Commit(ctx); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"changed": changed})
 }

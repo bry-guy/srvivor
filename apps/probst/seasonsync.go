@@ -37,12 +37,22 @@ func getSeasonConfig(ctx context.Context, call apiCall, instance string) (*synce
 // with the file (run `season apply` first), then saves the file and its scores template to the database,
 // replacing only the revision it read (a concurrent sync loses with 409).
 func addSeasonSyncCommand(season *cobra.Command, call apiCall, yes *bool) {
-	season.AddCommand(&cobra.Command{
+	var fix bool
+	cmd := &cobra.Command{
 		Use:   "sync FILE",
-		Short: "Save the season file + scores template to the database for the scheduled job (dry run unless --yes)",
+		Short: "Save the season file + templates to the database for the scheduled job (dry run unless --yes)",
 		Args:  cobra.ExactArgs(1),
-		RunE:  func(c *cobra.Command, a []string) error { return syncSeason(c, call, a[0], *yes) },
-	})
+		RunE: func(c *cobra.Command, a []string) error {
+			if fix {
+				if err := fixEpisodes(c, call, a[0], *yes); err != nil || !*yes {
+					return err
+				}
+			}
+			return syncSeason(c, call, a[0], *yes)
+		},
+	}
+	cmd.Flags().BoolVar(&fix, "fix-episodes", false, "First make the live episode schedule match the file (creates and moves episodes)")
+	season.AddCommand(cmd)
 }
 
 // syncSeason saves file (and its scores template) as the instance's synced season config; see sync.
@@ -109,5 +119,49 @@ func syncSeason(c *cobra.Command, call apiCall, file string, yes bool) error {
 		return err
 	}
 	fmt.Fprintf(out, "Synced revision %s; the scheduled job uses it from its next run.\n", res.Revision)
+	return nil
+}
+
+// fixEpisodes sets the live episode schedule to the file's (shown first; --yes applies).
+func fixEpisodes(c *cobra.Command, call apiCall, file string, yes bool) error {
+	f, err := loadSeasonFile(file)
+	if err != nil {
+		return err
+	}
+	_, airs, err := expandSeason(f, time.Now())
+	if err != nil {
+		return err
+	}
+	diffs, err := seasonDiff(c.Context(), call, f, airs)
+	if err != nil {
+		return err
+	}
+	out := c.OutOrStdout()
+	n := 0
+	for _, d := range diffs {
+		if strings.HasPrefix(d, "Episode ") {
+			fmt.Fprintln(out, "  fix "+d)
+			n++
+		}
+	}
+	if n == 0 {
+		fmt.Fprintln(out, "Live episodes already match the file.")
+		return nil
+	}
+	if !yes {
+		fmt.Fprintln(out, "Dry run — re-run with --yes to set the live episodes to the file's, then sync.")
+		return nil
+	}
+	eps := []map[string]any{}
+	for i, at := range airs {
+		eps = append(eps, map[string]any{"episode_number": i + 1, "airs_at": at.UTC().Format(time.RFC3339)})
+	}
+	var res struct {
+		Changed int `json:"changed"`
+	}
+	if err := call(c.Context(), "PUT", "/instances/"+url.PathEscape(f.Instance)+"/episodes", map[string]any{"episodes": eps}, &res); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Set %d live episodes to the file's schedule.\n", res.Changed)
 	return nil
 }

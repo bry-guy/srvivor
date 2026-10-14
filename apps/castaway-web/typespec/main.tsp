@@ -149,6 +149,11 @@ op getScoreSnapshot(@path instanceID: string, @path week: int32): ScoreSnapshot 
 @put
 op upsertScorePost(@path instanceID: string, @path requestKey: string, @body body: { guild_id: string; channel_id: string; body: string; send_at: utcDateTime; score_fingerprint?: string; notify_users?: boolean; }): { action: string; } | ErrorResponse;
 
+/** Make the season's episode schedule match a season file: listed episodes are created or moved. */
+@route("/instances/{instanceID}/episodes")
+@put
+op putEpisodes(@path instanceID: string, @body body: { episodes: { episode_number: int32; label?: string; airs_at: utcDateTime; }[]; }): { changed: int32; } | ErrorResponse;
+
 /** A scored episode game's results for the weekly scores post (409 until it's scored; never includes answers). */
 @route("/instances/{instanceID}/game-results/{episode}")
 @get

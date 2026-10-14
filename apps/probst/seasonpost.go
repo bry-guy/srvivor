@@ -185,6 +185,9 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 				return err
 			}
 			out := c.OutOrStdout()
+			if previewUnscored && *yes {
+				return fmt.Errorf("--preview is for dry runs only")
+			}
 			key := scoresKey(f.Season, week)
 			if !*yes {
 				_, err = fmt.Fprintf(out, "Dry run — %s, sends %s ET (pings the top 3 and last place):\n\n%s\nRe-run with --yes to save and schedule it.\n", key, at.Format("Mon Jan 02 3:04pm"), text)
@@ -218,9 +221,13 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 		},
 	}
 	cmd.Flags().IntVar(&week, "week", 0, "Week N (scores through Episode N)")
+	cmd.Flags().BoolVar(&previewUnscored, "preview", false, "Dry run before the game is scored: placeholder for its results")
 	cmd.Flags().StringVar(&body, "body", "", "Post this edited draft instead of rendering the template")
 	season.AddCommand(cmd)
 }
+
+// previewUnscored lets a dry run (`season post --preview`) render before the week's game is scored.
+var previewUnscored bool
 
 func composeScoresPost(ctx context.Context, call apiCall, f seasonFile, airs []time.Time, week int, tmpl templateSet) (string, error) {
 	p, err := composeScoresData(ctx, call, f, airs, week, tmpl)
@@ -274,6 +281,9 @@ func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []t
 		return p, err
 	}
 	p.GameScore, err = gameScore(ctx, call, path, tmpl, f, week)
+	if err != nil && previewUnscored && strings.Contains(err.Error(), "isn't scored yet") {
+		p.GameScore, err = fmt.Sprintf("[%s results go here once it's scored]", gameNames[weekGame(f, week)]), nil
+	}
 	return p, err
 }
 

@@ -54,6 +54,27 @@ func TestSeasonConfigSync(t *testing.T) {
 		t.Fatalf("config = %v", got)
 	}
 	call("GET", "/instances/"+uuid.UUID(other.ID.Bytes).String()+"/season-config", "", "2001", http.StatusForbidden) // other instance
+
+	// Episode schedule from a season file: creates and moves (even into each other's slots), admin only, idempotent.
+	eps := "/instances/" + uuid.UUID(instance.ID.Bytes).String() + "/episodes"
+	at := func(day int) string { return time.Date(2030, 9, day, 0, 0, 0, 0, time.UTC).Format(time.RFC3339) }
+	body := func(a, b string) string {
+		return `{"episodes":[{"episode_number":1,"airs_at":"` + a + `"},{"episode_number":2,"airs_at":"` + b + `"}]}`
+	}
+	call("PUT", eps, body(at(1), at(8)), "9999", http.StatusForbidden)
+	if got := call("PUT", eps, body(at(1), at(8)), "2001", http.StatusOK)["changed"]; got != 2.0 {
+		t.Fatalf("created %v", got)
+	}
+	if got := call("PUT", eps, body(at(8), at(15)), "2001", http.StatusOK)["changed"]; got != 2.0 { // ep 1 takes ep 2's old slot
+		t.Fatalf("moved %v", got)
+	}
+	if got := call("PUT", eps, body(at(8), at(15)), "2001", http.StatusOK)["changed"]; got != 0.0 {
+		t.Fatalf("replay changed %v", got)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM instance_episodes e JOIN instances i ON i.id = e.instance_id WHERE i.public_id = $1`, instance.ID).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("episodes %d %v", n, err)
+	}
 }
 
 // A season whose scheduled job stops succeeding gets one admin DM per stall.

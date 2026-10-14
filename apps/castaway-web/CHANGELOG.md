@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- `PUT /instances/:id/episodes` (admin) creates or moves a season's episodes to match a season file.
+
 - Weekly scores posts include the week's game results (new `GET /instances/:id/game-results/:episode`), and automated posts without a score fingerprint (game-day reminders) use the same approval-gated `score-posts` upsert.
 
 - Pick Your Champion: `probst season merge FILE N` ends Tribe scoring at merge Episode N and opens picks (website `/games/champion`, or reply to the bot's "Pick Your Champion" post) until Episode N+1 airs; then picks are fixed and shown to all. Post-merge challenges import from survivoR and award pickers of the winners (+3 immunity, +1 reward). The merge episode's own challenges are held for an admin.
