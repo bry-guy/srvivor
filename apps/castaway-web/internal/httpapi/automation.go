@@ -469,7 +469,7 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		if err == nil {
 			_, err = tx.Exec(ctx, `INSERT INTO admin_alerts (instance_id, alert_key, body) SELECT id, $2, $3 FROM instances WHERE public_id = $1
 				ON CONFLICT (instance_id, alert_key) DO NOTHING`, toPGUUID(instanceID), key+"-rescored-"+req.ScoreFingerprint[:12],
-				"⚠️ Scores changed after you edited the "+key+" post. Your text was kept, but its numbers may now be wrong: check them before replying \"yes\" to the new approval DM (or reply with corrected text).")
+				message("scores-rescored.md", map[string]string{"Key": key}))
 		}
 	default:
 		action = "regenerated"

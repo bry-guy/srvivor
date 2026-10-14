@@ -1,0 +1,3 @@
+{{.Player}} Your draft is in. And for that, you've earned something every castaway wants: a {{.Emoji}} **{{.Tribe}}** buff. Wear it well.
+{{.Player}} You made it into the game. Take this {{.Emoji}} **{{.Tribe}}** buff. Your new family is waiting.
+{{.Player}} Draft received. Welcome to the Open Era. Reach in, grab a buff... it's {{.Emoji}} **{{.Tribe}}**.

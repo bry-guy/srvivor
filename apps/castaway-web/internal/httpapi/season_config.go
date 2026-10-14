@@ -105,13 +105,29 @@ func (s *Server) automationHeartbeat(c *gin.Context) {
 // raiseStaleAutomationAlerts queues one admin DM per stall (keyed by the last heartbeat) when a season's
 // scheduled job hasn't succeeded for 30 minutes. The bot's alert polling drives it, so a dead job can't hide.
 func (s *Server) raiseStaleAutomationAlerts(ctx context.Context) error {
-	_, err := s.pool.Exec(ctx, `INSERT INTO admin_alerts (instance_id, alert_key, body)
-		SELECT sc.instance_id, 'automation-stale-' || to_char(sc.heartbeat_at AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS'),
-			'⚠️ **Season automation hasn''t run successfully since ' || to_char(sc.heartbeat_at AT TIME ZONE 'America/New_York', 'Mon FMDD FMHH12:MIam') ||
-			' ET.** Scheduled imports, game checks and scores drafts are paused until it recovers. Check the probst-season-check CronJob logs.'
-		FROM season_configs sc WHERE sc.heartbeat_at < $1::timestamptz - interval '30 minutes'
-		ON CONFLICT (instance_id, alert_key) DO NOTHING`, s.now())
-	return err
+	rows, err := s.pool.Query(ctx, `SELECT instance_id, heartbeat_at FROM season_configs WHERE heartbeat_at < $1::timestamptz - interval '30 minutes'`, s.now())
+	if err != nil {
+		return err
+	}
+	type stale struct {
+		instance int64
+		at       time.Time
+	}
+	found, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (stale, error) {
+		var x stale
+		return x, r.Scan(&x.instance, &x.at)
+	})
+	if err != nil {
+		return err
+	}
+	for _, x := range found {
+		body := message("automation-stale.md", map[string]string{"Since": x.at.In(easternTZ()).Format("Jan 2 3:04pm")})
+		if _, err := s.pool.Exec(ctx, `INSERT INTO admin_alerts (instance_id, alert_key, body) VALUES ($1, $2, $3) ON CONFLICT (instance_id, alert_key) DO NOTHING`,
+			x.instance, "automation-stale-"+x.at.UTC().Format("20060102T150405"), body); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // putEpisodes makes the season's episode schedule match a season file (`probst season sync --fix-episodes`):

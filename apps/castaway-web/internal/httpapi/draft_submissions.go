@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
@@ -37,18 +38,14 @@ type draftSubmissionResult struct {
 	Eligible bool   `json:"bonus_eligible"`
 }
 
-// Approved copy. %[1]s is the player (mention or bold name), %[2]s the tribe emoji, %[3]s the tribe.
+// Draft buff copy is messages/draft-{first,second,last}.md and draft-rest.txt (rotating).
 const (
-	draftFirstCopy  = "🔥 %[1]s — first to lock in a draft. That's the kind of hunger that wins this game. You've earned **+2 bonus points**... and a buff. Reach in. It's %[2]s **%[3]s**."
-	draftSecondCopy = "%[1]s, right behind them. Second draft in — that's worth **+1 bonus point**. Not first... but you're in the fight. Grab your buff: %[2]s **%[3]s**."
-	draftLastCopy   = "%[1]s... last draft in. I gotta be honest — I was starting to wonder if you'd make it to the island at all. But you're here. Grab your buff: %[2]s **%[3]s**. Try to keep up."
+	draftFirstCopy  = "draft-first.md"
+	draftSecondCopy = "draft-second.md"
+	draftLastCopy   = "draft-last.md"
 )
 
-var draftRestCopy = []string{
-	"%[1]s Your draft is in. And for that, you've earned something every castaway wants: a %[2]s **%[3]s** buff. Wear it well.",
-	"%[1]s You made it into the game. Take this %[2]s **%[3]s** buff. Your new family is waiting.",
-	"%[1]s Draft received. Welcome to the Open Era. Reach in, grab a buff... it's %[2]s **%[3]s**.",
-}
+func draftRestCopy(order int) string { return fmt.Sprintf("rest:%d", order) }
 
 // tribeColorEmoji maps a tribe's stored color (participant_groups.color) to its emoji in posts.
 var tribeColorEmoji = map[string]string{
@@ -56,12 +53,22 @@ var tribeColorEmoji = map[string]string{
 	"purple": "🟣", "brown": "🟤", "black": "⚫", "white": "⚪",
 }
 
+// draftCopy fills a draft buff template (a messages/ name, or "rest:<order>" for the rotating lines).
 func draftCopy(template, player, tribe, color string) string {
 	emoji := tribeColorEmoji[color]
 	if emoji == "" {
 		emoji = "🏝️"
 	}
-	return fmt.Sprintf(template, player, emoji, tribe)
+	data := map[string]string{"Player": player, "Emoji": emoji, "Tribe": tribe}
+	if order, ok := strings.CutPrefix(template, "rest:"); ok {
+		lines := messageLines("draft-rest.txt", data)
+		n, err := strconv.Atoi(order)
+		if err != nil {
+			n = 3
+		}
+		return lines[(n-3+len(lines)*8)%len(lines)]
+	}
+	return message(template, data)
 }
 
 // pickDraftTribe is a shuffled bag: a random tribe among those with the fewest members, so tribes never
@@ -246,7 +253,7 @@ func (s *Server) recordDraftSubmission(ctx context.Context, tx pgx.Tx, q *db.Que
 			return nil, err
 		}
 	}
-	template, thread := draftRestCopy[(result.Order-3+len(draftRestCopy)*8)%len(draftRestCopy)], draftRewardsThread
+	template, thread := draftRestCopy(result.Order), draftRewardsThread
 	switch {
 	case result.Points == 2:
 		template, thread = draftFirstCopy, nil
@@ -315,7 +322,7 @@ func draftTribeGroup(ctx context.Context, q *db.Queries, instanceID uuid.UUID, t
 
 // queueDraftAnnouncement queues a pinged post for the player; keyed by player so it's queued at most once.
 // draftRewardsThread keeps routine draft buffs out of the channel; the 1st, 2nd, and last callouts stay in it.
-var draftRewardsThread = &announcementThread{Key: "draft-rewards", Name: "Draft rewards", Starter: "🔥 The drafts are rolling in. Find your reward inside."}
+var draftRewardsThread = &announcementThread{Key: "draft-rewards", Name: message("draft-thread-name.txt", nil), Starter: message("draft-thread-starter.md", nil)}
 
 func (s *Server) queueDraftAnnouncement(ctx context.Context, tx pgx.Tx, instanceID uuid.UUID, config draftSubmissionConfig, participantID pgtype.UUID, prefix, template, tribe string, thread *announcementThread) error {
 	var name string
