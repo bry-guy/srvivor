@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bry-guy/srvivor/apps/castaway-web/internal/buildinfo"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/conv"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/db"
 	"github.com/bry-guy/srvivor/apps/castaway-web/internal/gameplay"
@@ -215,7 +216,8 @@ type errorResponse struct {
 }
 
 func (s *Server) health(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	// buildId is the git commit baked in via ldflags (Dockerfile GIT_COMMIT); deploys wait for it.
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "buildId": buildinfo.Commit})
 }
 
 type instanceResponse struct {
