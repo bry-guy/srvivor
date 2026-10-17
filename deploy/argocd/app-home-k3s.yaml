@@ -6,7 +6,7 @@ metadata:
 spec:
   project: castaway
   source:
-    repoURL: https://github.com/bry-guy/srvivor.git
+    repoURL: https://github.com/bry-guy/castaway.git
     targetRevision: main
     path: deploy/environments/home-k3s
   destination:

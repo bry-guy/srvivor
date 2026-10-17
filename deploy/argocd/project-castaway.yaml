@@ -6,6 +6,7 @@ metadata:
 spec:
   description: Castaway self-hosted applications
   sourceRepos:
+    - https://github.com/bry-guy/castaway.git
     - https://github.com/bry-guy/srvivor.git
   destinations:
     - namespace: castaway

@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: castaway-preview
+  namespace: argocd
+spec:
+  project: castaway
+  source:
+    repoURL: https://github.com/bry-guy/castaway.git
+    targetRevision: main
+    path: deploy/environments/home-k3s-preview
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: castaway
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

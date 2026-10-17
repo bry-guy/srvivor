@@ -1,0 +1,16 @@
+# Give preview pods their own labels: the prod Service and ServiceMonitor select
+# app.kubernetes.io/name=castaway-web, and would otherwise route production traffic here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: castaway-web
+  labels:
+    app.kubernetes.io/name: castaway-web-preview
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: castaway-web-preview
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: castaway-web-preview

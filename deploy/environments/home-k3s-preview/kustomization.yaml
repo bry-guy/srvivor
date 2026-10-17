@@ -1,0 +1,19 @@
+# Castaway preview: castaway-web only, against the shared production database.
+# Writes are real. Migrations come only from main (home-k3s). No bot, cron, tunnel, or ServiceMonitor.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: castaway
+namePrefix: preview-
+resources:
+  - ../../base/castaway-web
+  - web-configmap.yaml
+patches:
+  - path: web-patch.yaml
+  - path: web-placement-patch.yaml
+  - path: preview-deployment-patch.yaml
+  - path: preview-service-patch.yaml
+  - path: preview-no-migrate-patch.yaml
+images:
+  - name: ghcr.io/bry-guy/castaway-web
+    newName: ghcr.io/bry-guy/castaway-web
+    digest: sha256:ec6469d4f2b0f60d87faaf6d276c1c610c65434c010a0e9420223c9b64a179d5

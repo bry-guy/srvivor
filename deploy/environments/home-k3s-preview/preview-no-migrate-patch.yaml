@@ -1,0 +1,6 @@
+# Preview never runs migrations: only main migrates the shared database.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: castaway-web-migrate
+$patch: delete

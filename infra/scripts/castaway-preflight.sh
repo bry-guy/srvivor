@@ -20,7 +20,9 @@ missing=0
 for path in \
   "$repo/deploy/argocd/project-castaway.yaml" \
   "$repo/deploy/argocd/app-home-k3s.yaml" \
-  "$repo/deploy/environments/home-k3s/kustomization.yaml"; do
+  "$repo/deploy/argocd/app-home-k3s-preview.yaml" \
+  "$repo/deploy/environments/home-k3s/kustomization.yaml" \
+  "$repo/deploy/environments/home-k3s-preview/kustomization.yaml"; do
   if [ ! -f "$path" ]; then
     echo "missing required app manifest: $path" >&2
     missing=1
