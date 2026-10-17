@@ -9,7 +9,7 @@ set -euo pipefail
 env_name="${1:?usage: deploy.sh preview|production}"
 case "$env_name" in
   preview) overlay=deploy/environments/home-k3s-preview; url=https://castaway.preview.bry-guy.net/healthz ;;
-  production) overlay=deploy/environments/home-k3s; url=https://castaway.bry-guy.net/healthz ;;
+  production) overlay=deploy/environments/home-k3s; url=https://castaway-origin.bry-guy.net/healthz ;; # tailnet origin: the public edge's Bot Fight Mode blocks CI
   *) echo "unknown environment: $env_name" >&2; exit 2 ;;
 esac
 digest_re='^sha256:[0-9a-f]{64}$'
