@@ -121,12 +121,14 @@ From `~/dev/srvivor`:
 ```bash
 KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl apply -f deploy/argocd/project-castaway.yaml
 KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl apply -f deploy/argocd/app-home-k3s.yaml
+KUBECONFIG="$SELFHOST_CASTAWAY_KUBECONFIG_PATH" kubectl apply -f deploy/argocd/app-home-k3s-preview.yaml
 ```
 
 This tells Argo CD to watch:
 
-- repo: `https://github.com/bry-guy/srvivor.git`
+- repo: `https://github.com/bry-guy/castaway.git` (GitHub redirects the old `srvivor` URL)
 - path: `deploy/environments/home-k3s`
+- preview app `castaway-preview` watches `deploy/environments/home-k3s-preview`
 
 ## Secrets and database contract
 

@@ -1,8 +1,12 @@
 name: Publish Images
 
+# Push to feature/** deploys castaway-web to preview. Push to main deploys preview, then production.
+# Deploys are digest pins committed to main; Argo CD syncs them.
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'feature/**'
     paths:
       - 'apps/castaway-web/**'
       - 'apps/castaway-discord-bot/**'
@@ -18,12 +22,12 @@ on:
         type: boolean
         default: false
       castaway_discord_bot:
-        description: Build, publish, and deploy castaway-discord-bot
+        description: Build, publish, and deploy castaway-discord-bot (main only)
         required: false
         type: boolean
         default: false
       probst:
-        description: Build, publish, and deploy the scheduled probst job
+        description: Build, publish, and deploy the scheduled probst job (main only)
         required: false
         type: boolean
         default: false
@@ -57,6 +61,7 @@ jobs:
       - id: changes
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
           PUSH_CASTAWAY_WEB: ${{ steps.filter.outputs.castaway_web }}
           PUSH_CASTAWAY_DISCORD_BOT: ${{ steps.filter.outputs.castaway_discord_bot }}
           PUSH_PROBST: ${{ steps.filter.outputs.probst }}
@@ -72,6 +77,12 @@ jobs:
             castaway_web="${MANUAL_CASTAWAY_WEB:-false}"
             castaway_discord_bot="${MANUAL_CASTAWAY_DISCORD_BOT:-false}"
             probst="${MANUAL_PROBST:-false}"
+          fi
+
+          # Feature branches deploy only castaway-web to preview.
+          if [ "$REF_NAME" != "main" ]; then
+            castaway_discord_bot=false
+            probst=false
           fi
 
           echo "castaway_web=$castaway_web" >> "$GITHUB_OUTPUT"
@@ -168,44 +179,59 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/probst:sha-${{ github.sha }}
 
-  update-home-k3s:
+  deploy:
     needs:
       - changes
       - build-castaway-web
       - build-castaway-discord-bot
       - build-probst
-    if: always() && github.ref == 'refs/heads/main' && (needs.changes.outputs.castaway_web == 'true' || needs.changes.outputs.castaway_discord_bot == 'true' || needs.changes.outputs.probst == 'true')
+    if: >-
+      !cancelled() &&
+      needs.changes.result == 'success' &&
+      needs.build-castaway-web.result != 'failure' &&
+      needs.build-castaway-discord-bot.result != 'failure' &&
+      needs.build-probst.result != 'failure' &&
+      (needs.changes.outputs.castaway_web == 'true' || needs.changes.outputs.castaway_discord_bot == 'true' || needs.changes.outputs.probst == 'true')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+    concurrency:
+      group: castaway-deploy
+      cancel-in-progress: false
+    env:
+      SHA: ${{ github.sha }}
+      WEB_DIGEST: ${{ needs.build-castaway-web.outputs.digest }}
+      BOT_DIGEST: ${{ needs.build-castaway-discord-bot.outputs.digest }}
+      PROBST_DIGEST: ${{ needs.build-probst.outputs.digest }}
     steps:
+      # deploy.sh comes from the pushed commit; the pins it edits live on main.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: src
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Update castaway-web digest
-        if: needs.changes.outputs.castaway_web == 'true'
-        run: |
-          python3 script/update-home-k3s-digests.py ghcr.io/${{ github.repository_owner }}/castaway-web ${{ needs.build-castaway-web.outputs.digest }}
-      - name: Update castaway-discord-bot digest
-        if: needs.changes.outputs.castaway_discord_bot == 'true'
-        run: |
-          python3 script/update-home-k3s-digests.py \
-            ghcr.io/${{ github.repository_owner }}/castaway-discord-bot \
-            ${{ needs.build-castaway-discord-bot.outputs.digest }}
-      - name: Update probst digest
-        if: needs.changes.outputs.probst == 'true'
-        run: |
-          python3 script/update-home-k3s-digests.py ghcr.io/${{ github.repository_owner }}/probst ${{ needs.build-probst.outputs.digest }}
+          path: main
       - uses: azure/setup-kubectl@v4
         with:
           version: latest
-      - name: Render home-k3s overlay after digest update
-        run: kubectl kustomize deploy/environments/home-k3s > /tmp/home-k3s-render.yaml
-      - name: Commit digest updates
-        run: |
-          if git diff --quiet -- deploy/environments/home-k3s/kustomization.yaml; then
-            exit 0
-          fi
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add deploy/environments/home-k3s/kustomization.yaml
-          git commit -m "chore(deploy): update home-k3s image digests [skip ci]"
-          git push
+
+      # Preview and production hostnames are tailnet-only.
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ vars.TAILSCALE_FEDERATED_CLIENT_ID }}
+          audience: ${{ vars.TAILSCALE_FEDERATED_AUDIENCE }}
+          tags: tag:ci
+
+      - name: Deploy preview
+        if: needs.changes.outputs.castaway_web == 'true'
+        working-directory: main
+        run: ../src/scripts/deploy.sh preview
+
+      - name: Deploy production
+        if: github.ref == 'refs/heads/main'
+        working-directory: main
+        run: ../src/scripts/deploy.sh production

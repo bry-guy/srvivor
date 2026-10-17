@@ -74,6 +74,24 @@ mise run castaway:apply
 
 See `infra/README.md` for the split between app-owned infra and the shared platform repo.
 
+### Deploy on push
+
+`.github/workflows/publish-images.yml` builds changed images and deploys them by committing digest pins to `main`; Argo CD syncs those overlays. `scripts/deploy.sh` does the pinning and waits for health.
+
+- Push to `feature/**` that changes `apps/castaway-web/**`: builds castaway-web and pins it in `deploy/environments/home-k3s-preview` (Argo app `castaway-preview`). Waits for `https://castaway.preview.bry-guy.net/healthz` to report `buildId` = the commit SHA.
+- Push to `main`: builds the changed apps, deploys preview (castaway-web) and waits, then pins production (`deploy/environments/home-k3s`) for all changed images in one commit and waits for `https://castaway.bry-guy.net/healthz` when castaway-web changed.
+- `/healthz` returns `{"status":"ok","buildId":"<git sha>"}`; `buildId` is the `GIT_COMMIT` build arg.
+
+Preview rules:
+- castaway-web only: no Discord bot, probst cron, Cloudflare tunnel, ServiceMonitor, or migration hook.
+- It uses the production database and `castaway-web-secrets`, so preview writes are real production writes.
+- Migrations run only from main's production overlay. A feature branch whose schema is ahead of main will fail against the shared database.
+- Discord login on preview needs `https://castaway.preview.bry-guy.net/auth/callback` registered as a redirect URI in the Discord application.
+
+Rollback: `git revert` the `deploy(production)` or `deploy(preview)` digest commit on `main`; Argo CD syncs the previous digest. Migrations are not reverted.
+
+Bot digest commits carry `[skip ci]` and touch only `deploy/`, which the workflow does not filter on, so they do not retrigger it.
+
 ## Documentation
 
 - Functional requirements: `functional-requirements.md`
