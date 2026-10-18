@@ -49,6 +49,8 @@ for attempt in 1 2 3 4 5; do
   git commit --quiet -m "deploy($env_name): ${SHA:0:7} [skip ci]" -m "Source: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$SHA" -- "$overlay/kustomization.yaml"
   if git push --quiet origin HEAD:main; then
     echo "Pushed $env_name pin for ${SHA:0:7}"
+    # Best-effort: Argo CD refreshes now instead of at its next 30s poll.
+    curl -fsS -m 10 -X POST https://argocd-hook.bry-guy.net/api/webhook -H 'Content-Type: application/json' -H 'X-GitHub-Event: push' -d "{\"ref\":\"refs/heads/main\",\"after\":\"$(git rev-parse HEAD)\",\"repository\":{\"html_url\":\"https://github.com/$GITHUB_REPOSITORY\",\"default_branch\":\"main\"},\"commits\":[]}" >/dev/null || echo "argo webhook unavailable; Argo will poll"
     break
   fi
   [ "$attempt" -lt 5 ] || { echo "could not push the $env_name pin" >&2; exit 1; }
@@ -57,14 +59,14 @@ done
 
 [ -n "${WEB_DIGEST:-}" ] || { echo "castaway-web unchanged; not waiting for $env_name"; exit 0; }
 
-# Argo CD polls Git every few minutes; allow for pickup plus rollout.
-for _ in $(seq 1 60); do
+# The webhook above usually beats Argo's 30s Git poll; allow 10 minutes for pickup plus rollout.
+for _ in $(seq 1 200); do
   build="$(curl --fail --silent --connect-timeout 5 --max-time 10 "$url" | jq -r '.buildId // empty' || true)"
   if [ "$build" = "$SHA" ]; then
     echo "$env_name is serving ${SHA:0:7}"
     exit 0
   fi
-  sleep 10
+  sleep 3
 done
 echo "$env_name did not serve ${SHA:0:7} within 10 minutes (last: ${build:-unreachable}); check Argo CD" >&2
 exit 1

@@ -122,6 +122,8 @@ jobs:
             VERSION=sha-${{ github.sha }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ steps.build-date.outputs.value }}
+          cache-from: type=gha,scope=castaway-web
+          cache-to: type=gha,mode=max,scope=castaway-web
 
   build-castaway-discord-bot:
     needs: changes
@@ -156,6 +158,8 @@ jobs:
             VERSION=sha-${{ github.sha }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ steps.build-date.outputs.value }}
+          cache-from: type=gha,scope=castaway-discord-bot
+          cache-to: type=gha,mode=max,scope=castaway-discord-bot
 
   build-probst:
     needs: changes
@@ -178,6 +182,8 @@ jobs:
           file: apps/probst/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/probst:sha-${{ github.sha }}
+          cache-from: type=gha,scope=probst
+          cache-to: type=gha,mode=max,scope=probst
 
   deploy:
     needs:
