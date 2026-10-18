@@ -9,5 +9,7 @@ spec:
       containers:
         - name: castaway-web
           env:
+            - name: GIN_MODE
+              value: release
             - name: BOOTSTRAP_ADMIN_DISCORD_USER_ID
               value: "235246238382030849"
