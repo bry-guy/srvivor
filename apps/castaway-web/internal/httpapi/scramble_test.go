@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestScramblePhrase(t *testing.T) {
@@ -45,12 +46,40 @@ func TestScramblePlaces(t *testing.T) {
 	if !reflect.DeepEqual(places, want) {
 		t.Fatalf("places %v", places)
 	}
-	for place, pts := range map[int]int{1: 3, 2: 2, 3: 1, 4: 0, 5: 0} {
-		if placePoints(place) != pts {
-			t.Errorf("place %d: %d", place, placePoints(place))
-		}
+	scores := scrambleScores([]scrambleSolve{
+		{"slow", 300, 0}, {"fast", 60, 2}, {"fastClean", 60, 0}, {"tieA", 120, 1}, {"tieB", 120, 1},
+	})
+	wantScores := map[string]scrambleScore{ // fast ties share first; fewest wrong: slow+fastClean tie, next is third
+		"fastClean": {3, 3, 7}, "fast": {3, 0, 4}, "tieA": {0, 0, 1}, "tieB": {0, 0, 1}, "slow": {0, 3, 4},
+	}
+	if !reflect.DeepEqual(scores, wantScores) {
+		t.Fatalf("scores %v", scores)
+	}
+	if got := scrambleScores([]scrambleSolve{{"a", 10, 2}, {"b", 20, 1}, {"c", 30, 0}}); got["b"] != (scrambleScore{2, 2, 5}) {
+		t.Errorf("second places: %v", got)
+	}
+	if got := scrambleScores([]scrambleSolve{{"a", 10, 0}, {"b", 20, 1}, {"c", 20, 1}}); got["b"] != (scrambleScore{2, 2, 5}) || got["c"] != got["b"] {
+		t.Errorf("tie for second: %v", got)
 	}
 	if scrambleDuration(221) != "3:41" || scrambleDuration(3725) != "1:02:05" {
 		t.Error("duration format")
+	}
+}
+
+func TestScrambleHint(t *testing.T) {
+	hint := scrambleHint("SURVIVOR ISLAND", "6f1c2a9e-0000-4000-8000-000000000000")
+	words := strings.Split(hint, " · ")
+	if len(words) != 2 || hint != scrambleHint("SURVIVOR ISLAND", "6f1c2a9e-0000-4000-8000-000000000000") {
+		t.Fatalf("hint %q", hint)
+	}
+	for i, w := range words {
+		cells := strings.Fields(w)
+		if len(cells) != len(strings.Fields("SURVIVOR ISLAND")[i]) || len(strings.Fields(strings.ReplaceAll(w, "_", ""))) != 1 {
+			t.Errorf("word %d: %q", i, w)
+		}
+	}
+	opens := time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC) // Wed Oct 14, 8pm EDT
+	if got := scrambleHintAt(opens); !got.Equal(time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)) {
+		t.Errorf("hint at %v", got)
 	}
 }

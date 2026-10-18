@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Island Scramble scoring: fastest +3/second +2, fewest wrong checks +3/second +2, +1 for finishing (max 7; ties share). Game results add `time_points` and `clean_points`. From 8am Eastern on the fifth day after opening (Monday), the page shows one letter per word, picked from a hash of the game ID.
+
 - Press the Button game results include each player's rule breakdown (`rank_rule`, `rank_points`, `volume_points`, `streak_points`).
 
 - Draft buff posts, the draft-rewards thread, and admin alerts (rescored post, stale automation) come from embedded templates in `internal/httpapi/messages/`.

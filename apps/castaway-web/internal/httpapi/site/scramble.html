@@ -1,6 +1,6 @@
 {{template "header" .}}
 {{with .Scramble}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">{{if .Test}}Admin-only test{{else}}Episode {{.Episode}}{{end}}</p><h1>Island Scramble</h1>
-<p class="muted">{{len .Words}} {{if eq (len .Words) 1}}word{{else}}words{{end}}. Some tiles are decoys.</p></div>
+<p class="muted">{{len .Words}} {{if eq (len .Words) 1}}word{{else}}words{{end}}. Some tiles are decoys.</p>{{if and .Open .Hint (not .Solved)}}<p class="scramble-hint center">Hint: <strong>{{.Hint}}</strong></p>{{end}}</div>
 {{if .Open}}{{if .Solved}}<div class="scramble-board" aria-label="Solved">{{template "slots" .}}</div><p class="scramble-result">Solved in {{.Time}}{{if .WrongChecks}} · {{.WrongChecks}} wrong {{if eq .WrongChecks 1}}check{{else}}checks{{end}}{{end}} 🔥</p><p class="muted center">Results when it closes {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}.</p>
 {{else if .Started}}<form class="scramble" action="{{.Action}}/check" data-started="{{.StartedAt}}">
 <div class="scramble-board">{{template "slots" .}}</div>
@@ -9,7 +9,7 @@
 <div class="scramble-tools"><button type="button" data-action="sort">Sort A–Z</button><button type="button" data-action="shuffle">Shuffle</button><button type="button" data-action="clear">Clear</button><button type="submit" class="primary">Check</button></div>
 <p class="muted center"><span class="scramble-clock">0:00</span> · wrong checks: <span class="scramble-wrong">{{.WrongChecks}}</span></p></form>
 <script src="/assets/scramble.js?v=3" defer></script>
-{{else}}<form class="scramble-start" method="post" action="{{.Action}}/start"><div class="scramble-board" aria-hidden="true">{{template "slots" .}}</div><button type="submit" class="primary">Start</button><p class="muted">Your clock starts when you reveal the tiles. Fastest three solves score +3, +2 and +1.</p></form>{{end}}
+{{else}}<form class="scramble-start" method="post" action="{{.Action}}/start"><div class="scramble-board" aria-hidden="true">{{template "slots" .}}</div><button type="submit" class="primary">Start</button><p class="muted">Your clock starts when you reveal the tiles. Fastest +3, second fastest +2; fewest wrong checks +3, second fewest +2; every finisher +1.</p></form>{{end}}
 {{else}}<p class="muted center">{{if .Upcoming}}Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}{{else}}Closed {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}{{end}}</p>
 {{if .ResultsWait}}<p class="notice compact">Results appear once the game is scored.</p>{{end}}
 {{if .Phrase}}{{if not .Open}}<p class="center">The phrase was <span class="answer">{{.Phrase}}</span>.</p>{{end}}{{end}}

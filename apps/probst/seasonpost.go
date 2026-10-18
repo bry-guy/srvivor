@@ -396,6 +396,7 @@ func gameScore(ctx context.Context, call apiCall, path string, t templateSet, f 
 		players = append(players, gameRow{Name: str(m["name"]), TribeEmoji: str(m["tribe_emoji"]), Tribe: str(m["tribe"]), Points: int(num(m["points"])),
 			Presses: int(num(m["presses"])), First: m["first"] == true, Last: m["last"] == true, StreakDays: int(num(m["streak_days"])),
 			Place: int(num(m["place"])), Seconds: int(num(m["seconds"])), WrongChecks: int(num(m["wrong_checks"])),
+			TimePoints: int(num(m["time_points"])), CleanPoints: int(num(m["clean_points"])),
 			Guesses: int(num(m["guesses"])), Solved: m["solved"] == true,
 			RankRule: str(m["rank_rule"]), RankPoints: int(num(m["rank_points"])), VolumePoints: int(num(m["volume_points"])), StreakPoints: int(num(m["streak_points"]))})
 	}
@@ -466,6 +467,7 @@ type gameRow struct {
 	Points, Presses, StreakDays            int
 	First, Last, Solved                    bool
 	Place, Seconds, WrongChecks, Guesses   int
+	TimePoints, CleanPoints                int // Island Scramble: fastest and fewest-wrong-checks points
 	RankRule                               string
 	RankPoints, VolumePoints, StreakPoints int
 }

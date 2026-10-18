@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,8 +21,8 @@ import (
 
 // Island Scramble: arrange letter tiles (the phrase's letters plus random decoys) into a hidden phrase. A
 // player's tiles stay hidden until they press Start, which starts their clock, so working it out somewhere
-// else still counts as time. Checks only say right or wrong. At cutoff the three fastest solves earn
-// +3/+2/+1; fewer wrong checks breaks a tie on time, and exact ties share the place.
+// else still counts as time. Checks only say right or wrong. At cutoff solves score by
+// scrambleScores (speed, fewest wrong checks, and +1 for finishing).
 
 const (
 	scrambleMaxLetters = 30 // phrase letters
@@ -97,8 +98,7 @@ type scrambleSolve struct {
 	WrongChecks int
 }
 
-// scramblePlaces ranks solves by time, then wrong checks; exact ties share a place. Places 1–3 earn 3, 2
-// and 1 points (so a tie for first gives both +3 and the next solver is third).
+// scramblePlaces ranks solves by time, then wrong checks, for display; exact ties share a place.
 func scramblePlaces(solves []scrambleSolve) map[string]int {
 	sort.SliceStable(solves, func(i, j int) bool {
 		if solves[i].Seconds != solves[j].Seconds {
@@ -117,7 +117,57 @@ func scramblePlaces(solves []scrambleSolve) map[string]int {
 	return places
 }
 
-func placePoints(place int) int { return max(4-place, 0) }
+type scrambleScore struct{ Time, Clean, Total int }
+
+// scrambleScores: fastest +3 and second fastest +2, fewest wrong checks +3 and second fewest +2, and +1
+// for finishing; ties share the place (a tie for first gives both +3 and the next is third).
+func scrambleScores(solves []scrambleSolve) map[string]scrambleScore {
+	rankPoints := func(value func(scrambleSolve) int64, s scrambleSolve) int {
+		place := 1
+		for _, o := range solves {
+			if value(o) < value(s) {
+				place++
+			}
+		}
+		if place > 2 {
+			return 0
+		}
+		return 4 - place
+	}
+	seconds := func(s scrambleSolve) int64 { return s.Seconds }
+	wrong := func(s scrambleSolve) int64 { return int64(s.WrongChecks) }
+	scores := map[string]scrambleScore{}
+	for _, s := range solves {
+		sc := scrambleScore{Time: rankPoints(seconds, s), Clean: rankPoints(wrong, s)}
+		sc.Total = sc.Time + sc.Clean + 1
+		scores[s.ID] = sc
+	}
+	return scores
+}
+
+// scrambleHintAt is 8:00am Eastern on the fifth day after the game opens (Wednesday 8pm → Monday 8am).
+// shortcut: assumes games open Wednesday (weekly.game.opens); a per-week opens override moves the hint.
+func scrambleHintAt(opens time.Time) time.Time {
+	o := easternTime(opens)
+	return time.Date(o.Year(), o.Month(), o.Day()+5, 8, 0, 0, 0, o.Location())
+}
+
+// scrambleHint shows one letter per word (e.g. "_ A _ _ · _ _ E"), picked from a hash of the game ID so
+// nobody chooses it and it stays the same on every load.
+func scrambleHint(phrase, gameID string) string {
+	sum := sha256.Sum256([]byte(gameID))
+	var words []string
+	for w, word := range strings.Fields(phrase) {
+		pick := int(sum[w%len(sum)]) % len(word)
+		cells := make([]string, len(word))
+		for i := range word {
+			cells[i] = "_"
+		}
+		cells[pick] = word[pick : pick+1]
+		words = append(words, strings.Join(cells, " "))
+	}
+	return strings.Join(words, " · ")
+}
 
 func scrambleDuration(seconds int64) string {
 	d := time.Duration(seconds) * time.Second
@@ -239,14 +289,14 @@ func loadScramblePlayers(ctx context.Context, q scrambleQuerier, gameID int64) (
 	})
 }
 
-func scramblePlayerPlaces(players []scramblePlayer) map[string]int {
+func scramblePlayerPlaces(players []scramblePlayer) (map[string]int, map[string]scrambleScore) {
 	var solves []scrambleSolve
 	for _, p := range players {
 		if p.Solved {
 			solves = append(solves, scrambleSolve{ID: p.ID, Seconds: p.Seconds, WrongChecks: p.WrongChecks})
 		}
 	}
-	return scramblePlaces(solves)
+	return scramblePlaces(solves), scrambleScores(solves)
 }
 
 var errScrambleOpen = errors.New("game cannot resolve before its cutoff")
@@ -284,12 +334,10 @@ func (s *Server) resolveScrambleGame(ctx context.Context, gameID uuid.UUID) (map
 	if err != nil {
 		return nil, err
 	}
-	places := scramblePlayerPlaces(players)
+	places, scores := scramblePlayerPlaces(players)
 	awards := map[string]int{}
-	for player, place := range places {
-		if points := placePoints(place); points > 0 {
-			awards[player] = points
-		}
+	for player, sc := range scores {
+		awards[player] = sc.Total
 	}
 	if len(awards) > 0 && episode != nil { // tests report what they would award, but never score
 		q := s.queries.WithTx(tx)
@@ -319,7 +367,7 @@ func (s *Server) resolveScrambleGame(ctx context.Context, gameID uuid.UUID) (map
 				return nil, err
 			}
 			if _, err := q.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
-				EntryKind: "award", Points: int32(points), Visibility: "public", Reason: name, EffectiveAt: at, // #nosec G115 -- points are 1–3
+				EntryKind: "award", Points: int32(points), Visibility: "public", Reason: name, EffectiveAt: at, // #nosec G115 -- points are 1–7
 				AwardKey: pgtype.Text{String: "spell_it_out", Valid: true}, Metadata: metadata,
 				InstanceID: toPGUUID(instance), ParticipantID: toPGUUID(uuid.MustParse(p.ID)), ActivityOccurrenceID: occurrence.ID,
 			}); err != nil {
@@ -361,6 +409,7 @@ type scrambleView struct {
 	CutoffAt    time.Time
 	Action      string
 	Words       [][][]int // words → rows → slot numbers
+	Hint        string    // one letter per word, from scrambleHintAt
 	Started     bool
 	StartedAt   int64 // unix ms, for the on-page clock
 	Tiles       []string
@@ -424,6 +473,9 @@ func (s *Server) loadScramble(c *gin.Context, data sitePageData) (*scrambleView,
 	view.Open = !now.Before(view.OpensAt) && now.Before(view.CutoffAt)
 	view.Upcoming = now.Before(view.OpensAt)
 	view.OpensAt, view.CutoffAt = easternTime(view.OpensAt), easternTime(view.CutoffAt)
+	if !view.Test && !now.Before(scrambleHintAt(view.OpensAt)) {
+		view.Hint = scrambleHint(phrase, view.ID)
+	}
 	view.Action = "/games/scramble/" + view.ID
 	view.Words = scrambleSlots(phrase)
 	return &view, dbID, phrase, resolved, nil
@@ -462,9 +514,9 @@ func (s *Server) fillScramble(ctx context.Context, view *scrambleView, dbID int6
 	if err != nil {
 		return err
 	}
-	places := scramblePlayerPlaces(players)
+	places, scores := scramblePlayerPlaces(players)
 	for _, p := range players {
-		r := scrambleResult{Place: places[p.ID], ID: p.ID, Name: p.Name, Tribe: p.Tribe, Wrong: p.WrongChecks, Points: placePoints(places[p.ID])}
+		r := scrambleResult{Place: places[p.ID], ID: p.ID, Name: p.Name, Tribe: p.Tribe, Wrong: p.WrongChecks, Points: scores[p.ID].Total}
 		if p.Solved {
 			r.Time = scrambleDuration(p.Seconds)
 		}
@@ -719,8 +771,8 @@ func (s *Server) scrambleProfileGames(ctx context.Context, participantID string)
 		result := "Unsolved"
 		for _, p := range players {
 			if p.ID == participantID && p.Solved {
-				place := scramblePlayerPlaces(players)[p.ID]
-				result = fmt.Sprintf("Solved in %s · %+d pts", scrambleDuration(p.Seconds), placePoints(place))
+				_, scores := scramblePlayerPlaces(players)
+				result = fmt.Sprintf("Solved in %s · %+d pts", scrambleDuration(p.Seconds), scores[p.ID].Total)
 			}
 		}
 		games = append(games, profileGame{Episode: r.episode, Kind: "Island Scramble", URL: "/games/scramble/" + r.id, Result: result})

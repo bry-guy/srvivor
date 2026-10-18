@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -18,7 +19,7 @@ import (
 )
 
 // Island Scramble: the phrase never reaches players before they solve or the game closes, the clock runs from
-// Start, checks only say right or wrong, the fastest three score +3/+2/+1 once, and tests never score.
+// Start, checks only say right or wrong, fastest/fewest-wrong score +3/+2 plus +1 to finish, once, and tests never score.
 func TestSpellItOut(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	defer pool.Close()
@@ -136,13 +137,27 @@ func TestSpellItOut(t *testing.T) {
 	}
 	now = now.Add(time.Minute)
 	check("messy", wrong, 200)
-	check("messy", answer, 200) // 3:00, third
+	check("messy", answer, 200) // 3:00, third fastest, tied third-fewest wrong: just the finisher point
 	now = now.Add(time.Hour)
-	check("slow", answer, 200) // fourth: no points
+	check("slow", answer, 200) // slowest, but tied for fewest wrong checks
 	if page := serve("GET", gameURL, "", "fast", 200); !strings.Contains(page, "Solved in 2:00") || !strings.Contains(page, ">S<") {
 		t.Fatalf("solved page: %s", page)
 	}
 	serve("POST", create, window, "admin", 409) // started games can't be replaced
+
+	// The hint: one letter per word, from Monday 8am Eastern, only while still playing.
+	now = time.Date(2026, 10, 19, 11, 59, 0, 0, time.UTC)
+	if page := serve("GET", gameURL, "", "late", 200); strings.Contains(page, "scramble-hint") {
+		t.Fatalf("hint before Monday 8am: %s", page)
+	}
+	now = time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	hint := regexp.MustCompile(`Hint: <strong>([^<]*)</strong>`).FindStringSubmatch(serve("GET", gameURL, "", "late", 200))
+	if hint == nil || len(strings.Split(hint[1], " · ")) != 4 || strings.Count(hint[1], "_") != 13 {
+		t.Fatalf("hint: %v", hint)
+	}
+	if strings.Contains(serve("GET", gameURL, "", "fast", 200), "scramble-hint") {
+		t.Fatal("hint shown after solving")
+	}
 
 	now = time.Date(2026, 10, 21, 15, 59, 0, 0, time.UTC)
 	check("late", answer, 409) // closed
@@ -156,7 +171,7 @@ func TestSpellItOut(t *testing.T) {
 	if !strings.Contains(page, "THE TRIBE HAS SPOKEN") || !strings.Contains(page, ">late</a>") || !strings.Contains(page, "Unsolved") {
 		t.Fatalf("results page: %s", page)
 	}
-	if page := serve("GET", "/players/"+ids["clean"], "", "idle", 200); !strings.Contains(page, "Episode 4 · Island Scramble") || !strings.Contains(page, "Solved in 2:00 · &#43;3 pts") {
+	if page := serve("GET", "/players/"+ids["clean"], "", "idle", 200); !strings.Contains(page, "Episode 4 · Island Scramble") || !strings.Contains(page, "Solved in 2:00 · &#43;7 pts") {
 		t.Fatalf("profile: %s", page)
 	}
 
@@ -199,7 +214,23 @@ func TestSpellItOut(t *testing.T) {
 		totals[id] = points
 	}
 	rows.Close()
-	want := map[string]int{"clean": 3, "fast": 2, "messy": 1, "slow": 0, "late": 0, "idle": 0, "admin": 0}
+	var res struct {
+		Type    string `json:"type"`
+		Players []struct {
+			Name        string `json:"name"`
+			Place       int    `json:"place"`
+			Points      int    `json:"points"`
+			TimePoints  int    `json:"time_points"`
+			CleanPoints int    `json:"clean_points"`
+		} `json:"players"`
+	}
+	if err := json.Unmarshal([]byte(serve("GET", "/api/instances/"+instanceID+"/game-results/4", "", "admin", 200)), &res); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(res.Type, res.Players); got != "spell_it_out[{clean 1 7 3 3} {fast 2 4 3 0} {slow 4 4 0 3} {messy 3 1 0 0} {late 0 0 0 0}]" {
+		t.Errorf("game results: %s", got)
+	}
+	want := map[string]int{"clean": 7, "fast": 4, "messy": 1, "slow": 4, "late": 0, "idle": 0, "admin": 0}
 	for user, points := range want {
 		if totals[ids[user]] != points {
 			t.Errorf("%s earned %d, want %d", user, totals[ids[user]], points)

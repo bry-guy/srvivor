@@ -36,6 +36,8 @@ type gameResult struct {
 	Place       int   `json:"place"` // 0: didn't solve
 	Seconds     int64 `json:"seconds"`
 	WrongChecks int   `json:"wrong_checks"`
+	TimePoints  int   `json:"time_points"`  // fastest +3, second +2
+	CleanPoints int   `json:"clean_points"` // fewest wrong checks +3, second +2; Points adds +1 for finishing
 	// castawordle
 	Guesses int  `json:"guesses"`
 	Solved  bool `json:"solved"`
@@ -137,10 +139,12 @@ func (s *Server) gameResults(ctx context.Context, instanceID uuid.UUID, episode 
 		if err != nil {
 			return "", nil, nil, err
 		}
-		places := scramblePlayerPlaces(players)
+		places, scores := scramblePlayerPlaces(players)
 		out := []gameResult{}
 		for _, p := range players {
-			r := gameResult{Name: p.Name, Tribe: p.Tribe, TribeEmoji: emoji[p.Tribe], Place: places[p.ID], Points: placePoints(places[p.ID]), WrongChecks: p.WrongChecks}
+			sc := scores[p.ID]
+			r := gameResult{Name: p.Name, Tribe: p.Tribe, TribeEmoji: emoji[p.Tribe], Place: places[p.ID], Points: sc.Total, WrongChecks: p.WrongChecks,
+				TimePoints: sc.Time, CleanPoints: sc.Clean}
 			if p.Solved {
 				r.Seconds = p.Seconds
 			}
@@ -150,6 +154,7 @@ func (s *Server) gameResults(ctx context.Context, instanceID uuid.UUID, episode 
 			a, b := out[i].Place, out[j].Place
 			return a != 0 && (b == 0 || a < b)
 		})
+		sort.SliceStable(out, func(i, j int) bool { return out[i].Points > out[j].Points }) // most points first; ties by time
 		return "spell_it_out", out, []tribeResult{}, nil
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return "", nil, nil, err
