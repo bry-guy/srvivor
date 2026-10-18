@@ -74,6 +74,7 @@ func (b *Bot) deliverNextAnnouncement(ctx context.Context) error {
 		return b.session.ChannelMessageSendComplex(target, &discordgo.MessageSend{
 			Content:         a.Body,
 			AllowedMentions: allowedMentions(a.NotifyUsers),
+			Flags:           discordgo.MessageFlagsSuppressEmbeds, // no link previews (castaway links preview as a Discord login)
 		}, discordgo.WithRestRetries(0))
 	}
 	message, err := send()

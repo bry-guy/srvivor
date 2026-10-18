@@ -50,7 +50,7 @@ func (b *Bot) dmAdmins(ctx context.Context, admins []string, text string) error 
 	for _, admin := range admins {
 		dm, err := b.session.UserChannelCreate(admin, discordgo.WithContext(ctx))
 		if err == nil {
-			_, err = b.session.ChannelMessageSendComplex(dm.ID, &discordgo.MessageSend{Content: text, AllowedMentions: allowedMentions(false)}, discordgo.WithContext(ctx))
+			_, err = b.session.ChannelMessageSendComplex(dm.ID, &discordgo.MessageSend{Content: text, AllowedMentions: allowedMentions(false), Flags: discordgo.MessageFlagsSuppressEmbeds}, discordgo.WithContext(ctx))
 		}
 		if err != nil {
 			b.log.Error("admin DM", "admin", admin, "error", err)
