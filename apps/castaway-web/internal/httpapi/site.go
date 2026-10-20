@@ -157,3 +157,12 @@ func (s *Server) tribeColors(ctx context.Context, instanceID uuid.UUID) (map[str
 	}
 	return colors, rows.Err()
 }
+
+func serveInsideTrack(c *gin.Context) {
+	data, err := siteFiles.ReadFile("site/assets/inside-track.html")
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+}

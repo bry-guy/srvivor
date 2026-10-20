@@ -90,6 +90,7 @@ func (s *Server) PublicRouter() *gin.Engine {
 	r.Use(gin.Recovery(), structuredRequestLogger(), metricsMiddleware(), securityHeaders())
 	r.GET("/healthz", s.health)
 	r.GET("/assets/:file", serveSiteAsset)
+	r.GET("/inside-track", serveInsideTrack) // shortcut: standalone prototype, no sign-in or scoring; becomes a game page once approved
 	pages := r.Group("/")
 	pages.Use(s.requirePageSession())
 	pages.GET("/", s.home)

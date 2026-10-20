@@ -2,150 +2,35 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Inside Track (prototype)</title>
-<style>
-  html, body { margin: 0; height: 100%; background: #1d3b2a; color: #f4ecd8; font: 15px system-ui, sans-serif; overflow: hidden; }
-  #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: .6rem .9rem; pointer-events: none; }
-  #msg { position: fixed; bottom: .8rem; left: 0; right: 0; text-align: center; pointer-events: none; }
-  canvas { display: block; touch-action: none; margin: 0 auto; }
-  button { position: fixed; top: .4rem; left: 50%; transform: translateX(-50%); font: inherit; padding: .2rem .8rem; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Inside Track · Castaway</title>
+<link rel="stylesheet" href="/assets/inside-track.css?v=2">
 </head>
 <body>
-<div id="hud"><span id="time">0:00.0</span><span id="balls">○ ○ ○</span><span id="tries">rolls: 0</span></div>
-<button id="reset">Reset</button>
-<canvas id="c"></canvas>
-<div id="msg">Drag the ball, flick it up the lane.</div>
-<script>
-// Top-down Inside Track: flick three balls up a narrow lane into the three slots at the end. Off the edge
-// and the ball falls and comes back. Board units are scaled ~3.4× from the real board so the ball draws
-// about thumb-sized (~40px across on a phone).
-const BOARD = { w: 1.4, h: 2.6 };               // whole board
-const LANE = { w: 0.34, from: 0.5, to: 1.85 };  // narrow centre lane (y measured up from the bottom)
-const TARGET = { w: 1.2, from: 1.85, to: 2.5 }; // wider platform with the slots
-const PAD = 0.5;                                // start pad half-width
-const R = 0.075;                                // ball radius
-const SLOT_R = 0.1;
-const SLOTS = [[-0.36, 2.25], [0, 2.25], [0.36, 2.25]];
-const ROLL_DECEL = 0.6;  // rolling resistance, scaled with the board (plywood μr ≈ 0.035 × g)
-const CAPTURE = 1.1;     // slower than this over a slot and it drops in; faster skips over
-const DIP = 10;          // pull toward a slot centre while over it
-const MAX_SPEED = 6;
-const START = { y: 0.22 };
-
-const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
-let scale = 1;
-function resize() {
-  scale = Math.min(innerWidth / BOARD.w, innerHeight / BOARD.h);
-  const d = devicePixelRatio;
-  canvas.width = BOARD.w * scale * d; canvas.height = BOARD.h * scale * d;
-  canvas.style.width = BOARD.w * scale + "px"; canvas.style.height = BOARD.h * scale + "px";
-  ctx.setTransform(d * scale, 0, 0, -d * scale, d * scale * BOARD.w / 2, d * scale * BOARD.h);
-}
-addEventListener("resize", resize); resize();
-const toBoard = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / scale - BOARD.w / 2, y: BOARD.h - (e.clientY - r.top) / scale }; };
-
-let filled, ball, tries, started, finished, fall;
-function reset() { filled = [false, false, false]; tries = 0; started = null; finished = null; newBall(); msg("Drag the ball, flick it up the lane."); }
-function newBall() { ball = { x: 0, y: START.y, vx: 0, vy: 0, held: false, rolling: false }; fall = null; }
-document.getElementById("reset").onclick = reset;
-
-// On the board: the start pad, the lane, or the target platform.
-function onBoard(x, y) {
-  if (y < LANE.from) return y > 0 && Math.abs(x) < PAD;
-  if (y < LANE.to) return Math.abs(x) < LANE.w / 2;
-  if (y < TARGET.to) return Math.abs(x) < TARGET.w / 2;
-  return false;
-}
-
-// Flick: hold the ball, drag it on the start pad, release; velocity comes from the last ~80ms of movement.
-let trail = [];
-canvas.addEventListener("pointerdown", (e) => {
-  const p = toBoard(e);
-  if (ball.rolling || fall || finished || Math.hypot(p.x - ball.x, p.y - ball.y) > 0.3) return;
-  canvas.setPointerCapture(e.pointerId);
-  ball.held = true; trail = [{ ...p, t: performance.now() }];
-});
-canvas.addEventListener("pointermove", (e) => {
-  if (!ball.held) return;
-  const p = toBoard(e);
-  ball.x = Math.max(-(PAD - R), Math.min(PAD - R, p.x)); ball.y = Math.max(R, Math.min(LANE.from - R, p.y));
-  trail.push({ x: ball.x, y: ball.y, t: performance.now() });
-  while (trail.length > 2 && trail[0].t < performance.now() - 80) trail.shift();
-});
-canvas.addEventListener("pointerup", () => {
-  if (!ball.held) return;
-  ball.held = false;
-  const a = trail[0], b = trail[trail.length - 1], dt = (b.t - a.t) / 1000;
-  if (dt <= 0 || b.y - a.y < 0.02) return; // a tap or a pull back: no throw
-  let vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt;
-  const s = Math.hypot(vx, vy); if (s > MAX_SPEED) { vx *= MAX_SPEED / s; vy *= MAX_SPEED / s; }
-  Object.assign(ball, { vx, vy, rolling: true });
-  tries++; started ??= performance.now();
-});
-
-function step(dt) {
-  if (!ball.rolling) return;
-  for (let i = 0; i < SLOTS.length; i++) {
-    if (filled[i]) continue;
-    const dx = SLOTS[i][0] - ball.x, dy = SLOTS[i][1] - ball.y, d = Math.hypot(dx, dy);
-    if (d < SLOT_R) {
-      ball.vx += dx / (d || 1) * DIP * dt; ball.vy += dy / (d || 1) * DIP * dt;
-      if (Math.hypot(ball.vx, ball.vy) < CAPTURE && d < SLOT_R - R / 2) { filled[i] = true; return land(); }
-    }
-  }
-  const s = Math.hypot(ball.vx, ball.vy), ns = Math.max(0, s - ROLL_DECEL * dt);
-  if (ns === 0) { ball.vx = ball.vy = 0; } else { ball.vx *= ns / s; ball.vy *= ns / s; }
-  ball.x += ball.vx * dt; ball.y += ball.vy * dt;
-  // The only wall is at the far end of the platform.
-  if (ball.y > TARGET.to - R && Math.abs(ball.x) < TARGET.w / 2) { ball.y = TARGET.to - R; ball.vy *= -0.4; }
-  if (!onBoard(ball.x, ball.y)) { ball.rolling = false; fall = { t: 0.5 }; msg("Off the edge. Back to the start."); return; }
-  if (ns === 0) { ball.rolling = false; fall = { t: 0.6, stopped: true }; msg(ball.y < LANE.to ? "Too soft." : "Stopped short of a slot."); }
-}
-function land() {
-  ball.rolling = false;
-  const n = filled.filter(Boolean).length;
-  if (n === 3) { finished = performance.now(); msg(`All three in! ${fmt(finished - started)} · ${tries} rolls`); return; }
-  msg(`In! ${3 - n} to go.`); newBall();
-}
-const msg = (t) => (document.getElementById("msg").textContent = t);
-const fmt = (ms) => { const s = ms / 1000; return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`; };
-
-function draw() {
-  ctx.clearRect(-BOARD.w, -1, BOARD.w * 2, BOARD.h + 2);
-  ctx.fillStyle = "#2c5a3d"; ctx.fillRect(-BOARD.w / 2, 0, BOARD.w, BOARD.h);           // drop zone
-  ctx.fillStyle = "#c9a36b";
-  ctx.fillRect(-PAD, 0, PAD * 2, LANE.from);                                          // start pad
-  ctx.fillRect(-LANE.w / 2, LANE.from, LANE.w, LANE.to - LANE.from);                  // lane
-  ctx.fillRect(-TARGET.w / 2, TARGET.from, TARGET.w, TARGET.to - TARGET.from);        // platform
-  ctx.fillStyle = "#6b4a2b"; ctx.fillRect(-TARGET.w / 2, TARGET.to, TARGET.w, 0.04);  // back wall
-  ctx.strokeStyle = "rgba(0,0,0,.15)"; ctx.lineWidth = 0.008;
-  for (let y = LANE.from + 0.1; y < LANE.to; y += 0.15) { ctx.beginPath(); ctx.moveTo(-LANE.w / 2, y); ctx.lineTo(LANE.w / 2, y); ctx.stroke(); }
-  SLOTS.forEach(([x, y], i) => {
-    ctx.fillStyle = "#3a2615"; ctx.beginPath(); ctx.arc(x, y, SLOT_R, 0, 7); ctx.fill();
-    if (filled[i]) dot(x, y, R, "#e8e2d0");
-  });
-  if (!finished) {
-    const r = fall && !fall.stopped ? R * Math.max(0.3, fall.t * 2) : R;
-    dot(ball.x, ball.y, r, ball.held ? "#fff" : "#e8e2d0");
-  }
-  document.getElementById("time").textContent = started ? fmt((finished ?? performance.now()) - started) : "0:00.0";
-  document.getElementById("balls").textContent = filled.map((f) => (f ? "●" : "○")).join(" ");
-  document.getElementById("tries").textContent = `rolls: ${tries}`;
-}
-function dot(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.strokeStyle = "#555"; ctx.lineWidth = 0.006; ctx.stroke(); }
-
-reset();
-let last = performance.now();
-function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  for (let i = 0; i < 8; i++) step(dt / 8); // substeps so a fast ball can't skip a slot
-  if (fall && (fall.t -= dt) <= 0) newBall();
-  draw();
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
-</script>
+<canvas id="c" aria-label="Inside Track board"></canvas>
+<div class="hud">
+  <div class="chip"><span class="label">Time</span><span id="time">0:00.0</span></div>
+  <div class="chip balls" id="balls"><i></i><i></i><i></i></div>
+  <div class="chip"><span class="label">Rolls</span><span id="tries">0</span></div>
+</div>
+<div class="toast" id="msg"></div>
+<div class="overlay" id="intro">
+  <div class="card">
+    <p class="eyebrow">Castaway challenge</p>
+    <h1>Inside Track</h1>
+    <p>Flick three balls up the narrow track and land each one in a slot. Roll off the edge and it's back to the start.</p>
+    <p class="how">Grab the ball, drag up, let go.</p>
+    <button id="go" class="primary">Let's go</button>
+  </div>
+</div>
+<div class="overlay hidden" id="done">
+  <div class="card">
+    <p class="eyebrow">Challenge complete</p>
+    <h1 id="final">0:00.0</h1>
+    <p id="finalRolls"></p>
+    <button id="again" class="primary">Play again</button>
+  </div>
+</div>
+<script src="/assets/inside-track.js?v=2" defer></script>
 </body>
 </html>
