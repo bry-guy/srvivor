@@ -85,7 +85,7 @@ mise run seed
 ```
 
 That starts:
-- `castawaydb`
+- the score-compose PostgreSQL (not used by the bot locally)
 - `castaway-web`
 - `castaway-discord-bot`
 

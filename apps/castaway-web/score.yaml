@@ -1,0 +1,18 @@
+# Service dependencies for castaway-web. Only the database is declared here; the
+# app and the Discord bot still run from the root docker-compose.yml. Laptop
+# provisioning lives in .score-compose/ (see apps/castaway-web/README.md).
+apiVersion: score.dev/v1b1
+metadata:
+  name: castaway-web
+containers:
+  castaway-web:
+    # score-compose only needs an image for the workload; the laptop stack never runs it.
+    image: .
+    variables:
+      DATABASE_URL: ${resources.db.url}
+resources:
+  db:
+    type: postgres
+    params:
+      version: "16"
+      database: castaway

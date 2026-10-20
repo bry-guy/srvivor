@@ -3,6 +3,8 @@ set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 app_dir="$(cd -- "$script_dir/.." && pwd)"
+# shellcheck source=lib/shared-database.sh
+source "$script_dir/lib/shared-database.sh"
 
 find_free_port() {
   python3 - <<'PY'
@@ -25,9 +27,6 @@ wait_for_postgres() {
   return 1
 }
 
-postgres_port="$(find_free_port)"
-container_name="castaway-web-integration-${postgres_port}"
-database_url="postgres://postgres:postgres@127.0.0.1:${postgres_port}/postgres?sslmode=disable"
 container_id=""
 
 cleanup() {
@@ -39,13 +38,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
-container_id="$({ docker run -d --rm \
-  --name "$container_name" \
-  -e POSTGRES_PASSWORD=postgres \
-  -p "127.0.0.1:${postgres_port}:5432" \
-  postgres:16; })"
+if use_shared_database; then
+  require_shared_database
+  # The Go tests create and drop their own castaway_test_* databases on this server.
+  database_url="$DATABASE_URL"
+else
+  postgres_port="$(find_free_port)"
+  container_name="castaway-web-integration-${postgres_port}"
+  database_url="postgres://postgres:postgres@127.0.0.1:${postgres_port}/postgres?sslmode=disable"
 
-wait_for_postgres "$container_id"
+  container_id="$({ docker run -d --rm \
+    --name "$container_name" \
+    -e POSTGRES_PASSWORD=postgres \
+    -p "127.0.0.1:${postgres_port}:5432" \
+    postgres:16; })"
+
+  wait_for_postgres "$container_id"
+fi
 
 (
   cd "$app_dir"

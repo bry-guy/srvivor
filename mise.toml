@@ -11,18 +11,19 @@ sqlc = '1.30.0'
 hurl = '8.0.1'
 fnox = '1.15.1'
 kubectl = 'latest'
+"github:score-spec/score-compose" = '0.48.0'
 
 [tasks.ci]
 description = "Run all monorepo CI tasks"
 run = "mise run //apps/cli:ci && mise run //apps/castaway-web:ci && mise run //apps/castaway-discord-bot:ci && mise run //apps/probst:ci"
 
 [tasks.start]
-description = "Start the local Castaway stack (db, web, discord bot)"
-run = "fnox check -P castaway-discord-bot && fnox exec -P castaway-discord-bot -- docker compose up -d --build castawaydb castaway-web castaway-discord-bot"
+description = "Start the local Castaway stack (score-compose db, web, discord bot)"
+run = "mise run //apps/castaway-web:db:up && fnox check -P castaway-discord-bot && fnox exec -P castaway-discord-bot -- docker compose up -d --build castaway-web castaway-discord-bot"
 
 [tasks.stop]
 description = "Stop the local Castaway stack"
-run = "docker compose down"
+run = "docker compose down && mise run //apps/castaway-web:db:down"
 
 [tasks.bot]
 description = "Start or rebuild only the Discord bot service"
@@ -34,22 +35,22 @@ run = "docker compose ps"
 
 [tasks.logs]
 description = "Tail compose logs"
-run = "docker compose logs -f castaway-web castawaydb castaway-discord-bot"
+run = "docker compose logs -f castaway-web castaway-discord-bot"
 
 [tasks.bot-logs]
 description = "Tail discord bot logs"
 run = "docker compose logs -f castaway-discord-bot"
 
 [tasks.db-shell]
-description = "Open psql shell to castawaydb"
-run = "docker compose exec castawaydb psql -U castaway -d castaway"
+description = "Open psql shell to the score-compose database"
+run = "docker compose -f apps/castaway-web/compose.score.yaml exec castaway-postgres psql -U castaway -d castaway"
 
 [tasks.db-reset]
 description = "Reset castaway database volume and restart the full local stack"
-run = "docker compose down -v && fnox check -P castaway-discord-bot && fnox exec -P castaway-discord-bot -- docker compose up -d --build castawaydb castaway-web castaway-discord-bot"
+run = "docker compose down -v && mise run //apps/castaway-web:db:reset && mise run start"
 
 [tasks.seed]
-description = "Seed castawaydb with historical seasons"
+description = "Seed the dev database with historical seasons"
 run = "mise run //apps/castaway-web:seed"
 
 [tasks.openapi]

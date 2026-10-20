@@ -3,6 +3,8 @@ set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 app_dir="$(cd -- "$script_dir/.." && pwd)"
+# shellcheck source=lib/shared-database.sh
+source "$script_dir/lib/shared-database.sh"
 
 find_free_port() {
   python3 - <<'PY'
@@ -85,10 +87,9 @@ run_seed_with_retries() {
   done
 }
 
-postgres_port="$(find_free_port)"
 api_port="$(find_free_port)"
-container_name="castaway-web-hurl-${postgres_port}"
-database_url="postgres://castaway:castaway@127.0.0.1:${postgres_port}/castaway?sslmode=disable"
+container_name=""
+test_db_name=""
 server_log="$(mktemp -t castaway-web-hurl-server.XXXXXX.log)"
 seed_log="$(mktemp -t castaway-web-hurl-seed.XXXXXX.log)"
 server_pid=""
@@ -111,23 +112,36 @@ cleanup() {
     kill "$server_pid" >/dev/null 2>&1 || true
     wait "$server_pid" >/dev/null 2>&1 || true
   fi
-  docker rm -f "$container_name" >/dev/null 2>&1 || true
+  if [[ -n "$container_name" ]]; then
+    docker rm -f "$container_name" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$test_db_name" ]]; then
+    drop_test_database "$test_db_name"
+  fi
   rm -f "$seed_log" "$server_log"
 
   exit "$status"
 }
 trap cleanup EXIT
 
-docker run -d --rm \
-  --name "$container_name" \
-  -e POSTGRES_DB=castaway \
-  -e POSTGRES_USER=castaway \
-  -e POSTGRES_PASSWORD=castaway \
-  -p "127.0.0.1:${postgres_port}:5432" \
-  postgres:16 >/dev/null
-
-wait_for_postgres "$container_name"
-wait_for_postgres_tcp "127.0.0.1" "$postgres_port"
+if use_shared_database; then
+  require_shared_database
+  test_db_name="$(new_test_database_name)"
+  database_url="$(create_test_database "$test_db_name")"
+else
+  postgres_port="$(find_free_port)"
+  container_name="castaway-web-hurl-${postgres_port}"
+  database_url="postgres://castaway:castaway@127.0.0.1:${postgres_port}/castaway?sslmode=disable"
+  docker run -d --rm \
+    --name "$container_name" \
+    -e POSTGRES_DB=castaway \
+    -e POSTGRES_USER=castaway \
+    -e POSTGRES_PASSWORD=castaway \
+    -p "127.0.0.1:${postgres_port}:5432" \
+    postgres:16 >/dev/null
+  wait_for_postgres "$container_name"
+  wait_for_postgres_tcp "127.0.0.1" "$postgres_port"
+fi
 run_seed_with_retries
 
 (

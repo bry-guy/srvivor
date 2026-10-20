@@ -19,6 +19,12 @@
 
 ## Local dev
 
+`apps/castaway-web/score.yaml` declares the database as a Score resource (`db`: postgres 16, database `castaway`). The app does not set a Postgres image or port itself. Laptop provisioning is in `.score-compose/`:
+
+- `castaway.provisioners.yaml` overrides the score-compose default: Postgres 16 from `params.version`, a fixed `localhost:5432`, a `castaway` role with `CREATEDB` (tests create databases), and a `url` output.
+- `compose.score.yaml` (generated) and `.score.env` (`DATABASE_URL`, generated) are git-ignored. `mise` loads `.score.env` for app tasks.
+- `score-compose` is pinned in the root `mise.toml` `[tools]`.
+
 From repo root:
 
 ```bash
@@ -26,8 +32,13 @@ mise run start
 ```
 
 This starts:
-- `castawaydb` on `localhost:5432`
-- `castaway-web` on `localhost:8080`
+- the score-compose Postgres (`mise run //apps/castaway-web:db:up` generates, runs `docker compose up --wait`, and writes `.score.env`)
+- `castaway-web` on `localhost:8080` (`docker-compose.yml`; it reaches Postgres at `host.docker.internal:5432`)
+- `castaway-discord-bot` (bolt state locally; `BOT_STATE_BACKEND=postgres` is prod only)
+
+Database lifecycle: `mise run //apps/castaway-web:db:down` keeps data and `db:reset` deletes the volume. Re-running `db:up` is safe.
+
+Workspaces and CI: when `DATABASE_URL` is set and reachable, tests and scripts use that server and never start containers. A set but unreachable `DATABASE_URL` fails fast. When it is unset (GitHub Actions), the integration, regression, and scenario scripts start a disposable Docker Postgres 16 container. A workspace needs `DATABASE_URL`, and its role needs `CREATEDB`.
 
 Seed historical seasons:
 
@@ -78,16 +89,17 @@ mise run openapi
 
 ## Integration tests
 
-Integration tests create temporary databases and run migrations themselves.
+Integration tests create temporary databases and run migrations themselves. They run against `DATABASE_URL` (the dev database after `db:up`, or a workspace server) and create one `castaway_test_*` database per test. The regression and scenario tasks create one `castaway_test_*` database per run and drop it afterwards. With `DATABASE_URL` unset (CI), the tasks start an ephemeral PostgreSQL 16 container instead.
 
 Preferred local path:
 
 ```bash
+mise run //apps/castaway-web:db:up
 cd apps/castaway-web
 mise run integration
 ```
 
-That task starts an ephemeral local PostgreSQL 16 container, sets `CASTAWAY_TEST_DATABASE_URL`, runs the integration suites, and tears the container down.
+The task sets `CASTAWAY_TEST_DATABASE_URL` from `DATABASE_URL` and runs the integration suites.
 
 Run the canonical YAML-managed Hurl scenario from the repository root with:
 
@@ -96,7 +108,7 @@ MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:season-scenario
 MISE_EXPERIMENTAL=1 mise run //apps/castaway-web:season-scenario scenarios/two-episode.yaml
 ```
 
-The scenario task creates its own disposable PostgreSQL database and local service, then generates and runs one sequential Hurl file. Scenario schedules are contiguous and start at episode 0, which can represent preseason. It does not resume whole-file runs or support managed activity mechanics yet.
+The scenario task creates its own disposable database on the `DATABASE_URL` server (or a container when unset), starts the service against it, then generates and runs one sequential Hurl file. Scenario schedules are contiguous and start at episode 0, which can represent preseason. It does not resume whole-file runs or support managed activity mechanics yet.
 
 You can still point the tests at another non-prod Postgres instance by setting `CASTAWAY_TEST_DATABASE_URL` manually.
 
@@ -229,7 +241,7 @@ Run it with:
 mise run regression
 ```
 
-The task starts a disposable PostgreSQL container, seeds historical data, runs `castaway-web` locally, and executes the Hurl files.
+The task creates a disposable database on the `DATABASE_URL` server (or starts a PostgreSQL container when unset), seeds historical data, runs `castaway-web` locally, and executes the Hurl files. The database is dropped afterwards.
 
 ## API (MVP)
 

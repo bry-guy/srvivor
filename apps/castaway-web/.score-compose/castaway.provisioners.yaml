@@ -1,0 +1,85 @@
+# Laptop override of score-compose's default postgres provisioner. Pins the
+# version from params.version (16, matching prod), publishes a fixed
+# localhost:5432 like the old docker-compose.yml, uses one dev role, and
+# exposes `url` so DATABASE_URL is a plain resource output.
+# Dev-only credentials; do not reuse outside the laptop.
+- uri: template://castaway/postgres
+  type: postgres
+  description: Dev PostgreSQL on localhost:5432; database from params.database.
+  init: |
+    sk: castaway-postgres-instance
+    instanceServiceName: castaway-postgres
+  state: |
+    database: {{ dig "database" "castaway" .Params | quote }}
+    username: castaway
+    password: castaway
+  shared: |
+    {{ .Init.sk }}:
+      instancePassword: castaway
+  outputs: |
+    host: localhost
+    port: 5432
+    name: {{ .State.database }}
+    database: {{ .State.database }}
+    username: {{ .State.username }}
+    password: {{ .State.password }}
+    url: postgres://{{ .State.username }}:{{ .State.password }}@localhost:5432/{{ .State.database }}?sslmode=disable
+  files: |
+    {{ .Init.instanceServiceName }}-db-scripts/{{ .State.database }}.sql: |
+      SELECT 'CREATE DATABASE "{{ .State.database }}"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ .State.database }}')\gexec
+      SELECT $$CREATE USER "{{ .State.username }}" WITH PASSWORD '{{ .State.password }}'$$ WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .State.username }}')\gexec
+      ALTER ROLE "{{ .State.username }}" CREATEDB;
+      GRANT ALL PRIVILEGES ON DATABASE "{{ .State.database }}" TO "{{ .State.username }}";
+      \connect "{{ .State.database }}";
+      GRANT ALL ON SCHEMA public TO "{{ .State.username }}";
+  volumes: |
+    {{ .Init.instanceServiceName }}-data:
+      driver: local
+  services: |
+    {{ .Init.instanceServiceName }}:
+      image: postgres:{{ dig "version" "16" .Params }}
+      restart: always
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: castaway
+      ports:
+      - target: 5432
+        published: 5432
+      volumes:
+      - type: volume
+        source: {{ .Init.instanceServiceName }}-data
+        target: /var/lib/postgresql/data
+      healthcheck:
+        test: ["CMD", "pg_isready", "-U", "postgres"]
+        interval: 2s
+        timeout: 2s
+        retries: 15
+    {{ .Init.instanceServiceName }}-init:
+      image: postgres:{{ dig "version" "16" .Params }}
+      entrypoint: ["/bin/sh"]
+      environment:
+        POSTGRES_PASSWORD: castaway
+      command:
+      - "-c"
+      - |
+        cat /db-scripts/*.sql | psql -v ON_ERROR_STOP=1 "postgresql://postgres:$${POSTGRES_PASSWORD}@{{ .Init.instanceServiceName }}:5432/postgres"
+      labels:
+        dev.score.compose.labels.is-init-container: "true"
+      depends_on:
+        {{ .Init.instanceServiceName }}:
+          condition: service_healthy
+          restart: true
+      volumes:
+      - type: bind
+        source: {{ .MountsDirectory }}/{{ .Init.instanceServiceName }}-db-scripts
+        target: /db-scripts
+  info_logs: |
+    - "{{.Uid}}: postgres://castaway:castaway@localhost:5432/{{ .State.database }}"
+  expected_outputs:
+    - host
+    - port
+    - name
+    - database
+    - username
+    - password
+    - url
