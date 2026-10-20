@@ -32,6 +32,9 @@ spec:
                 name: castaway-discord-bot-config
             - secretRef:
                 name: castaway-discord-bot-secrets
+            # BOT_STATE_DATABASE_URL; owned by bry-guy/infra (selfhost:platform:castaway:secrets:apply)
+            - secretRef:
+                name: castaway-discord-bot-db
           readinessProbe:
             httpGet:
               path: /healthz

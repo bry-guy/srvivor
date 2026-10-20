@@ -88,9 +88,14 @@ Argo rollout and after token rotation.
 The `castaway:secrets:apply` task uses the `castaway-selfhost` fnox profile and
 writes these Kubernetes secrets into the `castaway` namespace:
 
-- `castaway-postgres-secrets`
 - `castaway-web-secrets`
 - `castaway-discord-bot-secrets`
+- `castaway-cloudflared`
+
+Database roles, databases, and the `castaway-web-db` (`DATABASE_URL`) and
+`castaway-discord-bot-db` (`BOT_STATE_DATABASE_URL`) Secrets are owned by
+`bry-guy/infra` (`selfhost:platform:castaway:db:apply` / `:secrets:apply`).
+This repo never holds Postgres superuser or role passwords.
 
 Expected 1Password items live in the `castaway` vault and are declared in the
 repo-local `fnox.toml`.

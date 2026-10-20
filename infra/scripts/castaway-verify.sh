@@ -17,6 +17,6 @@ fi
 
 printf 'Verifying Castaway app resources in namespace %s...\n' "$namespace"
 kubectl get namespace "$namespace"
-kubectl -n "$namespace" get secret castaway-web-secrets castaway-discord-bot-secrets castaway-postgres-secrets
+kubectl -n "$namespace" get secret castaway-web-secrets castaway-discord-bot-secrets castaway-web-db castaway-discord-bot-db
 kubectl -n "$namespace" get deploy,svc,pod || true
 kubectl -n argocd get applications.argoproj.io castaway-home-k3s || true

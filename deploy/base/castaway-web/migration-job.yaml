@@ -30,6 +30,9 @@ spec:
           envFrom:
             - secretRef:
                 name: castaway-web-secrets
+            # DATABASE_URL; owned by bry-guy/infra (selfhost:platform:castaway:secrets:apply)
+            - secretRef:
+                name: castaway-web-db
           resources:
             requests:
               cpu: 50m
