@@ -19,7 +19,7 @@
 
 ## Local dev
 
-`apps/castaway-web/score.yaml` declares the database as a Score resource (`db`: postgres 16, database `castaway`). The app does not set a Postgres image or port itself. Laptop provisioning is in `.score-compose/`:
+`score.yaml` (repo root) declares the database as a Score resource (`db`: postgres 16, database `castaway`). The app does not set a Postgres image or port itself. Laptop provisioning is in `.score-compose/`:
 
 - `castaway.provisioners.yaml` overrides the score-compose default: Postgres 16 from `params.version`, a fixed `localhost:5432`, a `castaway` role with `CREATEDB` (tests create databases), and a `url` output.
 - `compose.score.yaml` (generated) and `.score.env` (`DATABASE_URL`, generated) are git-ignored. `mise` loads `.score.env` for app tasks.

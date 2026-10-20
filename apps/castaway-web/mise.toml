@@ -44,7 +44,7 @@ run = '''
 #!/usr/bin/env bash
 set -euo pipefail
 [ -f .score-compose/state.yaml ] || score-compose init --no-sample
-score-compose generate score.yaml --image castaway-web:local -o compose.score.yaml
+score-compose generate ../../score.yaml --image castaway-web:local -o compose.score.yaml
 '''
 
 [tasks."db:up"]

@@ -1,6 +1,6 @@
 # Service dependencies for castaway-web. Only the database is declared here; the
 # app and the Discord bot still run from the root docker-compose.yml. Laptop
-# provisioning lives in .score-compose/ (see apps/castaway-web/README.md).
+# provisioning lives in apps/castaway-web/.score-compose/ (see apps/castaway-web/README.md).
 apiVersion: score.dev/v1b1
 metadata:
   name: castaway-web
