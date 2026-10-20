@@ -1,36 +1,20 @@
+# Postgres is not in this file: `mise run //apps/castaway-web:db:up` starts it from
+# apps/castaway-web/score.yaml and publishes it on localhost:5432.
 services:
-  castawaydb:
-    image: postgres:16
-    container_name: castawaydb
-    environment:
-      POSTGRES_DB: castaway
-      POSTGRES_USER: castaway
-      POSTGRES_PASSWORD: castaway
-    ports:
-      - "5432:5432"
-    volumes:
-      - castawaydb-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U castaway -d castaway"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   castaway-web:
     container_name: castaway-web
     build:
       context: ./apps/castaway-web
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgres://castaway:castaway@castawaydb:5432/castaway?sslmode=disable
+      DATABASE_URL: postgres://castaway:castaway@host.docker.internal:5432/castaway?sslmode=disable
       PORT: "8080"
       AUTO_MIGRATE: "true"
       MIGRATIONS_DIR: /app/db/migrations
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
-    depends_on:
-      castawaydb:
-        condition: service_healthy
 
   castaway-discord-bot:
     container_name: castaway-discord-bot
@@ -52,5 +36,4 @@ services:
         condition: service_started
 
 volumes:
-  castawaydb-data:
   castaway-discord-bot-data:

@@ -1,3 +1,7 @@
+[env]
+# Written by db:up for the laptop score-compose database; absent in CI and workspaces.
+_.file = ".score.env"
+
 [tasks.lint]
 run = "golangci-lint run"
 
@@ -34,16 +38,45 @@ run = "mise run :openapi && git diff --exit-code -- openapi/openapi.yaml"
 description = "Run Hurl regression coverage against a seeded local castaway-web instance"
 run = "./script/run-hurl-regression.sh"
 
+[tasks."db:generate"]
+description = "Render the laptop Postgres compose file from score.yaml"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+[ -f .score-compose/state.yaml ] || score-compose init --no-sample
+score-compose generate score.yaml --image castaway-web:local -o compose.score.yaml
+'''
+
+[tasks."db:up"]
+description = "Start the laptop Postgres (localhost:5432) and write DATABASE_URL to .score.env"
+depends = [":db:generate"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+docker compose -f compose.score.yaml up -d --wait castaway-postgres
+# run, not up: --wait fails when the one-shot init container exits again on re-runs.
+docker compose -f compose.score.yaml run --rm castaway-postgres-init >/dev/null
+score-compose resources get-outputs postgres.default#castaway-web.db -f 'DATABASE_URL={% raw %}{{ .url }}{% endraw %}' > .score.env
+'''
+
+[tasks."db:down"]
+description = "Stop the laptop Postgres (keeps data)"
+run = "docker compose -f compose.score.yaml down"
+
+[tasks."db:reset"]
+description = "Stop the laptop Postgres and delete its data volume"
+run = "docker compose -f compose.score.yaml down -v"
+
 [tasks.integration]
-description = "Run integration tests against an ephemeral local Postgres container"
+description = "Run integration tests against DATABASE_URL, or an ephemeral container when unset (CI)"
 run = "./script/run-integration-tests.sh"
 
 [tasks.rehearsal-season43]
-description = "Replay Season 43 with fake drafts and public Wordle in disposable PostgreSQL"
+description = "Replay Season 43 with fake drafts and public Wordle against a disposable PostgreSQL database"
 run = "./script/run-integration-tests.sh -run '^TestSeason43Rehearsal$' -count=1"
 
 [tasks.season-scenario]
-description = "Run a YAML-managed season scenario through Hurl against disposable PostgreSQL"
+description = "Run a YAML-managed season scenario through Hurl against a per-run database (DATABASE_URL, or a container when unset)"
 run = "./script/run-season-scenario.sh"
 
 [tasks.ci]

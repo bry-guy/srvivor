@@ -4,3 +4,8 @@ apps/**/data/
 apps/castaway-web/typespec/node_modules/
 seasons/drafts/
 seasons/answers/
+apps/castaway-web/.score.env
+apps/castaway-web/.score-compose/state.yaml
+apps/castaway-web/.score-compose/mounts/
+apps/castaway-web/compose.score.yaml
+apps/castaway-web/.score-compose/zz-default.provisioners.yaml

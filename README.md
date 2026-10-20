@@ -29,16 +29,17 @@ The monorepo shares a single 1Password vault, `castaway`, through the root `fnox
 ```bash
 mise run start
 mise run seed
-mise run ps
+mise run ps       # web and bot only
 mise run logs
 mise run bot-logs
-mise run stop
+mise run stop     # keeps database data; `mise run db-reset` deletes it
 ```
 
-`mise run start` now starts the full local stack:
-- `castawaydb`
-- `castaway-web`
-- `castaway-discord-bot`
+Service dependencies are declared in `apps/castaway-web/score.yaml` (the source of truth; see [castaway-web](apps/castaway-web/README.md#local-dev)). `mise run start` brings up:
+- the laptop PostgreSQL from score-compose, on `localhost:5432` (database `castaway`)
+- `castaway-web` and `castaway-discord-bot` from `docker-compose.yml`
+
+Docker is still required for the laptop stack. Tests use the same database when `DATABASE_URL` is set and start a container only in CI.
 
 ### Legacy CLI (`srvivor`)
 
