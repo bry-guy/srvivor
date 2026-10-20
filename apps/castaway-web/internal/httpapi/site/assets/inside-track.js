@@ -74,10 +74,11 @@ canvas.addEventListener("pointermove", (e) => {
   const p = toBoard(e);
   ball.x = Math.max(-(PAD - R), Math.min(PAD - R, p.x)); ball.y = Math.max(R, Math.min(LANE.from - R, p.y));
   const now = performance.now();
-  drag.push({ x: ball.x, y: ball.y, t: now });
+  drag.push({ x: p.x, y: p.y, t: now }); // the finger, not the clamped ball, sets the throw speed
   while (drag.length > 2 && drag[0].t < now - 80) drag.shift();
   const a = drag[0], dt = (now - a.t) / 1000;
-  aim = dt > 0 ? { vx: (ball.x - a.x) / dt, vy: (ball.y - a.y) / dt } : null;
+  aim = dt > 0 ? { vx: (p.x - a.x) / dt, vy: (p.y - a.y) / dt } : null;
+  if (p.y > LANE.from) release(); // the finger crossed the start line: let go
 });
 const release = () => {
   if (!ball.held) return;
