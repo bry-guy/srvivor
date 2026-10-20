@@ -35,7 +35,7 @@ mise run bot-logs
 mise run stop     # keeps database data; `mise run db-reset` deletes it
 ```
 
-Service dependencies are declared in `apps/castaway-web/score.yaml` (the source of truth; see [castaway-web](apps/castaway-web/README.md#local-dev)). `mise run start` brings up:
+Service dependencies are declared in `score.yaml` (repo root) (the source of truth; see [castaway-web](apps/castaway-web/README.md#local-dev)). `mise run start` brings up:
 - the laptop PostgreSQL from score-compose, on `localhost:5432` (database `castaway`)
 - `castaway-web` and `castaway-discord-bot` from `docker-compose.yml`
 
