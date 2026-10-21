@@ -3,10 +3,10 @@
 // one up a foam track and butter it into a shallow cup. Every ball is simulated all the time, on the table,
 // in the air and on the ground, so balls knock into each other, rim out, fall off and stay where they land.
 const BOARD = { w: 2.1, h: 2.55, y0: -0.12, xc: -0.1 }; // xc: the rack makes the table lopsided
-const R = 0.077, CUP_R = 0.1;
+const R = 0.085, CUP_R = 0.8 * R; // the cup is smaller than the ball: it sits in the lip
 const PAD = { x0: -0.5, x1: 0.5, y0: 0, y1: 0.5 };
 const CH = 2 * R + 0.03;                       // chute width
-const COL = { x0: -1.06, x1: -1.06 + CH, top: 1.3 }; // the rack's upright column
+const COL = { x0: -1.06, x1: -1.06 + CH, top: 1.45 }; // the rack's upright column
 const TRACK_W = 0.36, ANG = 30 * Math.PI / 180;
 const COLORS = ["#c8372d", "#e8b923", "#2f5fa8"];
 const TRACKS = [-ANG, 0, ANG].map((a, i) => {
@@ -14,10 +14,10 @@ const TRACKS = [-ANG, 0, ANG].map((a, i) => {
   return { a, len, ux, uy, o, color: COLORS[i], cup: [o[0] + ux * (len - 0.17), o[1] + uy * (len - 0.17)] };
 });
 const TABLE_H = 0.6, G = 9.8;
-const ROLL = (v) => 0.72 + 0.12 * v;  // foam rolling resistance
+const ROLL = (v) => 0.65 + 0.11 * v;  // foam rolling resistance
 const SAND = 6;                      // sand stops a ball fast
-const WALL_E = 0.2, BALL_E = 0.6;   // heavy ball: walls soak up speed
-const BOWL = 3, STICK_V = 0.55;    // cup slope; slower than this near the centre and it sits down
+const WALL_E = 0.22, BALL_E = 0.65;   // heavy ball: walls soak up speed
+const ROLL_G = 7; // (5/7)·g: gravity along a slope for a rolling ball
 const THROW_K = 0.55, MAX_V = 3.0, SNAP = 0.3;
 const RACK_N = 10, DEBUG = location.search.includes("debug");
 
@@ -73,7 +73,7 @@ function release() { // gate opens, front ball rolls out across the pad toward t
 
 // ---- input ----
 let drag = [], target = null, held = false, grab = { x: 0, y: 0 };
-const ready = () => cur && cur.level === "table" && !cur.thrown && speed(cur) < 0.02 && inRect(cur.x, cur.y, PAD.x0, PAD.x1, PAD.y0, PAD.y1);
+const ready = () => cur && cur.level === "table" && cur.onPad && !cur.thrown && inRect(cur.x, cur.y, PAD.x0, PAD.x1, PAD.y0, PAD.y1);
 canvas.addEventListener("pointerdown", (e) => {
   const p = toBoard(e);
   if (!playing || done || !ready() || Math.hypot(p.x - cur.x, p.y - cur.y) > 0.3) return;
@@ -137,7 +137,7 @@ function collide(a, b) {
 function friction(b, decel, dt) {
   const s = speed(b), ns = Math.max(0, s - decel * dt);
   if (ns === 0) { b.vx = b.vy = 0; } else { b.vx *= ns / s; b.vy *= ns / s; }
-  b.spin += ns * dt / R; if (ns > 0.01) b.ang = Math.atan2(b.vy, b.vx);
+  if (ns > 0.05) { b.spin += ns * dt / R; b.ang = Math.atan2(b.vy, b.vx); }
 }
 function step(dt) {
   if (gate > 0) gate -= dt;
@@ -149,14 +149,17 @@ function step(dt) {
       if (b.x < COL.x1 && b.y < CH) b.vx += 2 * dt;
       friction(b, 0.5, dt);
     } else if (b.level === "table") {
+      // Over the cup the ball rests on the lip, its centre lower the nearer it is to the middle:
+      // height = sqrt(R² − (CUP_R − d)²). Rolling down that slope is the only pull, and it is zero at the lip,
+      // so a ball keeps going unless it is slow enough not to climb back out.
       for (let i = 0; i < 3; i++) {
+        if (cups[i]) continue;
         const [hx, hy] = TRACKS[i].cup, dx = hx - b.x, dy = hy - b.y, d = Math.hypot(dx, dy);
-        const inside = d < CUP_R && !cups[i];
-        if (inside) {
-          b.vx += (dx / (d || 1)) * BOWL * dt; b.vy += (dy / (d || 1)) * BOWL * dt;
-          if (d < CUP_R - 0.3 * R && speed(b) < STICK_V) { cups[i] = b; Object.assign(b, { level: "cup", cx: hx, cy: hy, sink: 0, vx: 0, vy: 0 }); if (b === cur) { toast("In the cup."); navigator.vibrate?.([30, 40, 30]); } hud(); break; }
-        } else if (b.inCup === i) { b.vx *= 0.85; b.vy *= 0.85; if (b === cur) toast("Rimmed out."); }
-        if (inside) b.inCup = i; else if (b.inCup === i) b.inCup = null;
+        if (d >= CUP_R) continue;
+        const q = CUP_R - d, slope = q / Math.sqrt(R * R - q * q);
+        b.vx += (dx / (d || 1)) * ROLL_G * slope * dt; b.vy += (dy / (d || 1)) * ROLL_G * slope * dt;
+        b.vx *= 1 - 2 * dt; b.vy *= 1 - 2 * dt; // knocking against the lip
+        if (d < CUP_R * 0.3 && speed(b) < 0.08) { cups[i] = b; Object.assign(b, { level: "cup", cx: hx, cy: hy, sink: 0, vx: 0, vy: 0 }); if (b === cur) navigator.vibrate?.([30, 40, 30]); hud(); break; }
       }
       if (b.level !== "table") continue;
       friction(b, ROLL(speed(b)), dt);
@@ -172,7 +175,7 @@ function step(dt) {
     if (b === cur && b.thrown && b.level !== "ground") path.push([b.x, b.y]);
     if (b.level === "table" || b.level === "rack") {
       WALLS.forEach((w) => wall(b, w));
-      if (!onTable(b.x, b.y)) { b.level = "air"; b.vh = 0; navigator.vibrate?.(40); if (b === cur) toast("Off the table."); }
+      if (!onTable(b.x, b.y)) { b.level = "air"; b.vh = 0; navigator.vibrate?.(40); }
     } else { // ground and air: the table is a solid block to them; the screen edge is a wall
       const below = b.h < TABLE_H;
       if (below && blocked(b.x, b.y) && !blocked(px, py)) {
@@ -194,11 +197,12 @@ function step(dt) {
     const a = balls[i], b = balls[j], la = a.level === "cup" ? "table" : a.level, lb = b.level === "cup" ? "table" : b.level;
     if (la === lb && la !== "air" || (la === "rack" && lb === "table") || (la === "table" && lb === "rack")) collide(a, b);
   }
+  if (cur && !cur.onPad && inRect(cur.x, cur.y, PAD.x0 + R, PAD.x1, PAD.y0, PAD.y1)) cur.onPad = true;
+  if (cur && cur.onPad && !cur.thrown && !held && !inRect(cur.x, cur.y, PAD.x0, PAD.x1, PAD.y0, PAD.y1)) cur.thrown = true; // off the mat: it counts
   // The current ball is done once it sits in a cup, stops on the ground, or stops on the table after a throw.
   if (cur && cur.thrown && !held) {
     const settled = cur.level === "cup" || (cur.level === "ground" && speed(cur) === 0) || (cur.level === "table" && speed(cur) < 0.02);
     if (settled) {
-      if (cur.level === "table") toast("Short.");
       cur = null; wait = 0.6;
     }
   }
@@ -210,8 +214,6 @@ function step(dt) {
 function finish() {
   setTimeout(() => { $("final").textContent = `${cupCount()} of 3 cups`; $("finalRolls").textContent = `${used()} of ${RACK_N} balls used`; $("done").classList.remove("hidden"); }, 700);
 }
-let toastTimer;
-function toast(t) { const el = $("msg"); el.textContent = t; el.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 1400); }
 
 // ---- drawing: flat, matte, one light from the top left ----
 const INK = "#2b2418";
@@ -254,7 +256,7 @@ function trackPts(t) {
 }
 const SHAPES = () => [
   { pts: rectPts(COL.x0, COL.x1, 0, COL.top), color: "#7a5230" }, { pts: rectPts(COL.x1, PAD.x0, 0, CH), color: "#7a5230" },
-  ...TRACKS.map((t) => ({ pts: trackPts(t), color: t.color })),
+  ...[TRACKS[0], TRACKS[2], TRACKS[1]].map((t) => ({ pts: trackPts(t), color: t.color })),
   { pts: rectPts(PAD.x0, PAD.x1, PAD.y0, PAD.y1), color: "#b98a55", wood: true },
 ];
 function planks(pts) { // flat plank seams and a few grain strokes
@@ -349,7 +351,7 @@ const STEP = 1 / 240;
 function frame(now) {
   acc += Math.min(0.05, (now - last) / 1000); last = now;
   while (acc >= STEP) {
-    if (held && target) { const k = 1 - Math.exp(-STEP * 22); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
+    if (held && target) { const k = 1 - Math.exp(-STEP * 24); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
     step(STEP); acc -= STEP;
   }
   draw(now);
