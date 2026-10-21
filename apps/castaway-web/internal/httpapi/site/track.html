@@ -1,6 +1,6 @@
 {{template "header" .}}
 {{with .Track}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">Episode {{.Episode}}</p><h1>Inside Track</h1>
-<p class="muted">12 balls, 3 cups. Score: cups filled, plus balls left once all three are in. Best score +3, second +2, everyone else who plays +1.</p></div>
+<p class="muted">12 balls, 3 cups. Score: cups filled, plus balls left once all three are in. League points = your score.</p></div>
 {{if .Upcoming}}<p class="center">Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}.</p>
 {{else}}{{if .Played}}<p class="scramble-result">Your score: {{.Score}} ({{.Cups}} {{if eq .Cups 1}}cup{{else}}cups{{end}}{{if .BallsLeft}} + {{.BallsLeft}} balls left{{end}}) 🔥</p>{{else if not .Open}}<p class="center muted">You didn't play this one.</p>{{end}}
 {{if .Open}}<p class="muted center">Results when it closes {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}.</p>

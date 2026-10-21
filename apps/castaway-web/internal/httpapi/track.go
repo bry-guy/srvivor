@@ -23,7 +23,7 @@ import (
 // the server only checks that progress moves forward, so the physics runs on the player's device
 // (shortcut: a determined player could post a fake score; fine for a friends' league).
 // In-game score: cups filled, plus balls left once all three are filled (max 3 + 11 = 14).
-// League points: best score +3, second +2, everyone else who played +1; ties share the place.
+// League points: the in-game score (+1 per cup, +1 per ball left once all three are in).
 
 const trackBalls = 12
 
@@ -47,7 +47,7 @@ func trackScore(mask, used int) int {
 	return cups
 }
 
-// trackPoints ranks played runs by score: first +3, second +2, the rest +1; ties share the place.
+// trackPoints ranks played runs by score (ties share the place); league points equal the in-game score.
 func trackPoints(players []trackPlayer) (map[string]int, map[string]int) {
 	places, points := map[string]int{}, map[string]int{}
 	for _, p := range players {
@@ -57,7 +57,7 @@ func trackPoints(players []trackPlayer) (map[string]int, map[string]int) {
 				place++
 			}
 		}
-		places[p.ID], points[p.ID] = place, max(4-place, 1)
+		places[p.ID], points[p.ID] = place, trackScore(p.CupsMask, p.BallsUsed)
 	}
 	return places, points
 }
@@ -202,8 +202,11 @@ func (s *Server) resolveTrackGame(ctx context.Context, gameID uuid.UUID) (map[st
 			if err != nil {
 				return nil, err
 			}
+			if awards[p.ID] == 0 {
+				continue
+			}
 			if _, err := q.CreateBonusPointLedgerEntry(ctx, db.CreateBonusPointLedgerEntryParams{
-				EntryKind: "award", Points: int32(awards[p.ID]), Visibility: "public", Reason: name, EffectiveAt: at, // #nosec G115 -- points are 1–3
+				EntryKind: "award", Points: int32(awards[p.ID]), Visibility: "public", Reason: name, EffectiveAt: at, // #nosec G115 -- points are 1–14
 				AwardKey: pgtype.Text{String: "inside_track", Valid: true}, Metadata: metadata,
 				InstanceID: toPGUUID(instance), ParticipantID: toPGUUID(uuid.MustParse(p.ID)), ActivityOccurrenceID: occurrence.ID,
 			}); err != nil {

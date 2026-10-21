@@ -7,7 +7,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 - Island Scramble scoring: +1 for solving, +1 for solving before the hint, fewest wrong checks +2 and second +1 (max 4; ties share); no speed points. Game results replace `time_points` with `hint_points`.
-- Inside Track weekly game (`/games/inside-track`, migration 038): 3 practice balls then 12 scored balls into three foam-track cups; score is cups plus balls left once all three are in; one run per player, saved after every ball so a reload resumes. League points: best +3, second +2, everyone else who played +1. Admin API `POST /instances/:id/track-games`, `POST /track-games/:id/resolve`; game results type `inside_track` with `score`, `cups`, `balls_left`. Admins get the practice board when no game is open.
+- Inside Track weekly game (`/games/inside-track`, migration 038): 3 practice balls then 12 scored balls into three foam-track cups; score is cups plus balls left once all three are in; one run per player, saved after every ball so a reload resumes. League points equal the score. Admin API `POST /instances/:id/track-games`, `POST /track-games/:id/resolve`; game results type `inside_track` with `score`, `cups`, `balls_left`. Admins get the practice board when no game is open.
 
 - Island Scramble hint: from 8am Eastern on the fifth day after opening (Monday), the page shows one letter per word, picked from a hash of the game ID.
 

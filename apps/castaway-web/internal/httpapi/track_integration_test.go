@@ -17,7 +17,7 @@ import (
 )
 
 // Inside Track: one run per player, progress only moves forward, a reload resumes the run, and at cutoff
-// the best score gets +3, second +2 and everyone else who played +1 (ties share), once.
+// each player earns their score (+1 per cup, +1 per ball left once all three are in), once.
 func TestInsideTrack(t *testing.T) {
 	ctx, pool := integrationPool(t)
 	defer pool.Close()
@@ -141,7 +141,7 @@ func TestInsideTrack(t *testing.T) {
 	if err := json.Unmarshal([]byte(serve("GET", "/api/instances/"+instanceID+"/game-results/5", "", "admin", 200)), &res); err != nil {
 		t.Fatal(err)
 	}
-	if got := fmt.Sprint(res.Type, res.Players); got != "inside_track[{ace 1 3 10 3 7} {tieA 2 2 2 2 0} {tieB 2 2 2 2 0} {low 4 1 1 1 0} {quit 5 1 0 0 0}]" {
+	if got := fmt.Sprint(res.Type, res.Players); got != "inside_track[{ace 1 10 10 3 7} {tieA 2 2 2 2 0} {tieB 2 2 2 2 0} {low 4 1 1 1 0} {quit 5 0 0 0 0}]" {
 		t.Errorf("game results: %s", got)
 	}
 	totals := map[string]int{}
@@ -158,12 +158,12 @@ func TestInsideTrack(t *testing.T) {
 		totals[id] = points
 	}
 	rows.Close()
-	for user, want := range map[string]int{"ace": 3, "tieA": 2, "tieB": 2, "low": 1, "quit": 1, "idle": 0, "admin": 0} {
+	for user, want := range map[string]int{"ace": 10, "tieA": 2, "tieB": 2, "low": 1, "quit": 0, "idle": 0, "admin": 0} {
 		if totals[ids[user]] != want {
 			t.Errorf("%s earned %d, want %d", user, totals[ids[user]], want)
 		}
 	}
-	if page := serve("GET", "/players/"+ids["ace"], "", "idle", 200); !strings.Contains(page, "Inside Track") || !strings.Contains(page, "10 in-game · &#43;3 pts") {
+	if page := serve("GET", "/players/"+ids["ace"], "", "idle", 200); !strings.Contains(page, "Inside Track") || !strings.Contains(page, "10 in-game · &#43;10 pts") {
 		t.Fatalf("profile: %s", page)
 	}
 }
