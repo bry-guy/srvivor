@@ -18,3 +18,8 @@ button.primary:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #2
 .stamp.balls { color: #2f5fa8; border-color: #2f5fa8; transform: rotate(5deg); --r: 5deg; }
 .stamp:nth-child(2) { --r: 4deg; } .stamp:nth-child(3) { --r: -3deg; }
 @keyframes stamp { 0% { opacity: 0; transform: scale(3) rotate(var(--r, -6deg)); } 60% { opacity: 1; transform: scale(.9) rotate(var(--r, -6deg)); } 100% { opacity: 1; transform: scale(1) rotate(var(--r, -6deg)); } }
+.banner { position: fixed; z-index: 2; top: calc(max(.6rem, env(safe-area-inset-top)) + 2.2rem); left: 50%; transform: translateX(-50%); background: #e8b923; border: 2px solid #2b2418; box-shadow: 3px 3px 0 #2b2418; padding: .2rem .8rem; text-transform: uppercase; letter-spacing: .16em; font-size: .8rem; pointer-events: none; }
+.banner.hidden { display: none; }
+.pop { position: fixed; z-index: 2; left: 50%; bottom: 12%; transform: translateX(-50%); font-size: 2rem; text-transform: uppercase; letter-spacing: .1em; color: #c8372d; text-shadow: 3px 3px 0 #2b2418; opacity: 0; pointer-events: none; white-space: nowrap; }
+.pop.go { animation: pop 1.8s ease-out both; }
+@keyframes pop { 0% { opacity: 0; transform: translateX(-50%) scale(.4); } 15% { opacity: 1; transform: translateX(-50%) scale(1.15); } 30% { transform: translateX(-50%) scale(1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-20px); } }

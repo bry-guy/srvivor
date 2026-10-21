@@ -2,14 +2,15 @@
 // Inside Track (prototype), top-down. A rack of 10 balls feeds through a gate onto the start pad; flick each
 // one up a foam track and butter it into a shallow cup. Every ball is simulated all the time, on the table,
 // in the air and on the ground, so balls knock into each other, rim out, fall off and stay where they land.
-const BOARD = { w: 2.1, h: 2.75, y0: -0.12, xc: -0.1 }; // xc: the rack makes the table lopsided
+const BOARD = { w: 2.1, h: 2.8, y0: -0.12, xc: -0.1 }; // xc: the rack makes the table lopsided
 const R = 0.085, CUP_R = 0.8 * R; // the cup is smaller than the ball: it sits in the lip
 const PAD = { x0: -0.5, x1: 0.5, y0: 0, y1: 0.67 };
 const CH = 2 * R + 0.03;                       // chute width
-const COL = { x0: -1.06, x1: -1.06 + CH, top: 1.75 }; // the rack's upright column
-const TRACK_W = 0.36, ANG = 30 * Math.PI / 180;
+const COL = { x0: -1.06, x1: -1.06 + CH, top: 2.3 }; // the rack's upright column
+const TRACK_W = 0.36, DEG = Math.PI / 180;
 const COLORS = ["#c8372d", "#e8b923", "#2f5fa8"];
-const TRACKS = [-ANG, 0, ANG].map((a, i) => {
+// red tilts 2/3 as far as blue
+const TRACKS = [(-25 * 2) / 3 * DEG, 0, 25 * DEG].map((a, i) => {
   const len = a < 0 ? 1.45 : a > 0 ? 1.09 : 1.72, // blue a quarter shorter than red
     ux = Math.sin(a), uy = Math.cos(a), o = [0, PAD.y1];
   return { a, len, ux, uy, o, color: COLORS[i], cup: [o[0] + ux * (len - 0.17), o[1] + uy * (len - 0.17)] };
@@ -20,7 +21,7 @@ const SAND = 6;                      // sand stops a ball fast
 const WALL_E = 0.13, BALL_E = 0.4;   // heavy ball: walls soak up speed
 const ROLL_G = 7; // (5/7)·g: gravity along a slope for a rolling ball
 const THROW_K = 0.55, MAX_V = 3.0, SNAP = 0.3;
-const RACK_N = 12, DEBUG = location.search.includes("debug");
+const RACK_N = 12, PRACTICE_N = 3, DEBUG = location.search.includes("debug");
 
 const local = (t, x, y) => { const dx = x - t.o[0], dy = y - t.o[1]; return { along: dx * t.ux + dy * t.uy, across: dx * t.uy - dy * t.ux }; };
 const blocked = (x, y) => [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R]].some(([ox, oy]) => onTable(x + ox, y + oy));
@@ -52,23 +53,36 @@ const toBoard = (e) => ({ x: (e.clientX - cx) / scale, y: (cy - e.clientY) / sca
 const view = () => ({ x0: -cx / scale + R, x1: (W - cx) / scale - R, y0: (cy - H) / scale + R, y1: cy / scale - R });
 
 // Ball: { x, y, vx, vy, h (height above ground), vh, level: rack|table|air|ground|cup, spin }
-let balls, cur, cups, gate, wait, done, playing = false, path = [];
+let balls, cur, cups, gate, wait, done, phase, playing = false, path = [];
 function reset() {
   balls = []; cups = [null, null, null]; cur = null; done = false; path = []; gate = 0; wait = 0.6;
-  for (let i = 0; i < RACK_N; i++) {
+  phase = "practice"; banner(true); pop("Practice!");
+  for (let i = 0; i < RACK_N + PRACTICE_N; i++) {
     const inRow = i < 3, x = inRow ? PAD.x0 - R - 0.003 - i * 2 * R : (COL.x0 + COL.x1) / 2, y = inRow ? CH / 2 : CH / 2 + 0.02 + (i - 2) * 2 * R;
-    balls.push({ x, y, vx: 0, vy: 0, h: TABLE_H, vh: 0, level: "rack", spin: 0, ang: 0 });
+    balls.push({ x, y, vx: 0, vy: 0, h: TABLE_H, vh: 0, level: "rack", spin: 0, ang: 0, practice: i < PRACTICE_N });
   }
   $("done").classList.add("hidden"); hud();
 }
 const speed = (b) => Math.hypot(b.vx, b.vy);
-const used = () => balls.filter((b) => b.level !== "rack").length;
+const used = () => balls.filter((b) => b.level !== "rack" && !b.practice).length;
 const cupCount = () => cups.filter(Boolean).length;
-function hud() { $("left").textContent = RACK_N - used(); $("cups").textContent = `${cupCount()}/3`; }
+function hud() { $("left").textContent = RACK_N - used(); $("cups").textContent = `${phase === "game" ? cupCount() : 0}/3`; }
 
+function banner(on) { $("practicing").classList.toggle("hidden", !on); }
+function pop(text) { const el = $("pop"); el.textContent = text; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go"); }
+function endPractice() { // knock every white ball off the table onto the sand, then start for real
+  balls.forEach((b) => {
+    if (!b.practice || b.level === "ground" || b.level === "rack") return;
+    const i = cups.indexOf(b); if (i >= 0) cups[i] = null;
+    const dx = b.x, dy = b.y - 1, d = Math.hypot(dx, dy) || 1;
+    Object.assign(b, { level: "air", h: TABLE_H, vh: 1.2, vx: (dx / d) * 2.2, vy: (dy / d) * 2.2 });
+  });
+  phase = "game"; banner(false); pop("Game on!"); wait = 1.2; hud();
+}
 function release() { // gate opens, front ball rolls out across the pad toward the stop wall
   const front = balls.filter((b) => b.level === "rack" && b.y < CH).sort((a, b) => b.x - a.x)[0];
   if (!front) return;
+  if (front.practice !== (phase === "practice")) return endPractice();
   cur = front; cur.level = "table"; cur.thrown = false; cur.vx = 1.8; gate = 0.35; hud();
 }
 
@@ -209,7 +223,7 @@ function step(dt) {
     }
   }
   if (!cur && !done) {
-    if (cupCount() === 3 || !balls.some((b) => b.level === "rack")) { done = true; finish(); }
+    if (phase === "game" && (cupCount() === 3 || !balls.some((b) => b.level === "rack"))) { done = true; finish(); }
     else if ((wait -= dt) <= 0) release();
   }
 }
@@ -334,12 +348,13 @@ function drawBall(b) {
   ctx.fillStyle = `rgba(50,30,10,${b.level === "air" ? 0.2 : 0.32})`;
   ctx.beginPath(); ctx.ellipse(px + ox, py + oy, r * (1 - sink * 0.3), r * 0.9 * (1 - sink * 0.3), 0.6, 0, 7); ctx.fill();
   const g = ctx.createRadialGradient(px - r * 0.4, py - r * 0.45, r * 0.05, px, py, r); // lit from the upper left
-  g.addColorStop(0, "#d79a5e"); g.addColorStop(0.55, "#9a5f2e"); g.addColorStop(1, "#5b3418");
+  if (b.practice) { g.addColorStop(0, "#ffffff"); g.addColorStop(0.6, "#ece6d6"); g.addColorStop(1, "#b9b09a"); }
+  else { g.addColorStop(0, "#d79a5e"); g.addColorStop(0.55, "#9a5f2e"); g.addColorStop(1, "#5b3418"); }
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
   ctx.save(); ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.clip();
   ctx.translate(px, py); ctx.rotate(-b.ang + Math.PI / 2);
   const off = Math.sin(b.spin) * r * 0.9; // grain rings and a dark band roll past
-  ctx.strokeStyle = "rgba(70,38,15,.35)"; ctx.lineWidth = 1;
+  ctx.strokeStyle = b.practice ? "rgba(120,110,90,.3)" : "rgba(70,38,15,.35)"; ctx.lineWidth = 1;
   for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.ellipse(0, off + k * r * 0.35, r * 1.1, r * 0.18, 0, 0, 7); ctx.stroke(); }
   ctx.restore();
   ctx.strokeStyle = "rgba(43,24,10,.7)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.stroke();
