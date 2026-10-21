@@ -68,7 +68,7 @@ func TestPrivateCastawordleAndButtonTests(t *testing.T) {
 		}
 		return rec.Body.String()
 	}
-	serve("PUT", "/api/instances/"+instanceID+"/tribes", fmt.Sprintf(`{"effective_at":"2026-09-24T00:01:00Z","tribes":[{"name":"Savu","participant_ids":[%q,%q]},{"name":"Toka","participant_ids":[%q,%q]}]}`,
+	serve("PUT", "/api/instances/"+instanceID+"/tribes", fmt.Sprintf(`{"effective_at":"2026-09-24T00:01:00Z","tribes":[{"name":"Savu","color":"purple","participant_ids":[%q,%q]},{"name":"Toka","color":"yellow","participant_ids":[%q,%q]}]}`,
 		ids["bryan"], ids["other"], ids["admin2"], ids["player"]), "bryan", 200)
 
 	var game, mine struct {

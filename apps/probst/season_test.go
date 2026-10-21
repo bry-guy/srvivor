@@ -63,6 +63,19 @@ func TestParseTribesFile(t *testing.T) {
 	if _, err := parseTribesFile("Savu: Nobody", players); err == nil {
 		t.Fatal("unknown player should fail")
 	}
+	colored, err := parseTribesFile("Dina (pink): Adam, Keeling\nSavu: Kate\n", []participant{{ID: "p1", Name: "Adam"}, {ID: "p2", Name: "Keeling"}, {ID: "p3", Name: "Kate"}})
+	if err != nil || colored[0]["name"] != "Dina" || colored[0]["color"] != "pink" || len(colored[0]["participant_ids"].([]string)) != 2 {
+		t.Fatalf("colored tribe = %v, err = %v", colored, err)
+	}
+	if _, ok := colored[1]["color"]; ok {
+		t.Fatalf("uncolored tribe got a color: %v", colored[1])
+	}
+	if _, err := parseTribesFile("Dina (pink: Adam", players); err == nil {
+		t.Fatal("unclosed color should fail")
+	}
+	if _, err := parseTribesFile("Dina (): Adam", players); err == nil {
+		t.Fatal("empty color should fail")
+	}
 }
 
 func TestReviewWordleFile(t *testing.T) {

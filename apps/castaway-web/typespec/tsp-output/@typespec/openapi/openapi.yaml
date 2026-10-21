@@ -3108,6 +3108,36 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SetTribesRequest'
+  /instances/{instanceID}/tribes/{name}:
+    patch:
+      operationId: setTribeColor
+      description: "Admin: set an existing tribe's color without changing its membership history."
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/SetTribeColorResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetTribeColorRequest'
   /metrics:
     get:
       operationId: metrics
@@ -5093,6 +5123,29 @@ components:
           type: string
         replace:
           type: boolean
+    SetTribeColorRequest:
+      type: object
+      required:
+        - color
+      properties:
+        color:
+          type: string
+    SetTribeColorResponse:
+      type: object
+      required:
+        - id
+        - name
+        - color
+        - emoji
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+        emoji:
+          type: string
     SetTribesRequest:
       type: object
       required:
@@ -5129,6 +5182,11 @@ components:
           type: string
         name:
           type: string
+        color:
+          type: string
+          description: Buff color (red, orange, yellow, green, blue, purple, pink, brown, black, white); absent if never set.
+        emoji:
+          type: string
         members:
           type: array
           items:
@@ -5141,6 +5199,9 @@ components:
       properties:
         name:
           type: string
+        color:
+          type: string
+          description: Required for a tribe that doesn't exist yet; sets the color of an existing one.
         participant_ids:
           type: array
           items:

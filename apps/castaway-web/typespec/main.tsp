@@ -641,6 +641,9 @@ model TribeMember {
 model Tribe {
   id: string;
   name: string;
+  /** Buff color (red, orange, yellow, green, blue, purple, pink, brown, black, white); absent if never set. */
+  color?: string;
+  emoji?: string;
   members: TribeMember[];
 }
 
@@ -651,6 +654,8 @@ model TribesResponse {
 
 model TribeAssignment {
   name: string;
+  /** Required for a tribe that doesn't exist yet; sets the color of an existing one. */
+  color?: string;
   participant_ids: string[];
 }
 
@@ -1342,6 +1347,26 @@ op getTribes(@path instanceID: string, @query at?: utcDateTime): TribesResponse 
 @route("/instances/{instanceID}/tribes")
 @put
 op setTribes(@path instanceID: string, @body body: SetTribesRequest): TribesResponse | ErrorResponse;
+
+model SetTribeColorRequest {
+  color: string;
+}
+
+model SetTribeColorResponse {
+  id: string;
+  name: string;
+  color: string;
+  emoji: string;
+}
+
+/** Admin: set an existing tribe's color without changing its membership history. */
+@route("/instances/{instanceID}/tribes/{name}")
+@patch(#{implicitOptionality: false})
+op setTribeColor(
+  @path instanceID: string,
+  @path name: string,
+  @body body: SetTribeColorRequest,
+): SetTribeColorResponse | ErrorResponse;
 
 @route("/instances/{instanceID}/tribe-challenges")
 @post

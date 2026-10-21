@@ -4,6 +4,7 @@ SELECT
     pg.name AS participant_group_name,
     p.public_id AS participant_id,
     p.name AS participant_name,
+    pg.color AS participant_group_color,
     pgmp.starts_at
 FROM participant_group_membership_periods pgmp
 JOIN participant_groups pg ON pg.id = pgmp.participant_group_id

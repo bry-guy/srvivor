@@ -184,6 +184,7 @@ func (s *Server) registerAPI(protected *gin.RouterGroup) {
 	protected.GET("/instances/:instanceID/leaderboard", s.leaderboard)
 	protected.GET("/instances/:instanceID/tribes", s.getTribes)
 	protected.PUT("/instances/:instanceID/tribes", s.setTribes)
+	protected.PATCH("/instances/:instanceID/tribes/:name", s.setTribeColor)
 	protected.POST("/instances/:instanceID/tribe-challenges", s.recordTribeChallenge)
 	protected.GET("/instances/:instanceID/activities", s.listActivities)
 	protected.POST("/instances/:instanceID/activities", s.createActivity)

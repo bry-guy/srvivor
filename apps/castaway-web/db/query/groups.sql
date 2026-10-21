@@ -1,6 +1,6 @@
 -- name: CreateParticipantGroup :one
-INSERT INTO participant_groups (instance_id, name, kind, metadata)
-SELECT i.id, sqlc.arg(name), sqlc.arg(kind), sqlc.arg(metadata)
+INSERT INTO participant_groups (instance_id, name, kind, metadata, color)
+SELECT i.id, sqlc.arg(name), sqlc.arg(kind), sqlc.arg(metadata), sqlc.narg(color)
 FROM instances i
 WHERE i.public_id = sqlc.arg(instance_id)
 RETURNING
@@ -132,3 +132,8 @@ WHERE p.public_id = sqlc.arg(participant_id)
   AND pgmp.starts_at <= sqlc.arg(at)
   AND (pgmp.ends_at IS NULL OR pgmp.ends_at > sqlc.arg(at))
 ORDER BY pg.kind ASC, pg.name ASC, pgmp.id ASC;
+
+-- name: SetParticipantGroupColor :exec
+UPDATE participant_groups
+SET color = sqlc.arg(color), updated_at = NOW()
+WHERE public_id = sqlc.arg(id);

@@ -74,7 +74,7 @@ func TestSeasonAutomation(t *testing.T) {
 		return got
 	}
 	tribeStart := time.Date(2030, 10, 1, 0, 0, 0, 0, time.UTC)
-	call("PUT", path+"/tribes", fmt.Sprintf(`{"effective_at":%q,"tribes":[{"name":"Savu","participant_ids":[%q]},{"name":"Toka","participant_ids":[%q]}]}`,
+	call("PUT", path+"/tribes", fmt.Sprintf(`{"effective_at":%q,"tribes":[{"name":"Savu","color":"purple","participant_ids":[%q]},{"name":"Toka","color":"yellow","participant_ids":[%q]}]}`,
 		tribeStart.Format(time.RFC3339), id(a.ID.Bytes), id(b.ID.Bytes)), 200)
 
 	ep2 := "2030-10-03T01:00:00Z"

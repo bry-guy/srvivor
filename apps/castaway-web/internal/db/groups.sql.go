@@ -12,10 +12,10 @@ import (
 )
 
 const createParticipantGroup = `-- name: CreateParticipantGroup :one
-INSERT INTO participant_groups (instance_id, name, kind, metadata)
-SELECT i.id, $1, $2, $3
+INSERT INTO participant_groups (instance_id, name, kind, metadata, color)
+SELECT i.id, $1, $2, $3, $4
 FROM instances i
-WHERE i.public_id = $4
+WHERE i.public_id = $5
 RETURNING
     public_id AS id,
     (SELECT public_id FROM instances WHERE id = participant_groups.instance_id) AS instance_id,
@@ -30,6 +30,7 @@ type CreateParticipantGroupParams struct {
 	Name       string      `json:"name"`
 	Kind       string      `json:"kind"`
 	Metadata   []byte      `json:"metadata"`
+	Color      pgtype.Text `json:"color"`
 	InstanceID pgtype.UUID `json:"instance_id"`
 }
 
@@ -48,6 +49,7 @@ func (q *Queries) CreateParticipantGroup(ctx context.Context, arg CreateParticip
 		arg.Name,
 		arg.Kind,
 		arg.Metadata,
+		arg.Color,
 		arg.InstanceID,
 	)
 	var i CreateParticipantGroupRow
@@ -432,4 +434,20 @@ func (q *Queries) ListParticipantGroupsByInstance(ctx context.Context, instanceI
 		return nil, err
 	}
 	return items, nil
+}
+
+const setParticipantGroupColor = `-- name: SetParticipantGroupColor :exec
+UPDATE participant_groups
+SET color = $1, updated_at = NOW()
+WHERE public_id = $2
+`
+
+type SetParticipantGroupColorParams struct {
+	Color pgtype.Text `json:"color"`
+	ID    pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) SetParticipantGroupColor(ctx context.Context, arg SetParticipantGroupColorParams) error {
+	_, err := q.db.Exec(ctx, setParticipantGroupColor, arg.Color, arg.ID)
+	return err
 }

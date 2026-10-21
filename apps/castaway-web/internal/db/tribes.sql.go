@@ -103,6 +103,7 @@ SELECT
     pg.name AS participant_group_name,
     p.public_id AS participant_id,
     p.name AS participant_name,
+    pg.color AS participant_group_color,
     pgmp.starts_at
 FROM participant_group_membership_periods pgmp
 JOIN participant_groups pg ON pg.id = pgmp.participant_group_id
@@ -121,11 +122,12 @@ type ListInstanceTribeMembershipsAtParams struct {
 }
 
 type ListInstanceTribeMembershipsAtRow struct {
-	ParticipantGroupID   pgtype.UUID        `json:"participant_group_id"`
-	ParticipantGroupName string             `json:"participant_group_name"`
-	ParticipantID        pgtype.UUID        `json:"participant_id"`
-	ParticipantName      string             `json:"participant_name"`
-	StartsAt             pgtype.Timestamptz `json:"starts_at"`
+	ParticipantGroupID    pgtype.UUID        `json:"participant_group_id"`
+	ParticipantGroupName  string             `json:"participant_group_name"`
+	ParticipantID         pgtype.UUID        `json:"participant_id"`
+	ParticipantName       string             `json:"participant_name"`
+	ParticipantGroupColor pgtype.Text        `json:"participant_group_color"`
+	StartsAt              pgtype.Timestamptz `json:"starts_at"`
 }
 
 func (q *Queries) ListInstanceTribeMembershipsAt(ctx context.Context, arg ListInstanceTribeMembershipsAtParams) ([]ListInstanceTribeMembershipsAtRow, error) {
@@ -142,6 +144,7 @@ func (q *Queries) ListInstanceTribeMembershipsAt(ctx context.Context, arg ListIn
 			&i.ParticipantGroupName,
 			&i.ParticipantID,
 			&i.ParticipantName,
+			&i.ParticipantGroupColor,
 			&i.StartsAt,
 		); err != nil {
 			return nil, err

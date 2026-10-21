@@ -122,9 +122,12 @@ Episode times come from the instance schedule (Season 51: CBS Wednesdays 8pm ET,
 ```sh
 # Tribes: one line per tribe. The whole arrangement is replaced a minute after the episode starts,
 # so starting tribes, swaps, merges, and splits are all the same command. Players left out lose their tribe.
-printf 'Savu: Adam, Kate, Mooney\nToka: Kyle, Riley, Sarah\n' > tribes.txt
+# A color goes in parentheses (red, orange, yellow, green, blue, purple, pink, brown, black, white). A tribe
+# that doesn't exist yet needs one, so a typo can't create a tribe; existing tribes keep their color unless one is given.
+printf 'Savu: Adam, Kate, Mooney\nDina (pink): Kyle, Riley, Sarah\n' > tribes.txt
 probst tribes set --file tribes.txt --episode 2 --instance INSTANCE --yes
 probst tribes show --instance INSTANCE [--at "2026-10-07 21:00"]
+probst tribes color Dina pink --instance INSTANCE [--yes]   # recolor an existing tribe; no swap needed
 
 # Challenges: every player on a winning tribe gets +2 (immunity) or +1 (reward).
 probst challenge immunity Savu --episode 2 --instance INSTANCE --yes

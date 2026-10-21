@@ -50,7 +50,7 @@ func draftRestCopy(order int) string { return fmt.Sprintf("rest:%d", order) }
 // tribeColorEmoji maps a tribe's stored color (participant_groups.color) to its emoji in posts.
 var tribeColorEmoji = map[string]string{
 	"red": "🔴", "orange": "🟠", "yellow": "🟡", "green": "🟢", "blue": "🔵",
-	"purple": "🟣", "brown": "🟤", "black": "⚫", "white": "⚪",
+	"purple": "🟣", "pink": "🩷", "brown": "🟤", "black": "⚫", "white": "⚪",
 }
 
 // draftCopy fills a draft buff template (a messages/ name, or "rest:<order>" for the rotating lines).

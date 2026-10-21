@@ -24,6 +24,8 @@ type episode struct {
 type tribe struct {
 	ID      string        `json:"id"`
 	Name    string        `json:"name"`
+	Color   string        `json:"color,omitempty"`
+	Emoji   string        `json:"emoji,omitempty"`
 	Members []tribeMember `json:"members"`
 }
 
@@ -55,7 +57,7 @@ func loadTribes(ctx context.Context, call apiCall, instancePath string, at time.
 	return res.Tribes, call(ctx, "GET", instancePath+"/tribes?at="+url.QueryEscape(at.UTC().Format(time.RFC3339Nano)), nil, &res)
 }
 
-// parseTribesFile reads lines like "Savu: Adam, Kate, Mooney" and resolves names to players.
+// parseTribesFile reads lines like "Savu: Adam, Kate, Mooney" or "Dina (pink): Adam, Keeling" and resolves names to players.
 func parseTribesFile(data string, players []participant) ([]map[string]any, error) {
 	var tribes []map[string]any
 	for _, line := range strings.Split(data, "\n") {
@@ -63,9 +65,19 @@ func parseTribesFile(data string, players []participant) ([]map[string]any, erro
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		name, list, ok := strings.Cut(line, ":")
-		if !ok || strings.TrimSpace(name) == "" {
-			return nil, fmt.Errorf("expected \"Tribe: Player, Player\", got %q", line)
+		head, list, ok := strings.Cut(line, ":")
+		name, color, hasColor := strings.Cut(head, "(")
+		name = strings.TrimSpace(name)
+		if !ok || name == "" {
+			return nil, fmt.Errorf("expected \"Tribe: Player, Player\" or \"Tribe (color): Player, Player\", got %q", line)
+		}
+		entry := map[string]any{"name": name}
+		if hasColor {
+			color, closed := strings.CutSuffix(strings.TrimSpace(color), ")")
+			if color = strings.TrimSpace(color); !closed || color == "" {
+				return nil, fmt.Errorf("expected a color like \"Dina (pink):\", got %q", line)
+			}
+			entry["color"] = color
 		}
 		var ids []string
 		for _, ref := range strings.Split(list, ",") {
@@ -78,7 +90,8 @@ func parseTribesFile(data string, players []participant) ([]map[string]any, erro
 			}
 			ids = append(ids, p.ID)
 		}
-		tribes = append(tribes, map[string]any{"name": strings.TrimSpace(name), "participant_ids": ids})
+		entry["participant_ids"] = ids
+		tribes = append(tribes, entry)
 	}
 	if len(tribes) == 0 {
 		return nil, fmt.Errorf("no tribes found")
@@ -292,7 +305,11 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 					return err
 				}
 				for _, a := range assignments {
-					if _, err := fmt.Fprintf(out, "  %s: %d players\n", a["name"], len(a["participant_ids"].([]string))); err != nil {
+					label := a["name"].(string)
+					if color, ok := a["color"].(string); ok {
+						label += " (" + color + ")"
+					}
+					if _, err := fmt.Fprintf(out, "  %s: %d players\n", label, len(a["participant_ids"].([]string))); err != nil {
 						return err
 					}
 				}
@@ -308,9 +325,33 @@ func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (s
 			return printTribes(out, ep.AirsAt.Add(tribeChangeOffset), res.Tribes)
 		},
 	}
-	set.Flags().StringVar(&tribesFile, "file", "", `Lines like "Savu: Adam, Kate, Mooney"`)
+	set.Flags().StringVar(&tribesFile, "file", "", `Lines like "Savu: Adam, Kate, Mooney" or "Dina (pink): Adam, Keeling"; a new tribe needs a color`)
 	set.Flags().IntVar(&tribesEpisode, "episode", 0, "Episode whose start the tribes take effect at")
 	tribes.AddCommand(set)
+
+	color := &cobra.Command{
+		Use:   "color TRIBE COLOR",
+		Short: "Set an existing tribe's color without re-running a swap; dry run unless --yes",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(c *cobra.Command, a []string) error {
+			p, err := instancePath()
+			if err != nil {
+				return err
+			}
+			out := c.OutOrStdout()
+			if !*yes {
+				_, err := fmt.Fprintf(out, "Dry run — %s becomes %s. Re-run with --yes to save.\n", a[0], a[1])
+				return err
+			}
+			var res tribe
+			if err := call(c.Context(), "PATCH", p+"/tribes/"+url.PathEscape(a[0]), map[string]any{"color": a[1]}, &res); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(out, "%s is now %s %s\n", res.Name, res.Emoji, res.Color)
+			return err
+		},
+	}
+	tribes.AddCommand(color)
 
 	var challengeEpisode int
 	var challengeKey string

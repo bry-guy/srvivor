@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Tribe colors through the API: `PUT /instances/:id/tribes` takes an optional `color` per tribe; a tribe that doesn't exist yet needs one (so a typo can't create a tribe). `PATCH /instances/:id/tribes/:name` (admin) recolors an existing tribe without touching its membership history. `GET /instances/:id/tribes` returns each tribe's `color` and `emoji`. Pink (🩷, `#ff4fa3`) joins the colors (migration 039).
 - Island Scramble scoring: +1 for solving, +1 for solving before the hint, fewest wrong checks +2 and second +1 (max 4; ties share); no speed points. Game results replace `time_points` with `hint_points`.
 - Inside Track weekly game (`/games/inside-track`, migration 038): 3 practice balls then 12 scored balls into three foam-track cups; score is cups plus balls left once all three are in; one run per player, saved after every ball so a reload resumes. League points equal the score. Admin API `POST /instances/:id/track-games`, `POST /track-games/:id/resolve`; game results type `inside_track` with `score`, `cups`, `balls_left`. Admins get the practice board when no game is open.
 

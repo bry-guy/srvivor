@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"slices"
 	"sort"
@@ -20,6 +21,7 @@ import (
 
 type tribeAssignment struct {
 	Name           string   `json:"name"`
+	Color          *string  `json:"color"`
 	ParticipantIDs []string `json:"participant_ids"`
 }
 
@@ -84,8 +86,20 @@ func (s *Server) getTribes(c *gin.Context) {
 	c.JSON(http.StatusOK, tribesJSON(at, rows))
 }
 
+// tribeColor normalizes a tribe color and reports whether it is one the emoji map knows.
+func tribeColor(raw string) (string, bool) {
+	color := strings.ToLower(strings.TrimSpace(raw))
+	_, ok := tribeColorEmoji[color]
+	return color, ok
+}
+
+func tribeColorError() errorResponse {
+	return errorResponse{Error: "color must be one of " + strings.Join(slices.Sorted(maps.Keys(tribeColorEmoji)), ", ")}
+}
+
 // setTribes replaces the whole tribe arrangement from effective_at onward, which covers starting tribes,
-// swaps, merges, and splits. Participants left out are no longer on a tribe.
+// swaps, merges, and splits. Participants left out are no longer on a tribe. A tribe's color is optional;
+// a name that matches no existing tribe is new and must come with a color, so a typo can't mint a tribe.
 func (s *Server) setTribes(c *gin.Context) {
 	instanceID, ok := parseUUIDPath(c, "instanceID")
 	if !ok {
@@ -99,6 +113,7 @@ func (s *Server) setTribes(c *gin.Context) {
 	at := req.EffectiveAt.UTC().Truncate(time.Microsecond)
 	want := map[string][]string{}
 	names := map[string]string{}
+	colors := map[string]string{}
 	seen := map[string]bool{}
 	for _, tribe := range req.Tribes {
 		name := strings.TrimSpace(tribe.Name)
@@ -112,6 +127,14 @@ func (s *Server) setTribes(c *gin.Context) {
 			return
 		}
 		names[key] = name
+		if tribe.Color != nil {
+			color, ok := tribeColor(*tribe.Color)
+			if !ok {
+				c.JSON(http.StatusBadRequest, tribeColorError())
+				return
+			}
+			colors[key] = color
+		}
 		for _, raw := range tribe.ParticipantIDs {
 			id, err := uuid.Parse(strings.TrimSpace(raw))
 			if err != nil || seen[id.String()] {
@@ -130,6 +153,33 @@ func (s *Server) setTribes(c *gin.Context) {
 	}
 	defer rollbackTx(c, tx)
 	ctx := c.Request.Context()
+
+	groups, err := qtx.ListParticipantGroupsByInstance(ctx, toPGUUID(instanceID))
+	if err != nil {
+		writeTribeError(c, err)
+		return
+	}
+	groupIDs := map[string]pgtype.UUID{}
+	for _, group := range groups {
+		if group.Kind == "tribe" {
+			groupIDs[strings.ToLower(group.Name)] = group.ID
+		}
+	}
+	for _, tribe := range req.Tribes {
+		key := strings.ToLower(strings.TrimSpace(tribe.Name))
+		if _, exists := groupIDs[key]; !exists && colors[key] == "" {
+			c.JSON(http.StatusBadRequest, errorResponse{Error: "new tribe " + names[key] + " needs a color"})
+			return
+		}
+	}
+	for key, color := range colors {
+		if groupID, exists := groupIDs[key]; exists {
+			if err := qtx.SetParticipantGroupColor(ctx, db.SetParticipantGroupColorParams{Color: pgtype.Text{String: color, Valid: true}, ID: groupID}); err != nil {
+				writeTribeError(c, err)
+				return
+			}
+		}
+	}
 
 	current, err := qtx.ListInstanceTribeMembershipsAt(ctx, db.ListInstanceTribeMembershipsAtParams{InstanceID: toPGUUID(instanceID), At: wordleTimestamp(at)})
 	if err != nil {
@@ -168,21 +218,10 @@ func (s *Server) setTribes(c *gin.Context) {
 		writeTribeError(c, err)
 		return
 	}
-	groups, err := qtx.ListParticipantGroupsByInstance(ctx, toPGUUID(instanceID))
-	if err != nil {
-		writeTribeError(c, err)
-		return
-	}
-	groupIDs := map[string]pgtype.UUID{}
-	for _, group := range groups {
-		if group.Kind == "tribe" {
-			groupIDs[strings.ToLower(group.Name)] = group.ID
-		}
-	}
 	for key, ids := range want {
 		groupID, exists := groupIDs[key]
 		if !exists {
-			group, err := qtx.CreateParticipantGroup(ctx, db.CreateParticipantGroupParams{InstanceID: toPGUUID(instanceID), Name: names[key], Kind: "tribe", Metadata: []byte(`{}`)})
+			group, err := qtx.CreateParticipantGroup(ctx, db.CreateParticipantGroupParams{InstanceID: toPGUUID(instanceID), Name: names[key], Kind: "tribe", Color: pgtype.Text{String: colors[key], Valid: true}, Metadata: []byte(`{}`)})
 			if err != nil {
 				writeTribeError(c, err)
 				return
@@ -216,6 +255,54 @@ func (s *Server) setTribes(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, tribesJSON(at, updated))
+}
+
+// setTribeColor sets an existing tribe's color (admin) without changing its membership history.
+func (s *Server) setTribeColor(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok {
+		return
+	}
+	var req struct {
+		Color string `json:"color" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
+		return
+	}
+	color, ok := tribeColor(req.Color)
+	if !ok {
+		c.JSON(http.StatusBadRequest, tribeColorError())
+		return
+	}
+	name := strings.TrimSpace(c.Param("name"))
+
+	tx, qtx, ok := s.lockLegacyInstanceForAdmin(c, instanceID)
+	if !ok {
+		return
+	}
+	defer rollbackTx(c, tx)
+	ctx := c.Request.Context()
+	groups, err := qtx.ListParticipantGroupsByInstance(ctx, toPGUUID(instanceID))
+	if err != nil {
+		writeTribeError(c, err)
+		return
+	}
+	for _, group := range groups {
+		if group.Kind == "tribe" && strings.EqualFold(group.Name, name) {
+			if err := qtx.SetParticipantGroupColor(ctx, db.SetParticipantGroupColorParams{Color: pgtype.Text{String: color, Valid: true}, ID: group.ID}); err != nil {
+				writeTribeError(c, err)
+				return
+			}
+			if err := tx.Commit(ctx); err != nil {
+				writeTribeError(c, err)
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"id": pgUUIDString(group.ID), "name": group.Name, "color": color, "emoji": tribeColorEmoji[color]})
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, errorResponse{Error: "tribe " + name + " not found"})
 }
 
 // recordTribeChallenge awards every member of each winning tribe (+2 immunity, +1 reward). The key makes
@@ -373,7 +460,12 @@ func tribesJSON(at time.Time, rows []db.ListInstanceTribeMembershipsAtRow) gin.H
 		if !ok {
 			i = len(tribes)
 			index[id] = i
-			tribes = append(tribes, gin.H{"id": id, "name": row.ParticipantGroupName})
+			tribe := gin.H{"id": id, "name": row.ParticipantGroupName}
+			if row.ParticipantGroupColor.Valid {
+				tribe["color"] = row.ParticipantGroupColor.String
+				tribe["emoji"] = tribeColorEmoji[row.ParticipantGroupColor.String]
+			}
+			tribes = append(tribes, tribe)
 			members = append(members, []gin.H{})
 		}
 		members[i] = append(members[i], gin.H{"participant_id": pgUUIDString(row.ParticipantID), "name": row.ParticipantName})

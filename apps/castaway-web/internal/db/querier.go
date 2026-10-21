@@ -131,6 +131,7 @@ type Querier interface {
 	SetDiscordChannelBinding(ctx context.Context, arg SetDiscordChannelBindingParams) error
 	SetInstanceProgressionMode(ctx context.Context, arg SetInstanceProgressionModeParams) error
 	SetParticipantDiscordUserID(ctx context.Context, arg SetParticipantDiscordUserIDParams) (SetParticipantDiscordUserIDRow, error)
+	SetParticipantGroupColor(ctx context.Context, arg SetParticipantGroupColorParams) error
 	UpdateActivityOccurrenceStatusAndMetadata(ctx context.Context, arg UpdateActivityOccurrenceStatusAndMetadataParams) (UpdateActivityOccurrenceStatusAndMetadataRow, error)
 	UpdateCastawordleGameWordleRound(ctx context.Context, arg UpdateCastawordleGameWordleRoundParams) error
 	UpdateCastawordlePlay(ctx context.Context, arg UpdateCastawordlePlayParams) error

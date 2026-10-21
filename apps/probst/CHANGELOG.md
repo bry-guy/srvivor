@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Tribe colors: `tribes set` files accept `Dina (pink): Adam, Keeling`; a tribe that doesn't exist yet needs a color, so a typo can't create one. `probst tribes color TRIBE COLOR [--yes]` recolors an existing tribe without re-running a swap. `tribes show` prints each tribe's emoji. Pink (🩷) is a color.
+
 - Inside Track: `season apply` creates `inside_track` games (`POST /instances/:id/track-games`), `season apply --week N` applies one week, and the scores post renders `games/inside_track.md` from `score`, `cups`, `balls_left`.
 
 - Island Scramble post reads `hint_points` (before-hint bonus) instead of `time_points`.
