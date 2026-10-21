@@ -13,3 +13,8 @@ canvas { display: block; touch-action: none; position: absolute; inset: 0; width
 .how { font-style: italic; }
 button.primary { margin-top: 1rem; font: 600 1rem Futura, "Avenir Next Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; letter-spacing: .14em; color: #ece6d6; background: #c8372d; border: 2px solid #2b2418; box-shadow: 3px 3px 0 #2b2418; padding: .65rem 1.6rem; cursor: pointer; }
 button.primary:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #2b2418; }
+.stamps { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; min-height: 3.2rem; margin: .6rem 0 .2rem; }
+.stamp { display: inline-block; font-size: 1.6rem; letter-spacing: .04em; color: #c8372d; border: 3px solid #c8372d; padding: .05rem .5rem; transform: rotate(-6deg); animation: stamp .32s cubic-bezier(.2, 1.6, .4, 1) both; }
+.stamp.balls { color: #2f5fa8; border-color: #2f5fa8; transform: rotate(5deg); --r: 5deg; }
+.stamp:nth-child(2) { --r: 4deg; } .stamp:nth-child(3) { --r: -3deg; }
+@keyframes stamp { 0% { opacity: 0; transform: scale(3) rotate(var(--r, -6deg)); } 60% { opacity: 1; transform: scale(.9) rotate(var(--r, -6deg)); } 100% { opacity: 1; transform: scale(1) rotate(var(--r, -6deg)); } }

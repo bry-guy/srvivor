@@ -214,7 +214,19 @@ function step(dt) {
   }
 }
 function finish() {
-  setTimeout(() => { const left = RACK_N - used(); $("final").textContent = `${cupCount() + left} pts`; $("finalRolls").textContent = `${cupCount()} cups + ${left} balls left`; $("done").classList.remove("hidden"); }, 700);
+  setTimeout(() => {
+    const left = RACK_N - used(), stamps = [...cups.filter(Boolean).map(() => ["+1", "cup"]), ...(left ? [[`+${left}`, "balls"]] : [])];
+    const row = $("stamps"); row.textContent = ""; $("final").textContent = "0"; $("finalRolls").textContent = "";
+    $("done").classList.remove("hidden");
+    let total = 0;
+    stamps.forEach(([txt, kind], i) => setTimeout(() => { // each one slams down, the card jolts, the total ticks up
+      const el = document.createElement("span"); el.className = `stamp ${kind}`; el.textContent = txt; row.append(el);
+      total += parseInt(txt, 10); $("final").textContent = total;
+      $("done").querySelector(".card").animate([{ transform: "translate(0,0)" }, { transform: "translate(-3px,3px)" }, { transform: "translate(2px,-1px)" }, { transform: "translate(0,0)" }], { duration: 180 });
+      navigator.vibrate?.(25);
+    }, 500 + i * 450));
+    setTimeout(() => { $("finalRolls").textContent = `${cupCount()} cups + ${left} balls left`; }, 700 + stamps.length * 450);
+  }, 700);
 }
 
 // ---- drawing: flat, matte, one light from the top left ----

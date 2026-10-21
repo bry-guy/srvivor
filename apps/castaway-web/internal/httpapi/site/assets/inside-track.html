@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Inside Track · Castaway</title>
-<link rel="stylesheet" href="/assets/inside-track.css?v=12">
+<link rel="stylesheet" href="/assets/inside-track.css?v=13">
 </head>
 <body>
 <canvas id="c" aria-label="Inside Track board"></canvas>
@@ -19,11 +19,12 @@
 <div class="overlay hidden" id="done">
   <div class="card">
     <p class="eyebrow">Challenge complete</p>
-    <h1 id="final">0:00.0</h1>
+    <div class="stamps" id="stamps"></div>
+    <h1><span id="final">0</span> pts</h1>
     <p id="finalRolls"></p>
     <button id="again" class="primary">Play again</button>
   </div>
 </div>
-<script src="/assets/inside-track.js?v=12" defer></script>
+<script src="/assets/inside-track.js?v=13" defer></script>
 </body>
 </html>
