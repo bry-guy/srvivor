@@ -1,1 +1,1 @@
-{{if eq .Type "press_the_button"}}🔴{{else if eq .Type "castawordle"}}🔤{{else}}🔠{{end}} This week's game: **{{.Name}}**, open tonight at {{.Opens}} ET at <{{.Site}}/games>.
+{{if eq .Type "press_the_button"}}🔴{{else if eq .Type "castawordle"}}🔤{{else if eq .Type "inside_track"}}🎯{{else}}🔠{{end}} This week's game: **{{.Name}}**, open tonight at {{.Opens}} ET at <{{.Site}}/games>.

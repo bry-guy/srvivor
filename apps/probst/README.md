@@ -128,6 +128,9 @@ printf 'Savu: Adam, Kate, Mooney\nDina (pink): Kyle, Riley, Sarah\n' > tribes.tx
 probst tribes set --file tribes.txt --episode 2 --instance INSTANCE --yes
 probst tribes show --instance INSTANCE [--at "2026-10-07 21:00"]
 probst tribes color Dina pink --instance INSTANCE [--yes]   # recolor an existing tribe; no swap needed
+# The tribe swap post (messages/tribe-change.md): tribes at the swap, plus the episode's tribe-challenge points.
+# --yes saves an unsent draft (key s51-ep2-tribe-swap); schedule it with `announcement schedule` after approval.
+probst tribes announce --season ../../seasons/51.yaml --episode 2 [--kind swap|merge|assignment] [--name KEY] [--at "2026-10-07 21:00"]
 
 # Challenges: every player on a winning tribe gets +2 (immunity) or +1 (reward).
 probst challenge immunity Savu --episode 2 --instance INSTANCE --yes

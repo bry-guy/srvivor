@@ -84,7 +84,7 @@ func buildScoresPost(t templateSet, season, week int, now, prev []scoreRow, boot
 	}
 	var errs []error
 	line := func(name string, names []string, n int) string {
-		text, err := t.line(name, week, lineData{Names: joinNames(names), N: n})
+		text, err := t.line(name, week, lineData{Names: joinNames(names), N: n, Plural: len(names) > 1})
 		errs = append(errs, err)
 		return text
 	}
@@ -198,18 +198,7 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 				return err
 			}
 			path := "/instances/" + url.PathEscape(f.Instance)
-			existing, err := findAnnouncement(c.Context(), call, path, key)
-			switch {
-			case err == nil && existing.Status == "sent":
-				return fmt.Errorf("%s was already sent", key)
-			case err == nil:
-				err = call(c.Context(), "PUT", path+"/announcements/"+url.PathEscape(existing.ID)+"/body", map[string]string{"body": text}, nil)
-			default:
-				err = call(c.Context(), "POST", path+"/announcements", map[string]any{
-					"guild_id": *guild, "channel_id": f.Channel, "request_key": key, "body": text, "draft": true, "notify_users": true,
-				}, nil)
-			}
-			if err != nil {
+			if err := saveDraftAnnouncement(c.Context(), call, path, *guild, f.Channel, key, text); err != nil {
 				return err
 			}
 			found, err := findAnnouncement(c.Context(), call, path, key)
@@ -228,6 +217,21 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 	cmd.Flags().BoolVar(&previewUnscored, "preview", false, "Dry run before the game is scored: placeholder for its results")
 	cmd.Flags().StringVar(&body, "body", "", "Post this edited draft instead of rendering the template")
 	season.AddCommand(cmd)
+}
+
+// saveDraftAnnouncement saves text as an unsent draft under key (its mentions ping), or replaces an unsent draft's text.
+func saveDraftAnnouncement(ctx context.Context, call apiCall, path, guild, channel, key, text string) error {
+	existing, err := findAnnouncement(ctx, call, path, key)
+	switch {
+	case err == nil && existing.Status == "sent":
+		return fmt.Errorf("%s was already sent", key)
+	case err == nil:
+		return call(ctx, "PUT", path+"/announcements/"+url.PathEscape(existing.ID)+"/body", map[string]string{"body": text}, nil)
+	default:
+		return call(ctx, "POST", path+"/announcements", map[string]any{
+			"guild_id": guild, "channel_id": channel, "request_key": key, "body": text, "draft": true, "notify_users": true,
+		}, nil)
+	}
 }
 
 // previewUnscored lets a dry run (`season post --preview`) render before the week's game is scored.
@@ -420,6 +424,11 @@ func gameScore(ctx context.Context, call apiCall, path string, t templateSet, f 
 	for _, m := range res.Tribes {
 		tribes = append(tribes, tribeRow{Name: str(m["name"]), Emoji: str(m["emoji"]), Value: fnum(m["value"])})
 	}
+	return renderGameScore(t, game, week, players, tribes)
+}
+
+// renderGameScore fills games/<game>.md from the game's results.
+func renderGameScore(t templateSet, game string, week int, players []gameRow, tribes []tribeRow) (string, error) {
 	return t.render("games/"+game+".md", map[string]any{"Name": gameNames[game], "Week": week, "Players": players, "Tribes": tribes, "Rules": buttonRules(players)})
 }
 

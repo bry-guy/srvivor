@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Tribe colors: `tribes set` files accept `Dina (pink): Adam, Keeling`; a tribe that doesn't exist yet needs a color, so a typo can't create one. `probst tribes color TRIBE COLOR [--yes]` recolors an existing tribe without re-running a swap. `tribes show` prints each tribe's emoji. Pink (🩷) is a color.
+- `probst tribes announce --season FILE --episode N` renders the tribe swap post from `messages/tribe-change.md` (tribes at the swap, each member mentioned, tribe-challenge points for the episode); `--yes` saves an unsent draft. `--kind swap|merge|assignment` picks the first line.
+
+- Scores post grammar: leader and gainer lines take plural verbs when several players share the spot (`lines/*.txt` get `{{if .Plural}}`), and `next-game.md` shows 🎯 for Inside Track.
 
 - Inside Track: `season apply` creates `inside_track` games (`POST /instances/:id/track-games`), `season apply --week N` applies one week, and the scores post renders `games/inside_track.md` from `score`, `cups`, `balls_left`.
 

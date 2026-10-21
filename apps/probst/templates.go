@@ -108,10 +108,11 @@ func renderText(name, text string, data any) (string, error) {
 	return strings.TrimSpace(b.String()), nil
 }
 
-// lineData fills a one-line variant: Names is the player(s), N the points.
+// lineData fills a one-line variant: Names is the player(s), N the points, Plural whether Names is several.
 type lineData struct {
-	Names string
-	N     int
+	Names  string
+	N      int
+	Plural bool
 }
 
 // line renders week's variant from lines/<name>.txt.

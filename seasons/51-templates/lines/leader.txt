@@ -1,13 +1,13 @@
-{{.Names}} sits on top with {{.N}}. That's a target, and a crown.
-{{.Names}} leads the pack at {{.N}}. Calm, cool, and dangerous.
+{{.Names}} {{if .Plural}}sit{{else}}sits{{end}} on top with {{.N}}. That's a target, and a crown.
+{{.Names}} {{if .Plural}}lead{{else}}leads{{end}} the pack at {{.N}}. Calm, cool, and dangerous.
 Nobody's catching {{.Names}} yet: {{.N}} and climbing.
-{{.Names}} is running this island with {{.N}}.
+{{.Names}} {{if .Plural}}are{{else}}is{{end}} running this island with {{.N}}.
 Still the one to beat: {{.Names}}, {{.N}} points.
-{{.Names}} holds the top spot at {{.N}}. Somebody make a move.
-{{.Names}}, at {{.N}}, is playing chess while the rest of you play checkers.
+{{.Names}} {{if .Plural}}hold{{else}}holds{{end}} the top spot at {{.N}}. Somebody make a move.
+{{.Names}}, at {{.N}}, {{if .Plural}}are{{else}}is{{end}} playing chess while the rest of you play checkers.
 The crown stays with {{.Names}}: {{.N}} and not letting go.
-{{.Names}} rules the board at {{.N}}. Jeff's impressed. Mostly.
+{{.Names}} {{if .Plural}}rule{{else}}rules{{end}} the board at {{.N}}. Jeff's impressed. Mostly.
 Top of the island: {{.Names}}, {{.N}}. Respect the grind.
 {{.Names}} at {{.N}}. Somebody find an idol, fast.
-{{.Names}} leads with {{.N}}, and the finish line is in sight.
-{{.Names}} finishes on top of the heap with {{.N}}.
+{{.Names}} {{if .Plural}}lead{{else}}leads{{end}} with {{.N}}, and the finish line is in sight.
+{{.Names}} {{if .Plural}}finish{{else}}finishes{{end}} on top of the heap with {{.N}}.

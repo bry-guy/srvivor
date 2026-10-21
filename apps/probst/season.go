@@ -239,9 +239,10 @@ func eastern() *time.Location {
 	return location
 }
 
-func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (string, error), yes *bool, discordBotToken *string) {
+func addSeasonCommands(root *cobra.Command, call apiCall, instancePath func() (string, error), guild *string, yes *bool, discordBotToken *string) {
 	tribes := &cobra.Command{Use: "tribes", Short: "Show or change player tribes"}
 	root.AddCommand(tribes)
+	addTribeAnnounceCommand(tribes, call, guild, yes)
 
 	var showAt string
 	show := &cobra.Command{Use: "show", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
