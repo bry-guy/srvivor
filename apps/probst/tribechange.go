@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
@@ -195,7 +196,7 @@ func addTribeAnnounceCommand(tribes *cobra.Command, call apiCall, guild *string,
 				_, err = fmt.Fprintf(out, "Dry run — %s, channel %s (pings the players in it):\n\n%s\n\nRe-run with --yes to save it as a draft. It isn't scheduled or sent.\n", name, f.Channel, text)
 				return err
 			}
-			if err := saveDraftAnnouncement(ctx, call, p, *guild, f.Channel, name, text); err != nil {
+			if err := saveDraftAnnouncement(ctx, call, p, cmp.Or(*guild, f.Automation.Guild), f.Channel, name, text); err != nil {
 				return err
 			}
 			_, err = fmt.Fprintf(out, "Saved draft %s. Schedule it with `probst announcement schedule %s --at ...` when approved.\n", name, name)

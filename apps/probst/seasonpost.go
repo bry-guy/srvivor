@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -198,7 +199,7 @@ func addSeasonPostCommand(season *cobra.Command, call apiCall, guild *string, ye
 				return err
 			}
 			path := "/instances/" + url.PathEscape(f.Instance)
-			if err := saveDraftAnnouncement(c.Context(), call, path, *guild, f.Channel, key, text); err != nil {
+			if err := saveDraftAnnouncement(c.Context(), call, path, cmp.Or(*guild, f.Automation.Guild), f.Channel, key, text); err != nil {
 				return err
 			}
 			found, err := findAnnouncement(c.Context(), call, path, key)
