@@ -1,0 +1,11 @@
+{{template "header" .}}
+{{with .Track}}<div class="game-heading"><a class="back-link" href="/games">← All games</a><p class="eyebrow">Episode {{.Episode}}</p><h1>Inside Track</h1>
+<p class="muted">12 balls, 3 cups. Score: cups filled, plus balls left once all three are in. Best score +3, second +2, everyone else who plays +1.</p></div>
+{{if .Upcoming}}<p class="center">Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}.</p>
+{{else}}{{if .Played}}<p class="scramble-result">Your score: {{.Score}} ({{.Cups}} {{if eq .Cups 1}}cup{{else}}cups{{end}}{{if .BallsLeft}} + {{.BallsLeft}} balls left{{end}}) 🔥</p>{{else if not .Open}}<p class="center muted">You didn't play this one.</p>{{end}}
+{{if .Open}}<p class="muted center">Results when it closes {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}.</p>
+{{else if .ResultsWait}}<p class="muted center">Results are being scored.</p>
+{{else}}<div class="table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Score</th><th scope="col">Points</th></tr></thead><tbody>
+{{range .Results}}<tr><td>{{.Place}}</td><td><a href="/players/{{.ID}}">{{.Name}}</a></td><td>{{.Score}} <span class="muted">({{.Cups}} cups{{if .BallsLeft}} + {{.BallsLeft}}{{end}})</span></td><td>+{{.Points}}</td></tr>{{else}}<tr><td colspan="4" class="muted">Nobody played.</td></tr>{{end}}
+</tbody></table></div>{{end}}{{end}}{{end}}
+{{template "footer" .}}

@@ -52,19 +52,31 @@ const sx = (x) => cx + x * scale, sy = (y) => cy - y * scale;
 const toBoard = (e) => ({ x: (e.clientX - cx) / scale, y: (cy - e.clientY) / scale });
 const view = () => ({ x0: -cx / scale + R, x1: (W - cx) / scale - R, y0: (cy - H) / scale + R, y1: cy / scale - R });
 
+// Scored runs: the server puts data-action on <body>; progress is saved when each real ball leaves the mat
+// (so reloading mid-roll can't undo a throw) and again when it settles. data-resume restores a run.
+const ACTION = document.body.dataset.action, RESUME = document.body.dataset.resume === "1";
+const BASE_MASK = +(document.body.dataset.cups || 0), BASE_USED = +(document.body.dataset.used || 0);
+function report(finished = false) {
+  if (!ACTION) return;
+  const mask = cups.reduce((m, b, i) => (b && !b.practice ? m | (1 << i) : m), 0);
+  fetch(ACTION + "/progress", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cups_mask: mask, balls_used: used(), finished }) }).catch(() => {});
+}
 // Ball: { x, y, vx, vy, h (height above ground), vh, level: rack|table|air|ground|cup, spin }
 let balls, cur, cups, gate, wait, done, phase, playing = false, path = [];
 function reset() {
   balls = []; cups = [null, null, null]; cur = null; done = false; path = []; gate = 0; wait = 0.6;
-  phase = "practice"; banner(true); pop("Practice!");
-  for (let i = 0; i < RACK_N + PRACTICE_N; i++) {
+  const practice = RESUME ? 0 : PRACTICE_N, rack = RACK_N - (RESUME ? BASE_USED : 0) + practice;
+  if (RESUME) { phase = "game"; banner(false); } else { phase = "practice"; banner(true); pop("Practice!"); }
+  if (RESUME) TRACKS.forEach((t, i) => { if (BASE_MASK & (1 << i)) { const [x, y] = t.cup; cups[i] = { x, y, cx: x, cy: y, vx: 0, vy: 0, h: TABLE_H, vh: 0, level: "cup", sink: 1, spin: 0, ang: 0, pre: true }; balls.push(cups[i]); } });
+  for (let i = 0; i < rack; i++) {
     const inRow = i < 3, x = inRow ? PAD.x0 - R - 0.003 - i * 2 * R : (COL.x0 + COL.x1) / 2, y = inRow ? CH / 2 : CH / 2 + 0.02 + (i - 2) * 2 * R;
-    balls.push({ x, y, vx: 0, vy: 0, h: TABLE_H, vh: 0, level: "rack", spin: 0, ang: 0, practice: i < PRACTICE_N });
+    balls.push({ x, y, vx: 0, vy: 0, h: TABLE_H, vh: 0, level: "rack", spin: 0, ang: 0, practice: i < practice });
   }
   $("done").classList.add("hidden"); hud();
 }
 const speed = (b) => Math.hypot(b.vx, b.vy);
-const used = () => balls.filter((b) => b.level !== "rack" && !b.practice).length;
+const used = () => (RESUME ? BASE_USED : 0) + balls.filter((b) => b.level !== "rack" && !b.practice && !b.pre).length;
 const cupCount = () => cups.filter(Boolean).length;
 function hud() { $("left").textContent = RACK_N - used(); $("cups").textContent = `${phase === "game" ? cupCount() : 0}/3`; }
 
@@ -214,12 +226,14 @@ function step(dt) {
     if (la === lb && la !== "air" || (la === "rack" && lb === "table") || (la === "table" && lb === "rack")) collide(a, b);
   }
   if (cur && !cur.onPad && inRect(cur.x, cur.y, PAD.x0 + R, PAD.x1, PAD.y0, PAD.y1)) cur.onPad = true;
-  if (cur && cur.onPad && !cur.thrown && !held && !inRect(cur.x, cur.y, PAD.x0, PAD.x1, PAD.y0, PAD.y1)) cur.thrown = true; // off the mat: it counts
+  if (cur && cur.onPad && !cur.thrown && !held && !inRect(cur.x, cur.y, PAD.x0, PAD.x1, PAD.y0, PAD.y1)) { cur.thrown = true; if (!cur.practice) report(); } // off the mat: it counts
   // The current ball is done once it sits in a cup, stops on the ground, or stops on the table after a throw.
   if (cur && cur.thrown && !held) {
     const settled = cur.level === "cup" || (cur.level === "ground" && speed(cur) === 0) || (cur.level === "table" && speed(cur) < 0.02);
     if (settled) {
+      const real = !cur.practice;
       cur = null; wait = 0.6;
+      if (real && !(phase === "game" && (cupCount() === 3 || !balls.some((b) => b.level === "rack")))) report();
     }
   }
   if (!cur && !done) {
@@ -228,6 +242,7 @@ function step(dt) {
   }
 }
 function finish() {
+  report(true);
   setTimeout(() => {
     const left = RACK_N - used(), stamps = [...cups.filter(Boolean).map(() => ["+1", "cup"]), ...(left ? [[`+${left}`, "balls"]] : [])];
     const row = $("stamps"); row.textContent = ""; $("final").textContent = "0"; $("finalRolls").textContent = "";
@@ -392,6 +407,6 @@ if (DEBUG) window.__it = {
   start: () => { $("intro").classList.add("hidden"); playing = true; },
 };
 $("go").onclick = () => { $("intro").classList.add("hidden"); playing = true; };
-$("again").onclick = () => reset();
+if (ACTION) { $("again").textContent = "See results"; $("again").onclick = () => location.reload(); } else $("again").onclick = () => reset();
 resize(); reset(); requestAnimationFrame(frame);
 }

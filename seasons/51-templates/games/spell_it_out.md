@@ -1,3 +1,3 @@
-🔠 **Island Scramble**: fastest +3, second +2 · fewest wrong checks +3, second +2 · +1 for finishing
-{{range .Players}}{{if .Place}}{{with .TribeEmoji}}{{.}} {{end}}{{.Name}} (+{{.Points}}){{if .TimePoints}} ⏱️ +{{.TimePoints}}{{end}}{{if .CleanPoints}} 🎯 +{{.CleanPoints}}{{end}}
+🔠 **Island Scramble**: +1 for solving · +1 more before the hint · fewest wrong checks +2, second +1
+{{range .Players}}{{if .Place}}{{with .TribeEmoji}}{{.}} {{end}}{{.Name}} (+{{.Points}}){{if .HintPoints}} 💡 +{{.HintPoints}}{{end}}{{if .CleanPoints}} 🎯 +{{.CleanPoints}}{{end}}
 {{end}}{{end -}}

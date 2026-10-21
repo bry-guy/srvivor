@@ -9,7 +9,7 @@
 <div class="scramble-tools"><button type="button" data-action="sort">Sort A–Z</button><button type="button" data-action="shuffle">Shuffle</button><button type="button" data-action="clear">Clear</button><button type="submit" class="primary">Check</button></div>
 <p class="muted center"><span class="scramble-clock">0:00</span> · wrong checks: <span class="scramble-wrong">{{.WrongChecks}}</span></p></form>
 <script src="/assets/scramble.js?v=3" defer></script>
-{{else}}<form class="scramble-start" method="post" action="{{.Action}}/start"><div class="scramble-board" aria-hidden="true">{{template "slots" .}}</div><button type="submit" class="primary">Start</button><p class="muted">Your clock starts when you reveal the tiles. Fastest +3, second fastest +2; fewest wrong checks +3, second fewest +2; every finisher +1.</p></form>{{end}}
+{{else}}<form class="scramble-start" method="post" action="{{.Action}}/start"><div class="scramble-board" aria-hidden="true">{{template "slots" .}}</div><button type="submit" class="primary">Start</button><p class="muted">Your clock starts when you reveal the tiles. Solving +1, and +1 more if you solve before the hint (Monday 8am). Fewest wrong checks +2, second fewest +1.</p></form>{{end}}
 {{else}}<p class="muted center">{{if .Upcoming}}Opens {{.OpensAt.Format "Mon Jan 2, 3:04pm MST"}}{{else}}Closed {{.CutoffAt.Format "Mon Jan 2, 3:04pm MST"}}{{end}}</p>
 {{if .ResultsWait}}<p class="notice compact">Results appear once the game is scored.</p>{{end}}
 {{if .Phrase}}{{if not .Open}}<p class="center">The phrase was <span class="answer">{{.Phrase}}</span>.</p>{{end}}{{end}}

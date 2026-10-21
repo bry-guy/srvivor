@@ -15,7 +15,7 @@ import (
 )
 
 // gameNames are the games' display names (the season's templates own every other word).
-var gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Island Scramble"}
+var gameNames = map[string]string{"press_the_button": "Press the Button", "castawordle": "Castawordle", "spell_it_out": "Island Scramble", "inside_track": "Inside Track"}
 
 // rankLine is one ranked player in a scores post.
 type rankLine struct {
@@ -292,7 +292,8 @@ func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []t
 }
 
 func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
-	season.AddCommand(&cobra.Command{
+	var only int
+	cmd := &cobra.Command{
 		Use:   "apply FILE",
 		Short: "Create or reschedule the file's games (dry run unless --yes); placeholders are skipped",
 		Args:  cobra.ExactArgs(1),
@@ -308,7 +309,7 @@ func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
 			out := c.OutOrStdout()
 			for week := 1; week <= len(airs); week++ {
 				game := weekGame(f, week)
-				if game == "" {
+				if game == "" || only > 0 && week != only {
 					continue
 				}
 				opens, err1 := planTime(f.Weekly.Game.Opens, airs[week-1])
@@ -350,6 +351,16 @@ func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
 						return fmt.Errorf("%s: %w", line, err)
 					}
 					fmt.Fprintln(out, "applied "+line)
+				case "inside_track":
+					if !*yes {
+						fmt.Fprintln(out, "would apply "+line)
+						continue
+					}
+					body := map[string]any{"episode_number": week, "opens_at": opens.UTC().Format(time.RFC3339), "cutoff_at": closes.UTC().Format(time.RFC3339)}
+					if err := call(c.Context(), "POST", "/instances/"+url.PathEscape(f.Instance)+"/track-games", body, nil); err != nil {
+						return fmt.Errorf("%s: %w", line, err)
+					}
+					fmt.Fprintln(out, "applied "+line)
 				case "castawordle":
 					fmt.Fprintln(out, "skipped "+line+" (set up with `probst castawordle week`, which needs the answer)")
 				default:
@@ -359,9 +370,14 @@ func addSeasonApplyCommand(season *cobra.Command, call apiCall, yes *bool) {
 			if !*yes {
 				fmt.Fprintln(out, "Dry run — re-run with --yes to apply.")
 			}
+			if only > 0 {
+				return nil
+			}
 			return applyChampionRound(c, call, f, airs, *yes)
 		},
-	})
+	}
+	cmd.Flags().IntVar(&only, "week", 0, "Apply only week N's game (games already played can't be rescheduled)")
+	season.AddCommand(cmd)
 }
 
 // nextGameLine announces next week's game, which opens with the episode the post follows.
@@ -396,7 +412,8 @@ func gameScore(ctx context.Context, call apiCall, path string, t templateSet, f 
 		players = append(players, gameRow{Name: str(m["name"]), TribeEmoji: str(m["tribe_emoji"]), Tribe: str(m["tribe"]), Points: int(num(m["points"])),
 			Presses: int(num(m["presses"])), First: m["first"] == true, Last: m["last"] == true, StreakDays: int(num(m["streak_days"])),
 			Place: int(num(m["place"])), Seconds: int(num(m["seconds"])), WrongChecks: int(num(m["wrong_checks"])),
-			TimePoints: int(num(m["time_points"])), CleanPoints: int(num(m["clean_points"])),
+			HintPoints: int(num(m["hint_points"])), CleanPoints: int(num(m["clean_points"])),
+			Score: int(num(m["score"])), Cups: int(num(m["cups"])), BallsLeft: int(num(m["balls_left"])),
 			Guesses: int(num(m["guesses"])), Solved: m["solved"] == true,
 			RankRule: str(m["rank_rule"]), RankPoints: int(num(m["rank_points"])), VolumePoints: int(num(m["volume_points"])), StreakPoints: int(num(m["streak_points"]))})
 	}
@@ -467,7 +484,8 @@ type gameRow struct {
 	Points, Presses, StreakDays            int
 	First, Last, Solved                    bool
 	Place, Seconds, WrongChecks, Guesses   int
-	TimePoints, CleanPoints                int // Island Scramble: fastest and fewest-wrong-checks points
+	HintPoints, CleanPoints                int // Island Scramble: before-hint and fewest-wrong-checks points
+	Score, Cups, BallsLeft                 int // Inside Track: in-game score = cups + balls left once all three are in
 	RankRule                               string
 	RankPoints, VolumePoints, StreakPoints int
 }

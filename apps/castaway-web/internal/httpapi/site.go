@@ -35,6 +35,7 @@ type sitePageData struct {
 	Game               *castawordleGameView
 	Button             *buttonView
 	Scramble           *scrambleView
+	Track              *trackView
 	Champion           *championView
 	GameEpisodes       []gameEpisode
 	TestGames          []gameEntry
@@ -156,23 +157,4 @@ func (s *Server) tribeColors(ctx context.Context, instanceID uuid.UUID) (map[str
 		colors[name] = color
 	}
 	return colors, rows.Err()
-}
-
-// insideTrackPage serves the standalone Inside Track prototype to instance admins only.
-// shortcut: no scoring or results yet; becomes a real game page once approved.
-func (s *Server) insideTrackPage(c *gin.Context) {
-	site, ok := s.siteData(c)
-	if !ok {
-		return
-	}
-	if !site.Admin {
-		c.Status(http.StatusNotFound)
-		return
-	}
-	data, err := siteFiles.ReadFile("site/assets/inside-track.html")
-	if err != nil {
-		c.Status(http.StatusNotFound)
-		return
-	}
-	c.Data(http.StatusOK, "text/html; charset=utf-8", data)
 }

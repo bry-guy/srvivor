@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Inside Track: `season apply` creates `inside_track` games (`POST /instances/:id/track-games`), `season apply --week N` applies one week, and the scores post renders `games/inside_track.md` from `score`, `cups`, `balls_left`.
+
+- Island Scramble post reads `hint_points` (before-hint bonus) instead of `time_points`.
+
 - Island Scramble scores section shows the new rules and each finisher's time and wrong-check points.
 
 - Scheduled announcements (`announcement send --at`, `announcement schedule`) wait for an admin's DM "yes"; `schedule --yes` send-now removed. `message` and immediate `send` still post directly.

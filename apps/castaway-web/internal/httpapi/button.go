@@ -249,12 +249,15 @@ func (s *Server) resolveDueButtonGames(ctx context.Context) error {
 	return nil
 }
 
-// ResolveDueGames scores every scheduled Press the Button and Spell It Out game past its cutoff.
+// ResolveDueGames scores every scheduled Press the Button, Spell It Out and Inside Track game past its cutoff.
 func (s *Server) ResolveDueGames(ctx context.Context) error {
 	if err := s.resolveDueButtonGames(ctx); err != nil {
 		return err
 	}
 	if err := s.resolveDueScrambleGames(ctx); err != nil {
+		return err
+	}
+	if err := s.resolveDueTrackGames(ctx); err != nil {
 		return err
 	}
 	return s.resolveDueCastawordleGames(ctx)
@@ -294,6 +297,9 @@ func (s *Server) RunButtonResolver(ctx context.Context) {
 		}
 		if err := s.resolveDueScrambleGames(ctx); err != nil && ctx.Err() == nil {
 			requestLogger.Error("resolve spell it out games", "error", err)
+		}
+		if err := s.resolveDueTrackGames(ctx); err != nil && ctx.Err() == nil {
+			requestLogger.Error("resolve inside track games", "error", err)
 		}
 		if err := s.resolveDueCastawordleGames(ctx); err != nil && ctx.Err() == nil {
 			requestLogger.Error("resolve castawordle games", "error", err)

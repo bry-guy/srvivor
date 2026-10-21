@@ -226,6 +226,7 @@ func (s *Server) listScheduledGames(c *gin.Context) {
 				FROM castawordle_games w LEFT JOIN activity_occurrences o ON o.public_id = w.wordle_round_id WHERE w.episode_number IS NOT NULL
 			UNION ALL SELECT 'press_the_button', public_id, episode_number, opens_at, cutoff_at, instance_id, resolved_at IS NOT NULL FROM button_games WHERE episode_number IS NOT NULL
 			UNION ALL SELECT 'spell_it_out', public_id, episode_number, opens_at, cutoff_at, instance_id, resolved_at IS NOT NULL FROM scramble_games WHERE episode_number IS NOT NULL
+			UNION ALL SELECT 'inside_track', public_id, episode_number, opens_at, cutoff_at, instance_id, resolved_at IS NOT NULL FROM track_games
 		) g JOIN instances i ON i.id = g.instance_id WHERE i.public_id = $1 ORDER BY g.episode_number, g.type`, toPGUUID(instanceID))
 	if err != nil {
 		writeAnnouncementError(c, err)

@@ -22,7 +22,7 @@ import (
 // Island Scramble: arrange letter tiles (the phrase's letters plus random decoys) into a hidden phrase. A
 // player's tiles stay hidden until they press Start, which starts their clock, so working it out somewhere
 // else still counts as time. Checks only say right or wrong. At cutoff solves score by
-// scrambleScores (speed, fewest wrong checks, and +1 for finishing).
+// scrambleScores (+1 for solving, +1 for solving before the hint, fewest wrong checks +2 and second +1).
 
 const (
 	scrambleMaxLetters = 30 // phrase letters
@@ -96,6 +96,7 @@ type scrambleSolve struct {
 	ID          string
 	Seconds     int64
 	WrongChecks int
+	BeforeHint  bool
 }
 
 // scramblePlaces ranks solves by time, then wrong checks, for display; exact ties share a place.
@@ -117,29 +118,24 @@ func scramblePlaces(solves []scrambleSolve) map[string]int {
 	return places
 }
 
-type scrambleScore struct{ Time, Clean, Total int }
+type scrambleScore struct{ Hint, Clean, Total int }
 
-// scrambleScores: fastest +3 and second fastest +2, fewest wrong checks +3 and second fewest +2, and +1
-// for finishing; ties share the place (a tie for first gives both +3 and the next is third).
+// scrambleScores: +1 for solving, +1 more for solving before the hint shows, and fewest wrong checks +2,
+// second fewest +1; ties share the place (a tie for fewest gives both +2 and the next is third). Max 4.
 func scrambleScores(solves []scrambleSolve) map[string]scrambleScore {
-	rankPoints := func(value func(scrambleSolve) int64, s scrambleSolve) int {
+	scores := map[string]scrambleScore{}
+	for _, s := range solves {
 		place := 1
 		for _, o := range solves {
-			if value(o) < value(s) {
+			if o.WrongChecks < s.WrongChecks {
 				place++
 			}
 		}
-		if place > 2 {
-			return 0
+		sc := scrambleScore{Clean: max(3-place, 0)}
+		if s.BeforeHint {
+			sc.Hint = 1
 		}
-		return 4 - place
-	}
-	seconds := func(s scrambleSolve) int64 { return s.Seconds }
-	wrong := func(s scrambleSolve) int64 { return int64(s.WrongChecks) }
-	scores := map[string]scrambleScore{}
-	for _, s := range solves {
-		sc := scrambleScore{Time: rankPoints(seconds, s), Clean: rankPoints(wrong, s)}
-		sc.Total = sc.Time + sc.Clean + 1
+		sc.Total = 1 + sc.Hint + sc.Clean
 		scores[s.ID] = sc
 	}
 	return scores
@@ -269,12 +265,13 @@ type scramblePlayer struct {
 	Solved          bool
 	Seconds         int64
 	WrongChecks     int
+	BeforeHint      bool
 }
 
 // loadScramblePlayers reads everyone who started a game (solves count only before cutoff).
 func loadScramblePlayers(ctx context.Context, q scrambleQuerier, gameID int64) ([]scramblePlayer, error) {
 	rows, err := q.Query(ctx, `SELECT p.public_id::text, p.name, COALESCE(t.name, ''), sp.solved_at IS NOT NULL AND sp.solved_at <= g.cutoff_at,
-			COALESCE(EXTRACT(EPOCH FROM sp.solved_at - sp.started_at)::bigint, 0), sp.wrong_checks
+			COALESCE(EXTRACT(EPOCH FROM sp.solved_at - sp.started_at)::bigint, 0), sp.wrong_checks, g.opens_at, sp.solved_at
 		FROM scramble_plays sp JOIN participants p ON p.id = sp.participant_id JOIN scramble_games g ON g.id = sp.game_id
 		LEFT JOIN LATERAL (SELECT pg.name FROM participant_group_membership_periods m JOIN participant_groups pg ON pg.id = m.participant_group_id
 			WHERE m.participant_id = p.id AND pg.kind = 'tribe' AND m.starts_at <= g.cutoff_at AND (m.ends_at IS NULL OR m.ends_at > g.cutoff_at)
@@ -285,7 +282,11 @@ func loadScramblePlayers(ctx context.Context, q scrambleQuerier, gameID int64) (
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (scramblePlayer, error) {
 		var p scramblePlayer
-		return p, row.Scan(&p.ID, &p.Name, &p.Tribe, &p.Solved, &p.Seconds, &p.WrongChecks)
+		var opens time.Time
+		var solved *time.Time
+		err := row.Scan(&p.ID, &p.Name, &p.Tribe, &p.Solved, &p.Seconds, &p.WrongChecks, &opens, &solved)
+		p.BeforeHint = solved != nil && solved.Before(scrambleHintAt(opens))
+		return p, err
 	})
 }
 
@@ -293,7 +294,7 @@ func scramblePlayerPlaces(players []scramblePlayer) (map[string]int, map[string]
 	var solves []scrambleSolve
 	for _, p := range players {
 		if p.Solved {
-			solves = append(solves, scrambleSolve{ID: p.ID, Seconds: p.Seconds, WrongChecks: p.WrongChecks})
+			solves = append(solves, scrambleSolve{ID: p.ID, Seconds: p.Seconds, WrongChecks: p.WrongChecks, BeforeHint: p.BeforeHint})
 		}
 	}
 	return scramblePlaces(solves), scrambleScores(solves)

@@ -6,9 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Inside Track admin prototype: rack of 10 balls through a gate, foam tracks with shallow cups, full-table physics; retro flat styling.
+- Island Scramble scoring: +1 for solving, +1 for solving before the hint, fewest wrong checks +2 and second +1 (max 4; ties share); no speed points. Game results replace `time_points` with `hint_points`.
+- Inside Track weekly game (`/games/inside-track`, migration 038): 3 practice balls then 12 scored balls into three foam-track cups; score is cups plus balls left once all three are in; one run per player, saved after every ball so a reload resumes. League points: best +3, second +2, everyone else who played +1. Admin API `POST /instances/:id/track-games`, `POST /track-games/:id/resolve`; game results type `inside_track` with `score`, `cups`, `balls_left`. Admins get the practice board when no game is open.
 
-- Island Scramble scoring: fastest +3/second +2, fewest wrong checks +3/second +2, +1 for finishing (max 7; ties share). Game results add `time_points` and `clean_points`. From 8am Eastern on the fifth day after opening (Monday), the page shows one letter per word, picked from a hash of the game ID.
+- Island Scramble hint: from 8am Eastern on the fifth day after opening (Monday), the page shows one letter per word, picked from a hash of the game ID.
 
 - Press the Button game results include each player's rule breakdown (`rank_rule`, `rank_points`, `volume_points`, `streak_points`).
 

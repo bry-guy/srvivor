@@ -36,8 +36,12 @@ type gameResult struct {
 	Place       int   `json:"place"` // 0: didn't solve
 	Seconds     int64 `json:"seconds"`
 	WrongChecks int   `json:"wrong_checks"`
-	TimePoints  int   `json:"time_points"`  // fastest +3, second +2
-	CleanPoints int   `json:"clean_points"` // fewest wrong checks +3, second +2; Points adds +1 for finishing
+	HintPoints  int   `json:"hint_points"`  // +1 for solving before the hint
+	CleanPoints int   `json:"clean_points"` // fewest wrong checks +2, second +1; Points adds +1 for solving
+	// inside_track (Place is shared with spell_it_out)
+	Score     int `json:"score"` // cups + balls left once all three cups are in
+	Cups      int `json:"cups"`
+	BallsLeft int `json:"balls_left"`
 	// castawordle
 	Guesses int  `json:"guesses"`
 	Solved  bool `json:"solved"`
@@ -144,7 +148,7 @@ func (s *Server) gameResults(ctx context.Context, instanceID uuid.UUID, episode 
 		for _, p := range players {
 			sc := scores[p.ID]
 			r := gameResult{Name: p.Name, Tribe: p.Tribe, TribeEmoji: emoji[p.Tribe], Place: places[p.ID], Points: sc.Total, WrongChecks: p.WrongChecks,
-				TimePoints: sc.Time, CleanPoints: sc.Clean}
+				HintPoints: sc.Hint, CleanPoints: sc.Clean}
 			if p.Solved {
 				r.Seconds = p.Seconds
 			}
@@ -156,6 +160,26 @@ func (s *Server) gameResults(ctx context.Context, instanceID uuid.UUID, episode 
 		})
 		sort.SliceStable(out, func(i, j int) bool { return out[i].Points > out[j].Points }) // most points first; ties by time
 		return "spell_it_out", out, []tribeResult{}, nil
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return "", nil, nil, err
+	}
+
+	err = s.pool.QueryRow(ctx, `SELECT g.id, g.resolved_at FROM track_games g JOIN instances i ON i.id = g.instance_id
+		WHERE i.public_id = $1 AND g.episode_number = $2`, toPGUUID(instanceID), episode).Scan(&id, &resolved)
+	if err == nil {
+		if resolved == nil {
+			return "", nil, nil, errGameNotScored
+		}
+		players, err := loadTrackPlayers(ctx, s.pool, id)
+		if err != nil {
+			return "", nil, nil, err
+		}
+		out := []gameResult{}
+		for _, r := range trackResults(players) {
+			out = append(out, gameResult{Name: r.Name, Tribe: r.Tribe, TribeEmoji: emoji[r.Tribe], Place: r.Place, Points: r.Points,
+				Score: r.Score, Cups: r.Cups, BallsLeft: r.BallsLeft})
+		}
+		return "inside_track", out, []tribeResult{}, nil
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return "", nil, nil, err
 	}

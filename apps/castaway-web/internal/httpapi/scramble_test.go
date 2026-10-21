@@ -40,25 +40,25 @@ func TestScrambleTrayAndSlots(t *testing.T) {
 
 func TestScramblePlaces(t *testing.T) {
 	places := scramblePlaces([]scrambleSolve{
-		{"slow", 300, 0}, {"fast", 60, 2}, {"fastClean", 60, 0}, {"tieA", 120, 1}, {"tieB", 120, 1},
+		{"slow", 300, 0, false}, {"fast", 60, 2, true}, {"fastClean", 60, 0, true}, {"tieA", 120, 1, true}, {"tieB", 120, 1, false},
 	})
 	want := map[string]int{"fastClean": 1, "fast": 2, "tieA": 3, "tieB": 3, "slow": 5}
 	if !reflect.DeepEqual(places, want) {
 		t.Fatalf("places %v", places)
 	}
 	scores := scrambleScores([]scrambleSolve{
-		{"slow", 300, 0}, {"fast", 60, 2}, {"fastClean", 60, 0}, {"tieA", 120, 1}, {"tieB", 120, 1},
+		{"slow", 300, 0, false}, {"fast", 60, 2, true}, {"fastClean", 60, 0, true}, {"tieA", 120, 1, true}, {"tieB", 120, 1, false},
 	})
-	wantScores := map[string]scrambleScore{ // fast ties share first; fewest wrong: slow+fastClean tie, next is third
-		"fastClean": {3, 3, 7}, "fast": {3, 0, 4}, "tieA": {0, 0, 1}, "tieB": {0, 0, 1}, "slow": {0, 3, 4},
+	wantScores := map[string]scrambleScore{ // speed scores nothing; fewest wrong: slow+fastClean tie first (+2), next is third (0)
+		"fastClean": {1, 2, 4}, "fast": {1, 0, 2}, "tieA": {1, 0, 2}, "tieB": {0, 0, 1}, "slow": {0, 2, 3},
 	}
 	if !reflect.DeepEqual(scores, wantScores) {
 		t.Fatalf("scores %v", scores)
 	}
-	if got := scrambleScores([]scrambleSolve{{"a", 10, 2}, {"b", 20, 1}, {"c", 30, 0}}); got["b"] != (scrambleScore{2, 2, 5}) {
+	if got := scrambleScores([]scrambleSolve{{"a", 10, 2, false}, {"b", 20, 1, false}, {"c", 30, 0, false}}); got["b"] != (scrambleScore{0, 1, 2}) || got["a"] != (scrambleScore{0, 0, 1}) {
 		t.Errorf("second places: %v", got)
 	}
-	if got := scrambleScores([]scrambleSolve{{"a", 10, 0}, {"b", 20, 1}, {"c", 20, 1}}); got["b"] != (scrambleScore{2, 2, 5}) || got["c"] != got["b"] {
+	if got := scrambleScores([]scrambleSolve{{"a", 10, 0, true}, {"b", 20, 1, true}, {"c", 20, 1, false}}); got["b"] != (scrambleScore{1, 1, 3}) || got["c"] != (scrambleScore{0, 1, 2}) {
 		t.Errorf("tie for second: %v", got)
 	}
 	if scrambleDuration(221) != "3:41" || scrambleDuration(3725) != "1:02:05" {

@@ -105,6 +105,8 @@ func (s *Server) PublicRouter() *gin.Engine {
 	pages.GET("/games/button/:gameID", s.buttonPage)
 	pages.GET("/games/scramble", s.scramblePage)
 	pages.GET("/games/inside-track", s.insideTrackPage)
+	pages.GET("/games/inside-track/:gameID", s.insideTrackPage)
+	pages.POST("/games/inside-track/:gameID/progress", s.requireSameOrigin(), s.trackProgress)
 	pages.GET("/games/champion", s.championPage)
 	pages.POST("/games/champion", s.requireSameOrigin(), s.pickChampion)
 	pages.POST("/games/scramble/tests", s.requireSameOrigin(), s.createScrambleTest)

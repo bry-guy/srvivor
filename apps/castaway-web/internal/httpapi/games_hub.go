@@ -339,6 +339,11 @@ func (s *Server) profileGames(ctx context.Context, participantID string) ([]prof
 		return nil, err
 	}
 	games = append(games, scramble...)
+	track, err := s.trackProfileGames(ctx, participantID)
+	if err != nil {
+		return nil, err
+	}
+	games = append(games, track...)
 	sort.SliceStable(games, func(i, j int) bool {
 		if games[i].Episode != games[j].Episode {
 			return games[i].Episode > games[j].Episode
