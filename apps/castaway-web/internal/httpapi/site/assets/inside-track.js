@@ -15,9 +15,9 @@ const TRACKS = [-ANG, 0, ANG].map((a, i) => {
   return { a, len, ux, uy, o, color: COLORS[i], cup: [o[0] + ux * (len - 0.17), o[1] + uy * (len - 0.17)] };
 });
 const TABLE_H = 0.6, G = 9.8;
-const ROLL = (v) => 0.72 + 0.12 * v;  // foam rolling resistance
+const ROLL = (v) => 1.08 + 0.18 * v;  // foam rolling resistance
 const SAND = 6;                      // sand stops a ball fast
-const WALL_E = 0.2, BALL_E = 0.6;   // heavy ball: walls soak up speed
+const WALL_E = 0.13, BALL_E = 0.4;   // heavy ball: walls soak up speed
 const ROLL_G = 7; // (5/7)·g: gravity along a slope for a rolling ball
 const THROW_K = 0.55, MAX_V = 3.0, SNAP = 0.3;
 const RACK_N = 12, DEBUG = location.search.includes("debug");
@@ -364,7 +364,7 @@ const STEP = 1 / 240;
 function frame(now) {
   acc += Math.min(0.05, (now - last) / 1000); last = now;
   while (acc >= STEP) {
-    if (held && target) { const k = 1 - Math.exp(-STEP * 22); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
+    if (held && target) { const k = 1 - Math.exp(-STEP * 15); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
     step(STEP); acc -= STEP;
   }
   draw(now);
