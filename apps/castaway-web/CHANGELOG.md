@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Inside Track admin prototype: rack of 10 balls through a gate, foam tracks with shallow cups, full-table physics; retro flat styling.
 
 - Island Scramble scoring: fastest +3/second +2, fewest wrong checks +3/second +2, +1 for finishing (max 7; ties share). Game results add `time_points` and `clean_points`. From 8am Eastern on the fifth day after opening (Monday), the page shows one letter per word, picked from a hash of the game ID.
 

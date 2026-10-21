@@ -4,22 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Inside Track · Castaway</title>
-<link rel="stylesheet" href="/assets/inside-track.css?v=7">
+<link rel="stylesheet" href="/assets/inside-track.css?v=8">
 </head>
 <body>
 <canvas id="c" aria-label="Inside Track board"></canvas>
-<div class="hud">
-  <div class="chip"><span class="label">Time</span><span id="time">0:00.0</span></div>
-  <div class="chip balls" id="balls"><i></i><i></i><i></i></div>
-  <div class="chip"><span class="label">Rolls</span><span id="tries">0</span></div>
-</div>
+<div class="hud"><span>BALLS <b id="left">10</b></span><span>CUPS <b id="cups">0/3</b></span></div>
 <div class="toast" id="msg"></div>
 <div class="overlay" id="intro">
   <div class="card">
     <p class="eyebrow">Castaway challenge</p>
     <h1>Inside Track</h1>
-    <p>Three tracks, three holes. Land one ball in each. Roll off the edge and it's back to the start.</p>
-    <p class="how">Swipe up from the ball. That's it.</p>
+    <p>Ten balls. Three cups. Roll one ball into each cup. Too fast and it skips out, too soft and it stops short. </p>
+    <p class="how">Swipe up from the ball.</p>
     <button id="go" class="primary">Let's go</button>
   </div>
 </div>
@@ -31,6 +27,6 @@
     <button id="again" class="primary">Play again</button>
   </div>
 </div>
-<script src="/assets/inside-track.js?v=7" defer></script>
+<script src="/assets/inside-track.js?v=8" defer></script>
 </body>
 </html>

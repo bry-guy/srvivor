@@ -1,21 +1,15 @@
-html, body { margin: 0; height: 100%; overflow: hidden; background: #c7a46a; color: #fbeccb; font: 700 15px/1.3 Georgia, "Times New Roman", serif; -webkit-user-select: none; user-select: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #d8c39a; color: #2b2418; font: 600 14px/1.3 Futura, "Avenir Next Condensed", "Arial Narrow", sans-serif; -webkit-user-select: none; user-select: none; }
 canvas { display: block; touch-action: none; position: absolute; inset: 0; width: 100%; height: 100%; }
-.hud { position: fixed; top: max(.6rem, env(safe-area-inset-top)); left: .6rem; right: .6rem; display: flex; justify-content: space-between; gap: .5rem; pointer-events: none; }
-/* bamboo plaques lashed with rope */
-.chip { background: linear-gradient(90deg, #8a6a2c 0 18%, #a8863e 18% 20%, #8a6a2c 20% 48%, #a8863e 48% 50%, #8a6a2c 50% 80%, #a8863e 80% 82%, #8a6a2c 82%); border: 2px solid #3d2a10; border-radius: .35rem; padding: .3rem .75rem; display: flex; gap: .45rem; align-items: baseline; font-variant-numeric: tabular-nums; box-shadow: 0 3px 0 #3d2a10, 0 6px 14px rgba(40, 20, 0, .35); text-shadow: 0 2px 0 #3d2a10; }
-.label { font-size: .68rem; text-transform: uppercase; letter-spacing: .12em; color: #ffd27a; }
-.balls { align-items: center; }
-.balls i { width: 15px; height: 15px; border-radius: 50%; border: 2px dashed #3d2a10; background: rgba(30, 15, 0, .35); display: inline-block; transition: transform .25s, background .25s; }
-.balls i.on { background: radial-gradient(circle at 35% 30%, #b07a45, #6e4522 55%, #3a2210); border-style: solid; transform: scale(1.2); }
-.toast { position: fixed; left: 50%; bottom: max(1.2rem, env(safe-area-inset-bottom)); transform: translate(-50%, 20px); background: #f3e2b8; color: #3d2a10; border: 2px solid #3d2a10; padding: .5rem 1.1rem; border-radius: .3rem; box-shadow: 0 3px 0 #3d2a10; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; white-space: nowrap; }
-.toast.show { opacity: 1; transform: translate(-50%, 0); }
-.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle, rgba(20, 10, 0, .35), rgba(20, 10, 0, .75)); transition: opacity .3s; }
+.hud { position: fixed; top: 0; left: 0; right: 0; padding: max(.6rem, env(safe-area-inset-top)) 1rem .5rem; display: flex; justify-content: space-between; letter-spacing: .14em; text-transform: uppercase; border-bottom: 2px solid #2b2418; background: #ece6d6; pointer-events: none; }
+.hud b { font-variant-numeric: tabular-nums; margin-left: .35rem; color: #c8372d; }
+.toast { position: fixed; left: 50%; bottom: max(1.2rem, env(safe-area-inset-bottom)); transform: translateX(-50%); background: #ece6d6; border: 2px solid #2b2418; box-shadow: 3px 3px 0 #2b2418; padding: .4rem .9rem; text-transform: uppercase; letter-spacing: .12em; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(43, 36, 24, .35); transition: opacity .2s; }
 .overlay.hidden { opacity: 0; pointer-events: none; }
-/* parchment card with a rope border */
-.card { width: min(22rem, 86vw); text-align: center; color: #3d2a10; background: radial-gradient(ellipse at 30% 20%, #fbf0d0, #ead39c 70%, #d4b273); border: 6px double #6b4a22; border-radius: .4rem; padding: 1.4rem 1.3rem 1.5rem; box-shadow: 0 0 0 3px #a8834a, 0 18px 50px rgba(0, 0, 0, .55); }
-.card h1 { margin: .2rem 0 .6rem; font-size: 2.3rem; text-transform: uppercase; letter-spacing: .06em; color: #b8401c; text-shadow: 2px 2px 0 #3d2a10; }
-.card p:not(.eyebrow) { margin: .4rem 0; font-weight: 400; }
-.eyebrow { text-transform: uppercase; letter-spacing: .2em; font-size: .72rem; color: #6b4a22; font-weight: 700; }
+.card { width: min(20rem, 86vw); text-align: center; background: #ece6d6; border: 2px solid #2b2418; box-shadow: 6px 6px 0 #2b2418; padding: 1.3rem 1.2rem 1.4rem; }
+.card h1 { margin: .2rem 0 .7rem; font-size: 2rem; text-transform: uppercase; letter-spacing: .1em; color: #c8372d; }
+.card p { margin: .4rem 0; font-weight: 400; }
+.card p.eyebrow { text-transform: uppercase; letter-spacing: .22em; font-size: .7rem; font-weight: 600; }
 .how { font-style: italic; }
-button.primary { margin-top: 1rem; font: 700 1.05rem Georgia, serif; text-transform: uppercase; letter-spacing: .08em; color: #fff3d6; background: linear-gradient(#e86a2a, #b8401c); border: 2px solid #3d2a10; border-radius: .3rem; padding: .7rem 1.8rem; box-shadow: 0 4px 0 #3d2a10, 0 8px 18px rgba(0, 0, 0, .35); text-shadow: 0 2px 0 #3d2a10; cursor: pointer; }
-button.primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #3d2a10; }
+button.primary { margin-top: 1rem; font: 600 1rem Futura, "Avenir Next Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; letter-spacing: .14em; color: #ece6d6; background: #c8372d; border: 2px solid #2b2418; box-shadow: 3px 3px 0 #2b2418; padding: .65rem 1.6rem; cursor: pointer; }
+button.primary:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #2b2418; }
