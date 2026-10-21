@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/bits"
 	"net/http"
 	"sort"
 	"strconv"
@@ -35,8 +34,13 @@ type trackPlayer struct {
 	Finished        bool
 }
 
+// trackCups counts the filled cups in a cups_mask (bits: red, yellow, blue).
+func trackCups(mask int) int {
+	return mask&1 + mask>>1&1 + mask>>2&1
+}
+
 func trackScore(mask, used int) int {
-	cups := bits.OnesCount(uint(mask))
+	cups := trackCups(mask)
 	if cups == 3 {
 		return cups + trackBalls - used
 	}
@@ -194,7 +198,7 @@ func (s *Server) resolveTrackGame(ctx context.Context, gameID uuid.UUID) (map[st
 		}
 		for _, p := range players {
 			metadata, err := json.Marshal(map[string]int{"place": places[p.ID], "score": trackScore(p.CupsMask, p.BallsUsed),
-				"cups": bits.OnesCount(uint(p.CupsMask)), "balls_used": p.BallsUsed})
+				"cups": trackCups(p.CupsMask), "balls_used": p.BallsUsed})
 			if err != nil {
 				return nil, err
 			}
@@ -347,7 +351,7 @@ func (s *Server) insideTrackPage(c *gin.Context) {
 	}
 	if play.exists {
 		view.Played, view.Score = true, trackScore(play.mask, play.used)
-		view.Cups = bits.OnesCount(uint(play.mask))
+		view.Cups = trackCups(play.mask)
 		if view.Cups == 3 {
 			view.BallsLeft = trackBalls - play.used
 		}
@@ -369,7 +373,7 @@ func trackResults(players []trackPlayer) []trackResult {
 	out := make([]trackResult, 0, len(players))
 	for _, p := range players {
 		r := trackResult{Place: places[p.ID], ID: p.ID, Name: p.Name, Tribe: p.Tribe, Score: trackScore(p.CupsMask, p.BallsUsed),
-			Cups: bits.OnesCount(uint(p.CupsMask)), Points: points[p.ID]}
+			Cups: trackCups(p.CupsMask), Points: points[p.ID]}
 		if r.Cups == 3 {
 			r.BallsLeft = trackBalls - p.BallsUsed
 		}
@@ -415,7 +419,7 @@ func (s *Server) trackProgress(c *gin.Context) {
 		Finished  bool `json:"finished"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || req.CupsMask < 0 || req.CupsMask > 7 || req.BallsUsed < 0 || req.BallsUsed > trackBalls ||
-		bits.OnesCount(uint(req.CupsMask)) > req.BallsUsed || (req.Finished && req.CupsMask != 7 && req.BallsUsed != trackBalls) {
+		trackCups(req.CupsMask) > req.BallsUsed || (req.Finished && req.CupsMask != 7 && req.BallsUsed != trackBalls) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "bad progress"})
 		return
 	}
