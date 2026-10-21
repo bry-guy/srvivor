@@ -214,7 +214,7 @@ function step(dt) {
   }
 }
 function finish() {
-  setTimeout(() => { $("final").textContent = `${cupCount()} of 3 cups`; $("finalRolls").textContent = `${used()} of ${RACK_N} balls used`; $("done").classList.remove("hidden"); }, 700);
+  setTimeout(() => { const left = RACK_N - used(); $("final").textContent = `${cupCount() + left} pts`; $("finalRolls").textContent = `${cupCount()} cups + ${left} balls left`; $("done").classList.remove("hidden"); }, 700);
 }
 
 // ---- drawing: flat, matte, one light from the top left ----
