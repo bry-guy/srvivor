@@ -15,9 +15,9 @@ const TRACKS = [-ANG, 0, ANG].map((a, i) => {
   return { a, len, ux, uy, o, color: COLORS[i], cup: [o[0] + ux * (len - 0.17), o[1] + uy * (len - 0.17)] };
 });
 const TABLE_H = 0.6, G = 9.8;
-const ROLL = (v) => 0.65 + 0.11 * v;  // foam rolling resistance
+const ROLL = (v) => 0.72 + 0.12 * v;  // foam rolling resistance
 const SAND = 6;                      // sand stops a ball fast
-const WALL_E = 0.22, BALL_E = 0.65;   // heavy ball: walls soak up speed
+const WALL_E = 0.2, BALL_E = 0.6;   // heavy ball: walls soak up speed
 const ROLL_G = 7; // (5/7)·g: gravity along a slope for a rolling ball
 const THROW_K = 0.55, MAX_V = 3.0, SNAP = 0.3;
 const RACK_N = 12, DEBUG = location.search.includes("debug");
@@ -33,7 +33,7 @@ function onTable(x, y) {
 const WALLS = [
   [COL.x0, 0, PAD.x1, 0], [PAD.x1, 0, PAD.x1, PAD.y1, "stop"],
   [COL.x0, 0, COL.x0, COL.top], [COL.x1, CH, COL.x1, COL.top], [COL.x0, COL.top, COL.x1, COL.top], [COL.x1, CH, PAD.x0, CH],
-  [PAD.x0, 0, PAD.x0, CH, "gate"],
+  [PAD.x0, 0, PAD.x0, CH, "gate"], [PAD.x0, CH, PAD.x0, PAD.y1],
 ]; // the track ends are open: overshoot and it drops off
 
 const $ = (id) => document.getElementById(id);
@@ -97,7 +97,8 @@ function letGo() {
   held = false;
   const a = drag[0], b = drag[drag.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000);
   const fx = (b.x - a.x) / dt, fy = (b.y - a.y) / dt;
-  if (fy < 0.4) return; // a tap or a pull back: no throw
+  if (Math.hypot(fx, fy) < 0.3) return; // a tap: just set it down
+  if (fy <= 0) return throwBall(Math.max(-MAX_V, Math.min(MAX_V, THROW_K * fx)), MAX_V * Math.tanh(THROW_K * fy / MAX_V)); // practice toss on the mat
   const ang = Math.atan2(fx, fy), t = TRACKS.reduce((best, tr) => (Math.abs(tr.a - ang) < Math.abs(best.a - ang) ? tr : best));
   const dir = ang + (Math.atan2(t.cup[0] - cur.x, t.cup[1] - cur.y) - ang) * SNAP;
   let v = THROW_K * Math.hypot(fx, fy); v = MAX_V * Math.tanh(v / MAX_V); // linear, soft-clamped: speed control is the skill
@@ -351,7 +352,7 @@ const STEP = 1 / 240;
 function frame(now) {
   acc += Math.min(0.05, (now - last) / 1000); last = now;
   while (acc >= STEP) {
-    if (held && target) { const k = 1 - Math.exp(-STEP * 24); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
+    if (held && target) { const k = 1 - Math.exp(-STEP * 22); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
     step(STEP); acc -= STEP;
   }
   draw(now);
