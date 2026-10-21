@@ -16,4 +16,4 @@ patches:
 images:
   - name: ghcr.io/bry-guy/castaway-web
     newName: ghcr.io/bry-guy/castaway-web
-    digest: sha256:b60794a5084ca82efb1bf18d9fe1a55aec36ebae0c7ded2f6797953fee5f8d32
+    digest: sha256:1a2ddb6f0cef78f9436a95e6a0f76b4e4a4919395e92e534e829fac96fa34af4
