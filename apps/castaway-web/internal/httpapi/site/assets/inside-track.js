@@ -14,9 +14,9 @@ const TRACKS = [-ANG, 0, ANG].map((a, i) => {
   return { a, len, ux, uy, o, color: COLORS[i], cup: [o[0] + ux * (len - 0.17), o[1] + uy * (len - 0.17)] };
 });
 const TABLE_H = 0.6, G = 9.8;
-const ROLL = (v) => 0.9 + 0.15 * v;  // foam rolling resistance
+const ROLL = (v) => 0.72 + 0.12 * v;  // foam rolling resistance
 const SAND = 6;                      // sand stops a ball fast
-const WALL_E = 0.15, BALL_E = 0.5;   // heavy ball: walls soak up speed
+const WALL_E = 0.2, BALL_E = 0.6;   // heavy ball: walls soak up speed
 const BOWL = 3, STICK_V = 0.55;    // cup slope; slower than this near the centre and it sits down
 const THROW_K = 0.55, MAX_V = 3.0, SNAP = 0.3;
 const RACK_N = 10, DEBUG = location.search.includes("debug");
@@ -214,13 +214,37 @@ let toastTimer;
 function toast(t) { const el = $("msg"); el.textContent = t; el.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 1400); }
 
 // ---- drawing: flat, matte, one light from the top left ----
-const INK = "#2b2418", FOAM = "#ece6d6";
+const INK = "#2b2418";
+const SUN = { x: 0.55, y: 0.75 }; // shadow offset per unit of height, in screen directions (down-right)
+const shadowAt = (h) => [SUN.x * h * scale, SUN.y * h * scale];
 function sandPattern() {
   if (sand) return sand;
   const c = document.createElement("canvas"); c.width = c.height = 128;
-  const g = c.getContext("2d"); g.fillStyle = "#d8c39a"; g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 900; i++) { g.fillStyle = Math.random() < 0.5 ? "rgba(90,70,40,.08)" : "rgba(255,250,235,.12)"; g.fillRect(Math.random() * 128, Math.random() * 128, 1, 1); }
+  const g = c.getContext("2d"); g.fillStyle = "#dcc596"; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 700; i++) { g.fillStyle = Math.random() < 0.5 ? "rgba(110,80,40,.09)" : "rgba(255,248,230,.14)"; g.fillRect(Math.random() * 128, Math.random() * 128, 1, 1); }
   return (sand = ctx.createPattern(c, "repeat"));
+}
+const rnd = ((seed) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647))(51);
+const PALMS = Array.from({ length: 4 }, (_, i) => ({ x: [0.08, 0.92, 0.1, 0.88][i], y: [0.35, 0.55, 0.85, 0.95][i], a: rnd() * 6 }));
+function beach(time) {
+  ctx.fillStyle = sandPattern(); ctx.fillRect(0, 0, W, H);
+  const shore = H * 0.13;
+  ctx.fillStyle = "#c9ae7c"; ctx.fillRect(0, 0, W, shore + 18); // wet sand
+  ctx.fillStyle = "#3f9a9c"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0);
+  for (let x = W; x >= 0; x -= 12) ctx.lineTo(x, shore + Math.sin(x / 45 + time * 0.9) * 5);
+  ctx.fill();
+  ctx.fillStyle = "#2a7f86"; ctx.fillRect(0, 0, W, shore * 0.45); // deeper water
+  ctx.strokeStyle = "#f3ead2"; ctx.lineWidth = 3; ctx.beginPath();
+  for (let x = 0; x <= W; x += 12) ctx.lineTo(x, shore + Math.sin(x / 45 + time * 0.9) * 5);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(70,55,25,.14)"; // palm shadows, cast down-right like everything else
+  PALMS.forEach((p) => {
+    const px = p.x * W, py = p.y * H;
+    for (let f = 0; f < 6; f++) {
+      ctx.save(); ctx.translate(px, py); ctx.rotate(p.a + f * 1.05 + Math.sin(time * 0.5 + p.a) * 0.03);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(40, -9, 80, 0); ctx.quadraticCurveTo(40, 9, 0, 0); ctx.fill(); ctx.restore();
+    }
+  });
 }
 function poly(pts) { ctx.moveTo(sx(pts[0][0]), sy(pts[0][1])); pts.slice(1).forEach(([x, y]) => ctx.lineTo(sx(x), sy(y))); ctx.closePath(); }
 const rectPts = (x0, x1, y0, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
@@ -229,15 +253,42 @@ function trackPts(t) {
   return [[-0.15, -h], [t.len, -h], [t.len, h], [-0.15, h]].map(([a, c]) => [t.o[0] + t.ux * a + px * c, t.o[1] + t.uy * a + py * c]);
 }
 const SHAPES = () => [
-  { pts: rectPts(COL.x0, COL.x1, 0, COL.top), color: "#8a7a62" }, { pts: rectPts(COL.x1, PAD.x0, 0, CH), color: "#8a7a62" },
+  { pts: rectPts(COL.x0, COL.x1, 0, COL.top), color: "#7a5230" }, { pts: rectPts(COL.x1, PAD.x0, 0, CH), color: "#7a5230" },
   ...TRACKS.map((t) => ({ pts: trackPts(t), color: t.color })),
-  { pts: rectPts(PAD.x0, PAD.x1, PAD.y0, PAD.y1), color: FOAM },
+  { pts: rectPts(PAD.x0, PAD.x1, PAD.y0, PAD.y1), color: "#b98a55", wood: true },
 ];
+function planks(pts) { // flat plank seams and a few grain strokes
+  const x0 = sx(pts[0][0]), x1 = sx(pts[1][0]), y1 = sy(pts[0][1]), y0 = sy(pts[2][1]), n = 5, h = (y1 - y0) / n;
+  ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, x1 - x0, y1 - y0); ctx.clip();
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = i % 2 ? "rgba(255,230,190,.06)" : "rgba(80,45,15,.06)"; ctx.fillRect(x0, y0 + i * h, x1 - x0, h);
+    ctx.strokeStyle = "rgba(70,40,15,.45)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0, y0 + i * h); ctx.lineTo(x1, y0 + i * h); ctx.stroke();
+    ctx.strokeStyle = "rgba(90,55,20,.18)"; ctx.lineWidth = 1;
+    for (let k = 0; k < 3; k++) { const yy = y0 + i * h + h * (0.25 + k * 0.25); ctx.beginPath(); ctx.moveTo(x0, yy); ctx.bezierCurveTo(x0 + (x1 - x0) * 0.3, yy - 2, x0 + (x1 - x0) * 0.6, yy + 2, x1, yy); ctx.stroke(); }
+    const butt = x0 + (x1 - x0) * ((i * 0.37) % 1); ctx.strokeStyle = "rgba(70,40,15,.4)"; ctx.beginPath(); ctx.moveTo(butt, y0 + i * h); ctx.lineTo(butt, y0 + (i + 1) * h); ctx.stroke();
+  }
+  ctx.restore();
+}
+const TORCHES = [[PAD.x0 - 0.14, PAD.y1 + 0.02], [PAD.x1 + 0.14, PAD.y1 + 0.02]];
+function torch([x, y], time, i) { // seen from above: a bamboo pole top with a flame; pole shadow falls with the sun
+  const px = sx(x), py = sy(y), u = 0.045 * scale, [ox, oy] = shadowAt(0.5);
+  ctx.strokeStyle = "rgba(60,40,15,.28)"; ctx.lineWidth = u * 0.9; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + ox, py + oy); ctx.stroke();
+  const f = 1 + Math.sin(time * 11 + i * 3) * 0.1 + Math.sin(time * 6.7 + i) * 0.07;
+  const glow = ctx.createRadialGradient(px, py, 0, px, py, u * 5 * f);
+  glow.addColorStop(0, "rgba(255,170,60,.35)"); glow.addColorStop(1, "rgba(255,140,40,0)");
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(px, py, u * 5 * f, 0, 7); ctx.fill();
+  ctx.fillStyle = "#5a3a1c"; ctx.beginPath(); ctx.arc(px, py, u, 0, 7); ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = "#e8742a"; ctx.beginPath(); ctx.arc(px, py, u * 0.7 * f, 0, 7); ctx.fill();
+  ctx.fillStyle = "#ffd36a"; ctx.beginPath(); ctx.arc(px - u * 0.1, py - u * 0.1, u * 0.35 * f, 0, 7); ctx.fill();
+}
 function drawTable() {
-  const off = TABLE_H * 0.09 * scale;
-  ctx.save(); ctx.translate(off, off * 1.2); ctx.fillStyle = "rgba(60,40,15,.28)"; ctx.beginPath(); SHAPES().forEach((s) => poly(s.pts)); ctx.fill(); ctx.restore();
+  const [ox, oy] = shadowAt(TABLE_H * 0.12);
+  ctx.save(); ctx.translate(ox, oy); ctx.fillStyle = "rgba(60,40,15,.28)"; ctx.beginPath(); SHAPES().forEach((s) => poly(s.pts)); ctx.fill(); ctx.restore();
   for (const s of SHAPES()) {
     ctx.beginPath(); poly(s.pts); ctx.fillStyle = s.color; ctx.fill();
+    if (s.wood) planks(s.pts);
     ctx.save(); ctx.clip(); ctx.lineWidth = 5; // soft foam bevel
     ctx.strokeStyle = "rgba(255,255,255,.22)"; ctx.translate(2, 2); ctx.beginPath(); poly(s.pts); ctx.stroke();
     ctx.strokeStyle = "rgba(0,0,0,.18)"; ctx.translate(-4, -4); ctx.beginPath(); poly(s.pts); ctx.stroke(); ctx.restore();
@@ -263,23 +314,27 @@ function drawBall(b) {
   const lift = b.level === "ground" || b.level === "air" ? b.h - TABLE_H : 0; // nearer the camera looks bigger
   const sink = b.level === "cup" ? b.sink : 0;
   const r = R * scale * (1 + lift * 0.25) * (1 - sink * 0.08), px = sx(b.x), py = sy(b.y);
-  const so = (b.level === "air" ? b.h * 0.12 : 0.012) * scale; // shadow offset grows in the air
-  ctx.fillStyle = `rgba(40,25,5,${b.level === "air" ? 0.22 : 0.35})`;
-  ctx.beginPath(); ctx.ellipse(px + so + r * 0.15, py + so * 1.2 + r * 0.2, r * (1 - sink * 0.2), r * 0.85 * (1 - sink * 0.2), 0, 0, 7); ctx.fill();
-  const g = ctx.createRadialGradient(px - r * 0.4, py - r * 0.45, r * 0.05, px, py, r);
-  g.addColorStop(0, "#fbf8f0"); g.addColorStop(0.6, "#e7e0cf"); g.addColorStop(1, "#b9b09a");
+  const [ox, oy] = shadowAt((b.level === "air" ? b.h - (b.y > -1 && onTable(b.x, b.y) ? TABLE_H : 0) : 0) + R * 0.6);
+  ctx.fillStyle = `rgba(50,30,10,${b.level === "air" ? 0.2 : 0.32})`;
+  ctx.beginPath(); ctx.ellipse(px + ox, py + oy, r * (1 - sink * 0.3), r * 0.9 * (1 - sink * 0.3), 0.6, 0, 7); ctx.fill();
+  const g = ctx.createRadialGradient(px - r * 0.4, py - r * 0.45, r * 0.05, px, py, r); // lit from the upper left
+  g.addColorStop(0, "#d79a5e"); g.addColorStop(0.55, "#9a5f2e"); g.addColorStop(1, "#5b3418");
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
-  ctx.strokeStyle = "rgba(43,36,24,.55)"; ctx.lineWidth = 1; ctx.stroke();
-  ctx.save(); ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.clip(); // seam line turns with the roll
+  ctx.save(); ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.clip();
   ctx.translate(px, py); ctx.rotate(-b.ang + Math.PI / 2);
-  const off = Math.sin(b.spin) * r;
-  ctx.strokeStyle = "rgba(43,36,24,.45)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-r, off); ctx.lineTo(r, off); ctx.stroke(); ctx.restore();
+  const off = Math.sin(b.spin) * r * 0.9; // grain rings and a dark band roll past
+  ctx.strokeStyle = "rgba(70,38,15,.35)"; ctx.lineWidth = 1;
+  for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.ellipse(0, off + k * r * 0.35, r * 1.1, r * 0.18, 0, 0, 7); ctx.stroke(); }
+  ctx.strokeStyle = "rgba(45,22,8,.6)"; ctx.lineWidth = r * 0.22; ctx.beginPath(); ctx.moveTo(-r, -off * 0.6); ctx.lineTo(r, -off * 0.6); ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = "rgba(43,24,10,.7)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.stroke();
   if (sink) { ctx.strokeStyle = `rgba(0,0,0,${0.25 * sink})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px, py, r, Math.PI * 0.1, Math.PI * 0.9); ctx.stroke(); }
 }
-function draw() {
-  ctx.fillStyle = sandPattern(); ctx.fillRect(0, 0, W, H);
+function draw(now) {
+  beach((now - t0) / 1000);
   balls.filter((b) => b.level === "ground").forEach(drawBall);
   drawTable();
+  TORCHES.forEach((t, i) => torch(t, (now - t0) / 1000, i));
   if (path.length > 1) {
     ctx.strokeStyle = "rgba(43,36,24,.22)"; ctx.lineWidth = 1.5; ctx.beginPath();
     path.forEach(([x, y], i) => (i ? ctx.lineTo(sx(x), sy(y)) : ctx.moveTo(sx(x), sy(y)))); ctx.stroke();
@@ -288,15 +343,16 @@ function draw() {
   balls.filter((b) => b.level === "air").sort((a, b) => a.h - b.h).forEach(drawBall);
 }
 
-let last = performance.now(), acc = 0;
+const t0 = performance.now();
+let last = t0, acc = 0;
 const STEP = 1 / 240;
 function frame(now) {
   acc += Math.min(0.05, (now - last) / 1000); last = now;
   while (acc >= STEP) {
-    if (held && target) { const k = 1 - Math.exp(-STEP * 18); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
+    if (held && target) { const k = 1 - Math.exp(-STEP * 22); cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k; }
     step(STEP); acc -= STEP;
   }
-  draw();
+  draw(now);
   requestAnimationFrame(frame);
 }
 
