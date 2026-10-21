@@ -1,0 +1,1 @@
+⚠️ The {{.Key}} post was edited before its game was scored, and its results placeholder is gone, so the results could not be inserted. It stays held and will not send. Put the results in by hand or let it expire.

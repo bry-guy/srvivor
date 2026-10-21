@@ -248,12 +248,14 @@ DM. Each run:
    post (`seasons/NN-templates/scores.md`) for approval; once a game opens it also drafts the game-day reminder
    (`weekly.reminder.at`, no pings) for approval, pinging the top 3 and last place. If the game isn't scored
    yet, the draft shows a placeholder where its results go. The server never sends a placeholder: it holds the
-   post, and when the game is scored the draft is redrafted with the results and re-asked. At the post time an
+   post, and when the game is scored the draft is redrafted with the results and re-asked. An admin-edited draft
+   keeps the admin's words: the results replace its placeholder line. If the admin deleted that line, the results
+   can't go in: the post stays held and the admins get an alert. At the post time an
    unscored game blocks the post (admins get a waiting DM). Every approval DM states the send time in Eastern.
    Late results are fine: up to 3 hours after 8pm the post is drafted and sends as soon as
    it's approved; after that, the admins get a DM instead. If scores change before it's sent, it can't be
    approved or sent with the old numbers: an untouched draft is redrafted and re-asked; an admin-edited one
-   keeps the admin's text and re-asks with a DM to check the numbers.
+   keeps the admin's text, re-asks, and the admins get an alert to check the numbers (that note is an alert, not part of the DM).
 
 `probst episode import N --file FILE [--yes]` runs the same import by hand (`season import` and `episode sync` are deprecated) (dry run without `--yes`).
 Kill switch: `kubectl -n castaway patch cronjob probst-season-check -p '{"spec":{"suspend":true}}'` or

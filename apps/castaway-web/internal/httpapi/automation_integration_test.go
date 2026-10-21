@@ -231,6 +231,71 @@ func TestSeasonAutomation(t *testing.T) {
 		t.Fatal("redrafted post with results did not send")
 	}
 
+	// An admin edits a draft written before its game was scored. Once the game scores, the placeholder line is replaced
+	// with the results, the admin's words stay, and the post is re-asked; without the placeholder line it stays held.
+	const placeholder = "[Press the Button results go here once it's scored]"
+	scoresPost := func(key, fingerprint, body, results string, awaiting bool, want int) string {
+		t.Helper()
+		res := call("PUT", path+"/score-posts/"+key, fmt.Sprintf(`{"guild_id":"8001","channel_id":"8002","body":%q,"send_at":%q,"score_fingerprint":%q,"notify_users":true,"awaiting_results":%t,"game_results":%q,"results_placeholder":%q}`,
+			body, sendAt.Format(time.RFC3339), fingerprint, awaiting, results, placeholder), want)
+		return jstr(res, "action")
+	}
+	editedBeforeResults := func(week int, body string) (key, annID string) {
+		t.Helper()
+		key = fmt.Sprintf("s957-week-%d-scores", week)
+		fp := jstr(call("PUT", fmt.Sprintf("%s/score-snapshots/%d", path, week), fmt.Sprintf(`{"request_key":%q}`, key), 200), "fingerprint")
+		if got := scoresPost(key, fp, "Week 5 intro\n"+placeholder+"\nWeek 5 outro", "", true, 200); got != "created" {
+			t.Fatal(got)
+		}
+		ask := call("POST", "/announcements/approvals/claim", `{"guild_ids":["8001"]}`, 200)
+		annID = jstr(ask, "announcement", "id")
+		call("POST", "/announcements/"+annID+"/approval-delivered", fmt.Sprintf(`{"revision":%q}`, ask["revision"]), 200)
+		call("POST", "/announcements/"+annID+"/revise", fmt.Sprintf(`{"admin_discord_user_id":"admin","revision":%q,"body":%q}`, ask["revision"], body), 200)
+		return key, annID
+	}
+	var count int
+	// Edited, placeholder kept: the results go in its place, the admin's text stays, and the post is re-asked.
+	key5, ann5 := editedBeforeResults(5, "Admin intro\n"+placeholder+"\nAdmin outro")
+	call("POST", path+"/tribe-challenges", `{"key":"ep5-extra","kind":"immunity","winning_tribes":["Toka"],"effective_at":"2030-10-03T02:00:00Z"}`, 201)
+	fp5 := jstr(call("PUT", path+"/score-snapshots/5", fmt.Sprintf(`{"request_key":%q}`, key5), 200), "fingerprint")
+	if got := scoresPost(key5, fp5, "Week 5 rendered", "Press the Button: Ann 20", false, 200); got != "results-inserted" {
+		t.Fatal(got)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM admin_alerts a JOIN instances i ON i.id = a.instance_id
+		WHERE i.public_id = $1 AND a.alert_key = $2`, id(instance.ID.Bytes), key5+"-rescored-"+fp5[:12]).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("no standings alert for the edited draft: count=%d err=%v", count, err)
+	}
+	ask = call("POST", "/announcements/approvals/claim", `{"guild_ids":["8001"]}`, 200)
+	if jstr(ask, "announcement", "id") != ann5 || jstr(ask, "announcement", "body") != "Admin intro\nPress the Button: Ann 20\nAdmin outro" {
+		t.Fatalf("results not inserted into the admin's draft: %v", ask)
+	}
+	call("POST", "/announcements/"+ann5+"/approval-delivered", fmt.Sprintf(`{"revision":%q}`, ask["revision"]), 200)
+	call("POST", "/announcements/"+ann5+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"admin","revision":%q}`, ask["revision"]), 200)
+	if sent := call("POST", "/announcements/claim", `{"guild_ids":["8001"]}`, 200); sent["announcement"] == nil || jstr(sent, "announcement", "body") != "Admin intro\nPress the Button: Ann 20\nAdmin outro" {
+		t.Fatalf("approved draft with results did not send: %v", sent)
+	}
+	call("POST", "/announcements/"+ann5+"/finish", `{"message_id":"555"}`, 200)
+
+	// Edited, placeholder removed by the admin: the results can't go in, so the post stays held and the admins are alerted.
+	key6, ann6 := editedBeforeResults(6, "Admin intro without the line\nAdmin outro")
+	call("POST", path+"/tribe-challenges", `{"key":"ep6-extra","kind":"immunity","winning_tribes":["Savu"],"effective_at":"2030-10-03T02:00:00Z"}`, 201)
+	fp6 := jstr(call("PUT", path+"/score-snapshots/6", fmt.Sprintf(`{"request_key":%q}`, key6), 200), "fingerprint")
+	if got := scoresPost(key6, fp6, "Week 6 rendered", "Press the Button: Bo 2", false, 200); got != "results-missing" {
+		t.Fatal(got)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM admin_alerts a JOIN instances i ON i.id = a.instance_id
+		WHERE i.public_id = $1 AND a.alert_key = $2`, id(instance.ID.Bytes), key6+"-results-missing").Scan(&count); err != nil || count != 1 {
+		t.Fatalf("no results-missing alert: count=%d err=%v", count, err)
+	}
+	var awaiting bool
+	var stored string
+	if err := pool.QueryRow(ctx, `SELECT a.awaiting_results, a.body FROM announcements a WHERE a.id = $1`, ann6).Scan(&awaiting, &stored); err != nil || !awaiting || stored != "Admin intro without the line\nAdmin outro" {
+		t.Fatalf("held draft changed: awaiting=%v body=%q err=%v", awaiting, stored, err)
+	}
+	if got := call("POST", "/announcements/claim", `{"guild_ids":["8001"]}`, 200); got["announcement"] != nil {
+		t.Fatal("held draft without results was sent")
+	}
+
 	// A plain automated post (weekly game reminder) has no score fingerprint: it's held for approval like a
 	// scores post, a redraft with the same words is a no-op, and new words replace an unedited draft.
 	remind := func(text string) string {

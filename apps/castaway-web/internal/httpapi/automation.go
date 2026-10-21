@@ -400,6 +400,10 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		ScoreFingerprint string    `json:"score_fingerprint"`
 		NotifyUsers      bool      `json:"notify_users"`
 		AwaitingResults  bool      `json:"awaiting_results"` // the body has a placeholder for a game not scored yet
+		// Once the game is scored, an admin-edited draft keeps its words: game_results replaces the
+		// results_placeholder line in it (and the post is re-asked).
+		GameResults        string `json:"game_results"`
+		ResultsPlaceholder string `json:"results_placeholder"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || len(key) == 0 || len(key) > 120 || !validAnnouncementID(req.GuildID) || !validAnnouncementID(req.ChannelID) ||
 		strings.TrimSpace(req.Body) == "" || utf8.RuneCountInString(req.Body) > 2000 || req.SendAt.IsZero() {
@@ -437,12 +441,13 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "that channel isn't bound to this season"})
 		return
 	}
-	var status string
+	var status, storedBody string
 	var fingerprint, autoMD5 *string
-	var edited, sameDraft bool
-	err = tx.QueryRow(ctx, `SELECT a.status, a.score_fingerprint, a.auto_body_md5, a.auto_body_md5 IS DISTINCT FROM md5(a.body), a.auto_body_md5 = md5($3)
+	var edited, sameDraft, awaiting bool
+	err = tx.QueryRow(ctx, `SELECT a.status, a.score_fingerprint, a.auto_body_md5, a.auto_body_md5 IS DISTINCT FROM md5(a.body), a.auto_body_md5 = md5($3),
+			a.body, a.awaiting_results
 		FROM announcements a JOIN instances i ON i.id = a.instance_id WHERE i.public_id = $1 AND a.request_key = $2 FOR UPDATE OF a`,
-		toPGUUID(instanceID), key, req.Body).Scan(&status, &fingerprint, &autoMD5, &edited, &sameDraft)
+		toPGUUID(instanceID), key, req.Body).Scan(&status, &fingerprint, &autoMD5, &edited, &sameDraft, &storedBody, &awaiting)
 	action := ""
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -454,6 +459,26 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 	case err != nil:
 	case status == "sent" || status == "sending":
 		action = "sent"
+	case edited && awaiting && !req.AwaitingResults && req.ScoreFingerprint != "": // the game is scored: fill in the admin's draft
+		action = "results-inserted"
+		merged, ok := insertResults(storedBody, req.ResultsPlaceholder, req.GameResults)
+		if !ok {
+			action = "results-missing" // stays held (awaiting_results) and never sends with the placeholder
+			_, err = tx.Exec(ctx, `INSERT INTO admin_alerts (instance_id, alert_key, body) SELECT id, $2, $3 FROM instances WHERE public_id = $1
+				ON CONFLICT (instance_id, alert_key) DO NOTHING`, toPGUUID(instanceID), key+"-results-missing",
+				message("scores-results-missing.md", map[string]string{"Key": key}))
+			break
+		}
+		// Keeps auto_body_md5, so the post still counts as admin-edited for later standings changes.
+		_, err = tx.Exec(ctx, `UPDATE announcements a SET body = $3, score_fingerprint = $4, status = 'draft', scheduled_at = NULL, approval_gated = true,
+				approval_send_at = $5, approval_claimed_at = NULL, approval_notified_at = NULL, awaiting_results = false
+			FROM instances i WHERE i.id = a.instance_id AND i.public_id = $1 AND a.request_key = $2`,
+			toPGUUID(instanceID), key, merged, req.ScoreFingerprint, req.SendAt.UTC())
+		if err == nil && (fingerprint == nil || *fingerprint != req.ScoreFingerprint) {
+			_, err = tx.Exec(ctx, `INSERT INTO admin_alerts (instance_id, alert_key, body) SELECT id, $2, $3 FROM instances WHERE public_id = $1
+				ON CONFLICT (instance_id, alert_key) DO NOTHING`, toPGUUID(instanceID), key+"-rescored-"+req.ScoreFingerprint[:12],
+				message("scores-rescored.md", map[string]string{"Key": key}))
+		}
 	case fingerprint != nil && *fingerprint == req.ScoreFingerprint && (edited || sameDraft):
 		action = "unchanged" // same standings and an unedited draft with the same text (or an admin's text, kept)
 	case autoMD5 == nil:
@@ -489,6 +514,28 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"action": action})
+}
+
+// insertResults puts the game's results in place of the placeholder line(s) of an admin-edited draft. It fails
+// unless the placeholder is there as a whole line and no trace of it is left, or the text would be too long.
+func insertResults(body, placeholder, results string) (string, bool) {
+	placeholder = strings.TrimSpace(placeholder)
+	if placeholder == "" || strings.TrimSpace(results) == "" {
+		return "", false
+	}
+	lines := strings.Split(body, "\n")
+	found := 0
+	for i, line := range lines {
+		if strings.TrimSpace(line) == placeholder {
+			lines[i] = results
+			found++
+		}
+	}
+	merged := strings.Join(lines, "\n")
+	if found == 0 || strings.Contains(merged, placeholder) || utf8.RuneCountInString(merged) > 2000 {
+		return "", false
+	}
+	return merged, true
 }
 
 // scoresStillCurrent reports whether an automated scores post still describes the live standings

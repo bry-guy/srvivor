@@ -361,15 +361,23 @@ func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions
 	var res struct {
 		Action string `json:"action"`
 	}
+	// The server fills game_results into an admin-edited placeholder draft once the game is scored.
+	var gameResults string
+	if !placeholder {
+		gameResults = p.GameScore
+	}
 	err = r.call(r.ctx, "PUT", r.path+"/score-posts/"+url.PathEscape(key), map[string]any{
 		"guild_id": r.f.Automation.Guild, "channel_id": r.f.Channel, "body": text, "send_at": at.UTC().Format(time.RFC3339),
 		"score_fingerprint": snap.Fingerprint, "notify_users": true, "awaiting_results": placeholder,
+		"game_results": gameResults, "results_placeholder": gameScorePlaceholder(weekGame(r.f, week)),
 	}, &res)
 	if err != nil && strings.Contains(err.Error(), "wasn't written by automation") {
 		r.logf("week %d: %s was saved by hand; leaving it alone", week, key)
 		return nil
 	}
-	if err == nil && res.Action != "unchanged" {
+	if err == nil && res.Action == "results-missing" {
+		r.logf("week %d scores post: the edited draft has no results placeholder left; it stays held (admins alerted)", week)
+	} else if err == nil && res.Action != "unchanged" {
 		r.logf("week %d scores post %s; admins get the approval DM", week, res.Action)
 	}
 	return err

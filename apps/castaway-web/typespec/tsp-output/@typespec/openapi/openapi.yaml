@@ -2717,6 +2717,10 @@ paths:
                   type: boolean
                 awaiting_results:
                   type: boolean
+                game_results:
+                  type: string
+                results_placeholder:
+                  type: string
               required:
                 - guild_id
                 - channel_id

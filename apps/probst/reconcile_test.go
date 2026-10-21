@@ -339,6 +339,10 @@ func TestReconcileEarlyDraft(t *testing.T) {
 		!strings.Contains(body, "🟣 Ann: 20 presses (+3)") {
 		t.Fatalf("redraft after scoring: %v", post)
 	}
+	// The server fills the results into an admin-edited draft: it gets the section and the placeholder line it replaces.
+	if gr, _ := post["game_results"].(string); !strings.Contains(gr, "🟣 Ann: 20 presses (+3)") || post["results_placeholder"] != "[Press the Button results go here once it's scored]" {
+		t.Fatalf("redraft without results for an edited draft: %v", post)
+	}
 }
 
 // approval_lead sets how early the scores post is drafted; it defaults to 12 hours.

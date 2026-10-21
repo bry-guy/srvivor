@@ -158,7 +158,7 @@ op getScoreSnapshot(@path instanceID: string, @path week: int32): ScoreSnapshot 
 
 @route("/instances/{instanceID}/score-posts/{requestKey}")
 @put
-op upsertScorePost(@path instanceID: string, @path requestKey: string, @body body: { guild_id: string; channel_id: string; body: string; send_at: utcDateTime; score_fingerprint?: string; notify_users?: boolean; awaiting_results?: boolean; }): { action: string; } | ErrorResponse;
+op upsertScorePost(@path instanceID: string, @path requestKey: string, @body body: { guild_id: string; channel_id: string; body: string; send_at: utcDateTime; score_fingerprint?: string; notify_users?: boolean; awaiting_results?: boolean; game_results?: string; results_placeholder?: string; }): { action: string; } | ErrorResponse;
 
 /** Make the season's episode schedule match a season file: listed episodes are created or moved. */
 @route("/instances/{instanceID}/episodes")
