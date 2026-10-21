@@ -3,6 +3,9 @@ package discord
 import (
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/bry-guy/srvivor/apps/castaway-discord-bot/internal/messages"
 )
 
 func TestApplyFixes(t *testing.T) {
@@ -35,5 +38,21 @@ func TestIsReplacementCopy(t *testing.T) {
 		if got := isReplacementCopy(text); got != want {
 			t.Errorf("isReplacementCopy(%q) = %v, want %v", text, got, want)
 		}
+	}
+}
+
+// Approval DMs state the send time in Eastern, up front, on the first ask and on every re-ask.
+func TestApprovalPromptStatesSendTime(t *testing.T) {
+	at := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC) // 8:00pm EDT on Oct 20
+	if got := eastern(at); got != "Tue Oct 20 8:00pm ET" {
+		t.Fatalf("eastern = %q", got)
+	}
+	ask := messages.Fragment("approval-prompt.md", map[string]any{"ChannelID": "c", "When": eastern(at), "NotifyUsers": true, "ID": "id", "Revision": "rev"})
+	if !strings.Contains(ask, "**posts Tue Oct 20 8:00pm ET**") {
+		t.Fatalf("prompt lacks the send time: %q", ask)
+	}
+	missed := messages.Fragment("approval-missed.md", map[string]any{"ChannelID": "c", "When": eastern(at), "NotifyUsers": true, "ID": "id", "Revision": "rev"})
+	if !strings.Contains(missed, "**Tue Oct 20 8:00pm ET**") {
+		t.Fatalf("missed prompt lacks the send time: %q", missed)
 	}
 }

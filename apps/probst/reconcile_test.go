@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,8 @@ type fakeSeason struct {
 	posts    map[string]map[string]any
 	snapshot []scoreRow
 	imported []map[string]any
+	// fingerprint is the standings' fingerprint the snapshot reports; empty means "fp".
+	fingerprint string
 }
 
 func (s *fakeSeason) call(_ context.Context, method, path string, body, out any) error {
@@ -63,7 +66,8 @@ func (s *fakeSeason) call(_ context.Context, method, path string, body, out any)
 		}
 		set(map[string]any{"created": !seen})
 	case method == "PUT" && strings.Contains(path, "/score-snapshots/"):
-		set(map[string]any{"fingerprint": "fp", "leaderboard": s.snapshot})
+		fp := cmp.Or(s.fingerprint, "fp")
+		set(map[string]any{"fingerprint": fp, "leaderboard": s.snapshot})
 	case method == "GET" && strings.Contains(path, "/score-snapshots/"):
 		return fmt.Errorf("HTTP 404: no snapshot")
 	case method == "GET" && strings.Contains(path, "/leaderboard"):
@@ -272,5 +276,85 @@ func TestReconcileReminder(t *testing.T) {
 	fake.games[0].CutoffAt = at("2026-10-14 09:00")
 	if draft("2026-10-10 12:00") != nil {
 		t.Fatal("reminder after the game closes")
+	}
+}
+
+// A scores post is drafted approval_lead (12h) before its time once results are in, with a placeholder while
+// its game isn't scored; the placeholder draft is never sent, and at the time an unscored game blocks it.
+func TestReconcileEarlyDraft(t *testing.T) {
+	f, err := loadSeasonFile("testdata/season-brainland.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, airs, err := expandSeason(f, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := func(s string) time.Time {
+		v, err := time.ParseInLocation("2006-01-02 15:04", s, eastern())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	fake := &fakeSeason{t: t, imports: map[int][]int{}, alerts: map[string]string{}, actions: map[string]map[string]any{}, posts: map[string]map[string]any{},
+		games:    []liveGame{{Type: "press_the_button", Episode: 3}},
+		snapshot: []scoreRow{{ID: "a", Name: "Ann", DiscordID: "1", Total: 6, HasDraft: true}, {ID: "b", Name: "Bo", DiscordID: "2", Total: 2, HasDraft: true}}}
+	var out bytes.Buffer
+	r := &reconciler{ctx: context.Background(), call: fake.call, f: f, airs: airs, tmpl: mustTemplates(t, "testdata/templates"), out: &out, path: "/instances/x"}
+	done := map[int][]int{3: {19}} // episode 3's results are in
+	draft := func(now string) {
+		t.Helper()
+		r.now = at(now)
+		if err := r.draftScoresPosts(done); err != nil {
+			t.Fatalf("%s: %v\n%s", now, err, out.String())
+		}
+	}
+	sendAt := at("2026-10-14 20:00").UTC().Format(time.RFC3339)
+
+	// 12 hours before the 8pm post: drafted with a placeholder, held for approval (awaiting_results).
+	draft("2026-10-14 07:59")
+	if len(fake.posts) != 0 {
+		t.Fatalf("drafted before approval_lead: %v", fake.posts)
+	}
+	draft("2026-10-14 08:00")
+	post := fake.posts["s51-week-3-scores"]
+	body, _ := post["body"].(string)
+	if post == nil || post["send_at"] != sendAt || post["awaiting_results"] != true || !strings.Contains(body, "[Press the Button results go here once it's scored]") {
+		t.Fatalf("early draft: %v", post)
+	}
+	// Still unscored at the post's time: no redraft, the waiting alert instead (the server holds the draft).
+	delete(fake.posts, "s51-week-3-scores")
+	draft("2026-10-14 20:20")
+	if len(fake.posts) != 0 || !strings.Contains(fake.alerts["s51-week-3-scores-waiting"], "Press the Button scoring") {
+		t.Fatalf("unscored at send time: posts=%v alerts=%v", fake.posts, fake.alerts)
+	}
+	// Scored before the post's time: redrafted with the results, no placeholder, and the fingerprint moved.
+	fake.games[0].Scored = true
+	fake.fingerprint = "fp2"
+	draft("2026-10-14 19:59")
+	post = fake.posts["s51-week-3-scores"]
+	body, _ = post["body"].(string)
+	if post == nil || post["awaiting_results"] != false || post["score_fingerprint"] != "fp2" || strings.Contains(body, "results go here") ||
+		!strings.Contains(body, "🟣 Ann: 20 presses (+3)") {
+		t.Fatalf("redraft after scoring: %v", post)
+	}
+}
+
+// approval_lead sets how early the scores post is drafted; it defaults to 12 hours.
+func TestApprovalLead(t *testing.T) {
+	var f seasonFile
+	if d, err := approvalLead(f); err != nil || d != 12*time.Hour {
+		t.Fatalf("default: %v %v", d, err)
+	}
+	f.Automation.ApprovalLead = "6h30m"
+	if d, err := approvalLead(f); err != nil || d != 6*time.Hour+30*time.Minute {
+		t.Fatalf("6h30m: %v %v", d, err)
+	}
+	for _, bad := range []string{"soon", "-1h", "0"} {
+		f.Automation.ApprovalLead = bad
+		if _, err := approvalLead(f); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
 	}
 }

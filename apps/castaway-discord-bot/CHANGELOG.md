@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+- Approval DMs state the send time in Eastern, up front and bold (`posts Wed Oct 21 8:00pm ET`), on the first ask, re-asks, and "missed" DMs; "approved" replies use the same format.
+
 - Announcements and admin DMs post with link previews suppressed.
 
 - Every user-facing Discord message (DMs, replies, channel posts, score/leaderboard formatting, player-visible errors) now comes from embedded templates in `internal/messages/templates/`; output is unchanged.

@@ -214,9 +214,10 @@ func (b *Bot) handleAdminReply(ctx context.Context, m *discordgo.Message) {
 	}
 }
 
+// eastern formats a send time for admins, in Eastern: "Wed Oct 21 8:00pm ET".
 func eastern(t time.Time) string {
 	if loc, err := time.LoadLocation("America/New_York"); err == nil {
 		t = t.In(loc)
 	}
-	return t.Format("Mon Jan 2 at 3:04pm MST")
+	return t.Format("Mon Jan 2 3:04pm") + " ET"
 }

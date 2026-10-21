@@ -215,12 +215,19 @@ func (s *Server) claimAnnouncement(c *gin.Context) {
 		writeAnnouncementError(c, err)
 		return
 	}
-	// An automated scores post whose standings moved since it was drafted (and approved) must not send:
-	// hold it again quietly; automation redrafts it and re-asks.
-	if current, err := s.scoresStillCurrent(c.Request.Context(), tx, id); err != nil {
+	// An automated scores post whose standings moved since it was drafted (and approved), or whose game still
+	// has a placeholder for its results, must not send: hold it again quietly; automation redrafts it and re-asks.
+	current, err := s.scoresStillCurrent(c.Request.Context(), tx, id)
+	if err != nil {
 		writeAnnouncementError(c, err)
 		return
-	} else if !current {
+	}
+	var awaiting bool
+	if err := tx.QueryRow(c.Request.Context(), `SELECT awaiting_results FROM announcements WHERE id = $1`, id).Scan(&awaiting); err != nil {
+		writeAnnouncementError(c, err)
+		return
+	}
+	if !current || awaiting {
 		if _, err := tx.Exec(c.Request.Context(), `UPDATE announcements SET status = 'draft', scheduled_at = NULL, approval_notified_at = $2 WHERE id = $1`, id, s.now()); err != nil {
 			writeAnnouncementError(c, err)
 			return

@@ -200,6 +200,37 @@ func TestSeasonAutomation(t *testing.T) {
 	if got := post("Week 2 again", fp3, sendAt, 409); got != "" {
 		t.Fatal("stale fingerprint accepted")
 	}
+	// A scores post drafted before its game was scored carries a placeholder: it's asked for approval as usual,
+	// but never sent with the placeholder; a redraft with the results (same standings) replaces it and re-asks.
+	fp4 := jstr(call("PUT", path+"/score-snapshots/4", `{"request_key":"s957-week-4-scores"}`, 200), "fingerprint")
+	post4 := func(text string, awaiting bool) string {
+		t.Helper()
+		res := call("PUT", path+"/score-posts/s957-week-4-scores", fmt.Sprintf(`{"guild_id":"8001","channel_id":"8002","body":%q,"send_at":%q,"score_fingerprint":%q,"notify_users":true,"awaiting_results":%t}`,
+			text, sendAt.Format(time.RFC3339), fp4, awaiting), 200)
+		return jstr(res, "action")
+	}
+	if got := post4("Week 4: Press the Button results go here once it's scored", true); got != "created" {
+		t.Fatal(got)
+	}
+	ask := call("POST", "/announcements/approvals/claim", `{"guild_ids":["8001"]}`, 200)
+	call("POST", "/announcements/"+jstr(ask, "announcement", "id")+"/approval-delivered", fmt.Sprintf(`{"revision":%q}`, ask["revision"]), 200)
+	call("POST", "/announcements/"+jstr(ask, "announcement", "id")+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"admin","revision":%q}`, ask["revision"]), 200)
+	if got := call("POST", "/announcements/claim", `{"guild_ids":["8001"]}`, 200); got["announcement"] != nil {
+		t.Fatal("approved post with a placeholder was sent")
+	}
+	if got := post4("Week 4: final results", false); got != "regenerated" {
+		t.Fatal(got)
+	}
+	ask = call("POST", "/announcements/approvals/claim", `{"guild_ids":["8001"]}`, 200)
+	if jstr(ask, "announcement", "body") != "Week 4: final results" {
+		t.Fatalf("redraft not re-asked: %v", ask)
+	}
+	call("POST", "/announcements/"+jstr(ask, "announcement", "id")+"/approval-delivered", fmt.Sprintf(`{"revision":%q}`, ask["revision"]), 200)
+	call("POST", "/announcements/"+jstr(ask, "announcement", "id")+"/approve", fmt.Sprintf(`{"admin_discord_user_id":"admin","revision":%q}`, ask["revision"]), 200)
+	if got := call("POST", "/announcements/claim", `{"guild_ids":["8001"]}`, 200); got["announcement"] == nil {
+		t.Fatal("redrafted post with results did not send")
+	}
+
 	// A plain automated post (weekly game reminder) has no score fingerprint: it's held for approval like a
 	// scores post, a redraft with the same words is a no-op, and new words replace an unedited draft.
 	remind := func(text string) string {

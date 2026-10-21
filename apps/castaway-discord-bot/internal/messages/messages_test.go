@@ -41,7 +41,7 @@ var samples = map[string]any{
 	"action-recorded":            nil,
 	"approval-hint":              nil,
 	"approval-revised":           nil,
-	"approval-approved":          map[string]any{"When": "Mon Jan 2 at 3:04pm EST"},
+	"approval-approved":          map[string]any{"When": "Mon Jan 2 3:04pm ET"},
 	"not-recorded":               "boom",
 	"not-changed":                "boom",
 	"not-approved":               "boom",

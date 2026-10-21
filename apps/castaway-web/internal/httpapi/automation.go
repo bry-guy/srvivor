@@ -399,6 +399,7 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 		SendAt           time.Time `json:"send_at"`
 		ScoreFingerprint string    `json:"score_fingerprint"`
 		NotifyUsers      bool      `json:"notify_users"`
+		AwaitingResults  bool      `json:"awaiting_results"` // the body has a placeholder for a game not scored yet
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || len(key) == 0 || len(key) > 120 || !validAnnouncementID(req.GuildID) || !validAnnouncementID(req.ChannelID) ||
 		strings.TrimSpace(req.Body) == "" || utf8.RuneCountInString(req.Body) > 2000 || req.SendAt.IsZero() {
@@ -447,14 +448,14 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 	case errors.Is(err, pgx.ErrNoRows):
 		action = "created"
 		_, err = tx.Exec(ctx, `INSERT INTO announcements (instance_id, guild_id, channel_id, request_key, body, due_at, status, notify_users,
-				approval_gated, approval_send_at, score_fingerprint, auto_body_md5)
-			SELECT id, $2, $3, $4, $5, $6, 'draft', $7, true, $6, NULLIF($8, ''), md5($5) FROM instances WHERE public_id = $1`,
-			toPGUUID(instanceID), req.GuildID, req.ChannelID, key, req.Body, req.SendAt.UTC(), req.NotifyUsers, req.ScoreFingerprint)
+				approval_gated, approval_send_at, score_fingerprint, auto_body_md5, awaiting_results)
+			SELECT id, $2, $3, $4, $5, $6, 'draft', $7, true, $6, NULLIF($8, ''), md5($5), $9 FROM instances WHERE public_id = $1`,
+			toPGUUID(instanceID), req.GuildID, req.ChannelID, key, req.Body, req.SendAt.UTC(), req.NotifyUsers, req.ScoreFingerprint, req.AwaitingResults)
 	case err != nil:
 	case status == "sent" || status == "sending":
 		action = "sent"
-	case fingerprint != nil && *fingerprint == req.ScoreFingerprint:
-		action = "unchanged"
+	case fingerprint != nil && *fingerprint == req.ScoreFingerprint && (edited || sameDraft):
+		action = "unchanged" // same standings and an unedited draft with the same text (or an admin's text, kept)
 	case autoMD5 == nil:
 		c.JSON(http.StatusConflict, errorResponse{Error: key + " exists but wasn't written by automation; leaving it alone"})
 		return
@@ -474,9 +475,10 @@ func (s *Server) upsertScorePost(c *gin.Context) {
 	default:
 		action = "regenerated"
 		_, err = tx.Exec(ctx, `UPDATE announcements a SET body = $3, auto_body_md5 = md5($3), score_fingerprint = NULLIF($4, ''), notify_users = $5,
-				status = 'draft', scheduled_at = NULL, approval_gated = true, approval_send_at = $6, approval_claimed_at = NULL, approval_notified_at = NULL
+				status = 'draft', scheduled_at = NULL, approval_gated = true, approval_send_at = $6, approval_claimed_at = NULL, approval_notified_at = NULL,
+				awaiting_results = $7
 			FROM instances i WHERE i.id = a.instance_id AND i.public_id = $1 AND a.request_key = $2`,
-			toPGUUID(instanceID), key, req.Body, req.ScoreFingerprint, req.NotifyUsers, req.SendAt.UTC())
+			toPGUUID(instanceID), key, req.Body, req.ScoreFingerprint, req.NotifyUsers, req.SendAt.UTC(), req.AwaitingResults)
 	}
 	if err != nil {
 		writeAnnouncementError(c, err)

@@ -225,7 +225,7 @@ must contain "Pick Your Champion" so replies to it count as picks).
 
 `probst season reconcile FILE` still runs a file directly for local testing. Each successful scheduled run
 stamps a heartbeat; if none lands for 30 minutes, admins get a DM (once per stall).
-It only acts when the file has `automation: {enabled: true}` (plus `from_week` and the channel's `guild`), and
+It only acts when the file has `automation: {enabled: true}` (plus `from_week` and the channel's `guild`; optional `approval_lead`, default `12h`), and
 it never sends anything itself: posts go through the admin approval DM, everything else is a one-time admin
 DM. Each run:
 
@@ -243,9 +243,14 @@ DM. Each run:
    `scoring.merge_episode` on are **holds**: record those by hand, then
    `probst episode import N --file FILE --resolve-holds --yes` imports the rest. Until survivoR is complete
    the job just keeps checking. If results are still missing at `weekly.results.due`, the admins get a DM.
-3. **Scores post:** from the week's post time (8pm), once its game is scored and its episode imported, it
-   saves the standings snapshot and drafts the post (`seasons/NN-templates/scores.md`) for approval; once a game opens it also drafts the game-day reminder (`weekly.reminder.at`, no pings) for approval, pinging the top
-   3 and last place. Late results are fine: up to 3 hours after 8pm the post is drafted and sends as soon as
+3. **Scores post:** from `automation.approval_lead` before the week's post time (default `12h`: the 8pm post's
+   approval DM goes out at 8am ET) once its episode is imported, it saves the standings snapshot and drafts the
+   post (`seasons/NN-templates/scores.md`) for approval; once a game opens it also drafts the game-day reminder
+   (`weekly.reminder.at`, no pings) for approval, pinging the top 3 and last place. If the game isn't scored
+   yet, the draft shows a placeholder where its results go. The server never sends a placeholder: it holds the
+   post, and when the game is scored the draft is redrafted with the results and re-asked. At the post time an
+   unscored game blocks the post (admins get a waiting DM). Every approval DM states the send time in Eastern.
+   Late results are fine: up to 3 hours after 8pm the post is drafted and sends as soon as
    it's approved; after that, the admins get a DM instead. If scores change before it's sent, it can't be
    approved or sent with the old numbers: an untouched draft is redrafted and re-asked; an admin-edited one
    keeps the admin's text and re-asks with a DM to check the numbers.

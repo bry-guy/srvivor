@@ -291,7 +291,7 @@ func composeScoresData(ctx context.Context, call apiCall, f seasonFile, airs []t
 	}
 	p.GameScore, err = gameScore(ctx, call, path, tmpl, f, week)
 	if err != nil && previewUnscored && strings.Contains(err.Error(), "isn't scored yet") {
-		p.GameScore, err = fmt.Sprintf("[%s results go here once it's scored]", gameNames[weekGame(f, week)]), nil
+		p.GameScore, err = gameScorePlaceholder(weekGame(f, week)), nil
 	}
 	return p, err
 }
@@ -397,6 +397,11 @@ func nextGameLine(t templateSet, f seasonFile, airs []time.Time, week int) (stri
 	}
 	return t.render("next-game.md", map[string]string{"Type": game, "Name": gameNames[game], "Site": siteURL,
 		"Opens": shortTime(opens)})
+}
+
+// gameScorePlaceholder stands in for a game's results section until the game is scored.
+func gameScorePlaceholder(game string) string {
+	return fmt.Sprintf("[%s results go here once it's scored]", gameNames[game])
 }
 
 // gameScore is the week's game results section, from games/<type>.md and the server's scored results.

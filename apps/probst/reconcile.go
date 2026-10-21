@@ -26,6 +26,20 @@ type automationConfig struct {
 	FromWeek int    `yaml:"from_week"` // first week automation handles (results, scores posts)
 	Guild    string `yaml:"guild"`     // the Discord server the season's channel is in
 	NudgeAt  string `yaml:"nudge_at"`  // daily reminder time, ET "15:04" (default 10:00)
+	// ApprovalLead is how long before a scores post's time its approval DM goes out (a Go duration, default 12h).
+	ApprovalLead string `yaml:"approval_lead"`
+}
+
+// approvalLead is automation.approval_lead, defaulting to 12 hours.
+func approvalLead(f seasonFile) (time.Duration, error) {
+	if f.Automation.ApprovalLead == "" {
+		return 12 * time.Hour, nil
+	}
+	d, err := time.ParseDuration(f.Automation.ApprovalLead)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("automation.approval_lead %q: want a positive duration like 12h", f.Automation.ApprovalLead)
+	}
+	return d, nil
 }
 
 type reconciler struct {
@@ -226,9 +240,15 @@ type liveGame struct {
 	CutoffAt time.Time `json:"cutoff_at"`
 }
 
-// draftScoresPosts drafts each due week's scores post once its game is scored and its episode imported,
-// and keeps it matching the standings until it's sent. Drafting stops 3 hours after the post's time.
+// draftScoresPosts drafts each due week's scores post for approval from approval_lead (12h) before its time,
+// once episode results are in, and keeps it matching the standings until it's sent. Before the time, a game
+// that isn't scored yet gets a placeholder for its results; the server never sends such a draft, and at the
+// time itself an unscored game blocks it (waiting alert). Drafting stops 3 hours after the post's time.
 func (r *reconciler) draftScoresPosts(done map[int][]int) error {
+	lead, err := approvalLead(r.f)
+	if err != nil {
+		return err
+	}
 	var games struct {
 		Games []liveGame `json:"games"`
 	}
@@ -238,7 +258,7 @@ func (r *reconciler) draftScoresPosts(done map[int][]int) error {
 	var errs []error
 	for week := max(1, r.f.Automation.FromWeek); week <= len(r.airs); week++ {
 		at, err := weekPostTime(r.f, r.airs, week)
-		if err != nil || r.now.Before(at) || r.f.Weeks[week].ScoresPost != nil && r.f.Weeks[week].ScoresPost.Sent {
+		if err != nil || r.now.Before(at.Add(-lead)) || r.f.Weeks[week].ScoresPost != nil && r.f.Weeks[week].ScoresPost.Sent {
 			continue
 		}
 		key := scoresKey(r.f.Season, week)
@@ -252,32 +272,43 @@ func (r *reconciler) draftScoresPosts(done map[int][]int) error {
 		if _, ok := done[week]; !ok {
 			waiting = append(waiting, fmt.Sprintf("Episode %d results", week))
 		}
-		want := weekGame(r.f, week) // a configured game must exist and be scored first
-		found := false
+		want := weekGame(r.f, week) // a configured game must exist before its post is drafted
+		found, scored := false, false
 		for _, g := range games.Games {
-			if g.Episode == week && !g.Scored {
+			if g.Episode != week {
+				continue
+			}
+			if g.Type == want {
+				found, scored = true, g.Scored
+			} else if !g.Scored {
 				waiting = append(waiting, gameNames[g.Type]+" scoring")
 			}
-			found = found || (g.Episode == week && g.Type == want)
 		}
 		if want != "" && !found {
 			waiting = append(waiting, gameNames[want]+" (not created)")
 		}
+		placeholder := want != "" && found && !scored
+		if placeholder && !r.now.Before(at) {
+			waiting = append(waiting, gameNames[want]+" scoring")
+			placeholder = false
+		}
 		if len(waiting) > 0 {
 			r.logf("week %d scores post waiting for %s", week, strings.Join(waiting, " and "))
 			if r.now.After(at.Add(15 * time.Minute)) {
-				errs = append(errs, r.alertMsg(key+"-waiting", "scores-waiting", map[string]any{"Week": week, "Waiting": strings.Join(waiting, " and "), "Until": shortTime(at.Add(3*time.Hour))}))
+				errs = append(errs, r.alertMsg(key+"-waiting", "scores-waiting", map[string]any{"Week": week, "Waiting": strings.Join(waiting, " and "), "Until": shortTime(at.Add(3 * time.Hour))}))
 			}
 			continue
 		}
-		if err := r.draftWeek(week, at, key, done[week]); err != nil {
+		if err := r.draftWeek(week, at, key, done[week], placeholder); err != nil {
 			errs = append(errs, fmt.Errorf("week %d scores post: %w", week, err))
 		}
 	}
 	return errors.Join(errs...)
 }
 
-func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions []int) error {
+// draftWeek saves the week's scores post for approval. With placeholder, the game's results are a placeholder
+// (awaiting_results): the server holds the post, so it can't send until a redraft with the results.
+func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions []int, placeholder bool) error {
 	var snap struct {
 		Fingerprint string     `json:"fingerprint"`
 		Leaderboard []scoreRow `json:"leaderboard"`
@@ -318,7 +349,9 @@ func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions
 	if err != nil {
 		return err
 	}
-	if p.GameScore, err = gameScore(r.ctx, r.call, r.path, r.tmpl, r.f, week); err != nil {
+	if placeholder {
+		p.GameScore = gameScorePlaceholder(weekGame(r.f, week))
+	} else if p.GameScore, err = gameScore(r.ctx, r.call, r.path, r.tmpl, r.f, week); err != nil {
 		return err
 	}
 	text, err := renderScoresPost(r.tmpl, p)
@@ -330,7 +363,7 @@ func (r *reconciler) draftWeek(week int, at time.Time, key string, bootPositions
 	}
 	err = r.call(r.ctx, "PUT", r.path+"/score-posts/"+url.PathEscape(key), map[string]any{
 		"guild_id": r.f.Automation.Guild, "channel_id": r.f.Channel, "body": text, "send_at": at.UTC().Format(time.RFC3339),
-		"score_fingerprint": snap.Fingerprint, "notify_users": true,
+		"score_fingerprint": snap.Fingerprint, "notify_users": true, "awaiting_results": placeholder,
 	}, &res)
 	if err != nil && strings.Contains(err.Error(), "wasn't written by automation") {
 		r.logf("week %d: %s was saved by hand; leaving it alone", week, key)

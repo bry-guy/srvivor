@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Scores posts are drafted for approval `automation.approval_lead` before their time (default `12h`, so the 8pm post's approval DM arrives at 8am ET) instead of only once the game is scored. Until the game is scored the draft shows a placeholder for its results; the server holds it, so a placeholder never sends, and the redraft with the results re-asks. An unscored game at the post's time still waits and alerts admins.
+
+- Approval DMs lead with the send time in Eastern (`**posts Wed Oct 21 8:00pm ET**`), on the first ask and every re-ask.
+
 - Tribe colors: `tribes set` files accept `Dina (pink): Adam, Keeling`; a tribe that doesn't exist yet needs a color, so a typo can't create one. `probst tribes color TRIBE COLOR [--yes]` recolors an existing tribe without re-running a swap. `tribes show` prints each tribe's emoji. Pink (🩷) is a color.
 - `probst tribes announce --season FILE --episode N` renders the tribe swap post from `messages/tribe-change.md` (tribes at the swap, each member mentioned, tribe-challenge points for the episode); `--yes` saves an unsent draft. `--kind swap|merge|assignment` picks the first line.
 
