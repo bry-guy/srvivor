@@ -2,15 +2,16 @@
 // Inside Track (prototype), top-down. A rack of 10 balls feeds through a gate onto the start pad; flick each
 // one up a foam track and butter it into a shallow cup. Every ball is simulated all the time, on the table,
 // in the air and on the ground, so balls knock into each other, rim out, fall off and stay where they land.
-const BOARD = { w: 2.1, h: 2.55, y0: -0.12, xc: -0.1 }; // xc: the rack makes the table lopsided
+const BOARD = { w: 2.1, h: 2.75, y0: -0.12, xc: -0.1 }; // xc: the rack makes the table lopsided
 const R = 0.085, CUP_R = 0.8 * R; // the cup is smaller than the ball: it sits in the lip
-const PAD = { x0: -0.5, x1: 0.5, y0: 0, y1: 0.5 };
+const PAD = { x0: -0.5, x1: 0.5, y0: 0, y1: 0.67 };
 const CH = 2 * R + 0.03;                       // chute width
-const COL = { x0: -1.06, x1: -1.06 + CH, top: 1.45 }; // the rack's upright column
+const COL = { x0: -1.06, x1: -1.06 + CH, top: 1.75 }; // the rack's upright column
 const TRACK_W = 0.36, ANG = 30 * Math.PI / 180;
 const COLORS = ["#c8372d", "#e8b923", "#2f5fa8"];
 const TRACKS = [-ANG, 0, ANG].map((a, i) => {
-  const len = a ? 1.45 : 1.72, ux = Math.sin(a), uy = Math.cos(a), o = [0, PAD.y1];
+  const len = a < 0 ? 1.45 : a > 0 ? 1.09 : 1.72, // blue a quarter shorter than red
+    ux = Math.sin(a), uy = Math.cos(a), o = [0, PAD.y1];
   return { a, len, ux, uy, o, color: COLORS[i], cup: [o[0] + ux * (len - 0.17), o[1] + uy * (len - 0.17)] };
 });
 const TABLE_H = 0.6, G = 9.8;
@@ -19,7 +20,7 @@ const SAND = 6;                      // sand stops a ball fast
 const WALL_E = 0.22, BALL_E = 0.65;   // heavy ball: walls soak up speed
 const ROLL_G = 7; // (5/7)·g: gravity along a slope for a rolling ball
 const THROW_K = 0.55, MAX_V = 3.0, SNAP = 0.3;
-const RACK_N = 10, DEBUG = location.search.includes("debug");
+const RACK_N = 12, DEBUG = location.search.includes("debug");
 
 const local = (t, x, y) => { const dx = x - t.o[0], dy = y - t.o[1]; return { along: dx * t.ux + dy * t.uy, across: dx * t.uy - dy * t.ux }; };
 const blocked = (x, y) => [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R]].some(([ox, oy]) => onTable(x + ox, y + oy));
@@ -102,7 +103,7 @@ function letGo() {
   let v = THROW_K * Math.hypot(fx, fy); v = MAX_V * Math.tanh(v / MAX_V); // linear, soft-clamped: speed control is the skill
   throwBall(v * Math.sin(dir), v * Math.cos(dir));
 }
-function throwBall(vx, vy) { Object.assign(cur, { vx, vy, thrown: true }); path = [[cur.x, cur.y]]; }
+function throwBall(vx, vy) { Object.assign(cur, { vx, vy }); path = [[cur.x, cur.y]]; }
 canvas.addEventListener("pointerup", letGo);
 canvas.addEventListener("pointercancel", letGo);
 
@@ -327,7 +328,6 @@ function drawBall(b) {
   const off = Math.sin(b.spin) * r * 0.9; // grain rings and a dark band roll past
   ctx.strokeStyle = "rgba(70,38,15,.35)"; ctx.lineWidth = 1;
   for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.ellipse(0, off + k * r * 0.35, r * 1.1, r * 0.18, 0, 0, 7); ctx.stroke(); }
-  ctx.strokeStyle = "rgba(45,22,8,.6)"; ctx.lineWidth = r * 0.22; ctx.beginPath(); ctx.moveTo(-r, -off * 0.6); ctx.lineTo(r, -off * 0.6); ctx.stroke();
   ctx.restore();
   ctx.strokeStyle = "rgba(43,24,10,.7)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.stroke();
   if (sink) { ctx.strokeStyle = `rgba(0,0,0,${0.25 * sink})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px, py, r, Math.PI * 0.1, Math.PI * 0.9); ctx.stroke(); }
