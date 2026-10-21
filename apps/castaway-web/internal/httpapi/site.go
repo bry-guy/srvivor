@@ -158,7 +158,17 @@ func (s *Server) tribeColors(ctx context.Context, instanceID uuid.UUID) (map[str
 	return colors, rows.Err()
 }
 
-func serveInsideTrack(c *gin.Context) {
+// insideTrackPage serves the standalone Inside Track prototype to instance admins only.
+// shortcut: no scoring or results yet; becomes a real game page once approved.
+func (s *Server) insideTrackPage(c *gin.Context) {
+	site, ok := s.siteData(c)
+	if !ok {
+		return
+	}
+	if !site.Admin {
+		c.Status(http.StatusNotFound)
+		return
+	}
 	data, err := siteFiles.ReadFile("site/assets/inside-track.html")
 	if err != nil {
 		c.Status(http.StatusNotFound)

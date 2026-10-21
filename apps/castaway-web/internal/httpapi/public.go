@@ -90,7 +90,6 @@ func (s *Server) PublicRouter() *gin.Engine {
 	r.Use(gin.Recovery(), structuredRequestLogger(), metricsMiddleware(), securityHeaders())
 	r.GET("/healthz", s.health)
 	r.GET("/assets/:file", serveSiteAsset)
-	r.GET("/inside-track", serveInsideTrack) // shortcut: standalone prototype, no sign-in or scoring; becomes a game page once approved
 	pages := r.Group("/")
 	pages.Use(s.requirePageSession())
 	pages.GET("/", s.home)
@@ -105,6 +104,7 @@ func (s *Server) PublicRouter() *gin.Engine {
 	pages.POST("/games/button/tests", s.requireSameOrigin(), s.createButtonTest)
 	pages.GET("/games/button/:gameID", s.buttonPage)
 	pages.GET("/games/scramble", s.scramblePage)
+	pages.GET("/games/inside-track", s.insideTrackPage)
 	pages.GET("/games/champion", s.championPage)
 	pages.POST("/games/champion", s.requireSameOrigin(), s.pickChampion)
 	pages.POST("/games/scramble/tests", s.requireSameOrigin(), s.createScrambleTest)
