@@ -14,7 +14,8 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      backoffLimit: 0
+      # Retries ride out a brief cluster-DNS gap (e.g. a control-0 reboot).
+      backoffLimit: 2
       activeDeadlineSeconds: 120
       template:
         metadata:
