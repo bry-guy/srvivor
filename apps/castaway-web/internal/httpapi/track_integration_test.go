@@ -87,6 +87,12 @@ func TestInsideTrack(t *testing.T) {
 	if page := serve("GET", "/games/inside-track", "", "ace", 200); !strings.Contains(page, `data-action="`+gameURL+`"`) || strings.Contains(page, "data-resume") {
 		t.Fatalf("open game: %s", page)
 	}
+	if page := serve("GET", "/games/inside-track?practice=1", "", "admin", 200); strings.Contains(page, "data-action") {
+		t.Fatalf("admin practice while open must not be scored: %s", page)
+	}
+	if page := serve("GET", "/games/inside-track?practice=1", "", "ace", 200); !strings.Contains(page, "data-action") {
+		t.Fatalf("players get the scored game: %s", page)
+	}
 	if !strings.Contains(serve("GET", "/games", "", "ace", 200), gameURL) {
 		t.Fatal("game not listed on /games")
 	}
