@@ -137,6 +137,11 @@ probst challenge immunity Savu --episode 2 --instance INSTANCE --yes
 probst challenge reward Savu Toka --episode 2 --instance INSTANCE --yes   # several winners
 probst challenge reward Toka --episode 2 --key ep2-reward-2 --instance INSTANCE --yes   # second reward
 
+# Inside Track (admin): list an episode's runs, then correct one. Dry run unless --yes; --cups N fills the lowest N cups
+# unless --mask is given; balls used stays as it is unless --balls-used is given. Corrections are refused once the game resolves.
+probst track plays --episode 5 --instance INSTANCE
+probst track set Adam --episode 5 --cups 3 --instance INSTANCE [--balls-used 12] [--mask 5] [--yes]
+
 # After each episode: pull survivoR (usually up 2-4 days after airing), review, then record.
 probst episode sync --season 51 --episode 2 --instance INSTANCE          # preview; saves the raw data locally
 probst episode sync --season 51 --episode 2 --instance INSTANCE --yes    # records boots + tribal immunity/reward

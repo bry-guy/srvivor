@@ -3036,6 +3036,106 @@ paths:
                 - episode_number
                 - opens_at
                 - cutoff_at
+  /instances/{instanceID}/track-games/{episode}/plays:
+    get:
+      operationId: listTrackPlays
+      description: "Admin: every run in an episode's Inside Track game, best place first (works before the game resolves)."
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: episode
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      game_id:
+                        type: string
+                      episode_number:
+                        type: integer
+                        format: int32
+                      open:
+                        type: boolean
+                      resolved:
+                        type: boolean
+                      plays:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TrackPlay'
+                    required:
+                      - game_id
+                      - episode_number
+                      - open
+                      - resolved
+                      - plays
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /instances/{instanceID}/track-games/{episode}/plays/{participant}:
+    put:
+      operationId: setTrackPlay
+      description: Admin correction of one player's run; may move backwards; 409 once the game resolves. Writes only that run.
+      parameters:
+        - name: instanceID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: episode
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: participant
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      score:
+                        type: integer
+                        format: int32
+                    required:
+                      - score
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cups_mask:
+                  type: integer
+                  format: int32
+                balls_used:
+                  type: integer
+                  format: int32
+                finished:
+                  type: boolean
+              required:
+                - cups_mask
+                - balls_used
+                - finished
   /instances/{instanceID}/tribe-challenges:
     post:
       operationId: recordTribeChallenge
@@ -5177,6 +5277,39 @@ components:
       properties:
         name:
           type: string
+    TrackPlay:
+      type: object
+      required:
+        - participant_id
+        - name
+        - cups
+        - balls_used
+        - finished
+        - score
+        - place
+        - points
+      properties:
+        participant_id:
+          type: string
+        name:
+          type: string
+        cups:
+          type: integer
+          format: int32
+        balls_used:
+          type: integer
+          format: int32
+        finished:
+          type: boolean
+        score:
+          type: integer
+          format: int32
+        place:
+          type: integer
+          format: int32
+        points:
+          type: integer
+          format: int32
     Tribe:
       type: object
       required:

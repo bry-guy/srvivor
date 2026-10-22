@@ -396,6 +396,11 @@ func (s *Server) serveTrackBoard(c *gin.Context, attrs string) {
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(strings.Replace(string(page), "<body>", "<body"+attrs+">", 1)))
 }
 
+// validTrackRun: cups_mask 0–7, balls_used 0–12, no more cups than balls, and finished only with all cups or all balls.
+func validTrackRun(mask, used int, finished bool) bool {
+	return mask >= 0 && mask <= 7 && used >= 0 && used <= trackBalls && trackCups(mask) <= used && (!finished || mask == 7 || used == trackBalls)
+}
+
 // trackProgress saves a run after each real ball: which cups are filled and how many balls are used. The
 // first call starts the run. Progress may only move forward; once finished it can't change.
 func (s *Server) trackProgress(c *gin.Context) {
@@ -421,8 +426,7 @@ func (s *Server) trackProgress(c *gin.Context) {
 		BallsUsed int  `json:"balls_used"`
 		Finished  bool `json:"finished"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.CupsMask < 0 || req.CupsMask > 7 || req.BallsUsed < 0 || req.BallsUsed > trackBalls ||
-		trackCups(req.CupsMask) > req.BallsUsed || (req.Finished && req.CupsMask != 7 && req.BallsUsed != trackBalls) {
+	if err := c.ShouldBindJSON(&req); err != nil || !validTrackRun(req.CupsMask, req.BallsUsed, req.Finished) {
 		c.JSON(http.StatusBadRequest, errorResponse{Error: "bad progress"})
 		return
 	}
@@ -503,4 +507,151 @@ func (s *Server) trackProfileGames(ctx context.Context, participantID string) ([
 		}
 	}
 	return games, nil
+}
+
+// trackPlayRow is one run in the admin view; place and points follow trackPoints.
+type trackPlayRow struct {
+	ParticipantID string `json:"participant_id"`
+	Name          string `json:"name"`
+	Cups          int    `json:"cups"`
+	BallsUsed     int    `json:"balls_used"`
+	Finished      bool   `json:"finished"`
+	Score         int    `json:"score"`
+	Place         int    `json:"place"`
+	Points        int    `json:"points"`
+}
+
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// trackGameOfEpisode returns a game's row id and its public fields; lock holds the row for the caller's transaction.
+func trackGameOfEpisode(ctx context.Context, q rowQuerier, instanceID uuid.UUID, episode int32, lock bool) (int64, trackGame, error) {
+	var id int64
+	game := trackGame{Episode: episode}
+	query := `SELECT g.id, g.public_id, g.opens_at, g.cutoff_at, g.resolved_at IS NOT NULL
+		FROM track_games g JOIN instances i ON i.id = g.instance_id WHERE i.public_id = $1 AND g.episode_number = $2`
+	if lock {
+		query += ` FOR UPDATE OF g`
+	}
+	err := q.QueryRow(ctx, query, instanceID, episode).Scan(&id, &game.ID, &game.OpensAt, &game.CutoffAt, &game.Resolved)
+	return id, game, err
+}
+
+func parseTrackEpisode(c *gin.Context) (int32, bool) {
+	value, err := strconv.ParseInt(c.Param("episode"), 10, 32)
+	if err != nil || value <= 0 {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "episode must be a positive integer"})
+		return 0, false
+	}
+	return int32(value), true
+}
+
+// listTrackPlays is the admin view of an episode's runs, best place first; it works before the game resolves.
+func (s *Server) listTrackPlays(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok || !s.requireInstanceAdminRequest(c, instanceID) {
+		return
+	}
+	episode, ok := parseTrackEpisode(c)
+	if !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	dbID, game, err := trackGameOfEpisode(ctx, s.pool, instanceID, episode, false)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "game not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "could not load game"})
+		return
+	}
+	players, err := loadTrackPlayers(ctx, s.pool, dbID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "could not load plays"})
+		return
+	}
+	places, points := trackPoints(players)
+	sort.SliceStable(players, func(i, j int) bool { return places[players[i].ID] < places[players[j].ID] })
+	rows := make([]trackPlayRow, 0, len(players))
+	for _, p := range players {
+		rows = append(rows, trackPlayRow{ParticipantID: p.ID, Name: p.Name, Cups: trackCups(p.CupsMask), BallsUsed: p.BallsUsed,
+			Finished: p.Finished, Score: trackScore(p.CupsMask, p.BallsUsed), Place: places[p.ID], Points: points[p.ID]})
+	}
+	now := s.now()
+	c.JSON(http.StatusOK, gin.H{"game_id": game.ID, "episode_number": episode, "open": !now.Before(game.OpensAt) && now.Before(game.CutoffAt),
+		"resolved": game.Resolved, "plays": rows})
+}
+
+// setTrackPlay is an admin correction of one player's run. Unlike trackProgress it may move backwards; it writes
+// only the play row, and is refused once the game resolves.
+func (s *Server) setTrackPlay(c *gin.Context) {
+	instanceID, ok := parseUUIDPath(c, "instanceID")
+	if !ok || !s.requireInstanceAdminRequest(c, instanceID) {
+		return
+	}
+	participantID, ok := parseUUIDPath(c, "participant")
+	if !ok {
+		return
+	}
+	episode, ok := parseTrackEpisode(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		CupsMask  int  `json:"cups_mask"`
+		BallsUsed int  `json:"balls_used"`
+		Finished  bool `json:"finished"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || !validTrackRun(req.CupsMask, req.BallsUsed, req.Finished) {
+		c.JSON(http.StatusBadRequest, errorResponse{Error: "bad play"})
+		return
+	}
+	ctx := c.Request.Context()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "could not save play"})
+		return
+	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			requestLogger.Error("rollback track play", "error", err)
+		}
+	}()
+	dbID, game, err := trackGameOfEpisode(ctx, tx, instanceID, episode, true) // locked against a concurrent resolve
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "game not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "could not load game"})
+		return
+	}
+	if game.Resolved {
+		c.JSON(http.StatusConflict, errorResponse{Error: "this game is already resolved"})
+		return
+	}
+	var finished any
+	if req.Finished {
+		finished = s.now()
+	}
+	tag, err := tx.Exec(ctx, `INSERT INTO track_plays (game_id, participant_id, started_at, cups_mask, balls_used, finished_at)
+		SELECT $1, p.id, $2, $3, $4, $5 FROM participants p JOIN instances i ON i.id = p.instance_id WHERE i.public_id = $6 AND p.public_id = $7
+		ON CONFLICT (game_id, participant_id) DO UPDATE SET cups_mask = EXCLUDED.cups_mask, balls_used = EXCLUDED.balls_used,
+			finished_at = CASE WHEN EXCLUDED.finished_at IS NULL THEN NULL ELSE COALESCE(track_plays.finished_at, EXCLUDED.finished_at) END`,
+		dbID, s.now(), req.CupsMask, req.BallsUsed, finished, instanceID, participantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "could not save play"})
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, errorResponse{Error: "player not found in this instance"})
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		c.JSON(http.StatusInternalServerError, errorResponse{Error: "could not save play"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"score": trackScore(req.CupsMask, req.BallsUsed)})
 }

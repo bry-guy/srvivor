@@ -87,6 +87,27 @@ op createTrackGame(
 @post
 op resolveTrackGame(@path gameID: string): { awards: Record<int32>; } | ErrorResponse;
 
+model TrackPlay {
+  participant_id: string;
+  name: string;
+  cups: int32;
+  balls_used: int32;
+  finished: boolean;
+  score: int32;
+  place: int32;
+  points: int32;
+}
+
+/** Admin: every run in an episode's Inside Track game, best place first (works before the game resolves). */
+@route("/instances/{instanceID}/track-games/{episode}/plays")
+@get
+op listTrackPlays(@path instanceID: string, @path episode: int32): { game_id: string; episode_number: int32; open: boolean; resolved: boolean; plays: TrackPlay[]; } | ErrorResponse;
+
+/** Admin correction of one player's run; may move backwards; 409 once the game resolves. Writes only that run. */
+@route("/instances/{instanceID}/track-games/{episode}/plays/{participant}")
+@put
+op setTrackPlay(@path instanceID: string, @path episode: int32, @path participant: string, @body body: { cups_mask: int32; balls_used: int32; finished: boolean; }): { score: int32; } | ErrorResponse;
+
 @route("/announcements/approvals/claim")
 @post
 op claimAnnouncementApproval(@body body: { guild_ids: string[]; }): { announcement: unknown | null; send_at?: utcDateTime; revision?: string; missed?: boolean; admin_discord_user_ids?: string[]; } | ErrorResponse;
