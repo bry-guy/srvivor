@@ -77,7 +77,7 @@ function reset() {
 }
 const speed = (b) => Math.hypot(b.vx, b.vy);
 const used = () => (RESUME ? BASE_USED : 0) + balls.filter((b) => b.level !== "rack" && !b.practice && !b.pre).length;
-const cupCount = () => cups.filter(Boolean).length;
+const cupCount = () => cups.filter((b) => b && !b.practice).length; // same cups the server is told about
 function hud() { $("left").textContent = RACK_N - used(); $("cups").textContent = `${phase === "game" ? cupCount() : 0}/3`; }
 
 function banner(on) { $("practicing").classList.toggle("hidden", !on); }
@@ -181,7 +181,7 @@ function step(dt) {
       // height = sqrt(R² − (CUP_R − d)²). Rolling down that slope is the only pull, and it is zero at the lip,
       // so a ball keeps going unless it is slow enough not to climb back out.
       for (let i = 0; i < 3; i++) {
-        if (cups[i]) continue;
+        if (cups[i] || (b.practice && phase === "game")) continue; // a stray white ball never fills a scored cup
         const [hx, hy] = TRACKS[i].cup, dx = hx - b.x, dy = hy - b.y, d = Math.hypot(dx, dy);
         if (d >= CUP_R) continue;
         const q = CUP_R - d, slope = q / Math.sqrt(R * R - q * q);
