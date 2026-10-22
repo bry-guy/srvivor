@@ -77,6 +77,8 @@ function reset() {
 }
 const speed = (b) => Math.hypot(b.vx, b.vy);
 const used = () => (RESUME ? BASE_USED : 0) + balls.filter((b) => b.level !== "rack" && !b.practice && !b.pre).length;
+// A ball on an empty cup's lip is still rolling in, however slowly: it isn't settled yet.
+const onLip = (b) => TRACKS.some((t, i) => !cups[i] && Math.hypot(t.cup[0] - b.x, t.cup[1] - b.y) < CUP_R);
 const cupCount = () => cups.filter((b) => b && !b.practice).length; // same cups the server is told about
 function hud() { $("left").textContent = RACK_N - used(); $("cups").textContent = `${phase === "game" ? cupCount() : 0}/3`; }
 
@@ -229,7 +231,7 @@ function step(dt) {
   if (cur && cur.onPad && !cur.thrown && !held && !inRect(cur.x, cur.y, PAD.x0, PAD.x1, PAD.y0, PAD.y1)) { cur.thrown = true; if (!cur.practice) report(); } // off the mat: it counts
   // The current ball is done once it sits in a cup, stops on the ground, or stops on the table after a throw.
   if (cur && cur.thrown && !held) {
-    const settled = cur.level === "cup" || (cur.level === "ground" && speed(cur) === 0) || (cur.level === "table" && speed(cur) < 0.02);
+    const settled = cur.level === "cup" || (cur.level === "ground" && speed(cur) === 0) || (cur.level === "table" && speed(cur) < 0.02 && !onLip(cur));
     if (settled) {
       const real = !cur.practice;
       cur = null; wait = 0.6;
