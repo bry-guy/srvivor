@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Player profiles reveal drafts once any episode is scored, even if draft submissions were never closed (players saw "Drafts are revealed after drafts close" mid-season).
 - Inside Track admin corrections: `GET /instances/:id/track-games/:episode/plays` (admin) lists every run with place, score, cups, balls used, finished and league points, before or after resolve. `PUT /instances/:id/track-games/:episode/plays/:participant` (admin) sets `cups_mask` (0–7), `balls_used` (0–12) and `finished`, validated like progress; it may move a run backwards, returns 409 once the game resolves, and writes only the play row.
 - Scores posts drafted before their game is scored may carry a placeholder (`PUT /instances/:id/score-posts/:key` takes `awaiting_results`). Such a post is held at send time instead of sent; an unchanged-standings redraft with new text now replaces an unedited draft (and re-asks) instead of being ignored (migration 040).
 - `PUT /instances/:id/score-posts/:key` takes `game_results` and `results_placeholder`. Once the game is scored, an admin-edited draft that still has its placeholder line gets the results in its place (`action` `results-inserted`), keeps the admin's text, and is re-asked; without the line it stays held and admins get a `scores-results-missing` alert (`action` `results-missing`).

@@ -101,6 +101,15 @@ func TestProfiles(t *testing.T) {
 	bob := get("/players/"+id(people["alice"].cur), "bob", 200)
 	has(bob, "Drafts are revealed after drafts close.", "alice")
 	lacks(bob, "Torch Bearer", "Me ·")
+	// Nobody ran `draft close` but an episode is scored: the season is underway, so drafts show.
+	if _, err := pool.Exec(ctx, `INSERT INTO outcome_positions (instance_id, position, contestant_id)
+		SELECT i.id, 99, c.id FROM instances i, contestants c WHERE i.public_id = $1 AND c.public_id = $2`, current.ID, torch.ID); err != nil {
+		t.Fatal(err)
+	}
+	has(get("/players/"+id(people["alice"].cur), "bob", 200), "Torch Bearer")
+	if _, err := pool.Exec(ctx, `DELETE FROM outcome_positions op USING instances i WHERE op.instance_id = i.id AND i.public_id = $1`, current.ID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := pool.Exec(ctx, `UPDATE instance_activities SET status = 'completed' WHERE public_id = $1`, activity.ID); err != nil {
 		t.Fatal(err)
 	}

@@ -208,7 +208,14 @@ func (s *Server) profileDraft(ctx context.Context, data sitePageData, view profi
 			return nil, "", err
 		}
 		if activity != nil && activity.Status == "active" {
-			return nil, "Drafts are revealed after drafts close.", nil
+			// Once an episode is scored the season is underway, so drafts are locked in even if nobody ran `draft close`.
+			var started bool
+			if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM outcome_positions op JOIN instances i ON i.id = op.instance_id WHERE i.public_id = $1)`, instanceID).Scan(&started); err != nil {
+				return nil, "", err
+			}
+			if !started {
+				return nil, "Drafts are revealed after drafts close.", nil
+			}
 		}
 		var drafted bool
 		if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM draft_picks dp JOIN participants p ON p.id = dp.participant_id
