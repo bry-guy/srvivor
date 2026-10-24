@@ -74,32 +74,13 @@ In practice:
 
 If you want stricter signaling for pre-1.0, call out breaking changes clearly in release notes.
 
-## GitHub release flow
+## Deploys and versions
 
-This repo uses:
-- squash merges
-- semantic PR titles
-- release-please
+Deploys do not wait for a release. Every push to `main` runs `Publish Images`, which builds images tagged `sha-<commit>`, commits the new digests under `deploy/`, and Argo CD rolls them out.
 
-Release mapping:
-- `fix:` => patch
-- `feat:` => minor
-- `feat!:` or `BREAKING CHANGE:` => major
+Versions are not cut automatically (release-please was removed: its bot-opened release PRs needed manual CI approval and were never merged). To mark a version, bump it by hand following the rules above, add a `CHANGELOG.md` entry, and tag `<app>-v<version>`.
 
-Release-please is configured for the two app paths and will manage:
-- release PRs
-- version bumps
-- changelog updates
-- GitHub releases
-
-## Important GitHub settings
-
-Repository files prepare the release flow, but they do **not** automatically change GitHub repository settings.
-
-Recommended GitHub settings:
-- allow squash merge
-- prefer disabling merge commits and rebase merges if you want one semantic commit on `main`
-- protect `main` with required CI and semantic PR checks
+Commit and PR titles still follow Conventional Commits (`fix:`, `feat:`, `feat!:`), checked by the semantic PR title workflow.
 
 ## Build metadata
 
